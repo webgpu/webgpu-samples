@@ -129,58 +129,17 @@ async function init() {
 
     const context = canvas.getContext('gpupresent');
 
-    const swapChainDescriptor = {
+    const swapChain = device.createSwapChain({
         context: context,
         format: "bgra8unorm",
         usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.TRANSFER_SRC,
-    };
-
-    const swapChain = device.createSwapChain(swapChainDescriptor);
-
-    const vertexShader = compile("v", vertexShaderGLSL);
-    const fragmentShader = compile("f", fragmentShaderGLSL);
-
-    /* Shader Module */
-    const vertexShaderModule = device.createShaderModule({
-        code: vertexShader
     });
 
-    const fragmentShaderModule = device.createShaderModule({
-        code: fragmentShader
-    });
-
-    const verticesBufferDescriptor = {
+    const verticesBuffer = device.createBuffer({
         size: cubeVerticesArray.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.TRANSFER_DST
-    };
-    const verticesBuffer = device.createBuffer(verticesBufferDescriptor);
+    });
     verticesBuffer.setSubData(0, cubeVerticesArray.buffer);
-
-    /* Input State */
-    const positionAttributeDescriptor = {
-        attributeIndex: 0,
-        offset: 0,
-        format: "float4"
-    };
-    const colorAttributeDescriptor = {
-        attributeIndex: 1,
-        offset: colorOffset,
-        format: "float4"
-    };
-    const uvAttributeDescriptor = {
-        attributeIndex: 2,
-        offset: uvOffset,
-        format: "float2"
-    };
-    const vertexBufferDescriptor = {
-        stride: vertexSize,
-        stepMode: "vertex",
-        attributes: [positionAttributeDescriptor, colorAttributeDescriptor, uvAttributeDescriptor]
-    };
-    const inputStateDescriptor = {
-        indexFormat: "uint32",
-        vertexBuffers: [vertexBufferDescriptor],
-    };
 
     const bindGroupLayout = device.createBindGroupLayout({
         bindings: [{
@@ -202,32 +161,54 @@ async function init() {
     });
 
     /* Render Pipeline */
-    const depthStateDescriptor = {
-        depthWriteEnabled: true,
-        depthCompare: "less",
-        format: "depth32float-stencil8",
-        stencilFront: {},
-        stencilBack: {},
-    };
-
-    const vertexStageDescriptor = {
-        module: vertexShaderModule,
-        entryPoint: "main"
-    };
-    const fragmentStageDescriptor = {
-        module: fragmentShaderModule,
-        entryPoint: "main"
-    };
     const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
-    const pipelineDescriptor = {
+    const pipeline = device.createRenderPipeline({
         layout: pipelineLayout,
 
-        vertexStage: vertexStageDescriptor,
-        fragmentStage: fragmentStageDescriptor,
+        vertexStage: {
+            module: device.createShaderModule({
+                code: compile("v", vertexShaderGLSL)
+            }),
+            entryPoint: "main"
+        },
+        fragmentStage: {
+            module: device.createShaderModule({
+                code: compile("f", fragmentShaderGLSL)
+            }),
+            entryPoint: "main"
+        },
 
         primitiveTopology: "triangle-list",
-        depthStencilState: depthStateDescriptor,
-        vertexInput: inputStateDescriptor,
+        depthStencilState: {
+            depthWriteEnabled: true,
+            depthCompare: "less",
+            format: "depth32float-stencil8",
+            stencilFront: {},
+            stencilBack: {},
+        },
+        vertexInput: {
+            indexFormat: "uint32",
+            vertexBuffers: [{
+                stride: vertexSize,
+                stepMode: "vertex",
+                attributes: [{
+                    // position
+                    attributeIndex: 0,
+                    offset: 0,
+                    format: "float4"
+                }, {
+                    // color
+                    attributeIndex: 1,
+                    offset: colorOffset,
+                    format: "float4"
+                }, {
+                    // uv
+                    attributeIndex: 2,
+                    offset: uvOffset,
+                    format: "float2"
+                }]
+            }],
+        },
 
         rasterizationState: {
             frontFace: 'ccw',
@@ -239,18 +220,9 @@ async function init() {
             alphaBlend: {},
             colorBlend: {},
         }],
-    };
-    const pipeline = device.createRenderPipeline(pipelineDescriptor);
+    });
 
-    /* Renderpass Attachments */
-    let colorAttachment = {
-        // attachment is acquired in render loop.
-        loadOp: "clear",
-        storeOp: "store",
-        clearColor: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }
-    };
-
-    const depthTextureDescriptor = {
+    const depthTexture = device.createTexture({
         size: { width: canvas.width, height: canvas.height, depth: 1 },
         arrayLayerCount: 1,
         mipLevelCount: 1,
@@ -258,23 +230,23 @@ async function init() {
         dimension: "2d",
         format: "depth32float-stencil8",
         usage: GPUTextureUsage.OUTPUT_ATTACHMENT
-    };
-
-    const depthTexture = device.createTexture(depthTextureDescriptor);
-
-    const depthAttachment = {
-        attachment: depthTexture.createDefaultView(),
-
-        depthLoadOp: "clear",
-        depthStoreOp: "store",
-        stencilLoadOp: "clear",
-        stencilStoreOp: "store",
-        clearDepth: 1.0
-    };
+    });
 
     const renderPassDescriptor = {
-        colorAttachments: [colorAttachment],
-        depthStencilAttachment: depthAttachment
+        colorAttachments: [{
+            loadOp: "clear",
+            storeOp: "store",
+            clearColor: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }
+        }],
+        depthStencilAttachment: {
+            attachment: depthTexture.createDefaultView(),
+
+            depthLoadOp: "clear",
+            depthStoreOp: "store",
+            stencilLoadOp: "clear",
+            stencilStoreOp: "store",
+            clearDepth: 1.0
+        }
     };
 
     const uniformBufferSize = 4 * 16; // 4x4 matrix

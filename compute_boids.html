@@ -146,56 +146,10 @@ async function init() {
     const canvas = document.querySelector('canvas');
     const context = canvas.getContext('gpupresent');
 
-    const swapChainDescriptor = {
+    const swapChain = device.createSwapChain({
         context: context,
         format: "bgra8unorm"
-    };
-
-    const swapChain = device.createSwapChain(swapChainDescriptor);
-
-    const vertexShaderModule = device.createShaderModule({
-        code: compile("v", vertexShaderGLSL)
     });
-
-    const fragmentShaderModule = device.createShaderModule({
-        code: compile("f", fragmentShaderGLSL)
-    });
-
-    const computeShaderModule = device.createShaderModule({
-        code: compile("c", computeShaderGLSL)
-    });
-
-    const particleInstancedBufferDescriptor = {
-        stride: 4 * 4,
-        stepMode: "instance",
-        attributes: [{
-            // instance position
-            attributeIndex: 0,
-            offset: 0,
-            format: "float2"
-        }, {
-            // instance velocity
-            attributeIndex: 1,
-            offset: 2 * 4,
-            format: "float2"
-        }],
-    };
-
-    const vertexBufferDescriptor = {
-        stride: 2 * 4,
-        stepMode: "vertex",
-        attributes: [{
-            // vertex positions
-            attributeIndex: 2,
-            offset: 0,
-            format: "float2"
-        }],
-    };
-
-    const inputStateDescriptor = {
-        indexFormat: "uint32",
-        vertexBuffers: [particleInstancedBufferDescriptor, vertexBufferDescriptor],
-    };
 
     const computeBindGroupLayout = device.createBindGroupLayout({
         bindings: [
@@ -213,11 +167,15 @@ async function init() {
         layout: device.createPipelineLayout({ bindGroupLayouts: [] }),
 
         vertexStage: {
-            module: vertexShaderModule,
+            module: device.createShaderModule({
+                code: compile("v", vertexShaderGLSL)
+            }),
             entryPoint: "main"
         },
         fragmentStage: {
-            module: fragmentShaderModule,
+            module: device.createShaderModule({
+                code: compile("f", fragmentShaderGLSL)
+            }),
             entryPoint: "main"
         },
 
@@ -231,7 +189,35 @@ async function init() {
             stencilBack: {},
         },
 
-        vertexInput: inputStateDescriptor,
+        vertexInput: {
+            indexFormat: "uint32",
+            vertexBuffers: [{
+                // instanced particles buffer
+                stride: 4 * 4,
+                stepMode: "instance",
+                attributes: [{
+                    // instance position
+                    attributeIndex: 0,
+                    offset: 0,
+                    format: "float2"
+                }, {
+                    // instance velocity
+                    attributeIndex: 1,
+                    offset: 2 * 4,
+                    format: "float2"
+                }],
+            }, {
+                // vertex buffer
+                stride: 2 * 4,
+                stepMode: "vertex",
+                attributes: [{
+                    // vertex positions
+                    attributeIndex: 2,
+                    offset: 0,
+                    format: "float2"
+                }],
+            }],
+        },
 
         rasterizationState: {
             frontFace: 'ccw',
@@ -248,7 +234,9 @@ async function init() {
     const computePipeline = device.createComputePipeline({
         layout: computePipelineLayout,
         computeStage: {
-            module: computeShaderModule,
+            module: device.createShaderModule({
+                code: compile("c", computeShaderGLSL)
+            }),
             entryPoint: "main",
         }
     });
