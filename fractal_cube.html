@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=600">
+<title>WebGPU Textured Cube-in-Cube demo</title>
+<script src="third_party/gl-matrix-min.js"></script>
+<script src="third_party/shaderc/shaderc.js"></script>
+</head>
+<body>
+<canvas height=600 width=600></canvas>
+<script>
+
+const vertexShaderGLSL = `#version 450
+
+layout(set = 0, binding = 0) uniform Uniforms {
+    mat4 modelViewProjectionMatrix;
+} uniforms;
+
+layout(location = 0) in vec4 position;
+layout(location = 1) in vec4 color;
+layout(location = 2) in vec2 uv;
+
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec2 fragUV;
+
+void main() {
+    gl_Position = uniforms.modelViewProjectionMatrix * position;
+    fragColor = color;
+    fragUV = uv;
+}
+`
+
+const fragmentShaderGLSL = `#version 450
+
+layout(set = 0, binding = 1) uniform sampler mySampler;
+layout(set = 0, binding = 2) uniform texture2D myTexture;
+
+layout(location = 0) in vec4 fragColor;
+layout(location = 1) in vec2 fragUV;
+layout(location = 0) out vec4 outColor;
+
+void main() {
+    vec4 texColor = texture(sampler2D(myTexture, mySampler), fragUV * 0.8 + 0.1);
+
+    // 1.0 if we're sampling the background
+    float f = float(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) < 0.01);
+
+    outColor = mix(texColor, fragColor, f);
+}
+`
+
+function compile(type, source) {
+    const Shaderc = window.Module;
+
+    const compiler = new Shaderc.Compiler();
+    const opts = new Shaderc.CompileOptions();
+    const result = compiler.CompileGlslToSpv(source,
+        type === "f" ? Shaderc.shader_kind.fragment :
+        type === "v" ? Shaderc.shader_kind.vertex :
+        type === "c" ? Shaderc.shader_kind.compute : null,
+        "a.glsl", "main", opts);
+    console.warn(result.GetErrorMessage());
+    return result.GetBinary().slice().buffer;
+}
+
+const vertexSize = 4 * 10; // Byte size of one cube vertex.
+const colorOffset = 4 * 4; // Byte offset of cube vertex color attribute.
+const uvOffset = colorOffset + 4 * 4;
+const cubeVerticesArray = new Float32Array([
+    // float4 position, float4 color, float2 uv
+    1, -1, 1, 1, 1, 0, 1, 1,   1, 1,
+    -1, -1, 1, 1, 0, 0, 1, 1,  0, 1,
+    -1, -1, -1, 1, 0, 0, 0, 1, 0, 0,
+    1, -1, -1, 1, 1, 0, 0, 1,  1, 0,
+    1, -1, 1, 1, 1, 0, 1, 1,   1, 1,
+    -1, -1, -1, 1, 0, 0, 0, 1, 0, 0,
+
+    1, 1, 1, 1, 1, 1, 1, 1,    1, 1,
+    1, -1, 1, 1, 1, 0, 1, 1,   0, 1,
+    1, -1, -1, 1, 1, 0, 0, 1,  0, 0,
+    1, 1, -1, 1, 1, 1, 0, 1,   1, 0,
+    1, 1, 1, 1, 1, 1, 1, 1,    1, 1,
+    1, -1, -1, 1, 1, 0, 0, 1,  0, 0,
+
+    -1, 1, 1, 1, 0, 1, 1, 1,   0, 1,
+    1, 1, 1, 1, 1, 1, 1, 1,    1, 1,
+    1, 1, -1, 1, 1, 1, 0, 1,   1, 0,
+    -1, 1, -1, 1, 0, 1, 0, 1,  0, 0,
+    -1, 1, 1, 1, 0, 1, 1, 1,   0, 1,
+    1, 1, -1, 1, 1, 1, 0, 1,   1, 0,
+
+    -1, -1, 1, 1, 0, 0, 1, 1,  0, 1,
+    -1, 1, 1, 1, 0, 1, 1, 1,   1, 1,
+    -1, 1, -1, 1, 0, 1, 0, 1,  1, 0,
+    -1, -1, -1, 1, 0, 0, 0, 1, 0, 0,
+    -1, -1, 1, 1, 0, 0, 1, 1,  0, 1,
+    -1, 1, -1, 1, 0, 1, 0, 1,  1, 0,
+
+    1, 1, 1, 1, 1, 1, 1, 1,    1, 1,
+    -1, 1, 1, 1, 0, 1, 1, 1,   0, 1,
+    -1, -1, 1, 1, 0, 0, 1, 1,  0, 0,
+    -1, -1, 1, 1, 0, 0, 1, 1,  0, 0,
+    1, -1, 1, 1, 1, 0, 1, 1,   1, 0,
+    1, 1, 1, 1, 1, 1, 1, 1,    1, 1,
+
+    1, -1, -1, 1, 1, 0, 0, 1,  1, 0,
+    -1, -1, -1, 1, 0, 0, 0, 1, 0, 0,
+    -1, 1, -1, 1, 0, 1, 0, 1,  0, 1,
+    1, 1, -1, 1, 1, 1, 0, 1,   1, 1,
+    1, -1, -1, 1, 1, 0, 0, 1,  1, 0,
+    -1, 1, -1, 1, 0, 1, 0, 1,  0, 1,
+]);
+
+const onRuntimeInitialized = new Promise(resolve => {
+    Module.onRuntimeInitialized = resolve;
+});
+
+async function init() {
+    /* Context, Device, SwapChain */
+    await onRuntimeInitialized;
+    const adapter = await navigator.gpu.requestAdapter();
+    const device = await adapter.requestDevice({});
+
+    const canvas = document.querySelector('canvas');
+
+    const aspect = Math.abs(canvas.width / canvas.height);
+    let projectionMatrix = mat4.create();
+    mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
+
+    const context = canvas.getContext('gpupresent');
+
+    const swapChainDescriptor = {
+        context: context,
+        format: "bgra8unorm",
+        usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.TRANSFER_SRC,
+    };
+
+    const swapChain = device.createSwapChain(swapChainDescriptor);
+
+    const vertexShader = compile("v", vertexShaderGLSL);
+    const fragmentShader = compile("f", fragmentShaderGLSL);
+
+    /* Shader Module */
+    const vertexShaderModule = device.createShaderModule({
+        code: vertexShader
+    });
+
+    const fragmentShaderModule = device.createShaderModule({
+        code: fragmentShader
+    });
+
+    const verticesBufferDescriptor = {
+        size: cubeVerticesArray.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.TRANSFER_DST
+    };
+    const verticesBuffer = device.createBuffer(verticesBufferDescriptor);
+    verticesBuffer.setSubData(0, cubeVerticesArray.buffer);
+
+    /* Input State */
+    const positionAttributeDescriptor = {
+        attributeIndex: 0,
+        offset: 0,
+        format: "float4"
+    };
+    const colorAttributeDescriptor = {
+        attributeIndex: 1,
+        offset: colorOffset,
+        format: "float4"
+    };
+    const uvAttributeDescriptor = {
+        attributeIndex: 2,
+        offset: uvOffset,
+        format: "float2"
+    };
+    const vertexBufferDescriptor = {
+        stride: vertexSize,
+        stepMode: "vertex",
+        attributes: [positionAttributeDescriptor, colorAttributeDescriptor, uvAttributeDescriptor]
+    };
+    const inputStateDescriptor = {
+        indexFormat: "uint32",
+        vertexBuffers: [vertexBufferDescriptor],
+    };
+
+    const bindGroupLayout = device.createBindGroupLayout({
+        bindings: [{
+            // Transform
+            binding: 0,
+            visibility: GPUShaderStageBit.VERTEX,
+            type: "uniform-buffer"
+        }, {
+            // Sampler
+            binding: 1,
+            visibility: GPUShaderStageBit.FRAGMENT,
+            type: "sampler"
+        }, {
+            // Texture view
+            binding: 2,
+            visibility: GPUShaderStageBit.FRAGMENT,
+            type: "sampled-texture"
+        }]
+    });
+
+    /* Render Pipeline */
+    const depthStateDescriptor = {
+        depthWriteEnabled: true,
+        depthCompare: "less",
+        format: "depth32float-stencil8",
+        stencilFront: {},
+        stencilBack: {},
+    };
+
+    const vertexStageDescriptor = {
+        module: vertexShaderModule,
+        entryPoint: "main"
+    };
+    const fragmentStageDescriptor = {
+        module: fragmentShaderModule,
+        entryPoint: "main"
+    };
+    const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+    const pipelineDescriptor = {
+        layout: pipelineLayout,
+
+        vertexStage: vertexStageDescriptor,
+        fragmentStage: fragmentStageDescriptor,
+
+        primitiveTopology: "triangle-list",
+        depthStencilState: depthStateDescriptor,
+        vertexInput: inputStateDescriptor,
+
+        rasterizationState: {
+            frontFace: 'ccw',
+            cullMode: 'back',
+        },
+
+        colorStates: [{
+            format: "bgra8unorm",
+            alphaBlend: {},
+            colorBlend: {},
+        }],
+    };
+    const pipeline = device.createRenderPipeline(pipelineDescriptor);
+
+    /* Renderpass Attachments */
+    let colorAttachment = {
+        // attachment is acquired in render loop.
+        loadOp: "clear",
+        storeOp: "store",
+        clearColor: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }
+    };
+
+    const depthTextureDescriptor = {
+        size: { width: canvas.width, height: canvas.height, depth: 1 },
+        arrayLayerCount: 1,
+        mipLevelCount: 1,
+        sampleCount: 1,
+        dimension: "2d",
+        format: "depth32float-stencil8",
+        usage: GPUTextureUsage.OUTPUT_ATTACHMENT
+    };
+
+    const depthTexture = device.createTexture(depthTextureDescriptor);
+
+    const depthAttachment = {
+        attachment: depthTexture.createDefaultView(),
+
+        depthLoadOp: "clear",
+        depthStoreOp: "store",
+        stencilLoadOp: "clear",
+        stencilStoreOp: "store",
+        clearDepth: 1.0
+    };
+
+    const renderPassDescriptor = {
+        colorAttachments: [colorAttachment],
+        depthStencilAttachment: depthAttachment
+    };
+
+    const uniformBufferSize = 4 * 16; // 4x4 matrix
+
+    const uniformBuffer = device.createBuffer({
+        size: uniformBufferSize,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.TRANSFER_DST,
+    });
+
+    const cubeTexture = device.createTexture({
+        size: { width: canvas.width, height: canvas.height, depth: 1 },
+        arrayLayerCount: 1,
+        mipLevelCount: 1,
+        sampleCount: 1,
+        dimension: "2d",
+        format: "bgra8unorm",
+        usage: GPUTextureUsage.TRANSFER_DST | GPUTextureUsage.SAMPLED,
+    });
+
+    const sampler = device.createSampler({
+        magFilter: "linear",
+        minFilter: "linear",
+    });
+
+    const uniformBindGroup = device.createBindGroup({
+        layout: bindGroupLayout,
+        bindings: [{
+            binding: 0,
+            resource: {
+                buffer: uniformBuffer,
+                offset: 0,
+                size: uniformBufferSize,
+            },
+        }, {
+            binding: 1,
+            resource: sampler,
+        }, {
+            binding: 2,
+            resource: cubeTexture.createDefaultView(),
+        }],
+    });
+
+    function getTransformationMatrix() {
+        let viewMatrix = mat4.create();
+        mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -4));
+        let now = Date.now() / 1000;
+        mat4.rotate(viewMatrix, viewMatrix, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
+
+        let modelViewProjectionMatrix = mat4.create();
+        mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
+
+        return modelViewProjectionMatrix.buffer;
+    }
+
+    function frame() {
+        const swapChainTexture = swapChain.getCurrentTexture();
+        renderPassDescriptor.colorAttachments[0].attachment = swapChainTexture.createDefaultView();
+
+        const commandEncoder = device.createCommandEncoder({});
+        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+        passEncoder.setPipeline(pipeline);
+        passEncoder.setBindGroup(0, uniformBindGroup);
+        passEncoder.setVertexBuffers(0, [verticesBuffer], [0]);
+        passEncoder.draw(36, 1, 0, 0);
+        passEncoder.endPass();
+
+        commandEncoder.copyTextureToTexture({
+            texture: swapChainTexture,
+            mipLevel: 0,
+            arrayLayer: 0,
+            origin: { x: 0, y: 0, z: 0 }
+        }, {
+            texture: cubeTexture,
+            mipLevel: 0,
+            arrayLayer: 0,
+            origin: { x: 0, y: 0, z: 0 }
+        }, {
+            width: canvas.width,
+            height: canvas.height,
+            depth: 1,
+        });
+
+        device.getQueue().submit([commandEncoder.finish()]);
+
+        uniformBuffer.setSubData(0, getTransformationMatrix());
+        requestAnimationFrame(frame);
+    }
+
+    uniformBuffer.setSubData(0, getTransformationMatrix());
+    requestAnimationFrame(frame);
+}
+
+init();
+
+</script>
+</body>
+</html>
