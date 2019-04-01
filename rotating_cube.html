@@ -48,7 +48,7 @@ function compile(type, source) {
         type === "c" ? Shaderc.shader_kind.compute : null,
         "a.glsl", "main", opts);
     console.warn(result.GetErrorMessage());
-    return result.GetBinary().slice().buffer;
+    return result.GetBinary();
 }
 
 const vertexSize = 4 * 8; // Byte size of one cube vertex.
@@ -125,7 +125,7 @@ async function init() {
         size: cubeVerticesArray.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.TRANSFER_DST
     });
-    verticesBuffer.setSubData(0, cubeVerticesArray.buffer);
+    verticesBuffer.setSubData(0, cubeVerticesArray);
 
     const uniformsBindGroupLayout = device.createBindGroupLayout({
         bindings: [{
@@ -168,12 +168,12 @@ async function init() {
                 stepMode: "vertex",
                 attributes: [{
                     // position
-                    attributeIndex: 0,
+                    shaderLocation: 0,
                     offset: 0,
                     format: "float4"
                 }, {
                     // color
-                    attributeIndex: 1,
+                    shaderLocation: 1,
                     offset: colorOffset,
                     format: "float4"
                 }]
@@ -252,7 +252,7 @@ async function init() {
         let modelViewProjectionMatrix = mat4.create();
         mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
 
-        return modelViewProjectionMatrix.buffer;
+        return modelViewProjectionMatrix;
     }
 
     function frame() {

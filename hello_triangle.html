@@ -38,7 +38,7 @@
             type === "c" ? Shaderc.shader_kind.compute : null,
         "a.glsl", "main", opts);
       console.warn(result.GetErrorMessage());
-      return result.GetBinary().slice().buffer;
+      return result.GetBinary();
     }
 
     async function init() {
