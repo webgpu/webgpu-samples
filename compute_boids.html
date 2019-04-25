@@ -131,7 +131,7 @@ function compile(type, source) {
         type === "c" ? Shaderc.shader_kind.compute : null,
         "a.glsl", "main", opts);
     console.warn(result.GetErrorMessage());
-    return result.GetBinary().slice().buffer;
+    return result.GetBinary();
 }
 
 const onRuntimeInitialized = new Promise(resolve => {
@@ -146,8 +146,8 @@ async function init() {
     const canvas = document.querySelector('canvas');
     const context = canvas.getContext('gpupresent');
 
-    const swapChain = device.createSwapChain({
-        context: context,
+    const swapChain = context.configureSwapChain({
+        device,
         format: "bgra8unorm"
     });
 
@@ -197,12 +197,12 @@ async function init() {
                 stepMode: "instance",
                 attributes: [{
                     // instance position
-                    attributeIndex: 0,
+                    shaderLocation: 0,
                     offset: 0,
                     format: "float2"
                 }, {
                     // instance velocity
-                    attributeIndex: 1,
+                    shaderLocation: 1,
                     offset: 2 * 4,
                     format: "float2"
                 }],
@@ -212,7 +212,7 @@ async function init() {
                 stepMode: "vertex",
                 attributes: [{
                     // vertex positions
-                    attributeIndex: 2,
+                    shaderLocation: 2,
                     offset: 0,
                     format: "float2"
                 }],
@@ -221,7 +221,7 @@ async function init() {
 
         rasterizationState: {
             frontFace: 'ccw',
-            cullMode: 'back',
+            cullMode: 'none',
         },
 
         colorStates: [{
@@ -272,14 +272,14 @@ async function init() {
         size: vertexBufferData.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.TRANSFER_DST,
     });
-    verticesBuffer.setSubData(0, vertexBufferData.buffer);
+    verticesBuffer.setSubData(0, vertexBufferData);
 
     const simParamData = new Float32Array([0.04, 0.1, 0.025, 0.025, 0.02, 0.05, 0.005]);
     const simParamBuffer = device.createBuffer({
         size: simParamData.byteLength,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.TRANSFER_DST,
     });
-    simParamBuffer.setSubData(0, simParamData.buffer);
+    simParamBuffer.setSubData(0, simParamData);
 
     const initialParticleData = new Float32Array(numParticles * 4);
     for (let i = 0; i < numParticles; ++i) {
@@ -296,7 +296,7 @@ async function init() {
             size: initialParticleData.byteLength,
             usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE
         });
-        particleBuffers[i].setSubData(0, initialParticleData.buffer);
+        particleBuffers[i].setSubData(0, initialParticleData);
     }
     for (let i = 0; i < 2; ++i) {
         particleBindGroups[i] = device.createBindGroup({
