@@ -141,7 +141,7 @@ const onRuntimeInitialized = new Promise(resolve => {
 async function init() {
     await onRuntimeInitialized;
     const adapter = await navigator.gpu.requestAdapter();
-    const device = await adapter.requestDevice({});
+    const device = await adapter.requestDevice();
 
     const canvas = document.querySelector('canvas');
     const context = canvas.getContext('gpupresent');
