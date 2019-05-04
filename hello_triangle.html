@@ -4,7 +4,7 @@
 <head>
   <meta name="viewport" content="width=600">
   <title>WebGPU Triangle demo</title>
-  <script src="third_party/shaderc/shaderc.js"></script>
+  <script src="dist/utils.js"></script>
 </head>
 
 <body>
@@ -27,24 +27,11 @@
       }
     `;
 
-    function compile(type, source) {
-      const Shaderc = window.Module;
-
-      const compiler = new Shaderc.Compiler();
-      const opts = new Shaderc.CompileOptions();
-      const result = compiler.CompileGlslToSpv(source,
-        type === "f" ? Shaderc.shader_kind.fragment :
-          type === "v" ? Shaderc.shader_kind.vertex :
-            type === "c" ? Shaderc.shader_kind.compute : null,
-        "a.glsl", "main", opts);
-      console.warn(result.GetErrorMessage());
-      return result.GetBinary();
-    }
-
     async function init() {
       /* Context, Device, SwapChain */
       const adapter = await navigator.gpu.requestAdapter();
       const device = await adapter.requestDevice({});
+      await Utils.ready;
 
       const canvas = document.querySelector('canvas');
 
@@ -62,13 +49,13 @@
 
         vertexStage: {
           module: device.createShaderModule({
-            code: compile("v", vertexShaderGLSL),
+            code: Utils.compile("v", vertexShaderGLSL),
           }),
           entryPoint: "main",
         },
         fragmentStage: {
           module: device.createShaderModule({
-            code: compile("f", fragmentShaderGLSL),
+            code: Utils.compile("f", fragmentShaderGLSL),
           }),
           entryPoint: "main"
         },
@@ -116,7 +103,7 @@
       requestAnimationFrame(frame);
     }
 
-    Module.onRuntimeInitialized = init;
+    init();
 
   </script>
 </body>
