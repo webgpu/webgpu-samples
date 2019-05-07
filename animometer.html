@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=600">
+  <title>WebGPU Triangle demo</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js"></script>
+  <script src="dist/utils.js"></script>
+  <style>
+    canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas height=600 width=600></canvas>
+  <script>
+    const stats = new Stats();
+    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild(stats.domElement);
+
+    const vertexShaderGLSL = `#version 450
+
+      layout(std140, set = 0, binding = 0) uniform Time {
+          float time;
+      };
+      layout(std140, set = 1, binding = 0) uniform Uniforms {
+          float scale;
+          float offsetX;
+          float offsetY;
+          float scalar;
+          float scalarOffset;
+      };
+
+      layout(location = 0) in vec4 position;
+      layout(location = 1) in vec4 color;
+
+      layout(location = 0) out vec4 v_color;
+
+      void main() {
+          float fade = mod(scalarOffset + time * scalar / 10.0, 1.0);
+          if (fade < 0.5) {
+              fade = fade * 2.0;
+          } else {
+              fade = (1.0 - fade) * 2.0;
+          }
+          float xpos = position.x * scale;
+          float ypos = position.y * scale;
+          float angle = 3.14159 * 2.0 * fade;
+          float xrot = xpos * cos(angle) - ypos * sin(angle);
+          float yrot = xpos * sin(angle) + ypos * cos(angle);
+          xpos = xrot + offsetX;
+          ypos = yrot + offsetY;
+          v_color = vec4(fade, 1.0 - fade, 0.0, 1.0) + color;
+          gl_Position = vec4(xpos, ypos, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentShaderGLSL = `#version 450
+
+      layout(location = 0) in vec4 v_color;
+      layout(location = 0) out vec4 outColor;
+
+      void main() {
+          outColor = v_color;
+      }
+    `;
+
+    async function init() {
+      /* Context, Device, SwapChain */
+      const adapter = await navigator.gpu.requestAdapter();
+      const device = await adapter.requestDevice();
+      await Utils.ready;
+
+      const canvas = document.querySelector('canvas');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const context = canvas.getContext('gpupresent');
+
+      const swapChainFormat = "bgra8unorm";
+
+      const swapChain = context.configureSwapChain({
+        device,
+        format: swapChainFormat,
+      });
+
+      const timeBindGroupLayout = device.createBindGroupLayout({
+        bindings: [
+          { binding: 0, visibility: GPUShaderStageBit.VERTEX, type: "uniform-buffer" },
+        ],
+      });
+
+      const bindGroupLayout = device.createBindGroupLayout({
+        bindings: [
+          { binding: 0, visibility: GPUShaderStageBit.VERTEX, type: "uniform-buffer" },
+        ],
+      });
+
+      const vec4Size = 4 * Float32Array.BYTES_PER_ELEMENT;
+
+      const pipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [timeBindGroupLayout, bindGroupLayout] }),
+
+        vertexStage: {
+          module: device.createShaderModule({
+            code: Utils.compile("v", vertexShaderGLSL),
+          }),
+          entryPoint: "main",
+        },
+        fragmentStage: {
+          module: device.createShaderModule({
+            code: Utils.compile("f", fragmentShaderGLSL),
+          }),
+          entryPoint: "main"
+        },
+
+        primitiveTopology: "triangle-list",
+
+        vertexInput: {
+          indexFormat: "uint32",
+          vertexBuffers: [{
+            // vertex buffer
+            stride: 2 * vec4Size,
+            stepMode: "vertex",
+            attributes: [{
+              // vertex positions
+              shaderLocation: 0,
+              offset: 0,
+              format: "float4"
+            }, {
+              // vertex colors
+              shaderLocation: 1,
+              offset: vec4Size,
+              format: "float4"
+            }],
+          }],
+        },
+
+        rasterizationState: {
+          frontFace: 'ccw',
+          cullMode: 'none',
+        },
+
+        colorStates: [{
+          format: swapChainFormat,
+          alphaBlend: {},
+          colorBlend: {},
+        }],
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      const numTriangles = Number(params.get('numTriangles')) || 60000;
+
+      const vertexBuffer = device.createBuffer({
+        size: 2 * 3 * vec4Size,
+        usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.VERTEX
+      });
+
+      vertexBuffer.setSubData(0, new Float32Array([
+        // position data  /**/ color data
+        0, 0.1, 0, 1,     /**/ 1, 0, 0, 1,
+        -0.1, -0.1, 0, 1, /**/ 0, 1, 0, 1,
+        0.1, -0.1, 0, 1,  /**/ 0, 0, 1, 1,
+      ]));
+
+      const uniformBytes = 5 * Float32Array.BYTES_PER_ELEMENT;
+      const alignedUniformBytes = Math.ceil(uniformBytes / 256) * 256;
+      const alignedUniformFloats = alignedUniformBytes / Float32Array.BYTES_PER_ELEMENT;
+
+      const uniformBuffer = device.createBuffer({
+        size: numTriangles * alignedUniformBytes + Float32Array.BYTES_PER_ELEMENT,
+        usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.UNIFORM
+      });
+
+      const uniformBufferData = new Float32Array(numTriangles * alignedUniformFloats);
+
+      const bindGroups = new Array(numTriangles);
+      for (let i = 0; i < numTriangles; ++i) {
+        uniformBufferData[alignedUniformFloats * i + 0] = Math.random() * 0.2 + 0.2;        // scale
+        uniformBufferData[alignedUniformFloats * i + 1] = 0.9 * 2 * (Math.random() - 0.5);  // offsetX
+        uniformBufferData[alignedUniformFloats * i + 2] = 0.9 * 2 * (Math.random() - 0.5);  // offsetY
+        uniformBufferData[alignedUniformFloats * i + 3] = Math.random() * 1.5  + 0.5;       // scalar
+        uniformBufferData[alignedUniformFloats * i + 4] = Math.random() * 10;               // scalarOffset
+
+        bindGroups[i] = device.createBindGroup({
+          layout: bindGroupLayout,
+          bindings: [{
+            binding: 0,
+            resource: {
+              buffer: uniformBuffer,
+              offset: i * alignedUniformBytes,
+              size: 6 * Float32Array.BYTES_PER_ELEMENT,
+            }
+          }]
+        });
+      }
+
+      const timeOffset = numTriangles * alignedUniformBytes;
+      const timeBindGroup = device.createBindGroup({
+        layout: timeBindGroupLayout,
+        bindings: [{
+          binding: 0,
+          resource: {
+            buffer: uniformBuffer,
+            offset: timeOffset,
+            size: Float32Array.BYTES_PER_ELEMENT,
+          }
+        }]
+      });
+
+      const time = new Float32Array([0]);
+
+      uniformBuffer.setSubData(0, uniformBufferData);
+
+      const startTime = Date.now();
+      function frame() {
+        stats.begin();
+
+        const commandEncoder = device.createCommandEncoder({});
+        const textureView = swapChain.getCurrentTexture().createDefaultView();
+
+        const renderPassDescriptor = {
+          colorAttachments: [{
+            loadOp: "clear",
+            storeOp: "store",
+            clearColor: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+            attachment: textureView,
+          }],
+        };
+
+        time[0] = (Date.now() - startTime) / 1000;
+        uniformBuffer.setSubData(timeOffset, time);
+
+        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+        passEncoder.setPipeline(pipeline);
+        passEncoder.setVertexBuffers(0, [vertexBuffer], [0]);
+        passEncoder.setBindGroup(0, timeBindGroup);
+        for (let i = 0; i < numTriangles; ++i) {
+          passEncoder.setBindGroup(1, bindGroups[i]);
+          passEncoder.draw(3, 1, 0, 0);
+        }
+        passEncoder.endPass();
+
+        device.getQueue().submit([commandEncoder.finish()]);
+
+        stats.end();
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    init();
+  </script>
+</body>
+
+</html>
