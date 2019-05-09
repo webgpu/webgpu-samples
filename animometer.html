@@ -159,7 +159,7 @@
       });
 
       const params = new URLSearchParams(window.location.search);
-      const numTriangles = Number(params.get('numTriangles')) || 60000;
+      const numTriangles = Number(params.get('numTriangles')) || 20000;
 
       const vertexBuffer = device.createBuffer({
         size: 2 * 3 * vec4Size,
