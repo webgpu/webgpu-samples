@@ -9,8 +9,13 @@
 </head>
 
 <body>
+    <div id="not-supported" style="display: none">WebGPU not supported! Please visit <a href="//webgpu.io">webgpu.io</a> to see the current implementation status.</div>
     <canvas height=600 width=600></canvas>
     <script>
+        if (!navigator.gpu) {
+            document.getElementById('not-supported').style.display = 'block';
+            alert('WebGPU not supported! Please visit webgpu.io to see the current implementation status.');
+        }
 
         const vertexShaderGLSL = `#version 450
 layout(set = 0, binding = 0) uniform Uniforms {
