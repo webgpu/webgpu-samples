@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=600">
   <title>WebGPU Animometer demo</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js"></script>
   <script src="dist/utils.js"></script>
   <style>
     canvas {
@@ -27,6 +28,12 @@
     const stats = new Stats();
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
     document.body.appendChild(stats.domElement);
+
+    const params = new URLSearchParams(window.location.search);
+    const settings = {
+      numTriangles: Number(params.get('numTriangles')) || 20000,
+      reuseCommandBuffers: Boolean(params.get('reuseCommandBuffers')),
+    };
 
     const vertexShaderGLSL = `#version 450
 
@@ -88,10 +95,10 @@
       const context = canvas.getContext('gpupresent');
 
       const swapChainFormat = "bgra8unorm";
-
       const swapChain = context.configureSwapChain({
         device,
         format: swapChainFormat,
+        usage: GPUTextureUsage.TRANSFER_DST | GPUTextureUsage.OUTPUT_ATTACHMENT
       });
 
       const timeBindGroupLayout = device.createBindGroupLayout({
@@ -158,9 +165,6 @@
         }],
       });
 
-      const params = new URLSearchParams(window.location.search);
-      const numTriangles = Number(params.get('numTriangles')) || 20000;
-
       const vertexBuffer = device.createBuffer({
         size: 2 * 3 * vec4Size,
         usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.VERTEX
@@ -173,86 +177,159 @@
         0.1, -0.1, 0, 1,  /**/ 0, 0, 1, 1,
       ]));
 
-      const uniformBytes = 5 * Float32Array.BYTES_PER_ELEMENT;
-      const alignedUniformBytes = Math.ceil(uniformBytes / 256) * 256;
-      const alignedUniformFloats = alignedUniformBytes / Float32Array.BYTES_PER_ELEMENT;
+      function configure() {
+        const numTriangles = settings.numTriangles;
 
-      const uniformBuffer = device.createBuffer({
-        size: numTriangles * alignedUniformBytes + Float32Array.BYTES_PER_ELEMENT,
-        usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.UNIFORM
-      });
+        const uniformBytes = 5 * Float32Array.BYTES_PER_ELEMENT;
+        const alignedUniformBytes = Math.ceil(uniformBytes / 256) * 256;
+        const alignedUniformFloats = alignedUniformBytes / Float32Array.BYTES_PER_ELEMENT;
 
-      const uniformBufferData = new Float32Array(numTriangles * alignedUniformFloats);
+        const uniformBuffer = device.createBuffer({
+          size: numTriangles * alignedUniformBytes + Float32Array.BYTES_PER_ELEMENT,
+          usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.UNIFORM
+        });
 
-      const bindGroups = new Array(numTriangles);
-      for (let i = 0; i < numTriangles; ++i) {
-        uniformBufferData[alignedUniformFloats * i + 0] = Math.random() * 0.2 + 0.2;        // scale
-        uniformBufferData[alignedUniformFloats * i + 1] = 0.9 * 2 * (Math.random() - 0.5);  // offsetX
-        uniformBufferData[alignedUniformFloats * i + 2] = 0.9 * 2 * (Math.random() - 0.5);  // offsetY
-        uniformBufferData[alignedUniformFloats * i + 3] = Math.random() * 1.5  + 0.5;       // scalar
-        uniformBufferData[alignedUniformFloats * i + 4] = Math.random() * 10;               // scalarOffset
+        const uniformBufferData = new Float32Array(numTriangles * alignedUniformFloats);
 
-        bindGroups[i] = device.createBindGroup({
-          layout: bindGroupLayout,
+        const bindGroups = new Array(numTriangles);
+        for (let i = 0; i < numTriangles; ++i) {
+          uniformBufferData[alignedUniformFloats * i + 0] = Math.random() * 0.2 + 0.2;        // scale
+          uniformBufferData[alignedUniformFloats * i + 1] = 0.9 * 2 * (Math.random() - 0.5);  // offsetX
+          uniformBufferData[alignedUniformFloats * i + 2] = 0.9 * 2 * (Math.random() - 0.5);  // offsetY
+          uniformBufferData[alignedUniformFloats * i + 3] = Math.random() * 1.5 + 0.5;       // scalar
+          uniformBufferData[alignedUniformFloats * i + 4] = Math.random() * 10;               // scalarOffset
+
+          bindGroups[i] = device.createBindGroup({
+            layout: bindGroupLayout,
+            bindings: [{
+              binding: 0,
+              resource: {
+                buffer: uniformBuffer,
+                offset: i * alignedUniformBytes,
+                size: 6 * Float32Array.BYTES_PER_ELEMENT,
+              }
+            }]
+          });
+        }
+
+        const timeOffset = numTriangles * alignedUniformBytes;
+        const timeBindGroup = device.createBindGroup({
+          layout: timeBindGroupLayout,
           bindings: [{
             binding: 0,
             resource: {
               buffer: uniformBuffer,
-              offset: i * alignedUniformBytes,
-              size: 6 * Float32Array.BYTES_PER_ELEMENT,
+              offset: timeOffset,
+              size: Float32Array.BYTES_PER_ELEMENT,
             }
           }]
         });
+
+        // Chrome currently crashes with |setSubData| too large.
+        const maxSetSubDataLength = 14 * 1024 * 1024 / Float32Array.BYTES_PER_ELEMENT;
+        for (let offset = 0; offset < uniformBufferData.length; offset += maxSetSubDataLength) {
+          uniformBuffer.setSubData(offset, new Float32Array(
+            uniformBufferData.buffer,
+            offset * Float32Array.BYTES_PER_ELEMENT,
+            Math.min(uniformBufferData.length - offset, maxSetSubDataLength))
+          );
+        }
+
+        function createCommandBuffer(textureView) {
+          const commandEncoder = device.createCommandEncoder({});
+
+          const renderPassDescriptor = {
+            colorAttachments: [{
+              loadOp: "clear",
+              storeOp: "store",
+              clearColor: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+              attachment: textureView,
+            }],
+          };
+
+          const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+          passEncoder.setPipeline(pipeline);
+          passEncoder.setVertexBuffers(0, [vertexBuffer], [0]);
+          passEncoder.setBindGroup(0, timeBindGroup);
+          for (let i = 0; i < numTriangles; ++i) {
+            passEncoder.setBindGroup(1, bindGroups[i]);
+            passEncoder.draw(3, 1, 0, 0);
+          }
+          passEncoder.endPass();
+          return commandEncoder.finish();
+        }
+
+        const reusableFrames = [];
+        for (let i = 0; i < 2; ++i) {
+          const texture = device.createTexture({
+            size: { width: canvas.width, height: canvas.height, depth: 1 },
+            arrayLayerCount: 1,
+            mipLevelCount: 1,
+            sampleCount: 1,
+            dimension: "2d",
+            format: swapChainFormat,
+            usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.TRANSFER_SRC,
+          });
+
+          reusableFrames.push({
+            commandBuffer: createCommandBuffer(texture.createDefaultView()),
+            texture,
+          });
+        }
+
+        const uniformTime = new Float32Array([0]);
+
+        return function doDraw() {
+          uniformTime[0] = (Date.now() - startTime) / 1000;
+          uniformBuffer.setSubData(timeOffset, uniformTime);
+
+          if (settings.reuseCommandBuffers) {
+            const { commandBuffer, texture } = reusableFrames[(i + 1) % reusableFrames.length];
+
+            const commandEncoder = device.createCommandEncoder({});
+            commandEncoder.copyTextureToTexture(
+              {
+                texture: texture,
+                mipLevel: 0,
+                arrayLayer: 0,
+                origin: { x: 0, y: 0, z: 0 }
+              },
+              {
+                texture: swapChain.getCurrentTexture(),
+                mipLevel: 0,
+                arrayLayer: 0,
+                origin: { x: 0, y: 0, z: 0 }
+              },
+              {
+                width: canvas.width,
+                height: canvas.height,
+                depth: 1,
+              },
+            );
+
+            device.getQueue().submit([
+              commandBuffer,
+              commandEncoder.finish(),
+            ]);
+          } else {
+            const textureView = swapChain.getCurrentTexture().createDefaultView();
+            device.getQueue().submit([createCommandBuffer(textureView)]);
+          }
+        }
       }
 
-      const timeOffset = numTriangles * alignedUniformBytes;
-      const timeBindGroup = device.createBindGroup({
-        layout: timeBindGroupLayout,
-        bindings: [{
-          binding: 0,
-          resource: {
-            buffer: uniformBuffer,
-            offset: timeOffset,
-            size: Float32Array.BYTES_PER_ELEMENT,
-          }
-        }]
-      });
+      let doDraw = configure();
+      const updateSettings = () => { doDraw = configure(); }
 
-      const time = new Float32Array([0]);
-
-      uniformBuffer.setSubData(0, uniformBufferData);
+      const gui = new dat.GUI();
+      gui.add(settings, 'numTriangles', 0, 200000).step(1).onFinishChange(updateSettings);
+      gui.add(settings, 'reuseCommandBuffers');
 
       const startTime = Date.now();
+      let i = 0;
       function frame() {
         stats.begin();
-
-        const commandEncoder = device.createCommandEncoder({});
-        const textureView = swapChain.getCurrentTexture().createDefaultView();
-
-        const renderPassDescriptor = {
-          colorAttachments: [{
-            loadOp: "clear",
-            storeOp: "store",
-            clearColor: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-            attachment: textureView,
-          }],
-        };
-
-        time[0] = (Date.now() - startTime) / 1000;
-        uniformBuffer.setSubData(timeOffset, time);
-
-        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-        passEncoder.setPipeline(pipeline);
-        passEncoder.setVertexBuffers(0, [vertexBuffer], [0]);
-        passEncoder.setBindGroup(0, timeBindGroup);
-        for (let i = 0; i < numTriangles; ++i) {
-          passEncoder.setBindGroup(1, bindGroups[i]);
-          passEncoder.draw(3, 1, 0, 0);
-        }
-        passEncoder.endPass();
-
-        device.getQueue().submit([commandEncoder.finish()]);
-
+        doDraw();
         stats.end();
         requestAnimationFrame(frame);
       }
