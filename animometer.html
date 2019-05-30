@@ -4,7 +4,6 @@
 <head>
   <meta name="viewport" content="width=600">
   <title>WebGPU Animometer demo</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js"></script>
   <script src="dist/utils.js"></script>
   <style>
@@ -19,15 +18,12 @@
 <body>
   <div id="not-supported" style="display: none">WebGPU not supported! Please visit <a href="//webgpu.io">webgpu.io</a> to see the current implementation status.</div>
   <canvas height=600 width=600></canvas>
+  <div style="color: white; background: black; position: absolute; top: 10px; left: 10px"><pre id="display"></pre></div>>
   <script>
     if (!navigator.gpu) {
       document.getElementById('not-supported').style.display = 'block';
       alert('WebGPU not supported! Please visit webgpu.io to see the current implementation status.');
     }
-
-    const stats = new Stats();
-    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-    document.body.appendChild(stats.domElement);
 
     const params = new URLSearchParams(window.location.search);
     const settings = {
@@ -279,12 +275,18 @@
 
         const uniformTime = new Float32Array([0]);
 
-        return function doDraw() {
-          uniformTime[0] = (Date.now() - startTime) / 1000;
+        let i = 0;
+        let startTime = undefined;
+        return function doDraw(timestamp) {
+          if (startTime === undefined) {
+            startTime = timestamp;
+          }
+          uniformTime[0] = (timestamp - startTime) / 1000;
           uniformBuffer.setSubData(timeOffset, uniformTime);
 
           if (settings.reuseCommandBuffers) {
             const { commandBuffer, texture } = reusableFrames[(i + 1) % reusableFrames.length];
+            i++;
 
             const commandEncoder = device.createCommandEncoder({});
             commandEncoder.copyTextureToTexture(
@@ -325,15 +327,50 @@
       gui.add(settings, 'numTriangles', 0, 200000).step(1).onFinishChange(updateSettings);
       gui.add(settings, 'reuseCommandBuffers');
 
-      const startTime = Date.now();
+      let previousFrameTimestamp = undefined;
+
+      let jsTimeAvg = undefined;
+      let frameTimeAvg = undefined;
+
+      const perfDisplay = document.getElementById('display');
+      let updateDisplay = true;
+
       let i = 0;
-      function frame() {
-        stats.begin();
-        doDraw();
-        stats.end();
+      function frame(timestamp) {
+        let frameTime = 0;
+        if (previousFrameTimestamp !== undefined) {
+          frameTime = timestamp - previousFrameTimestamp;
+        }
+        previousFrameTimestamp = timestamp;
+
+        const start = performance.now();
+        doDraw(timestamp);
+        const jsTime = performance.now() - start;
+
+        if (frameTimeAvg === undefined) {
+          frameTimeAvg = frameTime;
+        }
+
+        if (jsTimeAvg === undefined) {
+          jsTimeAvg = jsTime;
+        }
+
+        const w = 0.2;
+        frameTimeAvg = (1 - w) * frameTimeAvg + w * frameTime;
+        jsTimeAvg = (1 - w) * jsTimeAvg + w * jsTime;
+
+        if (updateDisplay) {
+          perfDisplay.innerHTML = `Avg Javascript: ${jsTimeAvg.toFixed(2)} ms\nAvg Frame: ${frameTimeAvg.toFixed(2)} ms`;
+          updateDisplay = false;
+        }
+
         requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
+
+      setInterval(() => {
+        updateDisplay = true;
+      }, 100);
     }
 
     init();
