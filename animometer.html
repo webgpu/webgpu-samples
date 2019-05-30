@@ -29,6 +29,7 @@
     const settings = {
       numTriangles: Number(params.get('numTriangles')) || 20000,
       reuseCommandBuffers: Boolean(params.get('reuseCommandBuffers')),
+      dynamicOffsets: Boolean(params.get('dynamicOffsets')),
     };
 
     const vertexShaderGLSL = `#version 450
@@ -109,11 +110,18 @@
         ],
       });
 
+      const dynamicBindGroupLayout = device.createBindGroupLayout({
+        bindings: [
+          { binding: 0, visibility: GPUShaderStageBit.VERTEX, type: "dynamic-uniform-buffer" },
+        ],
+      });
+
       const vec4Size = 4 * Float32Array.BYTES_PER_ELEMENT;
 
-      const pipeline = device.createRenderPipeline({
-        layout: device.createPipelineLayout({ bindGroupLayouts: [timeBindGroupLayout, bindGroupLayout] }),
+      const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [timeBindGroupLayout, bindGroupLayout] });
+      const dynamicPipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [timeBindGroupLayout, dynamicBindGroupLayout] });
 
+      const pipelineDesc = {
         vertexStage: {
           module: device.createShaderModule({
             code: Utils.compile("v", vertexShaderGLSL),
@@ -159,7 +167,15 @@
           alphaBlend: {},
           colorBlend: {},
         }],
-      });
+      };
+
+      const pipeline = device.createRenderPipeline(Object.assign({
+        layout: pipelineLayout
+      }, pipelineDesc));
+
+      const dynamicPipeline = device.createRenderPipeline(Object.assign({
+        layout: dynamicPipelineLayout
+      }, pipelineDesc));
 
       const vertexBuffer = device.createBuffer({
         size: 2 * 3 * vec4Size,
@@ -208,6 +224,18 @@
           });
         }
 
+        const dynamicBindGroup = device.createBindGroup({
+          layout: dynamicBindGroupLayout,
+          bindings: [{
+            binding: 0,
+            resource: {
+              buffer: uniformBuffer,
+              offset: 0,
+              size: uniformBufferData.byteLength,
+            },
+          }],
+        });
+
         const timeOffset = numTriangles * alignedUniformBytes;
         const timeBindGroup = device.createBindGroup({
           layout: timeBindGroupLayout,
@@ -244,11 +272,19 @@
           };
 
           const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-          passEncoder.setPipeline(pipeline);
+          if (settings.dynamicOffsets) {
+            passEncoder.setPipeline(dynamicPipeline);
+          } else {
+            passEncoder.setPipeline(pipeline);
+          }
           passEncoder.setVertexBuffers(0, [vertexBuffer], [0]);
           passEncoder.setBindGroup(0, timeBindGroup);
           for (let i = 0; i < numTriangles; ++i) {
-            passEncoder.setBindGroup(1, bindGroups[i]);
+            if (settings.dynamicOffsets) {
+              passEncoder.setBindGroup(1, dynamicBindGroup, [i * alignedUniformBytes]);
+            } else {
+              passEncoder.setBindGroup(1, bindGroups[i]);
+            }
             passEncoder.draw(3, 1, 0, 0);
           }
           passEncoder.endPass();
@@ -326,6 +362,7 @@
       const gui = new dat.GUI();
       gui.add(settings, 'numTriangles', 0, 200000).step(1).onFinishChange(updateSettings);
       gui.add(settings, 'reuseCommandBuffers');
+      gui.add(settings, 'dynamicOffsets');
 
       let previousFrameTimestamp = undefined;
 
