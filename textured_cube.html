@@ -113,7 +113,7 @@ void main() {
 
             const verticesBuffer = device.createBuffer({
                 size: cubeVerticesArray.byteLength,
-                usage: GPUBufferUsage.VERTEX | GPUBufferUsage.TRANSFER_DST
+                usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
             });
             verticesBuffer.setSubData(0, cubeVerticesArray);
 
@@ -121,17 +121,17 @@ void main() {
                 bindings: [{
                     // Transform
                     binding: 0,
-                    visibility: GPUShaderStageBit.VERTEX,
+                    visibility: GPUShaderStage.VERTEX,
                     type: "uniform-buffer"
                 }, {
                     // Sampler
                     binding: 1,
-                    visibility: GPUShaderStageBit.FRAGMENT,
+                    visibility: GPUShaderStage.FRAGMENT,
                     type: "sampler"
                 }, {
                     // Texture view
                     binding: 2,
-                    visibility: GPUShaderStageBit.FRAGMENT,
+                    visibility: GPUShaderStage.FRAGMENT,
                     type: "sampled-texture"
                 }]
             });
@@ -157,7 +157,7 @@ void main() {
                 depthStencilState: {
                     depthWriteEnabled: true,
                     depthCompare: "less",
-                    format: "depth32float-stencil8",
+                    format: "depth24plus-stencil8",
                     stencilFront: {},
                     stencilBack: {},
                 },
@@ -166,7 +166,7 @@ void main() {
                     vertexBuffers: [{
                         stride: vertexSize,
                         stepMode: "vertex",
-                        attributes: [{
+                        attributeSet: [{
                             // position
                             shaderLocation: 0,
                             offset: 0,
@@ -198,24 +198,22 @@ void main() {
                 mipLevelCount: 1,
                 sampleCount: 1,
                 dimension: "2d",
-                format: "depth32float-stencil8",
+                format: "depth24plus-stencil8",
                 usage: GPUTextureUsage.OUTPUT_ATTACHMENT
             });
 
             const renderPassDescriptor = {
                 colorAttachments: [{
-                    loadOp: "clear",
+                    loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
                     storeOp: "store",
-                    clearColor: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 }
                 }],
                 depthStencilAttachment: {
                     attachment: depthTexture.createDefaultView(),
 
-                    depthLoadOp: "clear",
+                    depthLoadValue: 1.0,
                     depthStoreOp: "store",
-                    stencilLoadOp: "clear",
+                    stencilLoadValue: 0,
                     stencilStoreOp: "store",
-                    clearDepth: 1.0
                 }
             };
 
@@ -223,7 +221,7 @@ void main() {
 
             const uniformBuffer = device.createBuffer({
                 size: uniformBufferSize,
-                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.TRANSFER_DST,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             });
 
             const cubeTexture = await Utils.createTextureFromImage(device, 'assets/img/Di-3d.png', GPUTextureUsage.SAMPLED);

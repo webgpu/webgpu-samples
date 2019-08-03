@@ -139,9 +139,9 @@ void main() {
 
       const computeBindGroupLayout = device.createBindGroupLayout({
         bindings: [
-          { binding: 0, visibility: GPUShaderStageBit.COMPUTE, type: "uniform-buffer" },
-          { binding: 1, visibility: GPUShaderStageBit.COMPUTE, type: "storage-buffer" },
-          { binding: 2, visibility: GPUShaderStageBit.COMPUTE, type: "storage-buffer" },
+          { binding: 0, visibility: GPUShaderStage.COMPUTE, type: "uniform-buffer" },
+          { binding: 1, visibility: GPUShaderStage.COMPUTE, type: "storage-buffer" },
+          { binding: 2, visibility: GPUShaderStage.COMPUTE, type: "storage-buffer" },
         ],
       });
 
@@ -170,7 +170,7 @@ void main() {
         depthStencilState: {
           depthWriteEnabled: true,
           depthCompare: "less",
-          format: "depth32float-stencil8",
+          format: "depth24plus-stencil8",
           stencilFront: {},
           stencilBack: {},
         },
@@ -181,7 +181,7 @@ void main() {
             // instanced particles buffer
             stride: 4 * 4,
             stepMode: "instance",
-            attributes: [{
+            attributeSet: [{
               // instance position
               shaderLocation: 0,
               offset: 0,
@@ -196,7 +196,7 @@ void main() {
             // vertex buffer
             stride: 2 * 4,
             stepMode: "vertex",
-            attributes: [{
+            attributeSet: [{
               // vertex positions
               shaderLocation: 2,
               offset: 0,
@@ -233,37 +233,35 @@ void main() {
         mipLevelCount: 1,
         sampleCount: 1,
         dimension: "2d",
-        format: "depth32float-stencil8",
+        format: "depth24plus-stencil8",
         usage: GPUTextureUsage.OUTPUT_ATTACHMENT
       });
 
       const renderPassDescriptor = {
         colorAttachments: [{
-          loadOp: "clear",
+          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
           storeOp: "store",
-          clearColor: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }
         }],
         depthStencilAttachment: {
           attachment: depthTexture.createDefaultView(),
-          depthLoadOp: "clear",
+          depthLoadValue: 1.0,
           depthStoreOp: "store",
-          stencilLoadOp: "clear",
+          stencilLoadValue: 0,
           stencilStoreOp: "store",
-          clearDepth: 1.0
         }
       };
 
       const vertexBufferData = new Float32Array([-0.01, -0.02, 0.01, -0.02, 0.00, 0.02]);
       const verticesBuffer = device.createBuffer({
         size: vertexBufferData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.TRANSFER_DST,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
       });
       verticesBuffer.setSubData(0, vertexBufferData);
 
       const simParamData = new Float32Array([0.04, 0.1, 0.025, 0.025, 0.02, 0.05, 0.005]);
       const simParamBuffer = device.createBuffer({
         size: simParamData.byteLength,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.TRANSFER_DST,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
       simParamBuffer.setSubData(0, simParamData);
 
@@ -280,7 +278,7 @@ void main() {
       for (let i = 0; i < 2; ++i) {
         particleBuffers[i] = device.createBuffer({
           size: initialParticleData.byteLength,
-          usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE
         });
         particleBuffers[i].setSubData(0, initialParticleData);
       }

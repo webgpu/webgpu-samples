@@ -95,24 +95,24 @@
       const swapChain = context.configureSwapChain({
         device,
         format: swapChainFormat,
-        usage: GPUTextureUsage.TRANSFER_DST | GPUTextureUsage.OUTPUT_ATTACHMENT
+        usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.OUTPUT_ATTACHMENT
       });
 
       const timeBindGroupLayout = device.createBindGroupLayout({
         bindings: [
-          { binding: 0, visibility: GPUShaderStageBit.VERTEX, type: "uniform-buffer" },
+          { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer" },
         ],
       });
 
       const bindGroupLayout = device.createBindGroupLayout({
         bindings: [
-          { binding: 0, visibility: GPUShaderStageBit.VERTEX, type: "uniform-buffer" },
+          { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer" },
         ],
       });
 
       const dynamicBindGroupLayout = device.createBindGroupLayout({
         bindings: [
-          { binding: 0, visibility: GPUShaderStageBit.VERTEX, type: "dynamic-uniform-buffer" },
+          { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer", dynamic: true },
         ],
       });
 
@@ -143,7 +143,7 @@
             // vertex buffer
             stride: 2 * vec4Size,
             stepMode: "vertex",
-            attributes: [{
+            attributeSet: [{
               // vertex positions
               shaderLocation: 0,
               offset: 0,
@@ -179,7 +179,7 @@
 
       const vertexBuffer = device.createBuffer({
         size: 2 * 3 * vec4Size,
-        usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.VERTEX
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX
       });
 
       vertexBuffer.setSubData(0, new Float32Array([
@@ -198,7 +198,7 @@
 
         const uniformBuffer = device.createBuffer({
           size: numTriangles * alignedUniformBytes + Float32Array.BYTES_PER_ELEMENT,
-          usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.UNIFORM
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM
         });
 
         const uniformBufferData = new Float32Array(numTriangles * alignedUniformFloats);
@@ -264,9 +264,8 @@
 
           const renderPassDescriptor = {
             colorAttachments: [{
-              loadOp: "clear",
+              loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
               storeOp: "store",
-              clearColor: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
               attachment: textureView,
             }],
           };
@@ -279,9 +278,11 @@
           }
           passEncoder.setVertexBuffers(0, [vertexBuffer], [0]);
           passEncoder.setBindGroup(0, timeBindGroup);
+          const dynamicOffsets = [0];
           for (let i = 0; i < numTriangles; ++i) {
             if (settings.dynamicOffsets) {
-              passEncoder.setBindGroup(1, dynamicBindGroup, [i * alignedUniformBytes]);
+              dynamicOffsets[0] = i * alignedUniformBytes;
+              passEncoder.setBindGroup(1, dynamicBindGroup, dynamicOffsets);
             } else {
               passEncoder.setBindGroup(1, bindGroups[i]);
             }
@@ -300,7 +301,7 @@
             sampleCount: 1,
             dimension: "2d",
             format: swapChainFormat,
-            usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.TRANSFER_SRC,
+            usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.COPY_SRC,
           });
 
           reusableFrames.push({

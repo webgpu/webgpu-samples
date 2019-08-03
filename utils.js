@@ -62,12 +62,12 @@ export async function createTextureFromImage(device, src, usage) {
     sampleCount: 1,
     dimension: "2d",
     format: "rgba8unorm",
-    usage: GPUTextureUsage.TRANSFER_DST | usage,
+    usage: GPUTextureUsage.COPY_DST | usage,
   });
 
   const textureDataBuffer = device.createBuffer({
     size: data.byteLength,
-    usage: GPUBufferUsage.TRANSFER_DST | GPUBufferUsage.TRANSFER_SRC,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
   });
 
   textureDataBuffer.setSubData(0, data);
