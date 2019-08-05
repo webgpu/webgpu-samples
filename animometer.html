@@ -231,7 +231,7 @@
             resource: {
               buffer: uniformBuffer,
               offset: 0,
-              size: uniformBufferData.byteLength,
+              size: 6 * Float32Array.BYTES_PER_ELEMENT,
             },
           }],
         });
