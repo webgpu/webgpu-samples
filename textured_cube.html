@@ -208,7 +208,7 @@ void main() {
                     storeOp: "store",
                 }],
                 depthStencilAttachment: {
-                    attachment: depthTexture.createDefaultView(),
+                    attachment: depthTexture.createView(),
 
                     depthLoadValue: 1.0,
                     depthStoreOp: "store",
@@ -245,7 +245,7 @@ void main() {
                     resource: sampler,
                 }, {
                     binding: 2,
-                    resource: cubeTexture.createDefaultView(),
+                    resource: cubeTexture.createView(),
                 }],
             });
 
@@ -262,7 +262,7 @@ void main() {
             }
 
             function frame() {
-                renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createDefaultView();
+                renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
                 const commandEncoder = device.createCommandEncoder({});
                 const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);

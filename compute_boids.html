@@ -243,7 +243,7 @@ void main() {
           storeOp: "store",
         }],
         depthStencilAttachment: {
-          attachment: depthTexture.createDefaultView(),
+          attachment: depthTexture.createView(),
           depthLoadValue: 1.0,
           depthStoreOp: "store",
           stencilLoadValue: 0,
@@ -312,7 +312,7 @@ void main() {
 
       let t = 0;
       function frame() {
-        renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createDefaultView();
+        renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
         const commandEncoder = device.createCommandEncoder({});
         {

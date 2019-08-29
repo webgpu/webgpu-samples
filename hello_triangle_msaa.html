@@ -96,7 +96,7 @@
         usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
       });
 
-      const attachment = texture.createDefaultView();
+      const attachment = texture.createView();
 
       function frame() {
         const commandEncoder = device.createCommandEncoder({});
@@ -106,7 +106,7 @@
             loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
             storeOp: "store",
             attachment,
-            resolveTarget: swapChain.getCurrentTexture().createDefaultView(),
+            resolveTarget: swapChain.getCurrentTexture().createView(),
           }],
         };
 

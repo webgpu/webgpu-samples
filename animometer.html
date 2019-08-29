@@ -305,7 +305,7 @@
           });
 
           reusableFrames.push({
-            commandBuffer: createCommandBuffer(texture.createDefaultView()),
+            commandBuffer: createCommandBuffer(texture.createView()),
             texture,
           });
         }
@@ -351,7 +351,7 @@
               commandEncoder.finish(),
             ]);
           } else {
-            const textureView = swapChain.getCurrentTexture().createDefaultView();
+            const textureView = swapChain.getCurrentTexture().createView();
             device.getQueue().submit([createCommandBuffer(textureView)]);
           }
         }

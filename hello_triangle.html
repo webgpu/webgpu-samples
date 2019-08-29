@@ -85,7 +85,7 @@
 
       function frame() {
         const commandEncoder = device.createCommandEncoder({});
-        const textureView = swapChain.getCurrentTexture().createDefaultView();
+        const textureView = swapChain.getCurrentTexture().createView();
 
         const renderPassDescriptor = {
           colorAttachments: [{
