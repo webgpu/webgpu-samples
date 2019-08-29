@@ -4,7 +4,6 @@
 <head>
   <meta name="viewport" content="width=600">
   <title>WebGPU Triangle demo</title>
-  <script src="dist/utils.js"></script>
 </head>
 
 <body>
@@ -36,7 +35,9 @@
       /* Context, Device, SwapChain */
       const adapter = await navigator.gpu.requestAdapter();
       const device = await adapter.requestDevice({});
-      await Utils.ready;
+
+      const glslangModule = await import('https://unpkg.com/@webgpu/glslang@0.0.7/web/glslang.js');
+      const glslang = await glslangModule.default();
 
       const canvas = document.querySelector('canvas');
 
@@ -54,13 +55,13 @@
 
         vertexStage: {
           module: device.createShaderModule({
-            code: Utils.compile("v", vertexShaderGLSL),
+            code: glslang.compileGLSL(vertexShaderGLSL, "vertex"),
           }),
           entryPoint: "main",
         },
         fragmentStage: {
           module: device.createShaderModule({
-            code: Utils.compile("f", fragmentShaderGLSL),
+            code: glslang.compileGLSL(fragmentShaderGLSL, "fragment"),
           }),
           entryPoint: "main"
         },

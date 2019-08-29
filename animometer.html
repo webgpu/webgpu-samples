@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=600">
   <title>WebGPU Animometer demo</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js"></script>
-  <script src="dist/utils.js"></script>
   <style>
     canvas {
       position: absolute;
@@ -83,7 +82,9 @@
       /* Context, Device, SwapChain */
       const adapter = await navigator.gpu.requestAdapter();
       const device = await adapter.requestDevice();
-      await Utils.ready;
+
+      const glslangModule = await import('https://unpkg.com/@webgpu/glslang@0.0.7/web/glslang.js');
+      const glslang = await glslangModule.default();
 
       const canvas = document.querySelector('canvas');
       canvas.width = window.innerWidth;
@@ -124,13 +125,13 @@
       const pipelineDesc = {
         vertexStage: {
           module: device.createShaderModule({
-            code: Utils.compile("v", vertexShaderGLSL),
+            code: glslang.compileGLSL(vertexShaderGLSL, "vertex"),
           }),
           entryPoint: "main",
         },
         fragmentStage: {
           module: device.createShaderModule({
-            code: Utils.compile("f", fragmentShaderGLSL),
+            code: glslang.compileGLSL(fragmentShaderGLSL, "fragment"),
           }),
           entryPoint: "main"
         },
