@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "sourceMap": true,
+        "module": "esNext",
+        "target": "es6",
+        "moduleResolution": "node"
+    },
+    "include": [
+        "src/**/*",
+        "node_modules/@webgpu/types"
+    ]
+}

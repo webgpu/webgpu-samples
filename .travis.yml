@@ -1,0 +1,21 @@
+language: node_js
+node_js:
+  - 'node'
+
+script:
+  - yarn build
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  on:
+    branch: master
+
+before_deploy:
+  - sed -i '/dist\//d' .gitignore
+
+env:
+  global:
+    - ENCRYPTION_LABEL: 'd065aa4b53f1'
+    - COMMIT_AUTHOR_EMAIL: travis-ci@w3.org
