@@ -46,7 +46,7 @@ async function loadExample(hashName: string) {
     descriptionContainer.appendChild(titleNode);
     descriptionContainer.appendChild(document.createTextNode(example.description));
 
-    fetch(`/src/examples/${name}.ts`).then(async res => {
+    fetch(`./src/examples/${name}.ts`).then(async res => {
         const source = document.createElement('pre');
         source.innerHTML = await res.text();
         sourceContainer.appendChild(source);
