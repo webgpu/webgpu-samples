@@ -14,6 +14,7 @@ deploy:
 
 before_deploy:
   - sed -i '/dist\//d' .gitignore
+  - sed -i '/index\.html/d' .gitignore
 
 env:
   global:
