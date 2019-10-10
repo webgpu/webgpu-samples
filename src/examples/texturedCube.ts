@@ -16,8 +16,10 @@ export async function init(canvas: HTMLCanvasElement) {
   layout(location = 1) in vec2 uv;
 
   layout(location = 0) out vec2 fragUV;
+  layout(location = 1) out vec4 fragPosition;
 
   void main() {
+    fragPosition = 0.5 * (position + vec4(1.0));
     gl_Position = uniforms.modelViewProjectionMatrix * position;
     fragUV = uv;
   }
@@ -28,10 +30,11 @@ export async function init(canvas: HTMLCanvasElement) {
   layout(set = 0, binding = 2) uniform texture2D myTexture;
 
   layout(location = 0) in vec2 fragUV;
+  layout(location = 1) in vec4 fragPosition;
   layout(location = 0) out vec4 outColor;
 
   void main() {
-    outColor =  texture(sampler2D(myTexture, mySampler), fragUV);
+    outColor =  texture(sampler2D(myTexture, mySampler), fragUV) * fragPosition;
   }
   `;
 

@@ -20,6 +20,8 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
   imageCanvas.height = img.height;
 
   const imageCanvasContext = imageCanvas.getContext('2d');
+  imageCanvasContext.translate(0, img.height);
+  imageCanvasContext.scale(1, -1);
   imageCanvasContext.drawImage(img, 0, 0, img.width, img.height);
   const imageData = imageCanvasContext.getImageData(0, 0, img.width, img.height);
 
