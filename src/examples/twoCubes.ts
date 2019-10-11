@@ -206,7 +206,7 @@ export async function init(canvas: HTMLCanvasElement) {
     uniformBuffer.setSubData(offset, modelViewProjectionMatrix2);
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
-    passEncoder.setVertexBuffers(0, [verticesBuffer], [0]);
+    passEncoder.setVertexBuffer(0, verticesBuffer);
 
     passEncoder.setBindGroup(0, uniformBindGroup1);
     passEncoder.draw(36, 1, 0, 0);

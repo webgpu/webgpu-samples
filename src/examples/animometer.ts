@@ -231,7 +231,7 @@ export async function init(canvas: HTMLCanvasElement) {
       } else {
         passEncoder.setPipeline(pipeline);
       }
-      passEncoder.setVertexBuffers(0, [vertexBuffer], [0]);
+      passEncoder.setVertexBuffer(0, vertexBuffer);
       passEncoder.setBindGroup(0, timeBindGroup);
       const dynamicOffsets = [0];
       for (let i = 0; i < numTriangles; ++i) {
