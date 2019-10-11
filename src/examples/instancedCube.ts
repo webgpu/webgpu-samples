@@ -212,7 +212,7 @@ export async function init(canvas: HTMLCanvasElement) {
     uniformBuffer.setSubData(0, mvpMatricesData);
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
-    passEncoder.setVertexBuffers(0, [verticesBuffer], [0]);
+    passEncoder.setVertexBuffer(0, verticesBuffer);
 
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.draw(36, numInstances, 0, 0);

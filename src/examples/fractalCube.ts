@@ -213,7 +213,7 @@ export async function init(canvas: HTMLCanvasElement) {
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
-    passEncoder.setVertexBuffers(0, [verticesBuffer], [0]);
+    passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.draw(36, 1, 0, 0);
     passEncoder.endPass();
 

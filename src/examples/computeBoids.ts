@@ -306,7 +306,8 @@ export async function init(canvas: HTMLCanvasElement) {
     {
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
       passEncoder.setPipeline(renderPipeline);
-      passEncoder.setVertexBuffers(0, [particleBuffers[(t + 1) % 2], verticesBuffer], [0, 0]);
+      passEncoder.setVertexBuffer(0, particleBuffers[(t + 1) % 2]);
+      passEncoder.setVertexBuffer(1, verticesBuffer);
       passEncoder.draw(3, numParticles, 0, 0);
       passEncoder.endPass();
     }
