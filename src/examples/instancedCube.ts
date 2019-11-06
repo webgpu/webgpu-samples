@@ -67,12 +67,20 @@ export async function init(canvas: HTMLCanvasElement) {
     vertexStage: {
       module: device.createShaderModule({
         code: glslang.compileGLSL(vertexShaderGLSL, "vertex"),
+
+        // @ts-ignore
+        source: vertexShaderGLSL,
+        transform: source => glslang.compileGLSL(source, "vertex"),
       }),
       entryPoint: "main"
     },
     fragmentStage: {
       module: device.createShaderModule({
         code: glslang.compileGLSL(fragmentShaderGLSL, "fragment"),
+
+        // @ts-ignore
+        source: fragmentShaderGLSL,
+        transform: source => glslang.compileGLSL(source, "fragment"),
       }),
       entryPoint: "main"
     },
