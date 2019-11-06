@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta name="description" content="The WebGPU Samples are a set of SPIR-V compatible samples demonstrating the use of the WebGPU API">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><%= htmlWebpackPlugin.options.title %></title>
     <style>
       * {
@@ -27,7 +29,7 @@
       }
 
       a:link, a:visited {
-        color: #2194CE;
+        color: #045b88;
       }
 
       a:hover {
@@ -46,14 +48,18 @@
 
       .example-link {
         display: block;
+        padding: 0.3em 0;
+      }
+
+      @media only screen and (max-width: 768px) {
+        /* More padding on mobile for easier touch screen use */
+        .example-link {
+          padding: 0.5em 0;
+        }
       }
 
       .example-link.selected {
         color: #ff0000;
-      }
-
-      .example-link + .example-link {
-        margin-top: 0.33em;
       }
 
       main {
@@ -83,8 +89,16 @@
         position: relative;
         margin-top: 10px;
       }
+
+      .CodeMirror {
+        border: 1px solid #ddd;
+        height: auto!important;
+        margin: 1em 0;
+      }
     </style>
     <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css" rel="stylesheet">
   </head>
   <body>
     <div id="panel">
@@ -102,13 +116,20 @@
         <h1></h1>
         <p>The WebGPU Samples are a set of SPIR-V compatible samples demonstrating the use of the <a href="//webgpu.dev">WebGPU API</a>.
         Please see the current implementation status at <a href="//webgpu.io">webgpu.io</a>.</p>
+
+        <p>These samples run in Chrome Canary behind the flag "--enable-unsafe-webgpu". If something isn't working, please file an
+        issue <a href="https://github.com/austinEng/webgpu-samples/issues">here</a>.</p>
+
         <p id="not-supported" style="display: none">
           WebGPU is not supported on this platform yet!
         </p>
       </div>
       <div id="description-container"></div>
       <div id="canvas-container"></div>
-      <div id="source-container"></div>
+      <div id="source-container">
+        <div id="shader-editor"></div>
+        <div id="full-source"></div>
+      </div>
     </main>
   </body>
 </html>

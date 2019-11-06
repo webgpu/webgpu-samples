@@ -26,8 +26,8 @@ module.exports = {
   }),
   output: {
     path: path.resolve(__dirname, '../dist'),
-    chunkFilename: '[name].js',
-    filename: `[name].js`,
+    chunkFilename: '[name]-[chunkhash:6].js',
+    filename: `[name]-[hash:6].js`,
     publicPath: 'dist/',
   },
   resolve: {
@@ -66,6 +66,7 @@ module.exports = {
       filename: '../index.html',
       template: path.resolve(__dirname, '../src/index.html'),
       examples: exampleNames,
+      excludeChunks: exampleNames,
     }),
   ],
   devtool: 'source-map',

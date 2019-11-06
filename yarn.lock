@@ -2,6 +2,25 @@
 # yarn lockfile v1
 
 
+"@types/codemirror@^0.0.80":
+  version "0.0.80"
+  resolved "https://registry.yarnpkg.com/@types/codemirror/-/codemirror-0.0.80.tgz#c047bb30462582615c3d51e5be6155315f764427"
+  integrity sha512-oTi/s9PkWo3+/L9UrRpqngc4i6fRFMp3YQS0nv3Wy5vjl9n6GsqI9oNF6rjl/7J16Ipe67F9eatwRMTSB/Bo0w==
+  dependencies:
+    "@types/tern" "*"
+
+"@types/estree@*":
+  version "0.0.39"
+  resolved "https://registry.yarnpkg.com/@types/estree/-/estree-0.0.39.tgz#e177e699ee1b8c22d23174caaa7422644389509f"
+  integrity sha512-EYNwp3bU+98cpU4lAWYYL7Zz+2gryWH1qbdDTidVd6hkiR6weksdbMadyXKXNPEkQFhXM+hVO9ZygomHXp+AIw==
+
+"@types/tern@*":
+  version "0.23.3"
+  resolved "https://registry.yarnpkg.com/@types/tern/-/tern-0.23.3.tgz#4b54538f04a88c9ff79de1f6f94f575a7f339460"
+  integrity sha512-imDtS4TAoTcXk0g7u4kkWqedB3E4qpjXzCpD2LU5M5NAXHzCDsypyvXSaG7mM8DKYkCRa7tFp4tS/lp/Wo7Q3w==
+  dependencies:
+    "@types/estree" "*"
+
 "@webassemblyjs/ast@1.8.5":
   version "1.8.5"
   resolved "https://registry.yarnpkg.com/@webassemblyjs/ast/-/ast-1.8.5.tgz#51b1c5fe6576a34953bf4b253df9f0d490d9e359"
@@ -587,6 +606,11 @@ code-point-at@^1.0.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/code-point-at/-/code-point-at-1.1.0.tgz#0d070b4d043a5bea33a2f1a40e2edb3d9a4ccf77"
   integrity sha1-DQcLTQQ6W+ozovGkDi7bPZpMz3c=
+
+codemirror@^5.49.2:
+  version "5.49.2"
+  resolved "https://registry.yarnpkg.com/codemirror/-/codemirror-5.49.2.tgz#c84fdaf11b19803f828b0c67060c7bc6d154ccad"
+  integrity sha512-dwJ2HRPHm8w51WB5YTF9J7m6Z5dtkqbU9ntMZ1dqXyFB9IpjoUFDj80ahRVEoVanfIp6pfASJbOlbWdEf8FOzQ==
 
 collection-visit@^1.0.0:
   version "1.0.0"
@@ -3231,6 +3255,16 @@ watchpack@^1.6.0:
     chokidar "^2.0.2"
     graceful-fs "^4.1.2"
     neo-async "^2.5.0"
+
+webgpu-live-shader-module@austinEng/webgpu-live-shader-module#61b6dd6f:
+  version "0.0.1"
+  resolved "https://codeload.github.com/austinEng/webgpu-live-shader-module/tar.gz/61b6dd6f7090454b52772e6d8ee1359a8ee3cf87"
+  dependencies:
+    webgpu-shader-module-transform austinEng/webgpu-shader-module-transform#23f7775f
+
+webgpu-shader-module-transform@austinEng/webgpu-shader-module-transform#23f7775f:
+  version "0.0.2"
+  resolved "https://codeload.github.com/austinEng/webgpu-shader-module-transform/tar.gz/23f7775f471c227ff721727c5e22388d8cf9473d"
 
 webpack-cli@^3.3.9:
   version "3.3.9"
