@@ -1,6 +1,6 @@
 {
   "name": "webgpu-samples",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Samples using the Web GPU API",
   "private": false,
   "repository": {
@@ -15,11 +15,11 @@
     "codemirror": "^5.49.2",
     "dat.gui": "^0.7.6",
     "gl-matrix": "^3.1.0",
-    "webgpu-live-shader-module": "austinEng/webgpu-live-shader-module#61b6dd6f"
+    "webgpu-live-shader-module": "austinEng/webgpu-live-shader-module#b4a50ba"
   },
   "devDependencies": {
     "@types/codemirror": "^0.0.80",
-    "@webgpu/types": "^0.0.15",
+    "@webgpu/types": "^0.0.17",
     "html-webpack-plugin": "^3.2.0",
     "ts-loader": "^6.2.0",
     "typescript": "^3.6.3",

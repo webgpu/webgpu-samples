@@ -117,13 +117,13 @@ export async function init(canvas: HTMLCanvasElement) {
       entryPoint: "main"
     },
     primitiveTopology: "triangle-list",
-    vertexInput: {
+    vertexState: {
       indexFormat: "uint32",
       vertexBuffers: [{
         // vertex buffer
-        stride: 2 * vec4Size,
+        arrayStride: 2 * vec4Size,
         stepMode: "vertex",
-        attributeSet: [{
+        attributes: [{
           // vertex positions
           shaderLocation: 0,
           offset: 0,

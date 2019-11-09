@@ -167,10 +167,10 @@
     "@webassemblyjs/wast-parser" "1.8.5"
     "@xtuc/long" "4.2.2"
 
-"@webgpu/types@^0.0.15":
-  version "0.0.15"
-  resolved "https://registry.yarnpkg.com/@webgpu/types/-/types-0.0.15.tgz#56838d826476afc9801adbe72fe48d2e380e342e"
-  integrity sha512-bYQf0cL/aX8JZjKSj8pmuAIoJhRKwV1Trtv/u2nfCgcrPazF9g7dxJ4vG0K/tCO6xrnj4mzOkFwqLE6X+WESiA==
+"@webgpu/types@^0.0.17":
+  version "0.0.17"
+  resolved "https://registry.yarnpkg.com/@webgpu/types/-/types-0.0.17.tgz#56f6a2aa6c711c373fd21c26d9d41351baeba6c9"
+  integrity sha512-PJPe7A+kjMvOd2tRFYusFiM74RxOF1qHJd6SnOEXsQgDp62kQZgX178IZGGMzJRN4XLU34T6GiZW0Ckh29A98Q==
 
 "@xtuc/ieee754@^1.2.0":
   version "1.2.0"
@@ -3256,9 +3256,9 @@ watchpack@^1.6.0:
     graceful-fs "^4.1.2"
     neo-async "^2.5.0"
 
-webgpu-live-shader-module@austinEng/webgpu-live-shader-module#61b6dd6f:
-  version "0.0.1"
-  resolved "https://codeload.github.com/austinEng/webgpu-live-shader-module/tar.gz/61b6dd6f7090454b52772e6d8ee1359a8ee3cf87"
+webgpu-live-shader-module@austinEng/webgpu-live-shader-module#b4a50ba:
+  version "0.0.2"
+  resolved "https://codeload.github.com/austinEng/webgpu-live-shader-module/tar.gz/b4a50badfc8db6a72743b4e935a90bf0f540fedf"
   dependencies:
     webgpu-shader-module-transform austinEng/webgpu-shader-module-transform#23f7775f
 

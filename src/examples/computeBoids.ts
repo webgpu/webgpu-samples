@@ -167,12 +167,12 @@ export async function init(canvas: HTMLCanvasElement) {
       format: "depth24plus-stencil8",
     },
 
-    vertexInput: {
+    vertexState: {
       vertexBuffers: [{
         // instanced particles buffer
-        stride: 4 * 4,
+        arrayStride: 4 * 4,
         stepMode: "instance",
-        attributeSet: [{
+        attributes: [{
           // instance position
           shaderLocation: 0,
           offset: 0,
@@ -185,9 +185,9 @@ export async function init(canvas: HTMLCanvasElement) {
         }],
       }, {
         // vertex buffer
-        stride: 2 * 4,
+        arrayStride: 2 * 4,
         stepMode: "vertex",
-        attributeSet: [{
+        attributes: [{
           // vertex positions
           shaderLocation: 2,
           offset: 0,

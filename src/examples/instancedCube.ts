@@ -91,11 +91,11 @@ export async function init(canvas: HTMLCanvasElement) {
       depthCompare: "less",
       format: "depth24plus-stencil8",
     },
-    vertexInput: {
+    vertexState: {
       vertexBuffers: [{
-        stride: cubeVertexSize,
+        arrayStride: cubeVertexSize,
         stepMode: "vertex",
-        attributeSet: [{
+        attributes: [{
           // position
           shaderLocation: 0,
           offset: cubePositionOffset,
