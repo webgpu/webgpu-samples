@@ -73,7 +73,7 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
     depth: 1,
   });
 
-  device.getQueue().submit([commandEncoder.finish()]);
+  device.defaultQueue.submit([commandEncoder.finish()]);
 
   return texture;
 }

@@ -288,7 +288,7 @@ export async function init(canvas: HTMLCanvasElement) {
       }
 
       passEncoder.endPass();
-      device.getQueue().submit([commandEncoder.finish()]);
+      device.defaultQueue.submit([commandEncoder.finish()]);
     }
   }
 
