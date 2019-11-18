@@ -167,10 +167,9 @@
     "@webassemblyjs/wast-parser" "1.8.5"
     "@xtuc/long" "4.2.2"
 
-"@webgpu/types@^0.0.17":
-  version "0.0.17"
-  resolved "https://registry.yarnpkg.com/@webgpu/types/-/types-0.0.17.tgz#56f6a2aa6c711c373fd21c26d9d41351baeba6c9"
-  integrity sha512-PJPe7A+kjMvOd2tRFYusFiM74RxOF1qHJd6SnOEXsQgDp62kQZgX178IZGGMzJRN4XLU34T6GiZW0Ckh29A98Q==
+"@webgpu/types@gpuweb/types#ad27478":
+  version "0.0.18"
+  resolved "https://codeload.github.com/gpuweb/types/tar.gz/ad27478591f318aa324ba5fb0917b7f4d2004dc2"
 
 "@xtuc/ieee754@^1.2.0":
   version "1.2.0"

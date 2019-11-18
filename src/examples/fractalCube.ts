@@ -235,7 +235,7 @@ export async function init(canvas: HTMLCanvasElement) {
       depth: 1,
     });
 
-    device.getQueue().submit([commandEncoder.finish()]);
+    device.defaultQueue.submit([commandEncoder.finish()]);
 
     uniformBuffer.setSubData(0, getTransformationMatrix());
   }
