@@ -32,13 +32,15 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
     data = imageData.data;
   } else {
     data = new Uint8Array(rowPitch * img.height);
+    let imagePixelIndex = 0;
     for (let y = 0; y < img.height; ++y) {
       for (let x = 0; x < img.width; ++x) {
         let i = x * 4 + y * rowPitch;
-        data[i] = imageData.data[i];
-        data[i + 1] = imageData.data[i + 1];
-        data[i + 2] = imageData.data[i + 2];
-        data[i + 3] = imageData.data[i + 3];
+        data[i] = imageData.data[imagePixelIndex];
+        data[i + 1] = imageData.data[imagePixelIndex + 1];
+        data[i + 2] = imageData.data[imagePixelIndex + 2];
+        data[i + 3] = imageData.data[imagePixelIndex + 3];
+        imagePixelIndex += 4;
       }
     }
   }
