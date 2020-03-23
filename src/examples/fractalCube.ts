@@ -210,7 +210,7 @@ export async function init(canvas: HTMLCanvasElement) {
     let modelViewProjectionMatrix = mat4.create();
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
 
-    return modelViewProjectionMatrix;
+    return modelViewProjectionMatrix as Float32Array;
   }
 
   return function frame() {

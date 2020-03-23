@@ -182,8 +182,8 @@ export async function init(canvas: HTMLCanvasElement) {
   mat4.translate(modelMatrix1, modelMatrix1, vec3.fromValues(-2, 0, 0));
   let modelMatrix2 = mat4.create();
   mat4.translate(modelMatrix2, modelMatrix2, vec3.fromValues(2, 0, 0));
-  let modelViewProjectionMatrix1 = mat4.create();
-  let modelViewProjectionMatrix2 = mat4.create();
+  let modelViewProjectionMatrix1 = mat4.create() as Float32Array;
+  let modelViewProjectionMatrix2 = mat4.create() as Float32Array;
   let viewMatrix = mat4.create();
   mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -7));
 
