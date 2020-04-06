@@ -236,11 +236,12 @@ export async function init(canvas: HTMLCanvasElement) {
   };
 
   const vertexBufferData = new Float32Array([-0.01, -0.02, 0.01, -0.02, 0.00, 0.02]);
-  const verticesBuffer = device.createBuffer({
+  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
     size: vertexBufferData.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    usage: GPUBufferUsage.VERTEX,
   });
-  verticesBuffer.setSubData(0, vertexBufferData);
+  new Float32Array(vertexMapping).set(vertexBufferData);
+  verticesBuffer.unmap();
 
   const simParamData = new Float32Array([
     0.04,  // deltaT;
@@ -251,11 +252,12 @@ export async function init(canvas: HTMLCanvasElement) {
     0.05,  // rule2Scale;
     0.005  // rule3Scale;
   ]);
-  const simParamBuffer = device.createBuffer({
+  const [simParamBuffer, simParamMapping] = device.createBufferMapped({
     size: simParamData.byteLength,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    usage: GPUBufferUsage.UNIFORM,
   });
-  simParamBuffer.setSubData(0, simParamData);
+  new Float32Array(simParamMapping).set(simParamData);
+  simParamBuffer.unmap();
 
   const initialParticleData = new Float32Array(numParticles * 4);
   for (let i = 0; i < numParticles; ++i) {
@@ -268,11 +270,13 @@ export async function init(canvas: HTMLCanvasElement) {
   const particleBuffers = new Array(2);
   const particleBindGroups = new Array(2);
   for (let i = 0; i < 2; ++i) {
-    particleBuffers[i] = device.createBuffer({
+    let particleBufferMapping;
+    [particleBuffers[i], particleBufferMapping] = device.createBufferMapped({
       size: initialParticleData.byteLength,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE
     });
-    particleBuffers[i].setSubData(0, initialParticleData);
+    new Float32Array(particleBufferMapping).set(initialParticleData);
+    particleBuffers[i].unmap();
   }
 
   for (let i = 0; i < 2; ++i) {

@@ -1,5 +1,6 @@
 import * as dat from 'dat.gui';
 import glslangModule from '../glslang';
+import { updateBufferData } from '../helpers';
 
 export const title = 'Animometer';
 export const description = 'A WebGPU of port of the Animometer MotionMark benchmark.';
@@ -155,17 +156,17 @@ export async function init(canvas: HTMLCanvasElement) {
     layout: dynamicPipelineLayout
   }));
 
-  const vertexBuffer = device.createBuffer({
+  const [vertexBuffer, vertexMapping] = device.createBufferMapped({
     size: 2 * 3 * vec4Size,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX
+    usage: GPUBufferUsage.VERTEX
   });
-
-  vertexBuffer.setSubData(0, new Float32Array([
+  new Float32Array(vertexMapping).set([
     // position data  /**/ color data
     0, 0.1, 0, 1,     /**/ 1, 0, 0, 1,
     -0.1, -0.1, 0, 1, /**/ 0, 1, 0, 1,
     0.1, -0.1, 0, 1,  /**/ 0, 0, 1, 1,
-  ]));
+  ]);
+  vertexBuffer.unmap();
 
   function configure() {
     const numTriangles = settings.numTriangles;
@@ -223,15 +224,30 @@ export async function init(canvas: HTMLCanvasElement) {
       }]
     });
 
-    // Chrome currently crashes with |setSubData| too large.
-    const maxSetSubDataLength = 14 * 1024 * 1024 / Float32Array.BYTES_PER_ELEMENT;
-    for (let offset = 0; offset < uniformBufferData.length; offset += maxSetSubDataLength) {
-      uniformBuffer.setSubData(offset, new Float32Array(
+    const commandEncoder = device.createCommandEncoder();
+
+    // createBufferMapped too large may OOM.
+    const maxMappingLength = 14 * 1024 * 1024 / Float32Array.BYTES_PER_ELEMENT;
+    for (let offset = 0; offset < uniformBufferData.length; offset += maxMappingLength) {
+      const uploadCount = Math.min(uniformBufferData.length - offset, maxMappingLength);
+      const [uploadBuffer, uploadMapping] = device.createBufferMapped({
+        usage: GPUBufferUsage.COPY_SRC,
+        size: uploadCount * Float32Array.BYTES_PER_ELEMENT,
+      });
+
+      new Float32Array(uploadMapping).set(new Float32Array(
         uniformBufferData.buffer,
         offset * Float32Array.BYTES_PER_ELEMENT,
-        Math.min(uniformBufferData.length - offset, maxSetSubDataLength))
-      );
+        Math.min(uniformBufferData.length - offset, maxMappingLength)));
+
+      uploadBuffer.unmap();
+
+      commandEncoder.copyBufferToBuffer(
+        uploadBuffer, 0,
+        uniformBuffer, offset * Float32Array.BYTES_PER_ELEMENT,
+        uploadCount * Float32Array.BYTES_PER_ELEMENT);
     }
+    device.defaultQueue.submit([commandEncoder.finish()]);
 
     function recordRenderPass(passEncoder: GPURenderBundleEncoder | GPURenderPassEncoder) {
       if (settings.dynamicOffsets) {
@@ -253,8 +269,8 @@ export async function init(canvas: HTMLCanvasElement) {
       }
     }
 
-    const uniformTime = new Float32Array([0]);
     let startTime = undefined;
+    let uniformTime = new Float32Array([0]);
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [{
@@ -273,10 +289,10 @@ export async function init(canvas: HTMLCanvasElement) {
       if (startTime === undefined) {
         startTime = timestamp;
       }
-      uniformTime[0] = (timestamp - startTime) / 1000;
-      uniformBuffer.setSubData(timeOffset, uniformTime);
 
       const commandEncoder = device.createCommandEncoder();
+      uniformTime[0] = (timestamp - startTime) / 1000;
+      const { uploadBuffer } = updateBufferData(device, uniformBuffer, timeOffset, uniformTime, commandEncoder);
 
       renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -289,6 +305,8 @@ export async function init(canvas: HTMLCanvasElement) {
 
       passEncoder.endPass();
       device.defaultQueue.submit([commandEncoder.finish()]);
+
+      uploadBuffer.destroy();
     }
   }
 
