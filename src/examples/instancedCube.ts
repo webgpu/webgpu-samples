@@ -1,6 +1,7 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
+import { updateBufferData } from '../helpers';
 
 export const title = 'Instanced Cube';
 export const description = 'This example shows the use of instancing.';
@@ -46,11 +47,12 @@ export async function init(canvas: HTMLCanvasElement) {
     format: "bgra8unorm"
   });
 
-  const verticesBuffer = device.createBuffer({
+  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
     size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    usage: GPUBufferUsage.VERTEX
   });
-  verticesBuffer.setSubData(0, cubeVertexArray);
+  new Float32Array(vertexMapping).set(cubeVertexArray);
+  verticesBuffer.unmap();
 
   const uniformsBindGroupLayout = device.createBindGroupLayout({
     bindings: [{
@@ -215,9 +217,9 @@ export async function init(canvas: HTMLCanvasElement) {
 
     renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
-    const commandEncoder = device.createCommandEncoder({});
+    const commandEncoder = device.createCommandEncoder();
+    const { uploadBuffer } = updateBufferData(device, uniformBuffer, 0, mvpMatricesData, commandEncoder);
 
-    uniformBuffer.setSubData(0, mvpMatricesData);
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setVertexBuffer(0, verticesBuffer);
@@ -228,5 +230,6 @@ export async function init(canvas: HTMLCanvasElement) {
     passEncoder.endPass();
 
     device.defaultQueue.submit([commandEncoder.finish()]);
+    uploadBuffer.destroy();
   }
 }

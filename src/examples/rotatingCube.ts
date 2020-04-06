@@ -1,6 +1,7 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
+import { updateBufferData } from '../helpers';
 
 export const title = 'Rotating Cube';
 export const description = 'The rotating cube demonstrates vertex input \
@@ -48,11 +49,12 @@ export async function init(canvas: HTMLCanvasElement) {
     format: "bgra8unorm"
   });
 
-  const verticesBuffer = device.createBuffer({
+  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
     size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    usage: GPUBufferUsage.VERTEX
   });
-  verticesBuffer.setSubData(0, cubeVertexArray);
+  new Float32Array(vertexMapping).set(cubeVertexArray);
+  verticesBuffer.unmap();
 
   const uniformsBindGroupLayout = device.createBindGroupLayout({
     bindings: [{
@@ -176,10 +178,11 @@ export async function init(canvas: HTMLCanvasElement) {
   }
 
   return function frame() {
-    uniformBuffer.setSubData(0, getTransformationMatrix());
     renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
-    const commandEncoder = device.createCommandEncoder({});
+    const commandEncoder = device.createCommandEncoder();
+    const { uploadBuffer } = updateBufferData(device, uniformBuffer, 0, getTransformationMatrix(), commandEncoder);
+
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
@@ -188,5 +191,6 @@ export async function init(canvas: HTMLCanvasElement) {
     passEncoder.endPass();
 
     device.defaultQueue.submit([commandEncoder.finish()]);
+    uploadBuffer.destroy();
   }
 }

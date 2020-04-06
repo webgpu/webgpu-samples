@@ -1,6 +1,7 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
+import { updateBufferData } from '../helpers';
 
 export const title = 'Two Cubes';
 export const description = 'This example shows some of the alignment requirements \
@@ -47,11 +48,12 @@ export async function init(canvas: HTMLCanvasElement) {
     format: "bgra8unorm"
   });
 
-  const verticesBuffer = device.createBuffer({
+  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
     size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    usage: GPUBufferUsage.VERTEX
   });
-  verticesBuffer.setSubData(0, cubeVertexArray);
+  new Float32Array(vertexMapping).set(cubeVertexArray);
+  verticesBuffer.unmap();
 
   const uniformsBindGroupLayout = device.createBindGroupLayout({
     bindings: [{
@@ -208,10 +210,10 @@ export async function init(canvas: HTMLCanvasElement) {
 
     renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
-    const commandEncoder = device.createCommandEncoder({});
+    const commandEncoder = device.createCommandEncoder();
+    const { uploadBuffer: buffer1 } = updateBufferData(device, uniformBuffer, 0, modelViewProjectionMatrix1, commandEncoder);
+    const { uploadBuffer: buffer2 } = updateBufferData(device, uniformBuffer, offset, modelViewProjectionMatrix2, commandEncoder);
 
-    uniformBuffer.setSubData(0, modelViewProjectionMatrix1);
-    uniformBuffer.setSubData(offset, modelViewProjectionMatrix2);
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setVertexBuffer(0, verticesBuffer);
@@ -225,5 +227,7 @@ export async function init(canvas: HTMLCanvasElement) {
     passEncoder.endPass();
 
     device.defaultQueue.submit([commandEncoder.finish()]);
+    buffer1.destroy();
+    buffer2.destroy();
   }
 }

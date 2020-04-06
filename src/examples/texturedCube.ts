@@ -1,5 +1,5 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { createTextureFromImage } from '../helpers';
+import { createTextureFromImage, updateBufferData } from '../helpers';
 import { cubeVertexArray, cubeVertexSize, cubeUVOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
 
@@ -54,11 +54,12 @@ export async function init(canvas: HTMLCanvasElement) {
     format: "bgra8unorm",
   });
 
-  const verticesBuffer = device.createBuffer({
+  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
     size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    usage: GPUBufferUsage.VERTEX
   });
-  verticesBuffer.setSubData(0, cubeVertexArray);
+  new Float32Array(vertexMapping).set(cubeVertexArray);
+  verticesBuffer.unmap();
 
   const bindGroupLayout = device.createBindGroupLayout({
     bindings: [{
@@ -202,7 +203,9 @@ export async function init(canvas: HTMLCanvasElement) {
   return function frame() {
     renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
-    const commandEncoder = device.createCommandEncoder({});
+    const commandEncoder = device.createCommandEncoder();
+    const { uploadBuffer } = updateBufferData(device, uniformBuffer, 0, getTransformationMatrix(), commandEncoder);
+
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
@@ -211,8 +214,7 @@ export async function init(canvas: HTMLCanvasElement) {
     passEncoder.endPass();
 
     device.defaultQueue.submit([commandEncoder.finish()]);
-
-    uniformBuffer.setSubData(0, getTransformationMatrix());
+    uploadBuffer.destroy();
   }
 
 }
