@@ -75,19 +75,19 @@ export async function init(canvas: HTMLCanvasElement) {
   });
 
   const timeBindGroupLayout = device.createBindGroupLayout({
-    bindings: [
+    entries: [
       { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer" },
     ],
   });
 
   const bindGroupLayout = device.createBindGroupLayout({
-    bindings: [
+    entries: [
       { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer" },
     ],
   });
 
   const dynamicBindGroupLayout = device.createBindGroupLayout({
-    bindings: [
+    entries: [
       { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer", hasDynamicOffset: true },
     ],
   });
@@ -188,7 +188,7 @@ export async function init(canvas: HTMLCanvasElement) {
 
       bindGroups[i] = device.createBindGroup({
         layout: bindGroupLayout,
-        bindings: [{
+        entries: [{
           binding: 0,
           resource: {
             buffer: uniformBuffer,
@@ -201,7 +201,7 @@ export async function init(canvas: HTMLCanvasElement) {
 
     const dynamicBindGroup = device.createBindGroup({
       layout: dynamicBindGroupLayout,
-      bindings: [{
+      entries: [{
         binding: 0,
         resource: {
           buffer: uniformBuffer,
@@ -214,7 +214,7 @@ export async function init(canvas: HTMLCanvasElement) {
     const timeOffset = numTriangles * alignedUniformBytes;
     const timeBindGroup = device.createBindGroup({
       layout: timeBindGroupLayout,
-      bindings: [{
+      entries: [{
         binding: 0,
         resource: {
           buffer: uniformBuffer,

@@ -62,7 +62,7 @@ export async function init(canvas: HTMLCanvasElement) {
   verticesBuffer.unmap();
 
   const bindGroupLayout = device.createBindGroupLayout({
-    bindings: [{
+    entries: [{
       // Transform
       binding: 0,
       visibility: GPUShaderStage.VERTEX,
@@ -174,7 +174,7 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const uniformBindGroup = device.createBindGroup({
     layout: bindGroupLayout,
-    bindings: [{
+    entries: [{
       binding: 0,
       resource: {
         buffer: uniformBuffer,
