@@ -10,7 +10,7 @@ export function checkWebGPUSupport() {
   return !!navigator.gpu;
 }
 
-export async function createTextureFromImage(device: GPUDevice, src: string, usage: GPUTextureUsage) {
+export async function createTextureFromImage(device: GPUDevice, src: string, usage: GPUTextureUsageFlags) {
   const img = document.createElement('img');
   img.src = src;
   await img.decode();
@@ -27,15 +27,15 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
 
   let data = null;
 
-  const rowPitch = Math.ceil(img.width * 4 / 256) * 256;
-  if (rowPitch == img.width * 4) {
+  const bytesPerRow = Math.ceil(img.width * 4 / 256) * 256;
+  if (bytesPerRow == img.width * 4) {
     data = imageData.data;
   } else {
-    data = new Uint8Array(rowPitch * img.height);
+    data = new Uint8Array(bytesPerRow * img.height);
     let imagePixelIndex = 0;
     for (let y = 0; y < img.height; ++y) {
       for (let x = 0; x < img.width; ++x) {
-        let i = x * 4 + y * rowPitch;
+        let i = x * 4 + y * bytesPerRow;
         data[i] = imageData.data[imagePixelIndex];
         data[i + 1] = imageData.data[imagePixelIndex + 1];
         data[i + 2] = imageData.data[imagePixelIndex + 2];
@@ -65,8 +65,7 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
   const commandEncoder = device.createCommandEncoder({});
   commandEncoder.copyBufferToTexture({
     buffer: textureDataBuffer,
-    rowPitch: rowPitch,
-    imageHeight: 0,
+    bytesPerRow,
   }, {
     texture: texture,
   }, {

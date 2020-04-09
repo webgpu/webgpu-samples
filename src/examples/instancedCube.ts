@@ -55,7 +55,7 @@ export async function init(canvas: HTMLCanvasElement) {
   verticesBuffer.unmap();
 
   const uniformsBindGroupLayout = device.createBindGroupLayout({
-    bindings: [{
+    entries: [{
       binding: 0,
       visibility: 1,
       type: "uniform-buffer"
@@ -161,7 +161,7 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const uniformBindGroup = device.createBindGroup({
     layout: uniformsBindGroupLayout,
-    bindings: [{
+    entries: [{
       binding: 0,
       resource: {
         buffer: uniformBuffer,

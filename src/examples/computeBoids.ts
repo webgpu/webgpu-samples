@@ -124,7 +124,7 @@ export async function init(canvas: HTMLCanvasElement) {
   });
 
   const computeBindGroupLayout = device.createBindGroupLayout({
-    bindings: [
+    entries: [
       { binding: 0, visibility: GPUShaderStage.COMPUTE, type: "uniform-buffer" },
       { binding: 1, visibility: GPUShaderStage.COMPUTE, type: "storage-buffer" },
       { binding: 2, visibility: GPUShaderStage.COMPUTE, type: "storage-buffer" },
@@ -282,7 +282,7 @@ export async function init(canvas: HTMLCanvasElement) {
   for (let i = 0; i < 2; ++i) {
     particleBindGroups[i] = device.createBindGroup({
       layout: computeBindGroupLayout,
-      bindings: [{
+      entries: [{
         binding: 0,
         resource: {
           buffer: simParamBuffer,

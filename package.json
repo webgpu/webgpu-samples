@@ -8,7 +8,7 @@
     "url": "https://github.com/austinEng/webgpu-samples.git"
   },
   "scripts": {
-    "build": "rm -rf dist rm -rf gen && webpack --config build/webpack.config.js",
+    "build": "rm -rf dist gen && webpack --config build/webpack.config.js",
     "start": "webpack --config build/webpack.config.js --watch --progress"
   },
   "dependencies": {
@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@types/codemirror": "^0.0.88",
-    "@webgpu/types": "gpuweb/types#ad27478",
+    "@webgpu/types": "^0.0.22",
     "html-webpack-plugin": "^4.0.1",
     "ts-loader": "^6.2.2",
     "typescript": "^3.8.3",
