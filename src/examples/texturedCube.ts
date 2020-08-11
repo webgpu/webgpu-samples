@@ -1,5 +1,5 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { createTextureFromImage, updateBufferData } from '../helpers';
+import { createTextureFromImage } from '../helpers';
 import { cubeVertexArray, cubeVertexSize, cubeUVOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
 
@@ -54,11 +54,12 @@ export async function init(canvas: HTMLCanvasElement) {
     format: "bgra8unorm",
   });
 
-  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
+  const verticesBuffer = device.createBuffer({
     size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX
+    usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
   });
-  new Float32Array(vertexMapping).set(cubeVertexArray);
+  new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
   verticesBuffer.unmap();
 
   const bindGroupLayout = device.createBindGroupLayout({
@@ -201,20 +202,24 @@ export async function init(canvas: HTMLCanvasElement) {
   }
 
   return function frame() {
+    const transformationMatrix = getTransformationMatrix();
+    device.defaultQueue.writeBuffer(
+      uniformBuffer,
+      0,
+      transformationMatrix.buffer,
+      transformationMatrix.byteOffset,
+      transformationMatrix.byteLength
+    );
     renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
     const commandEncoder = device.createCommandEncoder();
-    const { uploadBuffer } = updateBufferData(device, uniformBuffer, 0, getTransformationMatrix(), commandEncoder);
-
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.draw(36, 1, 0, 0);
     passEncoder.endPass();
-
     device.defaultQueue.submit([commandEncoder.finish()]);
-    uploadBuffer.destroy();
   }
 
 }

@@ -3,7 +3,7 @@ node_js:
   - 'node'
 
 script:
-  - yarn build
+  - npm run build
 
 deploy:
   provider: pages

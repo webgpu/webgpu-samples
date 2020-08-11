@@ -1,7 +1,6 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubeUVOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
-import { updateBufferData } from '../helpers';
 
 export const title = 'Fractal Cube';
 export const description = 'This example uses the previous frame\'s rendering result \
@@ -61,11 +60,12 @@ export async function init(canvas: HTMLCanvasElement) {
     usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.COPY_SRC,
   });
 
-  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
+  const verticesBuffer = device.createBuffer({
     size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX
+    usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
   });
-  new Float32Array(vertexMapping).set(cubeVertexArray);
+  new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
   verticesBuffer.unmap();
 
   const bindGroupLayout = device.createBindGroupLayout({
@@ -216,11 +216,19 @@ export async function init(canvas: HTMLCanvasElement) {
   }
 
   return function frame() {
+    const transformationMatrix = getTransformationMatrix();
+    device.defaultQueue.writeBuffer(
+      uniformBuffer,
+      0,
+      transformationMatrix.buffer,
+      transformationMatrix.byteOffset,
+      transformationMatrix.byteLength
+    );
+
     const swapChainTexture = swapChain.getCurrentTexture();
     renderPassDescriptor.colorAttachments[0].attachment = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
-    const { uploadBuffer } = updateBufferData(device, uniformBuffer, 0, getTransformationMatrix(), commandEncoder);
 
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
@@ -240,6 +248,5 @@ export async function init(canvas: HTMLCanvasElement) {
     });
 
     device.defaultQueue.submit([commandEncoder.finish()]);
-    uploadBuffer.destroy();
   }
 }
