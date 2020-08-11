@@ -236,11 +236,12 @@ export async function init(canvas: HTMLCanvasElement) {
   };
 
   const vertexBufferData = new Float32Array([-0.01, -0.02, 0.01, -0.02, 0.00, 0.02]);
-  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
+  const verticesBuffer = device.createBuffer({
     size: vertexBufferData.byteLength,
     usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
   });
-  new Float32Array(vertexMapping).set(vertexBufferData);
+  new Float32Array(verticesBuffer.getMappedRange()).set(vertexBufferData);
   verticesBuffer.unmap();
 
   const simParamData = new Float32Array([
@@ -252,11 +253,12 @@ export async function init(canvas: HTMLCanvasElement) {
     0.05,  // rule2Scale;
     0.005  // rule3Scale;
   ]);
-  const [simParamBuffer, simParamMapping] = device.createBufferMapped({
+  const simParamBuffer = device.createBuffer({
     size: simParamData.byteLength,
     usage: GPUBufferUsage.UNIFORM,
+    mappedAtCreation: true,
   });
-  new Float32Array(simParamMapping).set(simParamData);
+  new Float32Array(simParamBuffer.getMappedRange()).set(simParamData);
   simParamBuffer.unmap();
 
   const initialParticleData = new Float32Array(numParticles * 4);
@@ -267,15 +269,15 @@ export async function init(canvas: HTMLCanvasElement) {
     initialParticleData[4 * i + 3] = 2 * (Math.random() - 0.5) * 0.1;
   }
 
-  const particleBuffers = new Array(2);
-  const particleBindGroups = new Array(2);
+  const particleBuffers: GPUBuffer[] = new Array(2);
+  const particleBindGroups: GPUBindGroup[] = new Array(2);
   for (let i = 0; i < 2; ++i) {
-    let particleBufferMapping;
-    [particleBuffers[i], particleBufferMapping] = device.createBufferMapped({
+    particleBuffers[i] = device.createBuffer({
       size: initialParticleData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
+      mappedAtCreation: true,
     });
-    new Float32Array(particleBufferMapping).set(initialParticleData);
+    new Float32Array(particleBuffers[i].getMappedRange()).set(initialParticleData);
     particleBuffers[i].unmap();
   }
 

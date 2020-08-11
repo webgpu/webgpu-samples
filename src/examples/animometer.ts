@@ -1,6 +1,5 @@
 import * as dat from 'dat.gui';
 import glslangModule from '../glslang';
-import { updateBufferData } from '../helpers';
 
 export const title = 'Animometer';
 export const description = 'A WebGPU of port of the Animometer MotionMark benchmark.';
@@ -156,11 +155,12 @@ export async function init(canvas: HTMLCanvasElement) {
     layout: dynamicPipelineLayout
   }));
 
-  const [vertexBuffer, vertexMapping] = device.createBufferMapped({
+  const vertexBuffer = device.createBuffer({
     size: 2 * 3 * vec4Size,
-    usage: GPUBufferUsage.VERTEX
+    usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
   });
-  new Float32Array(vertexMapping).set([
+  new Float32Array(vertexBuffer.getMappedRange()).set([
     // position data  /**/ color data
     0, 0.1, 0, 1,     /**/ 1, 0, 0, 1,
     -0.1, -0.1, 0, 1, /**/ 0, 1, 0, 1,
@@ -224,30 +224,19 @@ export async function init(canvas: HTMLCanvasElement) {
       }]
     });
 
-    const commandEncoder = device.createCommandEncoder();
-
-    // createBufferMapped too large may OOM.
+    // writeBuffer too large may OOM. TODO: The browser should internally chunk uploads.
     const maxMappingLength = 14 * 1024 * 1024 / Float32Array.BYTES_PER_ELEMENT;
     for (let offset = 0; offset < uniformBufferData.length; offset += maxMappingLength) {
       const uploadCount = Math.min(uniformBufferData.length - offset, maxMappingLength);
-      const [uploadBuffer, uploadMapping] = device.createBufferMapped({
-        usage: GPUBufferUsage.COPY_SRC,
-        size: uploadCount * Float32Array.BYTES_PER_ELEMENT,
-      });
 
-      new Float32Array(uploadMapping).set(new Float32Array(
-        uniformBufferData.buffer,
+      device.defaultQueue.writeBuffer(
+        uniformBuffer,
         offset * Float32Array.BYTES_PER_ELEMENT,
-        Math.min(uniformBufferData.length - offset, maxMappingLength)));
-
-      uploadBuffer.unmap();
-
-      commandEncoder.copyBufferToBuffer(
-        uploadBuffer, 0,
-        uniformBuffer, offset * Float32Array.BYTES_PER_ELEMENT,
-        uploadCount * Float32Array.BYTES_PER_ELEMENT);
+        uniformBufferData.buffer,
+        uniformBufferData.byteOffset + offset * Float32Array.BYTES_PER_ELEMENT,
+        uploadCount * Float32Array.BYTES_PER_ELEMENT
+      );
     }
-    device.defaultQueue.submit([commandEncoder.finish()]);
 
     function recordRenderPass(passEncoder: GPURenderBundleEncoder | GPURenderPassEncoder) {
       if (settings.dynamicOffsets) {
@@ -289,12 +278,12 @@ export async function init(canvas: HTMLCanvasElement) {
       if (startTime === undefined) {
         startTime = timestamp;
       }
-
-      const commandEncoder = device.createCommandEncoder();
       uniformTime[0] = (timestamp - startTime) / 1000;
-      const { uploadBuffer } = updateBufferData(device, uniformBuffer, timeOffset, uniformTime, commandEncoder);
+      device.defaultQueue.writeBuffer(uniformBuffer, timeOffset, uniformTime.buffer);
 
       renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
+
+      const commandEncoder = device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
       if (settings.renderBundles) {
@@ -305,8 +294,6 @@ export async function init(canvas: HTMLCanvasElement) {
 
       passEncoder.endPass();
       device.defaultQueue.submit([commandEncoder.finish()]);
-
-      uploadBuffer.destroy();
     }
   }
 

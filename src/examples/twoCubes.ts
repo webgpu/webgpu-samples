@@ -1,7 +1,6 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
-import { updateBufferData } from '../helpers';
 
 export const title = 'Two Cubes';
 export const description = 'This example shows some of the alignment requirements \
@@ -48,11 +47,12 @@ export async function init(canvas: HTMLCanvasElement) {
     format: "bgra8unorm"
   });
 
-  const [verticesBuffer, vertexMapping] = device.createBufferMapped({
+  const verticesBuffer = device.createBuffer({
     size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX
+    usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
   });
-  new Float32Array(vertexMapping).set(cubeVertexArray);
+  new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
   verticesBuffer.unmap();
 
   const uniformsBindGroupLayout = device.createBindGroupLayout({
@@ -208,12 +208,24 @@ export async function init(canvas: HTMLCanvasElement) {
   return function frame() {
     updateTransformationMatrix();
 
+    device.defaultQueue.writeBuffer(
+      uniformBuffer,
+      0,
+      modelViewProjectionMatrix1.buffer,
+      modelViewProjectionMatrix1.byteOffset,
+      modelViewProjectionMatrix1.byteLength
+    );
+    device.defaultQueue.writeBuffer(
+      uniformBuffer,
+      offset,
+      modelViewProjectionMatrix2.buffer,
+      modelViewProjectionMatrix2.byteOffset,
+      modelViewProjectionMatrix2.byteLength
+    );
+
     renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
     const commandEncoder = device.createCommandEncoder();
-    const { uploadBuffer: buffer1 } = updateBufferData(device, uniformBuffer, 0, modelViewProjectionMatrix1, commandEncoder);
-    const { uploadBuffer: buffer2 } = updateBufferData(device, uniformBuffer, offset, modelViewProjectionMatrix2, commandEncoder);
-
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setVertexBuffer(0, verticesBuffer);
@@ -227,7 +239,5 @@ export async function init(canvas: HTMLCanvasElement) {
     passEncoder.endPass();
 
     device.defaultQueue.submit([commandEncoder.finish()]);
-    buffer1.destroy();
-    buffer2.destroy();
   }
 }

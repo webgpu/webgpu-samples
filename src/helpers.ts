@@ -55,11 +55,12 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
     usage: GPUTextureUsage.COPY_DST | usage,
   });
 
-  const [textureDataBuffer, mapping] = device.createBufferMapped({
+  const textureDataBuffer = device.createBuffer({
     size: data.byteLength,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    mappedAtCreation: true,
   });
-  new Uint8Array(mapping).set(data);
+  new Uint8Array(textureDataBuffer.getMappedRange()).set(data);
   textureDataBuffer.unmap();
 
   const commandEncoder = device.createCommandEncoder({});
@@ -78,27 +79,4 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
   textureDataBuffer.destroy();
 
   return texture;
-}
-
-export function updateBufferData(
-  device: GPUDevice,
-  dst: GPUBuffer, dstOffset: number,
-  src: Float32Array | Uint32Array,
-  commandEncoder?: GPUCommandEncoder): {
-    commandEncoder: GPUCommandEncoder,
-    uploadBuffer: GPUBuffer,
-  } {
-  const [uploadBuffer, mapping] = device.createBufferMapped({
-    size: src.byteLength,
-    usage: GPUBufferUsage.COPY_SRC,
-  });
-
-  // @ts-ignore
-  new src.constructor(mapping).set(src);
-  uploadBuffer.unmap();
-
-  commandEncoder = commandEncoder || device.createCommandEncoder();
-  commandEncoder.copyBufferToBuffer(uploadBuffer, 0, dst, dstOffset, src.byteLength);
-
-  return { commandEncoder, uploadBuffer };
 }
