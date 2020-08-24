@@ -106,8 +106,14 @@
         <h1 id="title"><a href="./#" class="nav-link"><%= htmlWebpackPlugin.options.title %></a></h1>
         <a href="https://github.com/austinEng/webgpu-samples">Github</a>
         <hr />
+        <p>SPIR-V based samples</p>
         <% for (example of htmlWebpackPlugin.options.examples) { %>
-          <a class="example-link nav-link" href="#<%= example %>"><%= example %></a>
+          <a class="example-link nav-link" href="?wgsl=0#<%= example %>"><%= example %></a>
+        <% } %>
+        <hr />
+        <p>WGSL based samples</p>
+        <% for (example of htmlWebpackPlugin.options.examples) { %>
+          <a class="example-link nav-link" href="?wgsl=1#<%= example %>"><%= example %></a>
         <% } %>
       </div>
     </div>
