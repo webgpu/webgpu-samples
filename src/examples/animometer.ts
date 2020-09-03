@@ -28,19 +28,35 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const timeBindGroupLayout = device.createBindGroupLayout({
     entries: [
-      { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer" },
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        type: "uniform-buffer",
+        minBufferBindingSize: 4,
+      },
     ],
   });
 
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
-      { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer" },
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        type: "uniform-buffer",
+        minBufferBindingSize: 20,
+      },
     ],
   });
 
   const dynamicBindGroupLayout = device.createBindGroupLayout({
     entries: [
-      { binding: 0, visibility: GPUShaderStage.VERTEX, type: "uniform-buffer", hasDynamicOffset: true },
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        type: "uniform-buffer",
+        hasDynamicOffset: true,
+        minBufferBindingSize: 20,
+      },
     ],
   });
 

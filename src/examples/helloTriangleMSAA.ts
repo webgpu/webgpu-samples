@@ -20,8 +20,6 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const sampleCount = 4;
 
   const pipeline = device.createRenderPipeline({
-    layout: device.createPipelineLayout({ bindGroupLayouts: [] }),
-
     vertexStage: {
       module: useWGSL
         ? device.createShaderModule({

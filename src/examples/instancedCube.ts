@@ -29,18 +29,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
   verticesBuffer.unmap();
 
-  const uniformsBindGroupLayout = device.createBindGroupLayout({
-    entries: [{
-      binding: 0,
-      visibility: 1,
-      type: "uniform-buffer"
-    }]
-  });
-
-  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [uniformsBindGroupLayout] });
   const pipeline = device.createRenderPipeline({
-    layout: pipelineLayout,
-
     vertexStage: {
       module: useWGSL
         ? device.createShaderModule({
@@ -144,7 +133,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const uniformBindGroup = device.createBindGroup({
-    layout: uniformsBindGroupLayout,
+    layout: pipeline.getBindGroupLayout(0),
     entries: [{
       binding: 0,
       resource: {
