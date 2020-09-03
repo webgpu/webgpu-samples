@@ -20,21 +20,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     format: "bgra8unorm"
   });
 
-  const computeBindGroupLayout = device.createBindGroupLayout({
-    entries: [
-      { binding: 0, visibility: GPUShaderStage.COMPUTE, type: "uniform-buffer" },
-      { binding: 1, visibility: GPUShaderStage.COMPUTE, type: "storage-buffer" },
-      { binding: 2, visibility: GPUShaderStage.COMPUTE, type: "storage-buffer" },
-    ],
-  });
-
-  const computePipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts: [computeBindGroupLayout],
-  });
-
   const renderPipeline = device.createRenderPipeline({
-    layout: device.createPipelineLayout({ bindGroupLayouts: [] }),
-
     vertexStage: {
       module: useWGSL
         ? device.createShaderModule({
@@ -111,7 +97,6 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const computePipeline = device.createComputePipeline({
-    layout: computePipelineLayout,
     computeStage: {
       module: useWGSL
         ? device.createShaderModule({
@@ -193,7 +178,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   for (let i = 0; i < 2; ++i) {
     particleBindGroups[i] = device.createBindGroup({
-      layout: computeBindGroupLayout,
+      layout: computePipeline.getBindGroupLayout(0),
       entries: [{
         binding: 0,
         resource: {
