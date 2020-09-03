@@ -9,6 +9,9 @@ const canvasContainer = document.getElementById('canvas-container');
 const shaderEditor = document.getElementById('shader-editor');
 const fullSource = document.getElementById('full-source');
 
+import CodeMirror from 'codemirror';
+import 'codemirror/mode/javascript/javascript';
+
 function removeClassName(el: HTMLElement, className: string) {
     el.className = (el.className || '').replace(className, '');
 }
@@ -16,9 +19,7 @@ function removeClassName(el: HTMLElement, className: string) {
 setShaderRegisteredCallback(async (source, updatedSource) => {
     const el = document.createElement('div');
     shaderEditor.appendChild(el);
-
-    // @ts-ignore
-    const CM = (await import('codemirror')).default as CodeMirror;
+    el.className = 'shaderEditor';
 
     const configuration: CodeMirror.EditorConfiguration = {
         value: source,
@@ -31,7 +32,7 @@ setShaderRegisteredCallback(async (source, updatedSource) => {
             }
         }
     };
-    const editor: CodeMirror.Editor = new CM(el, configuration);
+    const editor: CodeMirror.Editor = CodeMirror(el, configuration);
 });
 
 let currentCanvas = undefined;
@@ -63,18 +64,42 @@ async function loadExample(hashName: string) {
     canvas.height = 600;
     canvasContainer.appendChild(canvas);
 
-    const frame = await example.init(canvas);
-    if (!frame) return;
+    const useWGSL =
+      new URLSearchParams(window.location.search).get("wgsl") != "0";
 
     const titleNode = document.createElement('h1');
     titleNode.innerHTML = example.title;
     descriptionContainer.appendChild(titleNode);
     descriptionContainer.appendChild(document.createTextNode(example.description));
 
+    const shaders = useWGSL ? example.wgslShaders : example.glslShaders;
+    if (!shaders) {
+        descriptionContainer.appendChild(document.createElement('br'));
+        descriptionContainer.appendChild(document.createElement("br"));
+        descriptionContainer.appendChild(
+          document.createTextNode(
+            "Sorry, this example hasn't been written yet."
+          )
+        );
+        return;
+    }
+
+    const frame = await example.init(canvas);
+    if (!frame) return;
+
     fetch(`./src/examples/${name}.ts`).then(async res => {
-        const source = document.createElement('pre');
-        source.innerHTML = await res.text();
-        fullSource.appendChild(source);
+        const div = document.createElement("div");
+        fullSource.appendChild(div);
+
+        const configuration: CodeMirror.EditorConfiguration = {
+            value: await res.text(),
+            readOnly: "nocursor",
+            lineNumbers: true,
+            lineWrapping: true,
+            theme: "monokai",
+            mode: "text/typescript",
+        };
+        CodeMirror(div, configuration);
     });
 
     currentCanvas = canvas;

@@ -4,6 +4,53 @@ import glslangModule from '../glslang';
 export const title = 'Animometer';
 export const description = 'A WebGPU of port of the Animometer MotionMark benchmark.';
 
+export const glslShaders = {
+  vertex: `#version 450
+  layout(std140, set = 0, binding = 0) uniform Time {
+      float time;
+  };
+  layout(std140, set = 1, binding = 0) uniform Uniforms {
+      float scale;
+      float offsetX;
+      float offsetY;
+      float scalar;
+      float scalarOffset;
+  };
+
+  layout(location = 0) in vec4 position;
+  layout(location = 1) in vec4 color;
+
+  layout(location = 0) out vec4 v_color;
+
+  void main() {
+      float fade = mod(scalarOffset + time * scalar / 10.0, 1.0);
+      if (fade < 0.5) {
+          fade = fade * 2.0;
+      } else {
+          fade = (1.0 - fade) * 2.0;
+      }
+      float xpos = position.x * scale;
+      float ypos = position.y * scale;
+      float angle = 3.14159 * 2.0 * fade;
+      float xrot = xpos * cos(angle) - ypos * sin(angle);
+      float yrot = xpos * sin(angle) + ypos * cos(angle);
+      xpos = xrot + offsetX;
+      ypos = yrot + offsetY;
+      v_color = vec4(fade, 1.0 - fade, 0.0, 1.0) + color;
+      gl_Position = vec4(xpos, ypos, 0.0, 1.0);
+  }
+`,
+
+  fragment: `#version 450
+  layout(location = 0) in vec4 v_color;
+  layout(location = 0) out vec4 outColor;
+
+  void main() {
+      outColor = v_color;
+  }
+`,
+}
+
 export async function init(canvas: HTMLCanvasElement) {
   const params = new URLSearchParams(window.location.search);
   const settings = {
@@ -11,52 +58,6 @@ export async function init(canvas: HTMLCanvasElement) {
     renderBundles: Boolean(params.get('renderBundles')),
     dynamicOffsets: Boolean(params.get('dynamicOffsets')),
   };
-
-  const vertexShaderGLSL = `#version 450
-    layout(std140, set = 0, binding = 0) uniform Time {
-        float time;
-    };
-    layout(std140, set = 1, binding = 0) uniform Uniforms {
-        float scale;
-        float offsetX;
-        float offsetY;
-        float scalar;
-        float scalarOffset;
-    };
-
-    layout(location = 0) in vec4 position;
-    layout(location = 1) in vec4 color;
-
-    layout(location = 0) out vec4 v_color;
-
-    void main() {
-        float fade = mod(scalarOffset + time * scalar / 10.0, 1.0);
-        if (fade < 0.5) {
-            fade = fade * 2.0;
-        } else {
-            fade = (1.0 - fade) * 2.0;
-        }
-        float xpos = position.x * scale;
-        float ypos = position.y * scale;
-        float angle = 3.14159 * 2.0 * fade;
-        float xrot = xpos * cos(angle) - ypos * sin(angle);
-        float yrot = xpos * sin(angle) + ypos * cos(angle);
-        xpos = xrot + offsetX;
-        ypos = yrot + offsetY;
-        v_color = vec4(fade, 1.0 - fade, 0.0, 1.0) + color;
-        gl_Position = vec4(xpos, ypos, 0.0, 1.0);
-    }
-  `;
-
-  const fragmentShaderGLSL = `#version 450
-
-    layout(location = 0) in vec4 v_color;
-    layout(location = 0) out vec4 outColor;
-
-    void main() {
-        outColor = v_color;
-    }
-  `;
 
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
@@ -97,14 +98,14 @@ export async function init(canvas: HTMLCanvasElement) {
     layout: undefined,
     vertexStage: {
       module: device.createShaderModule({
-        code: vertexShaderGLSL,
+        code: glslShaders.vertex,
         transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
       }),
       entryPoint: "main",
     },
     fragmentStage: {
       module: device.createShaderModule({
-        code: fragmentShaderGLSL,
+        code: glslShaders.fragment,
         transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
       }),
       entryPoint: "main",

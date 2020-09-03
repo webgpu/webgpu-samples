@@ -6,38 +6,40 @@ import glslangModule from '../glslang';
 export const title = 'Textured Cube';
 export const description = 'This example shows how to bind and sample textures.';
 
+export const glslShaders = {
+  vertex: `#version 450
+layout(set = 0, binding = 0) uniform Uniforms {
+  mat4 modelViewProjectionMatrix;
+} uniforms;
+
+layout(location = 0) in vec4 position;
+layout(location = 1) in vec2 uv;
+
+layout(location = 0) out vec2 fragUV;
+layout(location = 1) out vec4 fragPosition;
+
+void main() {
+  fragPosition = 0.5 * (position + vec4(1.0));
+  gl_Position = uniforms.modelViewProjectionMatrix * position;
+  fragUV = uv;
+}
+`,
+
+  fragment: `#version 450
+layout(set = 0, binding = 1) uniform sampler mySampler;
+layout(set = 0, binding = 2) uniform texture2D myTexture;
+
+layout(location = 0) in vec2 fragUV;
+layout(location = 1) in vec4 fragPosition;
+layout(location = 0) out vec4 outColor;
+
+void main() {
+  outColor =  texture(sampler2D(myTexture, mySampler), fragUV) * fragPosition;
+}
+`,
+}
+
 export async function init(canvas: HTMLCanvasElement) {
-  const vertexShaderGLSL = `#version 450
-  layout(set = 0, binding = 0) uniform Uniforms {
-    mat4 modelViewProjectionMatrix;
-  } uniforms;
-
-  layout(location = 0) in vec4 position;
-  layout(location = 1) in vec2 uv;
-
-  layout(location = 0) out vec2 fragUV;
-  layout(location = 1) out vec4 fragPosition;
-
-  void main() {
-    fragPosition = 0.5 * (position + vec4(1.0));
-    gl_Position = uniforms.modelViewProjectionMatrix * position;
-    fragUV = uv;
-  }
-  `;
-
-  const fragmentShaderGLSL = `#version 450
-  layout(set = 0, binding = 1) uniform sampler mySampler;
-  layout(set = 0, binding = 2) uniform texture2D myTexture;
-
-  layout(location = 0) in vec2 fragUV;
-  layout(location = 1) in vec4 fragPosition;
-  layout(location = 0) out vec4 outColor;
-
-  void main() {
-    outColor =  texture(sampler2D(myTexture, mySampler), fragUV) * fragPosition;
-  }
-  `;
-
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -48,7 +50,6 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const context = canvas.getContext('gpupresent');
 
-  // @ts-ignore:
   const swapChain = context.configureSwapChain({
     device,
     format: "bgra8unorm",
@@ -87,14 +88,14 @@ export async function init(canvas: HTMLCanvasElement) {
 
     vertexStage: {
       module: device.createShaderModule({
-        code: vertexShaderGLSL,
+        code: glslShaders.vertex,
         transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
       }),
       entryPoint: "main",
     },
     fragmentStage: {
       module: device.createShaderModule({
-        code: fragmentShaderGLSL,
+        code: glslShaders.fragment,
         transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
       }),
       entryPoint: "main",

@@ -5,11 +5,16 @@
     <meta name="description" content="The WebGPU Samples are a set of SPIR-V compatible samples demonstrating the use of the WebGPU API">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title><%= htmlWebpackPlugin.options.title %></title>
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css" rel="stylesheet">
     <style>
       * {
-          box-sizing: border-box;
+        box-sizing: border-box;
       }
-      html, body {
+
+      html,
+      body {
         margin: 0;
         padding: 0;
       }
@@ -28,7 +33,8 @@
         text-decoration: none;
       }
 
-      a:link, a:visited {
+      a:link,
+      a:visited {
         color: #045b88;
       }
 
@@ -52,6 +58,7 @@
       }
 
       @media only screen and (max-width: 768px) {
+
         /* More padding on mobile for easier touch screen use */
         .example-link {
           padding: 0.5em 0;
@@ -91,14 +98,27 @@
       }
 
       .CodeMirror {
-        border: 1px solid #ddd;
-        height: auto!important;
+        height: auto !important;
         margin: 1em 0;
       }
+
+      .CodeMirror-scroll {
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .shaderEditor > .CodeMirror::before {
+        content: "Edit me! (Ctrl+S to save)";
+        width: 100%;
+        position: relative;
+        display: block;
+        font-weight: bold;
+        text-align: right;
+        box-sizing: border-box;
+        padding-top: 5px;
+        padding-right: 10px;
+      }
     </style>
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css" rel="stylesheet">
   </head>
   <body>
     <div id="panel">

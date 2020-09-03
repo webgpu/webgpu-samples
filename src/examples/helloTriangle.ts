@@ -3,48 +3,51 @@ import glslangModule from '../glslang';
 export const title = 'Hello Triangle';
 export const description = 'Shows rendering a basic triangle.';
 
+export const glslShaders = {
+  vertex: `#version 450
+const vec2 pos[3] = vec2[3](vec2(0.0f, 0.5f), vec2(-0.5f, -0.5f), vec2(0.5f, -0.5f));
+
+void main() {
+    gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0);
+}
+`,
+
+  fragment: `#version 450
+  layout(location = 0) out vec4 outColor;
+
+  void main() {
+      outColor = vec4(1.0, 0.0, 0.0, 1.0);
+  }
+`,
+};
+
+export const wgslShaders = {
+  vertex: `
+var<private> pos : array<vec2<f32>, 3> = array<vec2<f32>, 3>(
+    vec2<f32>(0.0, 0.5),
+    vec2<f32>(-0.5, -0.5),
+    vec2<f32>(0.5, -0.5));
+
+[[builtin position]] var<out> Position : vec4<f32>;
+[[builtin vertex_idx]] var<in> VertexIndex : i32;
+
+fn vtx_main() -> void {
+  Position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
+  return;
+}
+entry_point vertex as "main" = vtx_main;
+`,
+  fragment: `
+[[location 0]] var<out> outColor : vec4<f32>;
+fn frag_main() -> void {
+  outColor = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+  return;
+}
+entry_point fragment as "main" = frag_main;
+`
+}
+
 export async function init(canvas: HTMLCanvasElement) {
-    const vertexShaderGLSL = `#version 450
-      const vec2 pos[3] = vec2[3](vec2(0.0f, 0.5f), vec2(-0.5f, -0.5f), vec2(0.5f, -0.5f));
-
-      void main() {
-          gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0);
-      }
-    `;
-
-    const vertexShaderWGSL = `
-      var<private> pos : array<vec2<f32>, 3> = array<vec2<f32>, 3>(
-          vec2<f32>(0.0, 0.5),
-          vec2<f32>(-0.5, -0.5),
-          vec2<f32>(0.5, -0.5));
-
-      [[builtin position]] var<out> Position : vec4<f32>;
-      [[builtin vertex_idx]] var<in> VertexIndex : i32;
-
-      fn vtx_main() -> void {
-        Position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
-        return;
-      }
-      entry_point vertex as "main" = vtx_main;
-    `;
-
-    const fragmentShaderGLSL = `#version 450
-      layout(location = 0) out vec4 outColor;
-
-      void main() {
-          outColor = vec4(1.0, 0.0, 0.0, 1.0);
-      }
-    `;
-
-    const fragmentShaderWGSL = `
-      [[location 0]] var<out> outColor : vec4<f32>;
-      fn frag_main() -> void {
-        outColor = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-        return;
-      }
-      entry_point fragment as "main" = frag_main;
-    `;
-
     const adapter = await navigator.gpu.requestAdapter();
     const device = await adapter.requestDevice();
     const glslang = await glslangModule();
@@ -66,10 +69,10 @@ export async function init(canvas: HTMLCanvasElement) {
       vertexStage: {
         module: useWGSL
           ? device.createShaderModule({
-              code: vertexShaderWGSL,
+              code: wgslShaders.vertex,
             })
           : device.createShaderModule({
-              code: vertexShaderGLSL,
+              code: glslShaders.vertex,
               transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
             }),
         entryPoint: "main",
@@ -77,10 +80,10 @@ export async function init(canvas: HTMLCanvasElement) {
       fragmentStage: {
         module: useWGSL
           ? device.createShaderModule({
-              code: fragmentShaderWGSL,
+              code: wgslShaders.fragment,
             })
           : device.createShaderModule({
-              code: fragmentShaderGLSL,
+              code: glslShaders.fragment,
               transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
             }),
         entryPoint: "main",

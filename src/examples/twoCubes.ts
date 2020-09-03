@@ -41,7 +41,6 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const context = canvas.getContext('gpupresent');
 
-  // @ts-ignore:
   const swapChain = context.configureSwapChain({
     device,
     format: "bgra8unorm"
