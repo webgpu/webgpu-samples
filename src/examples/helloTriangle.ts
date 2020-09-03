@@ -51,7 +51,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   function frame() {
-    const commandEncoder = device.createCommandEncoder({});
+    const commandEncoder = device.createCommandEncoder();
     const textureView = swapChain.getCurrentTexture().createView();
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
