@@ -3,6 +3,79 @@ import glslangModule from '../glslang';
 export const title = 'Hello Triangle';
 export const description = 'Shows rendering a basic triangle.';
 
+export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+  const adapter = await navigator.gpu.requestAdapter();
+  const device = await adapter.requestDevice();
+  const glslang = await glslangModule();
+
+  const context = canvas.getContext("gpupresent");
+
+  const swapChainFormat = "bgra8unorm";
+
+  const swapChain = context.configureSwapChain({
+    device,
+    format: swapChainFormat,
+  });
+
+  const pipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({ bindGroupLayouts: [] }),
+
+    vertexStage: {
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.vertex,
+          })
+        : device.createShaderModule({
+            code: glslShaders.vertex,
+            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+          }),
+      entryPoint: "main",
+    },
+    fragmentStage: {
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+          }),
+      entryPoint: "main",
+    },
+
+    primitiveTopology: "triangle-list",
+
+    colorStates: [
+      {
+        format: swapChainFormat,
+      },
+    ],
+  });
+
+  function frame() {
+    const commandEncoder = device.createCommandEncoder({});
+    const textureView = swapChain.getCurrentTexture().createView();
+
+    const renderPassDescriptor: GPURenderPassDescriptor = {
+      colorAttachments: [
+        {
+          attachment: textureView,
+          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        },
+      ],
+    };
+
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+    passEncoder.setPipeline(pipeline);
+    passEncoder.draw(3, 1, 0, 0);
+    passEncoder.endPass();
+
+    device.defaultQueue.submit([commandEncoder.finish()]);
+  }
+
+  return frame;
+}
+
 export const glslShaders = {
   vertex: `#version 450
 const vec2 pos[3] = vec2[3](vec2(0.0f, 0.5f), vec2(-0.5f, -0.5f), vec2(0.5f, -0.5f));
@@ -44,78 +117,5 @@ fn frag_main() -> void {
   return;
 }
 entry_point fragment as "main" = frag_main;
-`
-}
-
-export async function init(canvas: HTMLCanvasElement) {
-    const adapter = await navigator.gpu.requestAdapter();
-    const device = await adapter.requestDevice();
-    const glslang = await glslangModule();
-    const useWGSL =
-      new URLSearchParams(window.location.search).get("wgsl") != "0";
-
-    const context = canvas.getContext('gpupresent');
-
-    const swapChainFormat = "bgra8unorm";
-
-    const swapChain = context.configureSwapChain({
-      device,
-      format: swapChainFormat,
-    });
-
-    const pipeline = device.createRenderPipeline({
-      layout: device.createPipelineLayout({ bindGroupLayouts: [] }),
-
-      vertexStage: {
-        module: useWGSL
-          ? device.createShaderModule({
-              code: wgslShaders.vertex,
-            })
-          : device.createShaderModule({
-              code: glslShaders.vertex,
-              transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
-            }),
-        entryPoint: "main",
-      },
-      fragmentStage: {
-        module: useWGSL
-          ? device.createShaderModule({
-              code: wgslShaders.fragment,
-            })
-          : device.createShaderModule({
-              code: glslShaders.fragment,
-              transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
-            }),
-        entryPoint: "main",
-      },
-
-      primitiveTopology: "triangle-list",
-
-      colorStates: [
-        {
-          format: swapChainFormat,
-        },
-      ],
-    });
-
-    function frame() {
-      const commandEncoder = device.createCommandEncoder({});
-      const textureView = swapChain.getCurrentTexture().createView();
-
-      const renderPassDescriptor: GPURenderPassDescriptor = {
-        colorAttachments: [{
-          attachment: textureView,
-          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-        }],
-      };
-
-      const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-      passEncoder.setPipeline(pipeline);
-      passEncoder.draw(3, 1, 0, 0);
-      passEncoder.endPass();
-
-      device.defaultQueue.submit([commandEncoder.finish()]);
-    }
-
-    return frame;
-}
+`,
+};

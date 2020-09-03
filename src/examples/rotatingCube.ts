@@ -6,36 +6,7 @@ export const title = 'Rotating Cube';
 export const description = 'The rotating cube demonstrates vertex input \
               and update of uniform data every frame.';
 
-export const glslShaders = {
-  vertex: `#version 450
-layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelViewProjectionMatrix;
-} uniforms;
-
-layout(location = 0) in vec4 position;
-layout(location = 1) in vec4 color;
-
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-  gl_Position = uniforms.modelViewProjectionMatrix * position;
-  fragColor = color;
-}
-`,
-
-  fragment: `#version 450
-layout(location = 0) in vec4 fragColor;
-layout(location = 0) out vec4 outColor;
-
-void main() {
-  outColor = fragColor;
-}
-`,
-}
-
-export async function init(canvas: HTMLCanvasElement) {
-
-
+export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -44,11 +15,11 @@ export async function init(canvas: HTMLCanvasElement) {
   let projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
-  const context = canvas.getContext('gpupresent');
+  const context = canvas.getContext("gpupresent");
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm"
+    format: "bgra8unorm",
   });
 
   const verticesBuffer = device.createBuffer({
@@ -60,29 +31,41 @@ export async function init(canvas: HTMLCanvasElement) {
   verticesBuffer.unmap();
 
   const uniformsBindGroupLayout = device.createBindGroupLayout({
-    entries: [{
-      binding: 0,
-      visibility: 1,
-      type: "uniform-buffer"
-    }]
+    entries: [
+      {
+        binding: 0,
+        visibility: 1,
+        type: "uniform-buffer",
+      },
+    ],
   });
 
-  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [uniformsBindGroupLayout] });
+  const pipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [uniformsBindGroupLayout],
+  });
   const pipeline = device.createRenderPipeline({
     layout: pipelineLayout,
 
     vertexStage: {
-      module: device.createShaderModule({
-        code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.vertex,
+          })
+        : device.createShaderModule({
+            code: glslShaders.vertex,
+            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+          }),
       entryPoint: "main",
     },
     fragmentStage: {
-      module: device.createShaderModule({
-        code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+          }),
       entryPoint: "main",
     },
 
@@ -129,19 +112,21 @@ export async function init(canvas: HTMLCanvasElement) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depth: 1
+      depth: 1,
     },
     format: "depth24plus-stencil8",
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [{
-      // attachment is acquired and set in render loop.
-      attachment: undefined,
+    colorAttachments: [
+      {
+        // attachment is acquired and set in render loop.
+        attachment: undefined,
 
-      loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
-    }],
+        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+      },
+    ],
     depthStencilAttachment: {
       attachment: depthTexture.createView(),
 
@@ -149,7 +134,7 @@ export async function init(canvas: HTMLCanvasElement) {
       depthStoreOp: "store",
       stencilLoadValue: 0,
       stencilStoreOp: "store",
-    }
+    },
   };
 
   const uniformBufferSize = 4 * 16; // 4x4 matrix
@@ -161,19 +146,26 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const uniformBindGroup = device.createBindGroup({
     layout: uniformsBindGroupLayout,
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+        },
       },
-    }],
+    ],
   });
 
   function getTransformationMatrix() {
     let viewMatrix = mat4.create();
     mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -5));
     let now = Date.now() / 1000;
-    mat4.rotate(viewMatrix, viewMatrix, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
+    mat4.rotate(
+      viewMatrix,
+      viewMatrix,
+      1,
+      vec3.fromValues(Math.sin(now), Math.cos(now), 0)
+    );
 
     let modelViewProjectionMatrix = mat4.create();
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
@@ -190,7 +182,9 @@ export async function init(canvas: HTMLCanvasElement) {
       transformationMatrix.byteOffset,
       transformationMatrix.byteLength
     );
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
+    renderPassDescriptor.colorAttachments[0].attachment = swapChain
+      .getCurrentTexture()
+      .createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -200,5 +194,65 @@ export async function init(canvas: HTMLCanvasElement) {
     passEncoder.draw(36, 1, 0, 0);
     passEncoder.endPass();
     device.defaultQueue.submit([commandEncoder.finish()]);
-  }
+  };
 }
+
+export const glslShaders = {
+  vertex: `#version 450
+layout(set = 0, binding = 0) uniform Uniforms {
+  mat4 modelViewProjectionMatrix;
+} uniforms;
+
+layout(location = 0) in vec4 position;
+layout(location = 1) in vec4 color;
+
+layout(location = 0) out vec4 fragColor;
+
+void main() {
+  gl_Position = uniforms.modelViewProjectionMatrix * position;
+  fragColor = color;
+}
+`,
+
+  fragment: `#version 450
+layout(location = 0) in vec4 fragColor;
+layout(location = 0) out vec4 outColor;
+
+void main() {
+  outColor = fragColor;
+}
+`,
+};
+
+export const wgslShaders = {
+  vertex: `
+type Uniforms = [[block]] struct {
+  [[offset 0]] modelViewProjectionMatrix : mat4x4<f32>;
+};
+
+[[binding 0, set 0]] var<uniform> uniforms : Uniforms;
+
+[[location 0]] var<in> position : vec4<f32>;
+[[location 1]] var<in> color : vec4<f32>;
+
+[[builtin position]] var<out> Position : vec4<f32>;
+[[location 0]] var<out> fragColor : vec4<f32>;
+
+fn vtx_main() -> void {
+  Position = uniforms.modelViewProjectionMatrix * position;
+  fragColor = color;
+  return;
+}
+entry_point vertex as "main" = vtx_main;
+`,
+  fragment: `
+[[location 0]] var<in> fragColor : vec4<f32>;
+[[location 0]] var<out> outColor : vec4<f32>;
+
+fn frag_main() -> void {
+  outColor = fragColor;
+  return;
+}
+entry_point fragment as "main" = frag_main;
+`,
+};
