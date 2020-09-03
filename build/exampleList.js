@@ -8,4 +8,5 @@ module.exports = [
     './examples/fractalCube',
     './examples/computeBoids',
     './examples/animometer',
+    './examples/videoUploading',
 ];
