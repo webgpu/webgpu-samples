@@ -84,7 +84,7 @@ async function loadExample(hashName: string) {
         return;
     }
 
-    const frame = await example.init(canvas);
+    const frame = await example.init(canvas, useWGSL);
     if (!frame) return;
 
     fetch(`./src/examples/${name}.ts`).then(async res => {

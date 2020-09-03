@@ -7,30 +7,7 @@ export const description = 'This example shows some of the alignment requirement
                             involved when updating and binding multiple slices of a \
                             uniform buffer.';
 
-export async function init(canvas: HTMLCanvasElement) {
-  const vertexShaderGLSL = `#version 450
-  layout(set = 0, binding = 0) uniform Uniforms {
-    mat4 modelViewProjectionMatrix;
-  } uniforms;
-
-  layout(location = 0) in vec4 position;
-  layout(location = 1) in vec4 color;
-
-  layout(location = 0) out vec4 fragColor;
-
-  void main() {
-    gl_Position = uniforms.modelViewProjectionMatrix * position;
-    fragColor = color;
-  }`;
-
-  const fragmentShaderGLSL = `#version 450
-  layout(location = 0) in vec4 fragColor;
-  layout(location = 0) out vec4 outColor;
-
-  void main() {
-    outColor = fragColor;
-  }`;
-
+export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -67,17 +44,25 @@ export async function init(canvas: HTMLCanvasElement) {
     layout: pipelineLayout,
 
     vertexStage: {
-      module: device.createShaderModule({
-        code: vertexShaderGLSL,
-        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.vertex,
+          })
+        : device.createShaderModule({
+            code: glslShaders.vertex,
+            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+          }),
       entryPoint: "main",
     },
     fragmentStage: {
-      module: device.createShaderModule({
-        code: fragmentShaderGLSL,
-        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+          }),
       entryPoint: "main",
     },
 
@@ -241,3 +226,61 @@ export async function init(canvas: HTMLCanvasElement) {
     device.defaultQueue.submit([commandEncoder.finish()]);
   }
 }
+
+export const glslShaders = {
+  vertex: `#version 450
+layout(set = 0, binding = 0) uniform Uniforms {
+  mat4 modelViewProjectionMatrix;
+} uniforms;
+
+layout(location = 0) in vec4 position;
+layout(location = 1) in vec4 color;
+
+layout(location = 0) out vec4 fragColor;
+
+void main() {
+  gl_Position = uniforms.modelViewProjectionMatrix * position;
+  fragColor = color;
+}`,
+
+  fragment: `#version 450
+layout(location = 0) in vec4 fragColor;
+layout(location = 0) out vec4 outColor;
+
+void main() {
+  outColor = fragColor;
+}`,
+};
+
+export const wgslShaders = {
+  vertex: `
+type Uniforms = [[block]] struct {
+  [[offset 0]] modelViewProjectionMatrix : mat4x4<f32>;
+};
+
+[[binding 0, set 0]] var<uniform> uniforms : Uniforms;
+
+[[location 0]] var<in> position : vec4<f32>;
+[[location 1]] var<in> color : vec4<f32>;
+
+[[builtin position]] var<out> Position : vec4<f32>;
+[[location 0]] var<out> fragColor : vec4<f32>;
+
+fn vtx_main() -> void {
+  Position = uniforms.modelViewProjectionMatrix * position;
+  fragColor = color;
+  return;
+}
+entry_point vertex as "main" = vtx_main;
+`,
+  fragment: `
+[[location 0]] var<in> fragColor : vec4<f32>;
+[[location 0]] var<out> outColor : vec4<f32>;
+
+fn frag_main() -> void {
+  outColor = fragColor;
+  return;
+}
+entry_point fragment as "main" = frag_main;
+`,
+};
