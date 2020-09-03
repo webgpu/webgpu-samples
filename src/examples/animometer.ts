@@ -66,7 +66,6 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const swapChainFormat = "bgra8unorm";
 
-  // @ts-ignore:
   const swapChain = context.configureSwapChain({
     device,
     format: swapChainFormat,
@@ -98,53 +97,52 @@ export async function init(canvas: HTMLCanvasElement) {
     layout: undefined,
     vertexStage: {
       module: device.createShaderModule({
-        code: glslang.compileGLSL(vertexShaderGLSL, "vertex"),
-
-        // @ts-ignore
-        source: vertexShaderGLSL,
-        transform: source => glslang.compileGLSL(source, "vertex"),
+        code: vertexShaderGLSL,
+        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
       }),
-      entryPoint: "main"
+      entryPoint: "main",
     },
     fragmentStage: {
       module: device.createShaderModule({
-        code: glslang.compileGLSL(fragmentShaderGLSL, "fragment"),
-
-        // @ts-ignore
-        source: fragmentShaderGLSL,
-        transform: source => glslang.compileGLSL(source, "fragment"),
+        code: fragmentShaderGLSL,
+        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
       }),
-      entryPoint: "main"
+      entryPoint: "main",
     },
     primitiveTopology: "triangle-list",
     vertexState: {
       indexFormat: "uint32",
-      vertexBuffers: [{
-        // vertex buffer
-        arrayStride: 2 * vec4Size,
-        stepMode: "vertex",
-        attributes: [{
-          // vertex positions
-          shaderLocation: 0,
-          offset: 0,
-          format: "float4"
-        }, {
-          // vertex colors
-          shaderLocation: 1,
-          offset: vec4Size,
-          format: "float4"
-        }],
-      }],
+      vertexBuffers: [
+        {
+          // vertex buffer
+          arrayStride: 2 * vec4Size,
+          stepMode: "vertex",
+          attributes: [
+            {
+              // vertex positions
+              shaderLocation: 0,
+              offset: 0,
+              format: "float4",
+            },
+            {
+              // vertex colors
+              shaderLocation: 1,
+              offset: vec4Size,
+              format: "float4",
+            },
+          ],
+        },
+      ],
     },
     rasterizationState: {
-      frontFace: 'ccw',
-      cullMode: 'none',
+      frontFace: "ccw",
+      cullMode: "none",
     },
-    colorStates: [{
-      format: swapChainFormat,
-      alphaBlend: {},
-      colorBlend: {},
-    }],
+    colorStates: [
+      {
+        format: swapChainFormat,
+      },
+    ],
   };
 
   const pipeline = device.createRenderPipeline(Object.assign({}, pipelineDesc, {
