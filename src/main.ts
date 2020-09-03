@@ -1,6 +1,7 @@
 import * as examples from '../gen/exampleLoader';
 import { checkWebGPUSupport } from './helpers';
-import installLiveShaderModule from 'webgpu-live-shader-module';
+import 'webgpu-shader-module-transform';
+import { setShaderRegisteredCallback } from "webgpu-live-shader-module";
 
 const mainContainer = document.querySelector('main');
 const descriptionContainer = document.getElementById('description-container');
@@ -12,7 +13,7 @@ function removeClassName(el: HTMLElement, className: string) {
     el.className = (el.className || '').replace(className, '');
 }
 
-const onShaderRegistered = async (source, updatedSource) => {
+setShaderRegisteredCallback(async (source, updatedSource) => {
     const el = document.createElement('div');
     shaderEditor.appendChild(el);
 
@@ -31,9 +32,7 @@ const onShaderRegistered = async (source, updatedSource) => {
         }
     };
     const editor: CodeMirror.Editor = new CM(el, configuration);
-};
-
-installLiveShaderModule(onShaderRegistered);
+});
 
 let currentCanvas = undefined;
 async function loadExample(hashName: string) {

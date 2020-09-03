@@ -15,11 +15,12 @@
     "codemirror": "^5.52.2",
     "dat.gui": "^0.7.6",
     "gl-matrix": "^3.2.1",
-    "webgpu-live-shader-module": "austinEng/webgpu-live-shader-module#b4a50ba"
+    "webgpu-shader-module-transform": "austinEng/webgpu-shader-module-transform#d332ac20",
+    "webgpu-live-shader-module": "austinEng/webgpu-live-shader-module#c77fc714"
   },
   "devDependencies": {
     "@types/codemirror": "^0.0.88",
-    "@webgpu/types": "^0.0.30",
+    "@webgpu/types": "^0.0.31",
     "html-webpack-plugin": "^4.0.1",
     "ts-loader": "^6.2.2",
     "typescript": "^3.8.3",

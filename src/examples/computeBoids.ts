@@ -117,7 +117,6 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const context = canvas.getContext('gpupresent');
 
-  // @ts-ignore:
   const swapChain = context.configureSwapChain({
     device,
     format: "bgra8unorm"
@@ -140,23 +139,17 @@ export async function init(canvas: HTMLCanvasElement) {
 
     vertexStage: {
       module: device.createShaderModule({
-        code: glslang.compileGLSL(vertexShaderGLSL, "vertex"),
-
-        // @ts-ignore
-        source: vertexShaderGLSL,
-        transform: source => glslang.compileGLSL(source, "vertex"),
+        code: vertexShaderGLSL,
+        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
       }),
-      entryPoint: "main"
+      entryPoint: "main",
     },
     fragmentStage: {
       module: device.createShaderModule({
-        code: glslang.compileGLSL(fragmentShaderGLSL, "fragment"),
-
-        // @ts-ignore
-        source: fragmentShaderGLSL,
-        transform: source => glslang.compileGLSL(source, "fragment"),
+        code: fragmentShaderGLSL,
+        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
       }),
-      entryPoint: "main"
+      entryPoint: "main",
     },
 
     primitiveTopology: "triangle-list",
@@ -168,50 +161,57 @@ export async function init(canvas: HTMLCanvasElement) {
     },
 
     vertexState: {
-      vertexBuffers: [{
-        // instanced particles buffer
-        arrayStride: 4 * 4,
-        stepMode: "instance",
-        attributes: [{
-          // instance position
-          shaderLocation: 0,
-          offset: 0,
-          format: "float2"
-        }, {
-          // instance velocity
-          shaderLocation: 1,
-          offset: 2 * 4,
-          format: "float2"
-        }],
-      }, {
-        // vertex buffer
-        arrayStride: 2 * 4,
-        stepMode: "vertex",
-        attributes: [{
-          // vertex positions
-          shaderLocation: 2,
-          offset: 0,
-          format: "float2"
-        }],
-      }],
+      vertexBuffers: [
+        {
+          // instanced particles buffer
+          arrayStride: 4 * 4,
+          stepMode: "instance",
+          attributes: [
+            {
+              // instance position
+              shaderLocation: 0,
+              offset: 0,
+              format: "float2",
+            },
+            {
+              // instance velocity
+              shaderLocation: 1,
+              offset: 2 * 4,
+              format: "float2",
+            },
+          ],
+        },
+        {
+          // vertex buffer
+          arrayStride: 2 * 4,
+          stepMode: "vertex",
+          attributes: [
+            {
+              // vertex positions
+              shaderLocation: 2,
+              offset: 0,
+              format: "float2",
+            },
+          ],
+        },
+      ],
     },
 
-    colorStates: [{
-      format: "bgra8unorm",
-    }],
+    colorStates: [
+      {
+        format: "bgra8unorm",
+      },
+    ],
   });
 
   const computePipeline = device.createComputePipeline({
     layout: computePipelineLayout,
     computeStage: {
       module: device.createShaderModule({
-        code: glslang.compileGLSL(computeShaderGLSL, "compute"),
-
-        // @ts-ignore
-        source: computeShaderGLSL,
-        transform: source => glslang.compileGLSL(source, "compute"),
+        code: computeShaderGLSL,
+        transform: (glsl) => glslang.compileGLSL(glsl, "compute"),
       }),
-      entryPoint: "main"
+      entryPoint: "main",
     },
   });
 

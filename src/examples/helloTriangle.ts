@@ -3,26 +3,6 @@ import glslangModule from '../glslang';
 export const title = 'Hello Triangle';
 export const description = 'Shows rendering a basic triangle.';
 
-function createSPIRVModule(device: GPUDevice, glslang, stage: string, glsl: string) : GPUShaderModule {
-    return device.createShaderModule({
-      code: glslang.compileGLSL(glsl, stage),
-
-      // @ts-ignore
-      source: glsl,
-      transform: source => glslang.compileGLSL(source, stage),
-    })
-}
-
-function createWGSLModule(device: GPUDevice, wgsl: string) : GPUShaderModule {
-    return device.createShaderModule({
-      code: wgsl,
-
-      // @ts-ignore
-      source: wgsl,
-      transform: source => source,
-    })
-}
-
 export async function init(canvas: HTMLCanvasElement) {
     const vertexShaderGLSL = `#version 450
       const vec2 pos[3] = vec2[3](vec2(0.0f, 0.5f), vec2(-0.5f, -0.5f), vec2(0.5f, -0.5f));
@@ -33,7 +13,7 @@ export async function init(canvas: HTMLCanvasElement) {
     `;
 
     const vertexShaderWGSL = `
-      const pos : array<vec2<f32>, 3> = array<vec2<f32>, 3>(
+      var<private> pos : array<vec2<f32>, 3> = array<vec2<f32>, 3>(
           vec2<f32>(0.0, 0.5),
           vec2<f32>(-0.5, -0.5),
           vec2<f32>(0.5, -0.5));
@@ -68,14 +48,14 @@ export async function init(canvas: HTMLCanvasElement) {
     const adapter = await navigator.gpu.requestAdapter();
     const device = await adapter.requestDevice();
     const glslang = await glslangModule();
-    const useWGSL = new URLSearchParams(window.location.search).get("wgsl") != "0";
+    const useWGSL =
+      new URLSearchParams(window.location.search).get("wgsl") != "0";
 
     const context = canvas.getContext('gpupresent');
 
     const swapChainFormat = "bgra8unorm";
 
-    // @ts-ignore:
-    const swapChain: GPUSwapChain = context.configureSwapChain({
+    const swapChain = context.configureSwapChain({
       device,
       format: swapChainFormat,
     });
@@ -84,21 +64,35 @@ export async function init(canvas: HTMLCanvasElement) {
       layout: device.createPipelineLayout({ bindGroupLayouts: [] }),
 
       vertexStage: {
-        module: useWGSL ? createWGSLModule(device, vertexShaderWGSL)
-                        : createSPIRVModule(device, glslang, "vertex", vertexShaderGLSL),
-        entryPoint: "main"
+        module: useWGSL
+          ? device.createShaderModule({
+              code: vertexShaderWGSL,
+            })
+          : device.createShaderModule({
+              code: vertexShaderGLSL,
+              transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+            }),
+        entryPoint: "main",
       },
       fragmentStage: {
-        module: useWGSL ? createWGSLModule(device, fragmentShaderWGSL)
-                        : createSPIRVModule(device, glslang, "fragment", fragmentShaderGLSL),
-        entryPoint: "main"
+        module: useWGSL
+          ? device.createShaderModule({
+              code: fragmentShaderWGSL,
+            })
+          : device.createShaderModule({
+              code: fragmentShaderGLSL,
+              transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+            }),
+        entryPoint: "main",
       },
 
       primitiveTopology: "triangle-list",
 
-      colorStates: [{
-        format: swapChainFormat,
-      }],
+      colorStates: [
+        {
+          format: swapChainFormat,
+        },
+      ],
     });
 
     function frame() {
