@@ -70,7 +70,16 @@ async function loadExample(hashName: string) {
     const titleNode = document.createElement('h1');
     titleNode.innerHTML = example.title;
     descriptionContainer.appendChild(titleNode);
-    descriptionContainer.appendChild(document.createTextNode(example.description));
+
+    const linkNode = document.createElement('a');
+    linkNode.target = "_blank";
+    linkNode.href = `https://github.com/austinEng/webgpu-samples/tree/master/src/examples/${name}.ts`;
+    linkNode.innerHTML = linkNode.href;
+    descriptionContainer.appendChild(linkNode);
+
+    const descriptionNode = document.createElement('p');
+    descriptionNode.innerHTML = example.description;
+    descriptionContainer.appendChild(descriptionNode);
 
     const shaders = useWGSL ? example.wgslShaders : example.glslShaders;
     if (!shaders) {
