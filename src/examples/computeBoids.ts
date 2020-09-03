@@ -400,14 +400,12 @@ fn compute_main() -> void {
   var cVelCount : i32 = 0;
   var pos : vec2<f32>;
   var vel : vec2<f32>;
-  var i : i32 = 0;
-  loop {
-    if (i >= ${numParticles}) {
-      break;
-    }
+
+  for (var i : u32 = 0; i < ${numParticles}; i = i + 1) {
     if (i == index) {
       continue;
     }
+
     pos = particlesA.particles[i].pos.xy;
     vel = particlesA.particles[i].vel.xy;
     if (std::distance(pos, vPos) < params.rule1Distance) {
@@ -420,9 +418,6 @@ fn compute_main() -> void {
     if (std::distance(pos, vPos) < params.rule3Distance) {
       cVel = cVel + vel;
       cVelCount = cVelCount + 1;
-    }
-    continuing {
-      i = i + 1;
     }
   }
   if (cMassCount > 0) {
