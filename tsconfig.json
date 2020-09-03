@@ -3,7 +3,8 @@
         "sourceMap": true,
         "module": "esNext",
         "target": "es6",
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
     },
     "include": [
         "src/**/*",

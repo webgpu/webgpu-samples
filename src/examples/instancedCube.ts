@@ -5,31 +5,33 @@ import glslangModule from '../glslang';
 export const title = 'Instanced Cube';
 export const description = 'This example shows the use of instancing.';
 
+export const glslShaders = {
+  vertex: `#version 450
+#define MAX_NUM_INSTANCES 16
+layout(set = 0, binding = 0) uniform Uniforms {
+  mat4 modelViewProjectionMatrix[MAX_NUM_INSTANCES];
+} uniforms;
+
+layout(location = 0) in vec4 position;
+layout(location = 1) in vec4 color;
+
+layout(location = 0) out vec4 fragColor;
+
+void main() {
+  gl_Position = uniforms.modelViewProjectionMatrix[gl_InstanceIndex] * position;
+  fragColor = color;
+}`,
+
+  fragment: `#version 450
+layout(location = 0) in vec4 fragColor;
+layout(location = 0) out vec4 outColor;
+
+void main() {
+  outColor = fragColor;
+}`,
+}
+
 export async function init(canvas: HTMLCanvasElement) {
-  const vertexShaderGLSL = `#version 450
-  #define MAX_NUM_INSTANCES 16
-  layout(set = 0, binding = 0) uniform Uniforms {
-    mat4 modelViewProjectionMatrix[MAX_NUM_INSTANCES];
-  } uniforms;
-
-  layout(location = 0) in vec4 position;
-  layout(location = 1) in vec4 color;
-
-  layout(location = 0) out vec4 fragColor;
-
-  void main() {
-    gl_Position = uniforms.modelViewProjectionMatrix[gl_InstanceIndex] * position;
-    fragColor = color;
-  }`;
-
-  const fragmentShaderGLSL = `#version 450
-  layout(location = 0) in vec4 fragColor;
-  layout(location = 0) out vec4 outColor;
-
-  void main() {
-    outColor = fragColor;
-  }`;
-
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice({});
   const glslang = await glslangModule();
@@ -40,7 +42,6 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const context = canvas.getContext('gpupresent');
 
-  // @ts-ignore:
   const swapChain = context.configureSwapChain({
     device,
     format: "bgra8unorm"
@@ -68,14 +69,14 @@ export async function init(canvas: HTMLCanvasElement) {
 
     vertexStage: {
       module: device.createShaderModule({
-        code: vertexShaderGLSL,
+        code: glslShaders.vertex,
         transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
       }),
       entryPoint: "main",
     },
     fragmentStage: {
       module: device.createShaderModule({
-        code: fragmentShaderGLSL,
+        code: glslShaders.fragment,
         transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
       }),
       entryPoint: "main",
