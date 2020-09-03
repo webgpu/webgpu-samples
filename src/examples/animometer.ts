@@ -122,13 +122,15 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     ],
   };
 
-  const pipeline = device.createRenderPipeline(Object.assign({}, pipelineDesc, {
-      layout: pipelineLayout
-  }));
+  const pipeline = device.createRenderPipeline({
+    ...pipelineDesc,
+    layout: pipelineLayout,
+  });
 
-  const dynamicPipeline = device.createRenderPipeline(Object.assign({}, pipelineDesc, {
-    layout: dynamicPipelineLayout
-  }));
+  const dynamicPipeline = device.createRenderPipeline({
+    ...pipelineDesc,
+    layout: dynamicPipelineLayout,
+  });
 
   const vertexBuffer = device.createBuffer({
     size: 2 * 3 * vec4Size,

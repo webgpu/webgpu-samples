@@ -7,7 +7,7 @@ export const description = 'This example shows the use of instancing.';
 
 export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice({});
+  const device = await adapter.requestDevice();
   const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);

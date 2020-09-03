@@ -63,7 +63,7 @@ export async function createTextureFromImage(device: GPUDevice, src: string, usa
   new Uint8Array(textureDataBuffer.getMappedRange()).set(data);
   textureDataBuffer.unmap();
 
-  const commandEncoder = device.createCommandEncoder({});
+  const commandEncoder = device.createCommandEncoder();
   commandEncoder.copyBufferToTexture({
     buffer: textureDataBuffer,
     bytesPerRow,

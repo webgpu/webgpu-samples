@@ -67,7 +67,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const attachment = texture.createView();
 
   function frame() {
-    const commandEncoder = device.createCommandEncoder({});
+    const commandEncoder = device.createCommandEncoder();
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
