@@ -16,6 +16,15 @@ function removeClassName(el: HTMLElement, className: string) {
     el.className = (el.className || '').replace(className, '');
 }
 
+interface ShaderEditor extends CodeMirror.Editor {
+  updatedSource: (source: any) => void,
+};
+
+// @ts-ignore
+CodeMirror.commands.save = function(editor: ShaderEditor) {
+    editor.updatedSource(editor.getValue());
+}
+
 setShaderRegisteredCallback(async (source, updatedSource) => {
     const el = document.createElement('div');
     shaderEditor.appendChild(el);
@@ -26,13 +35,16 @@ setShaderRegisteredCallback(async (source, updatedSource) => {
         lineNumbers: true,
         lineWrapping: true,
         theme: 'monokai',
-        extraKeys: {
-            'Ctrl-S': function() {
-                updatedSource(editor.getValue());
-            }
-        }
     };
-    const editor: CodeMirror.Editor = CodeMirror(el, configuration);
+    const editor = CodeMirror(el, configuration) as ShaderEditor;
+    editor.updatedSource = updatedSource;
+
+    const codeMirrorContainer = el.firstElementChild;
+    const updateButton = document.createElement('button');
+    updateButton.className = "updateShaderBtn";
+    updateButton.innerHTML = "Update shader";
+    updateButton.onclick = () => updatedSource(editor.getValue());
+    codeMirrorContainer.prepend(updateButton);
 });
 
 let currentCanvas = undefined;
