@@ -108,16 +108,23 @@
         overflow: visible !important;
       }
 
-      .shaderEditor > .CodeMirror::before {
-        content: "Edit me! (Ctrl+S to save)";
-        width: 100%;
+      .shaderEditor::before {
+        content: "Edit me! (Save to update)";
         position: relative;
         display: block;
         font-weight: bold;
         text-align: right;
-        box-sizing: border-box;
-        padding-top: 5px;
-        padding-right: 10px;
+        margin-bottom: -0.5em;
+        margin-right: 5px;
+      }
+
+      .updateShaderBtn {
+        position: relative;
+        left: 100%;
+        transform: translateX(-108%);
+        margin-right: 10px;
+        margin-top: 5px;
+        cursor: pointer;
       }
     </style>
   </head>
