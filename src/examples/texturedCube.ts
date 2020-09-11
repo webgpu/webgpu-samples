@@ -203,3 +203,41 @@ void main() {
 }
 `,
 };
+
+export const wgslShaders = {
+  vertex: `
+type Uniforms = [[block]] struct {
+  [[offset 0]] modelViewProjectionMatrix : mat4x4<f32>;
+};
+[[binding 0, set 0]] var<uniform> uniforms : Uniforms;
+
+[[location 0]] var<in> position : vec4<f32>;
+[[location 1]] var<in> uv : vec2<f32>;
+
+[[builtin position]] var<out> Position : vec4<f32>;
+[[location 0]] var<out> fragUV : vec2<f32>;
+[[location 1]] var<out> fragPosition: vec4<f32>;
+
+fn vtx_main() -> void {
+  fragPosition = 0.5 * (position + vec4(1.0));
+  Position = uniforms.modelViewProjectionMatrix * position;
+  fragUV = uv;
+  return;
+}
+entry_point vertex as "main" = vtx_main;
+`,
+  fragment: `
+[[binding = 1, set = 0]] var<uniform> mySampler: sampler;
+[[binding = 2, set = 0]] var<uniform> myTexture: texture_sampled_2d<f32>;
+
+[[location = 0]] var<in> fragUV: vec2<f32>;
+[[location = 1]] var<in> fragPosition: vec4<f32>;
+[[location 0]] var<out> outColor : vec4<f32>;
+
+fn frag_main() -> void {
+  outColor =  textureSample(myTexture, mySampler, fragUV) * fragPosition;
+  return;
+}
+entry_point fragment as "main" = frag_main;
+`,
+};
