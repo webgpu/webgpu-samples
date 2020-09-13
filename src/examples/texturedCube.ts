@@ -6,7 +6,7 @@ import glslangModule from '../glslang';
 export const title = 'Textured Cube';
 export const description = 'This example shows how to bind and sample textures.';
 
-export async function init(canvas: HTMLCanvasElement) {
+export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -32,17 +32,25 @@ export async function init(canvas: HTMLCanvasElement) {
 
   const pipeline = device.createRenderPipeline({
     vertexStage: {
-      module: device.createShaderModule({
-        code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.vertex,
+          })
+        : device.createShaderModule({
+            code: glslShaders.vertex,
+            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+          }),
       entryPoint: "main",
     },
     fragmentStage: {
-      module: device.createShaderModule({
-        code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+          }),
       entryPoint: "main",
     },
 
@@ -219,7 +227,7 @@ type Uniforms = [[block]] struct {
 [[location 1]] var<out> fragPosition: vec4<f32>;
 
 fn vtx_main() -> void {
-  fragPosition = 0.5 * (position + vec4(1.0));
+  fragPosition = 0.5 * (position + vec4<f32>(1.0));
   Position = uniforms.modelViewProjectionMatrix * position;
   fragUV = uv;
   return;
@@ -227,11 +235,11 @@ fn vtx_main() -> void {
 entry_point vertex as "main" = vtx_main;
 `,
   fragment: `
-[[binding = 1, set = 0]] var<uniform> mySampler: sampler;
-[[binding = 2, set = 0]] var<uniform> myTexture: texture_sampled_2d<f32>;
+[[binding 0, set 0]] var<uniform> mySampler: sampler;
+[[binding 0, set 0]] var<uniform> myTexture: texture_sampled_2d<f32>;
 
-[[location = 0]] var<in> fragUV: vec2<f32>;
-[[location = 1]] var<in> fragPosition: vec4<f32>;
+[[location 0]] var<in> fragUV: vec2<f32>;
+[[location 1]] var<in> fragPosition: vec4<f32>;
 [[location 0]] var<out> outColor : vec4<f32>;
 
 fn frag_main() -> void {
