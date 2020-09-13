@@ -30,7 +30,30 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
   verticesBuffer.unmap();
 
+  const bindGroupLayout = device.createBindGroupLayout({
+    entries: [{
+      // Transform
+      binding: 0,
+      visibility: GPUShaderStage.VERTEX,
+      type: "uniform-buffer"
+    }, {
+      // Sampler
+      binding: 1,
+      visibility: GPUShaderStage.FRAGMENT,
+      type: "sampler"
+    }, {
+      // Texture view
+      binding: 2,
+      visibility: GPUShaderStage.FRAGMENT,
+      type: "sampled-texture"
+    }]
+  });
+
+  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+
   const pipeline = device.createRenderPipeline({
+    layout: pipelineLayout,
+
     vertexStage: {
       module: useWGSL
         ? device.createShaderModule({
