@@ -9,7 +9,7 @@ export async function init(canvas: HTMLCanvasElement) {
   video.loop = true;
   video.autoplay = true;
   video.muted = true;
-  video.src = "http://dl5.webmfiles.org/big-buck-bunny_trailer.webm";
+  video.src = 'assets/video/pano.webm';
   await video.play();
 
   const adapter = await navigator.gpu.requestAdapter();
@@ -114,12 +114,19 @@ export async function init(canvas: HTMLCanvasElement) {
         {texture: videoTexture},
         {width: video.videoWidth, height:video.videoHeight, depth: 1}
       );
-    })
+    });
   }
 
-  video.addEventListener('timeupdate', updateVideoFrame, true);
+  let currentTime = 0;
+  return function frame() { 
+    if (
+      video.currentTime - currentTime > 0.01 || // check frame update
+      video.currentTime < currentTime // video clip restart
+    ) {
+      currentTime = video.currentTime;
+      updateVideoFrame();
+    }
 
-  return function frame() {
     const commandEncoder = device.createCommandEncoder();
     const textureView = swapChain.getCurrentTexture().createView();
 
