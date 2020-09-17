@@ -106,44 +106,32 @@ export async function init(canvas: HTMLCanvasElement) {
     }],
   });
 
-  function updateVideoFrame() {
-    // get the image bitmap, and then copy the new frame into |videoTexture|
+  return function frame() { 
     createImageBitmap(video).then(videoFrame => {
       device.defaultQueue.copyImageBitmapToTexture(
         {imageBitmap:videoFrame, origin: {x:0, y: 0} },
         {texture: videoTexture},
         {width: video.videoWidth, height:video.videoHeight, depth: 1}
       );
+
+      const commandEncoder = device.createCommandEncoder();
+      const textureView = swapChain.getCurrentTexture().createView();
+
+      const renderPassDescriptor = {
+        colorAttachments: [{
+          attachment: textureView,
+          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        }],
+      };
+
+      const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+      passEncoder.setPipeline(pipeline);
+      passEncoder.setVertexBuffer(0, verticesBuffer);
+      passEncoder.setBindGroup(0, uniformBindGroup);
+      passEncoder.draw(6, 1, 0, 0);
+      passEncoder.endPass();
+      device.defaultQueue.submit([commandEncoder.finish()]);
     });
-  }
-
-  let currentTime = 0;
-  return function frame() { 
-    if (
-      video.currentTime - currentTime > 0.01 || // check frame update
-      video.currentTime < currentTime // video clip restart
-    ) {
-      currentTime = video.currentTime;
-      updateVideoFrame();
-    }
-
-    const commandEncoder = device.createCommandEncoder();
-    const textureView = swapChain.getCurrentTexture().createView();
-
-    const renderPassDescriptor = {
-      colorAttachments: [{
-        attachment: textureView,
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-      }],
-    };
-
-    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-    passEncoder.setPipeline(pipeline);
-    passEncoder.setVertexBuffer(0, verticesBuffer);
-    passEncoder.setBindGroup(0, uniformBindGroup);
-    passEncoder.draw(6, 1, 0, 0);
-    passEncoder.endPass();
-    device.defaultQueue.submit([commandEncoder.finish()]);
   }
 }
 
