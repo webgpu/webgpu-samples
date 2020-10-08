@@ -88,7 +88,6 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     },
     primitiveTopology: "triangle-list",
     vertexState: {
-      indexFormat: "uint32",
       vertexBuffers: [
         {
           // vertex buffer
