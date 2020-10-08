@@ -240,33 +240,33 @@ void main() {
 export const wgslShaders = {
   vertex: `
 type Uniforms = [[block]] struct {
-  [[offset 0]] modelViewProjectionMatrix : [[stride 64]] array<mat4x4<f32>, 16>;
+  [[offset(0)]] modelViewProjectionMatrix : [[stride(64)]] array<mat4x4<f32>, 16>;
 };
 
-[[binding 0, set 0]] var<uniform> uniforms : Uniforms;
+[[binding(0), set(0)]] var<uniform> uniforms : Uniforms;
 
-[[builtin instance_idx]] var<in> instanceIdx : i32;
-[[location 0]] var<in> position : vec4<f32>;
-[[location 1]] var<in> color : vec4<f32>;
+[[builtin(instance_idx)]] var<in> instanceIdx : i32;
+[[location(0)]] var<in> position : vec4<f32>;
+[[location(1)]] var<in> color : vec4<f32>;
 
-[[builtin position]] var<out> Position : vec4<f32>;
-[[location 0]] var<out> fragColor : vec4<f32>;
+[[builtin(position)]] var<out> Position : vec4<f32>;
+[[location(0)]] var<out> fragColor : vec4<f32>;
 
-fn vtx_main() -> void {
+[[stage(vertex)]]
+fn main() -> void {
   Position = uniforms.modelViewProjectionMatrix[instanceIdx] * position;
   fragColor = color;
   return;
 }
-entry_point vertex as "main" = vtx_main;
 `,
   fragment: `
-[[location 0]] var<in> fragColor : vec4<f32>;
-[[location 0]] var<out> outColor : vec4<f32>;
+[[location(0)]] var<in> fragColor : vec4<f32>;
+[[location(0)]] var<out> outColor : vec4<f32>;
 
-fn frag_main() -> void {
+[[stage(fragment)]]
+fn main() -> void {
   outColor = fragColor;
   return;
 }
-entry_point fragment as "main" = frag_main;
 `,
 };
