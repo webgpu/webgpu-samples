@@ -383,30 +383,29 @@ export const glslShaders = {
 
 export const wgslShaders = {
   vertex: `
-import "GLSL.std.450" as std;
-
 type Time = [[block]] struct {
-  [[offset 0]] value : f32;
+  [[offset(0)]] value : f32;
 };
 
 type Uniforms = [[block]] struct {
-  [[offset 0]] scale : f32;
-  [[offset 4]] offsetX : f32;
-  [[offset 8]] offsetY : f32;
-  [[offset 12]] scalar : f32;
-  [[offset 16]] scalarOffset : f32;
+  [[offset(0)]] scale : f32;
+  [[offset(4)]] offsetX : f32;
+  [[offset(8)]] offsetY : f32;
+  [[offset(12)]] scalar : f32;
+  [[offset(16)]] scalarOffset : f32;
 };
 
-[[binding 0, set 0]] var<uniform> time : Time;
-[[binding 0, set 1]] var<uniform> uniforms : Uniforms;
+[[binding(0), set(0)]] var<uniform> time : Time;
+[[binding(0), set(1)]] var<uniform> uniforms : Uniforms;
 
-[[location 0]] var<in> position : vec4<f32>;
-[[location 1]] var<in> color : vec4<f32>;
+[[location(0)]] var<in> position : vec4<f32>;
+[[location(1)]] var<in> color : vec4<f32>;
 
-[[builtin position]] var<out> Position : vec4<f32>;
-[[location 0]] var<out> v_color : vec4<f32>;
+[[builtin(position)]] var<out> Position : vec4<f32>;
+[[location(0)]] var<out> v_color : vec4<f32>;
 
-fn vtx_main() -> void {
+[[stage(vertex)]]
+fn main() -> void {
     var fade : f32 = (uniforms.scalarOffset + time.value * uniforms.scalar / 10.0) % 1.0;
     if (fade < 0.5) {
         fade = fade * 2.0;
@@ -416,25 +415,24 @@ fn vtx_main() -> void {
     var xpos : f32 = position.x * uniforms.scale;
     var ypos : f32 = position.y * uniforms.scale;
     var angle : f32 = 3.14159 * 2.0 * fade;
-    var xrot : f32 = xpos * std::cos(angle) - ypos * std::sin(angle);
-    var yrot : f32 = xpos * std::sin(angle) + ypos * std::cos(angle);
+    var xrot : f32 = xpos * cos(angle) - ypos * sin(angle);
+    var yrot : f32 = xpos * sin(angle) + ypos * cos(angle);
     xpos = xrot + uniforms.offsetX;
     ypos = yrot + uniforms.offsetY;
     v_color = vec4<f32>(fade, 1.0 - fade, 0.0, 1.0) + color;
     Position = vec4<f32>(xpos, ypos, 0.0, 1.0);
     return;
 }
-entry_point vertex as "main" = vtx_main;
 `,
 
   fragment: `
-[[location 0]] var<in> v_color : vec4<f32>;
-[[location 0]] var<out> outColor : vec4<f32>;
+[[location(0)]] var<in> v_color : vec4<f32>;
+[[location(0)]] var<out> outColor : vec4<f32>;
 
-fn frag_main() -> void {
+[[stage(fragment)]]
+fn main() -> void {
   outColor = v_color;
   return;
 }
-entry_point fragment as "main" = frag_main;
 `,
 };
