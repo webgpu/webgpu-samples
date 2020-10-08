@@ -106,7 +106,7 @@ export async function init(canvas: HTMLCanvasElement) {
     }],
   });
 
-  return function frame() { 
+  return function frame() {
     createImageBitmap(video).then(videoFrame => {
       device.defaultQueue.copyImageBitmapToTexture(
         {imageBitmap:videoFrame, origin: {x:0, y: 0} },
@@ -157,6 +157,35 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
   outColor = texture(sampler2D(myTexture, mySampler), fragUV);
+}
+`,
+};
+
+export const wgslShaders = {
+  vertex: `#version 450
+[[location(0)]] var<in> position : vec3<f32>;
+[[location(1)]] var<in> uv : vec2<f32>;
+
+[[location(0)]] var<out> fragUV : vec2<f32>;
+[[builtin(position)]] var<out> Position : vec4<f32>;
+
+void main() {
+  Position = vec4(position, 1.0);
+  fragUV = uv;
+}
+`,
+
+  fragment: `
+[[binding(0), set(0)]] var<uniform_constant> mySampler: sampler;
+[[binding(1), set(0)]] var<uniform_constant> myTexture: texture_sampled_2d<f32>;
+
+[[location(0)]] var<in> fragUV : vec2<f32>;
+[[location(0)]] var<out> outColor : vec4<f32>;
+
+[[stage(fragment)]]
+fn main() -> void {
+  outColor =  textureSample(myTexture, mySampler, fragUV);
+  return;
 }
 `,
 };
