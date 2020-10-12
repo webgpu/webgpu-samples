@@ -396,12 +396,12 @@ fn main() -> void {
   var cMass : vec2<f32> = vec2<f32>(0.0, 0.0);
   var cVel : vec2<f32> = vec2<f32>(0.0, 0.0);
   var colVel : vec2<f32> = vec2<f32>(0.0, 0.0);
-  var cMassCount : i32 = 0;
-  var cVelCount : i32 = 0;
+  var cMassCount : u32 = 0u;
+  var cVelCount : u32 = 0u;
   var pos : vec2<f32>;
   var vel : vec2<f32>;
 
-  for (var i : u32 = 0; i < ${numParticles}; i = i + 1) {
+  for (var i : u32 = 0u; i < ${numParticles}u; i = i + 1u) {
     if (i == index) {
       continue;
     }
@@ -410,22 +410,26 @@ fn main() -> void {
     vel = particlesA.particles[i].vel.xy;
     if (distance(pos, vPos) < params.rule1Distance) {
       cMass = cMass + pos;
-      cMassCount = cMassCount + 1;
+      cMassCount = cMassCount + 1u;
     }
     if (distance(pos, vPos) < params.rule2Distance) {
       colVel = colVel - (pos - vPos);
     }
     if (distance(pos, vPos) < params.rule3Distance) {
       cVel = cVel + vel;
-      cVelCount = cVelCount + 1;
+      cVelCount = cVelCount + 1u;
     }
   }
-  if (cMassCount > 0) {
-    cMass =
-      (cMass / vec2<f32>(f32(cMassCount), f32(cMassCount))) - vPos;
+  if (cMassCount > 0u) {
+    var temp : f32 = f32(cMassCount);
+    cMass = (cMass / vec2<f32>(temp, temp)) - vPos;
+    # cMass =
+    #   (cMass / vec2<f32>(f32(cMassCount), f32(cMassCount))) - vPos;
   }
-  if (cVelCount > 0) {
-    cVel = cVel / vec2<f32>(f32(cVelCount), f32(cVelCount));
+  if (cVelCount > 0u) {
+    var temp : f32 = f32(cVelCount);
+    cVel = cVel / vec2<f32>(temp, temp);
+    # cVel = cVel / vec2<f32>(f32(cVelCount), f32(cVelCount));
   }
   vVel = vVel + (cMass * params.rule1Scale) + (colVel * params.rule2Scale) +
       (cVel * params.rule3Scale);
