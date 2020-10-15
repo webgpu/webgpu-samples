@@ -1,5 +1,4 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { createTextureFromImage } from '../helpers';
 import { cubeVertexArray, cubeVertexSize, cubeUVOffset, cubePositionOffset } from '../cube';
 import glslangModule from '../glslang';
 
@@ -144,7 +143,22 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const cubeTexture = await createTextureFromImage(device, 'assets/img/Di-3d.png', GPUTextureUsage.SAMPLED);
+  let cubeTexture: GPUTexture;
+  {
+    const img = document.createElement('img');
+    img.src = 'assets/img/Di-3d.png';
+    await img.decode();
+    const imageBitmap = await createImageBitmap(img);
+
+    cubeTexture = device.createTexture({
+      size: [imageBitmap.width, imageBitmap.height, 1],
+      format: "rgba8unorm",
+      usage: GPUTextureUsage.SAMPLED | GPUTextureUsage.COPY_DST,
+    });
+    device.defaultQueue.copyImageBitmapToTexture(
+      { imageBitmap }, { texture: cubeTexture },
+      [imageBitmap.width, imageBitmap.height, 1]);
+  }
 
   const sampler = device.createSampler({
     magFilter: "linear",
