@@ -25,27 +25,29 @@ CodeMirror.commands.save = function(editor: ShaderEditor) {
     editor.updatedSource(editor.getValue());
 }
 
-setShaderRegisteredCallback(async (source, updatedSource) => {
-    const el = document.createElement('div');
-    shaderEditor.appendChild(el);
-    el.className = 'shaderEditor';
+if (navigator.gpu) {
+    setShaderRegisteredCallback(async (source, updatedSource) => {
+        const el = document.createElement('div');
+        shaderEditor.appendChild(el);
+        el.className = 'shaderEditor';
 
-    const configuration: CodeMirror.EditorConfiguration = {
-        value: source,
-        lineNumbers: true,
-        lineWrapping: true,
-        theme: 'monokai',
-    };
-    const editor = CodeMirror(el, configuration) as ShaderEditor;
-    editor.updatedSource = updatedSource;
+        const configuration: CodeMirror.EditorConfiguration = {
+            value: source,
+            lineNumbers: true,
+            lineWrapping: true,
+            theme: 'monokai',
+        };
+        const editor = CodeMirror(el, configuration) as ShaderEditor;
+        editor.updatedSource = updatedSource;
 
-    const codeMirrorContainer = el.firstElementChild;
-    const updateButton = document.createElement('button');
-    updateButton.className = "updateShaderBtn";
-    updateButton.innerHTML = "Update shader";
-    updateButton.onclick = () => updatedSource(editor.getValue());
-    codeMirrorContainer.prepend(updateButton);
-});
+        const codeMirrorContainer = el.firstElementChild;
+        const updateButton = document.createElement('button');
+        updateButton.className = "updateShaderBtn";
+        updateButton.innerHTML = "Update shader";
+        updateButton.onclick = () => updatedSource(editor.getValue());
+        codeMirrorContainer.prepend(updateButton);
+    });
+}
 
 let currentCanvas = undefined;
 async function loadExample(hashName: string) {
