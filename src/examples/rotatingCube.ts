@@ -211,7 +211,7 @@ void main() {
 
 export const wgslShaders = {
   vertex: `
-type Uniforms = [[block]] struct {
+[[block]] struct Uniforms {
   [[offset(0)]] modelViewProjectionMatrix : mat4x4<f32>;
 };
 
