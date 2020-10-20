@@ -382,11 +382,11 @@ export const glslShaders = {
 
 export const wgslShaders = {
   vertex: `
-type Time = [[block]] struct {
+[[block]] struct Time {
   [[offset(0)]] value : f32;
 };
 
-type Uniforms = [[block]] struct {
+[[block]] struct Uniforms {
   [[offset(0)]] scale : f32;
   [[offset(4)]] offsetX : f32;
   [[offset(8)]] offsetY : f32;
