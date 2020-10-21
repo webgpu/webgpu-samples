@@ -367,7 +367,7 @@ fn main() -> void {
   [[offset(0)]] pos : vec2<f32>;
   [[offset(8)]] vel : vec2<f32>;
 };
-[[block]] struct SimParticles {
+[[block]] struct SimParams {
   [[offset(0)]] deltaT : f32;
   [[offset(4)]] rule1Distance : f32;
   [[offset(8)]] rule2Distance : f32;
