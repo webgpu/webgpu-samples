@@ -10,7 +10,7 @@ deploy:
   skip_cleanup: true
   github_token: $GITHUB_TOKEN
   on:
-    branch: master
+    branch: main
 
 before_deploy:
   - sed -i '/dist\//d' .gitignore
