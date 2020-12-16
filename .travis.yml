@@ -1,0 +1,22 @@
+language: node_js
+node_js:
+  - 'node'
+
+script:
+  - npm run build
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  on:
+    branch: main
+
+before_deploy:
+  - sed -i '/dist\//d' .gitignore
+  - sed -i '/index\.html/d' .gitignore
+
+env:
+  global:
+    - ENCRYPTION_LABEL: 'd065aa4b53f1'
+    - COMMIT_AUTHOR_EMAIL: travis-ci@w3.org

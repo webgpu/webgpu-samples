@@ -1,0 +1,32 @@
+{
+  "name": "webgpu-samples",
+  "version": "0.0.2",
+  "description": "Samples using the Web GPU API",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/austinEng/webgpu-samples.git"
+  },
+  "scripts": {
+    "build": "rm -rf dist gen && webpack --config build/webpack.config.js",
+    "start": "webpack --config build/webpack.config.js --watch --progress",
+    "serve": "http-server"
+  },
+  "dependencies": {
+    "codemirror": "^5.57.0",
+    "dat.gui": "^0.7.6",
+    "gl-matrix": "^3.2.1",
+    "webgpu-live-shader-module": "austinEng/webgpu-live-shader-module#c77fc714",
+    "webgpu-shader-module-transform": "austinEng/webgpu-shader-module-transform#d332ac20"
+  },
+  "devDependencies": {
+    "@types/codemirror": "0.0.97",
+    "@webgpu/types": "^0.0.31",
+    "html-webpack-plugin": "^4.0.1",
+    "http-server": "^0.12.3",
+    "ts-loader": "^6.2.2",
+    "typescript": "^3.8.3",
+    "webpack": "^4.42.0",
+    "webpack-cli": "^3.3.11"
+  }
+}

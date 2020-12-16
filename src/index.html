@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="description" content="The WebGPU Samples are a set of WGSL and SPIR-V compatible samples demonstrating the use of the WebGPU API">
+    <meta name="author" content="Austin Eng">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title><%= htmlWebpackPlugin.options.title %></title>
+    <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css" rel="stylesheet">
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        display: flex;
+        font-family: 'Inconsolata', monospace;
+      }
+
+      .container {
+        padding-left: 15px;
+        padding-right: 15px;
+      }
+
+      a {
+        text-decoration: none;
+      }
+
+      a:link,
+      a:visited {
+        color: #045b88;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      #panel {
+        position: relative;
+        left: 0px;
+        flex: 1;
+        max-width: 300px;
+        height: 100vh;
+        overflow: auto;
+        background: #fafafa;
+      }
+
+      .example-link {
+        display: block;
+        padding: 0.3em 0;
+      }
+
+      @media only screen and (max-width: 768px) {
+
+        /* More padding on mobile for easier touch screen use */
+        .example-link {
+          padding: 0.5em 0;
+        }
+      }
+
+      .example-link.selected {
+        color: #ff0000;
+      }
+
+      main {
+        position: relative;
+        flex: 1;
+        height: 100vh;
+        overflow: auto;
+        background: black;
+        color: #ddd;
+      }
+
+      main.no-demo {
+        background: white;
+      }
+
+      #intro-text {
+        display: none;
+      }
+
+      main.no-demo #intro-text {
+        display: block;
+        color: #222;
+      }
+
+      #canvas-container {
+        text-align: center;
+        position: relative;
+        margin-top: 10px;
+      }
+
+      .CodeMirror {
+        height: auto !important;
+        margin: 1em 0;
+      }
+
+      .CodeMirror-scroll {
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .shaderEditor::before {
+        content: "Edit me! (Save to update)";
+        position: relative;
+        display: block;
+        font-weight: bold;
+        text-align: right;
+        margin-bottom: -0.5em;
+        margin-right: 5px;
+      }
+
+      .updateShaderBtn {
+        position: relative;
+        left: 100%;
+        transform: translateX(-108%);
+        margin-right: 10px;
+        margin-top: 5px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="panel">
+      <div class="container">
+        <h1 id="title"><a href="./#" class="nav-link"><%= htmlWebpackPlugin.options.title %></a></h1>
+        <a href="https://github.com/austinEng/webgpu-samples">Github</a>
+        <hr />
+        <p>SPIR-V based samples</p>
+        <% for (example of htmlWebpackPlugin.options.examples) { %>
+          <a class="example-link nav-link" href="?wgsl=0#<%= example %>"><%= example %></a>
+        <% } %>
+        <hr />
+        <p>WGSL based samples</p>
+        <% for (example of htmlWebpackPlugin.options.examples) { %>
+          <a class="example-link nav-link" href="?wgsl=1#<%= example %>"><%= example %></a>
+        <% } %>
+      </div>
+    </div>
+    <main class="container">
+      <div id="intro-text">
+        <h1></h1>
+        <p>The WebGPU Samples are a set of WGSL and SPIR-V compatible samples demonstrating the use of the <a href="//webgpu.dev">WebGPU API</a>.
+        Please see the current implementation status at <a href="//webgpu.io">webgpu.io</a>. SPIR-V compatible samples will be removed when WGSL is fully implemented.</p>
+
+        <p>These samples run in Chrome Canary behind the flag "--enable-unsafe-webgpu". If something isn't working, please file an
+        issue <a href="https://github.com/austinEng/webgpu-samples/issues">here</a>.</p>
+
+        <p id="not-supported" style="display: none">
+          WebGPU is not supported on this platform yet!
+        </p>
+      </div>
+      <div id="description-container"></div>
+      <div id="canvas-container"></div>
+      <div id="source-container">
+        <div id="shader-editor"></div>
+        <div id="full-source"></div>
+      </div>
+    </main>
+  </body>
+</html>
