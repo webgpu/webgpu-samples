@@ -9,4 +9,5 @@ module.exports = [
     './examples/computeBoids',
     './examples/animometer',
     './examples/videoUploading',
+    './examples/imageBlur',
 ];
