@@ -204,7 +204,7 @@ export function makeBasicExample(props: {
           <a
             target="_blank"
             rel="noreferrer"
-            href={`https://github.com/austinEng/webgpu-samples/tree/main/src/examples/${props.slug}.ts`}
+            href={`https://github.com/austinEng/webgpu-samples/tree/main/src/pages/samples/${props.slug}.ts`}
           >
             See it on Github!
           </a>
