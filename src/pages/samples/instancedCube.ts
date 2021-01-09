@@ -1,5 +1,10 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../../cube';
+import {
+  cubeVertexArray,
+  cubeVertexSize,
+  cubeColorOffset,
+  cubePositionOffset,
+} from '../../cube';
 import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
 
@@ -9,14 +14,14 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
-  let projectionMatrix = mat4.create();
+  const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
   const context = canvas.getContext('gpupresent');
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm"
+    format: 'bgra8unorm',
   });
 
   const verticesBuffer = device.createBuffer({
@@ -35,9 +40,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: useWGSL
@@ -46,34 +51,34 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
     depthStencilState: {
       depthWriteEnabled: true,
-      depthCompare: "less",
-      format: "depth24plus-stencil8",
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
     },
     vertexState: {
       vertexBuffers: [
         {
           arrayStride: cubeVertexSize,
-          stepMode: "vertex",
+          stepMode: 'vertex',
           attributes: [
             {
               // position
               shaderLocation: 0,
               offset: cubePositionOffset,
-              format: "float4",
+              format: 'float4',
             },
             {
               // color
               shaderLocation: 1,
               offset: cubeColorOffset,
-              format: "float4",
+              format: 'float4',
             },
           ],
         },
@@ -81,12 +86,12 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     },
 
     rasterizationState: {
-      cullMode: "back",
+      cullMode: 'back',
     },
 
     colorStates: [
       {
-        format: "bgra8unorm",
+        format: 'bgra8unorm',
       },
     ],
   });
@@ -95,27 +100,29 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depth: 1
+      depth: 1,
     },
-    format: "depth24plus-stencil8",
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT
+    format: 'depth24plus-stencil8',
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [{
-      // attachment is acquired in render loop.
-      attachment: undefined,
+    colorAttachments: [
+      {
+        // attachment is acquired in render loop.
+        attachment: undefined,
 
-      loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
-    }],
+        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+      },
+    ],
     depthStencilAttachment: {
       attachment: depthTexture.createView(),
 
       depthLoadValue: 1.0,
-      depthStoreOp: "store",
+      depthStoreOp: 'store',
       stencilLoadValue: 0,
-      stencilStoreOp: "store",
-    }
+      stencilStoreOp: 'store',
+    },
   };
 
   const xCount = 4;
@@ -132,45 +139,60 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      }
-    }],
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+        },
+      },
+    ],
   });
 
-  let modelMatrices = new Array(numInstances);
-  let mvpMatricesData = new Float32Array(matrixFloatCount * numInstances);
+  const modelMatrices = new Array(numInstances);
+  const mvpMatricesData = new Float32Array(matrixFloatCount * numInstances);
 
-  let step = 4.0;
+  const step = 4.0;
 
   let m = 0;
   for (let x = 0; x < xCount; x++) {
     for (let y = 0; y < yCount; y++) {
       modelMatrices[m] = mat4.create();
-      mat4.translate(modelMatrices[m], modelMatrices[m], vec3.fromValues(
-        step * (x - xCount / 2 + 0.5),
-        step * (y - yCount / 2 + 0.5),
-        0
-      ));
+      mat4.translate(
+        modelMatrices[m],
+        modelMatrices[m],
+        vec3.fromValues(
+          step * (x - xCount / 2 + 0.5),
+          step * (y - yCount / 2 + 0.5),
+          0
+        )
+      );
       m++;
     }
   }
 
-  let viewMatrix = mat4.create();
+  const viewMatrix = mat4.create();
   mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -12));
 
-  let tmpMat4 = mat4.create();
+  const tmpMat4 = mat4.create();
 
   function updateTransformationMatrix() {
+    const now = Date.now() / 1000;
 
-    let now = Date.now() / 1000;
-
-    let m = 0, i = 0;
+    let m = 0,
+      i = 0;
     for (let x = 0; x < xCount; x++) {
       for (let y = 0; y < yCount; y++) {
-        mat4.rotate(tmpMat4, modelMatrices[i], 1, vec3.fromValues(Math.sin((x + 0.5) * now), Math.cos((y + 0.5) * now), 0));
+        mat4.rotate(
+          tmpMat4,
+          modelMatrices[i],
+          1,
+          vec3.fromValues(
+            Math.sin((x + 0.5) * now),
+            Math.cos((y + 0.5) * now),
+            0
+          )
+        );
 
         mat4.multiply(tmpMat4, viewMatrix, tmpMat4);
         mat4.multiply(tmpMat4, projectionMatrix, tmpMat4);
@@ -193,7 +215,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       mvpMatricesData.byteLength
     );
 
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
+    renderPassDescriptor.colorAttachments[0].attachment = swapChain
+      .getCurrentTexture()
+      .createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -206,7 +230,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.endPass();
 
     device.defaultQueue.submit([commandEncoder.finish()]);
-  }
+  };
 }
 
 const glslShaders = {

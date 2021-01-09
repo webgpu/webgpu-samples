@@ -1,6 +1,11 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { makeBasicExample } from '../../components/basicExample';
-import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../../cube';
+import {
+  cubeVertexArray,
+  cubeVertexSize,
+  cubeColorOffset,
+  cubePositionOffset,
+} from '../../cube';
 import glslangModule from '../../glslang';
 
 async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
@@ -9,14 +14,14 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
-  let projectionMatrix = mat4.create();
+  const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
-  const context = canvas.getContext("gpupresent");
+  const context = canvas.getContext('gpupresent');
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm",
+    format: 'bgra8unorm',
   });
 
   const verticesBuffer = device.createBuffer({
@@ -35,9 +40,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: useWGSL
@@ -46,16 +51,16 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
     depthStencilState: {
       depthWriteEnabled: true,
-      depthCompare: "less",
-      format: "depth24plus-stencil8",
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
     },
     vertexState: {
       vertexBuffers: [
@@ -66,13 +71,13 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
               // position
               shaderLocation: 0,
               offset: cubePositionOffset,
-              format: "float4",
+              format: 'float4',
             },
             {
               // color
               shaderLocation: 1,
               offset: cubeColorOffset,
-              format: "float4",
+              format: 'float4',
             },
           ],
         },
@@ -80,12 +85,12 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     },
 
     rasterizationState: {
-      cullMode: "back",
+      cullMode: 'back',
     },
 
     colorStates: [
       {
-        format: "bgra8unorm",
+        format: 'bgra8unorm',
       },
     ],
   });
@@ -96,7 +101,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       height: canvas.height,
       depth: 1,
     },
-    format: "depth24plus-stencil8",
+    format: 'depth24plus-stencil8',
     usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
   });
 
@@ -113,9 +118,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       attachment: depthTexture.createView(),
 
       depthLoadValue: 1.0,
-      depthStoreOp: "store",
+      depthStoreOp: 'store',
       stencilLoadValue: 0,
-      stencilStoreOp: "store",
+      stencilStoreOp: 'store',
     },
   };
 
@@ -139,9 +144,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   function getTransformationMatrix() {
-    let viewMatrix = mat4.create();
+    const viewMatrix = mat4.create();
     mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -5));
-    let now = Date.now() / 1000;
+    const now = Date.now() / 1000;
     mat4.rotate(
       viewMatrix,
       viewMatrix,
@@ -149,7 +154,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       vec3.fromValues(Math.sin(now), Math.cos(now), 0)
     );
 
-    let modelViewProjectionMatrix = mat4.create();
+    const modelViewProjectionMatrix = mat4.create();
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
 
     return modelViewProjectionMatrix as Float32Array;

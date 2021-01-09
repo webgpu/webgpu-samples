@@ -1,5 +1,11 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubeUVOffset, cubePositionOffset } from '../../cube';
+import {
+  cubeVertexArray,
+  cubeVertexSize,
+  cubeColorOffset,
+  cubeUVOffset,
+  cubePositionOffset,
+} from '../../cube';
 import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
 
@@ -9,14 +15,14 @@ async function init(canvas: HTMLCanvasElement) {
   const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
-  let projectionMatrix = mat4.create();
+  const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
   const context = canvas.getContext('gpupresent');
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm",
+    format: 'bgra8unorm',
     usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.COPY_SRC,
   });
 
@@ -32,23 +38,23 @@ async function init(canvas: HTMLCanvasElement) {
     vertexStage: {
       module: device.createShaderModule({
         code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+        transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
       }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: device.createShaderModule({
         code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
       }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
     depthStencilState: {
       depthWriteEnabled: true,
-      depthCompare: "less",
-      format: "depth24plus-stencil8",
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
     },
     vertexState: {
       vertexBuffers: [
@@ -59,19 +65,19 @@ async function init(canvas: HTMLCanvasElement) {
               // position
               shaderLocation: 0,
               offset: cubePositionOffset,
-              format: "float4",
+              format: 'float4',
             },
             {
               // color
               shaderLocation: 1,
               offset: cubeColorOffset,
-              format: "float4",
+              format: 'float4',
             },
             {
               // uv
               shaderLocation: 2,
               offset: cubeUVOffset,
-              format: "float2",
+              format: 'float2',
             },
           ],
         },
@@ -79,35 +85,37 @@ async function init(canvas: HTMLCanvasElement) {
     },
 
     rasterizationState: {
-      cullMode: "back",
+      cullMode: 'back',
     },
 
     colorStates: [
       {
-        format: "bgra8unorm",
+        format: 'bgra8unorm',
       },
     ],
   });
 
   const depthTexture = device.createTexture({
     size: { width: canvas.width, height: canvas.height, depth: 1 },
-    format: "depth24plus-stencil8",
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT
+    format: 'depth24plus-stencil8',
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [{
-      attachment: undefined, // Attachment is set later
-      loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
-    }],
+    colorAttachments: [
+      {
+        attachment: undefined, // Attachment is set later
+        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+      },
+    ],
     depthStencilAttachment: {
       attachment: depthTexture.createView(),
 
       depthLoadValue: 1.0,
-      depthStoreOp: "store",
+      depthStoreOp: 'store',
       stencilLoadValue: 0,
-      stencilStoreOp: "store",
-    }
+      stencilStoreOp: 'store',
+    },
   };
 
   const uniformBufferSize = 4 * 16; // 4x4 matrix
@@ -118,38 +126,47 @@ async function init(canvas: HTMLCanvasElement) {
 
   const cubeTexture = device.createTexture({
     size: { width: canvas.width, height: canvas.height, depth: 1 },
-    format: "bgra8unorm",
+    format: 'bgra8unorm',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
   });
 
   const sampler = device.createSampler({
-    magFilter: "linear",
-    minFilter: "linear",
+    magFilter: 'linear',
+    minFilter: 'linear',
   });
 
   const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+        },
       },
-    }, {
-      binding: 1,
-      resource: sampler,
-    }, {
-      binding: 2,
-      resource: cubeTexture.createView(),
-    }],
+      {
+        binding: 1,
+        resource: sampler,
+      },
+      {
+        binding: 2,
+        resource: cubeTexture.createView(),
+      },
+    ],
   });
 
   function getTransformationMatrix() {
-    let viewMatrix = mat4.create();
+    const viewMatrix = mat4.create();
     mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -4));
-    let now = Date.now() / 1000;
-    mat4.rotate(viewMatrix, viewMatrix, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
+    const now = Date.now() / 1000;
+    mat4.rotate(
+      viewMatrix,
+      viewMatrix,
+      1,
+      vec3.fromValues(Math.sin(now), Math.cos(now), 0)
+    );
 
-    let modelViewProjectionMatrix = mat4.create();
+    const modelViewProjectionMatrix = mat4.create();
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
 
     return modelViewProjectionMatrix as Float32Array;
@@ -177,18 +194,22 @@ async function init(canvas: HTMLCanvasElement) {
     passEncoder.draw(36, 1, 0, 0);
     passEncoder.endPass();
 
-    commandEncoder.copyTextureToTexture({
-      texture: swapChainTexture,
-    }, {
-      texture: cubeTexture,
-    }, {
-      width: canvas.width,
-      height: canvas.height,
-      depth: 1,
-    });
+    commandEncoder.copyTextureToTexture(
+      {
+        texture: swapChainTexture,
+      },
+      {
+        texture: cubeTexture,
+      },
+      {
+        width: canvas.width,
+        height: canvas.height,
+        depth: 1,
+      }
+    );
 
     device.defaultQueue.submit([commandEncoder.finish()]);
-  }
+  };
 }
 
 const glslShaders = {
@@ -268,12 +289,13 @@ fn main() -> void {
   return;
 }
 `,
-}
+};
 
 export default makeBasicExample({
   name: 'Fractal Cube',
-  description: 'This example uses the previous frame\'s rendering result \
-                as the source texture for the next frame.',
+  description:
+    "This example uses the previous frame's rendering result \
+                as the source texture for the next frame.",
   slug: 'fractalCube',
   init,
   wgslShaders,

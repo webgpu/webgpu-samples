@@ -6,9 +6,7 @@ declare module '*.module.css' {
   export default styles;
 }
 interface HTMLCanvasElement extends HTMLElement {
-  getContext(
-    contextId: "gpupresent"
-  ): GPUCanvasContext | null;
+  getContext(contextId: 'gpupresent'): GPUCanvasContext | null;
 }
 
 declare const __SOURCE__: string;
@@ -16,10 +14,10 @@ declare const __SOURCE__: string;
 // Defined by webpack.
 declare namespace NodeJS {
   interface Process {
-    readonly browser: boolean
+    readonly browser: boolean;
   }
 
   interface ProcessEnv {
-    readonly NODE_ENV: 'development' | 'production' | 'test'
+    readonly NODE_ENV: 'development' | 'production' | 'test';
   }
 }

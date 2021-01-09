@@ -1,6 +1,11 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { makeBasicExample } from '../../components/basicExample';
-import { cubeVertexArray, cubeVertexSize, cubeUVOffset, cubePositionOffset } from '../../cube';
+import {
+  cubeVertexArray,
+  cubeVertexSize,
+  cubeUVOffset,
+  cubePositionOffset,
+} from '../../cube';
 import glslangModule from '../../glslang';
 
 async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
@@ -9,14 +14,14 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
-  let projectionMatrix = mat4.create();
+  const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
   const context = canvas.getContext('gpupresent');
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm",
+    format: 'bgra8unorm',
   });
 
   const verticesBuffer = device.createBuffer({
@@ -28,25 +33,31 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   verticesBuffer.unmap();
 
   const bindGroupLayout = device.createBindGroupLayout({
-    entries: [{
-      // Transform
-      binding: 0,
-      visibility: GPUShaderStage.VERTEX,
-      type: "uniform-buffer"
-    }, {
-      // Sampler
-      binding: 1,
-      visibility: GPUShaderStage.FRAGMENT,
-      type: "sampler"
-    }, {
-      // Texture view
-      binding: 2,
-      visibility: GPUShaderStage.FRAGMENT,
-      type: "sampled-texture"
-    }]
+    entries: [
+      {
+        // Transform
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        type: 'uniform-buffer',
+      },
+      {
+        // Sampler
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        type: 'sampler',
+      },
+      {
+        // Texture view
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
+        type: 'sampled-texture',
+      },
+    ],
   });
 
-  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+  const pipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [bindGroupLayout],
+  });
 
   const pipeline = device.createRenderPipeline({
     layout: pipelineLayout,
@@ -58,9 +69,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: useWGSL
@@ -69,16 +80,16 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
     depthStencilState: {
       depthWriteEnabled: true,
-      depthCompare: "less",
-      format: "depth24plus-stencil8",
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
     },
     vertexState: {
       vertexBuffers: [
@@ -89,13 +100,13 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
               // position
               shaderLocation: 0,
               offset: cubePositionOffset,
-              format: "float4",
+              format: 'float4',
             },
             {
               // uv
               shaderLocation: 1,
               offset: cubeUVOffset,
-              format: "float2",
+              format: 'float2',
             },
           ],
         },
@@ -103,36 +114,38 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     },
 
     rasterizationState: {
-      cullMode: "back",
+      cullMode: 'back',
     },
 
     colorStates: [
       {
-        format: "bgra8unorm",
+        format: 'bgra8unorm',
       },
     ],
   });
 
   const depthTexture = device.createTexture({
     size: { width: canvas.width, height: canvas.height, depth: 1 },
-    format: "depth24plus-stencil8",
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT
+    format: 'depth24plus-stencil8',
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [{
-      attachment: undefined, // Assigned later
+    colorAttachments: [
+      {
+        attachment: undefined, // Assigned later
 
-      loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
-    }],
+        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+      },
+    ],
     depthStencilAttachment: {
       attachment: depthTexture.createView(),
 
       depthLoadValue: 1.0,
-      depthStoreOp: "store",
+      depthStoreOp: 'store',
       stencilLoadValue: 0,
-      stencilStoreOp: "store",
-    }
+      stencilStoreOp: 'store',
+    },
   };
 
   const uniformBufferSize = 4 * 16; // 4x4 matrix
@@ -150,42 +163,53 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
     cubeTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
-      format: "rgba8unorm",
+      format: 'rgba8unorm',
       usage: GPUTextureUsage.SAMPLED | GPUTextureUsage.COPY_DST,
     });
     device.defaultQueue.copyImageBitmapToTexture(
-      { imageBitmap }, { texture: cubeTexture },
-      [imageBitmap.width, imageBitmap.height, 1]);
+      { imageBitmap },
+      { texture: cubeTexture },
+      [imageBitmap.width, imageBitmap.height, 1]
+    );
   }
 
   const sampler = device.createSampler({
-    magFilter: "linear",
-    minFilter: "linear",
+    magFilter: 'linear',
+    minFilter: 'linear',
   });
 
   const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+        },
       },
-    }, {
-      binding: 1,
-      resource: sampler,
-    }, {
-      binding: 2,
-      resource: cubeTexture.createView(),
-    }],
+      {
+        binding: 1,
+        resource: sampler,
+      },
+      {
+        binding: 2,
+        resource: cubeTexture.createView(),
+      },
+    ],
   });
 
   function getTransformationMatrix() {
-    let viewMatrix = mat4.create();
+    const viewMatrix = mat4.create();
     mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -4));
-    let now = Date.now() / 1000;
-    mat4.rotate(viewMatrix, viewMatrix, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
+    const now = Date.now() / 1000;
+    mat4.rotate(
+      viewMatrix,
+      viewMatrix,
+      1,
+      vec3.fromValues(Math.sin(now), Math.cos(now), 0)
+    );
 
-    let modelViewProjectionMatrix = mat4.create();
+    const modelViewProjectionMatrix = mat4.create();
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
 
     return modelViewProjectionMatrix as Float32Array;
@@ -200,7 +224,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       transformationMatrix.byteOffset,
       transformationMatrix.byteLength
     );
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
+    renderPassDescriptor.colorAttachments[0].attachment = swapChain
+      .getCurrentTexture()
+      .createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -210,8 +236,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.draw(36, 1, 0, 0);
     passEncoder.endPass();
     device.defaultQueue.submit([commandEncoder.finish()]);
-  }
-
+  };
 }
 
 const glslShaders = {
