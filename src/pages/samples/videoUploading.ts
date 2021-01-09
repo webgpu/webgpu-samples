@@ -15,8 +15,9 @@ async function init(canvas: HTMLCanvasElement) {
   const glslang = await glslangModule();
   const context = canvas.getContext('gpupresent');
 
-  const swapChainFormat = "bgra8unorm";
+  const swapChainFormat = 'bgra8unorm';
 
+  // prettier-ignore
   const rectVerts = new Float32Array([
     1.0,  1.0, 0.0, 1.0, 0.0,
     1.0, -1.0, 0.0, 1.0, 1.0,
@@ -43,44 +44,51 @@ async function init(canvas: HTMLCanvasElement) {
     vertexStage: {
       module: device.createShaderModule({
         code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+        transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
       }),
-      entryPoint: "main"
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: device.createShaderModule({
         code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
       }),
-      entryPoint: "main"
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
     vertexState: {
-      vertexBuffers: [{
-        arrayStride: 20,
-        attributes: [{
-          // position
-          shaderLocation: 0,
-          offset: 0,
-          format: "float3"
-        }, {
-          // uv
-          shaderLocation: 1,
-          offset: 12,
-          format: "float2"
-        }]
-      }],
+      vertexBuffers: [
+        {
+          arrayStride: 20,
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: 0,
+              format: 'float3',
+            },
+            {
+              // uv
+              shaderLocation: 1,
+              offset: 12,
+              format: 'float2',
+            },
+          ],
+        },
+      ],
     },
 
-    colorStates: [{
-      format: swapChainFormat,
-    }],
+    colorStates: [
+      {
+        format: swapChainFormat,
+      },
+    ],
   });
 
   const sampler = device.createSampler({
-    magFilter: "linear",
-    minFilter: "linear",
+    magFilter: 'linear',
+    minFilter: 'linear',
   });
 
   const videoTexture = device.createTexture({
@@ -95,31 +103,36 @@ async function init(canvas: HTMLCanvasElement) {
 
   const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: sampler,
-    }, {
-      binding: 1,
-      resource: videoTexture.createView(),
-    }],
+    entries: [
+      {
+        binding: 0,
+        resource: sampler,
+      },
+      {
+        binding: 1,
+        resource: videoTexture.createView(),
+      },
+    ],
   });
 
   return function frame() {
-    createImageBitmap(video).then(videoFrame => {
+    createImageBitmap(video).then((videoFrame) => {
       device.defaultQueue.copyImageBitmapToTexture(
-        {imageBitmap:videoFrame, origin: {x:0, y: 0} },
-        {texture: videoTexture},
-        {width: video.videoWidth, height:video.videoHeight, depth: 1}
+        { imageBitmap: videoFrame, origin: { x: 0, y: 0 } },
+        { texture: videoTexture },
+        { width: video.videoWidth, height: video.videoHeight, depth: 1 }
       );
 
       const commandEncoder = device.createCommandEncoder();
       const textureView = swapChain.getCurrentTexture().createView();
 
       const renderPassDescriptor = {
-        colorAttachments: [{
-          attachment: textureView,
-          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-        }],
+        colorAttachments: [
+          {
+            attachment: textureView,
+            loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          },
+        ],
       };
 
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -130,7 +143,7 @@ async function init(canvas: HTMLCanvasElement) {
       passEncoder.endPass();
       device.defaultQueue.submit([commandEncoder.finish()]);
     });
-  }
+  };
 }
 
 const glslShaders = {

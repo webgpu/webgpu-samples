@@ -12,7 +12,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm"
+    format: 'bgra8unorm',
   });
 
   const renderPipeline = device.createRenderPipeline({
@@ -23,9 +23,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: useWGSL
@@ -34,17 +34,17 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
 
     depthStencilState: {
       depthWriteEnabled: true,
-      depthCompare: "less",
-      format: "depth24plus-stencil8",
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
     },
 
     vertexState: {
@@ -52,32 +52,32 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
         {
           // instanced particles buffer
           arrayStride: 4 * 4,
-          stepMode: "instance",
+          stepMode: 'instance',
           attributes: [
             {
               // instance position
               shaderLocation: 0,
               offset: 0,
-              format: "float2",
+              format: 'float2',
             },
             {
               // instance velocity
               shaderLocation: 1,
               offset: 2 * 4,
-              format: "float2",
+              format: 'float2',
             },
           ],
         },
         {
           // vertex buffer
           arrayStride: 2 * 4,
-          stepMode: "vertex",
+          stepMode: 'vertex',
           attributes: [
             {
               // vertex positions
               shaderLocation: 2,
               offset: 0,
-              format: "float2",
+              format: 'float2',
             },
           ],
         },
@@ -86,7 +86,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
     colorStates: [
       {
-        format: "bgra8unorm",
+        format: 'bgra8unorm',
       },
     ],
   });
@@ -99,33 +99,42 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.compute(numParticles),
-            transform: (glsl) => glslang.compileGLSL(glsl, "compute"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'compute'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
   });
 
   const depthTexture = device.createTexture({
     size: { width: canvas.width, height: canvas.height, depth: 1 },
-    format: "depth24plus-stencil8",
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT
+    format: 'depth24plus-stencil8',
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [{
-      attachment: undefined,  // Assigned later
-      loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-    }],
+    colorAttachments: [
+      {
+        attachment: undefined, // Assigned later
+        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+      },
+    ],
     depthStencilAttachment: {
       attachment: depthTexture.createView(),
       depthLoadValue: 1.0,
-      depthStoreOp: "store",
+      depthStoreOp: 'store',
       stencilLoadValue: 0,
-      stencilStoreOp: "store",
-    }
+      stencilStoreOp: 'store',
+    },
   };
 
-  const vertexBufferData = new Float32Array([-0.01, -0.02, 0.01, -0.02, 0.00, 0.02]);
+  const vertexBufferData = new Float32Array([
+    -0.01,
+    -0.02,
+    0.01,
+    -0.02,
+    0.0,
+    0.02,
+  ]);
   const verticesBuffer = device.createBuffer({
     size: vertexBufferData.byteLength,
     usage: GPUBufferUsage.VERTEX,
@@ -135,13 +144,13 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   verticesBuffer.unmap();
 
   const simParamData = new Float32Array([
-    0.04,  // deltaT;
-    0.1,   // rule1Distance;
+    0.04, // deltaT;
+    0.1, // rule1Distance;
     0.025, // rule2Distance;
     0.025, // rule3Distance;
-    0.02,  // rule1Scale;
-    0.05,  // rule2Scale;
-    0.005  // rule3Scale;
+    0.02, // rule1Scale;
+    0.05, // rule2Scale;
+    0.005, // rule3Scale;
   ]);
   const simParamBuffer = device.createBuffer({
     size: simParamData.byteLength,
@@ -167,41 +176,49 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
       mappedAtCreation: true,
     });
-    new Float32Array(particleBuffers[i].getMappedRange()).set(initialParticleData);
+    new Float32Array(particleBuffers[i].getMappedRange()).set(
+      initialParticleData
+    );
     particleBuffers[i].unmap();
   }
 
   for (let i = 0; i < 2; ++i) {
     particleBindGroups[i] = device.createBindGroup({
       layout: computePipeline.getBindGroupLayout(0),
-      entries: [{
-        binding: 0,
-        resource: {
-          buffer: simParamBuffer,
-          offset: 0,
-          size: simParamData.byteLength
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: simParamBuffer,
+            offset: 0,
+            size: simParamData.byteLength,
+          },
         },
-      }, {
-        binding: 1,
-        resource: {
-          buffer: particleBuffers[i],
-          offset: 0,
-          size: initialParticleData.byteLength,
+        {
+          binding: 1,
+          resource: {
+            buffer: particleBuffers[i],
+            offset: 0,
+            size: initialParticleData.byteLength,
+          },
         },
-      }, {
-        binding: 2,
-        resource: {
-          buffer: particleBuffers[(i + 1) % 2],
-          offset: 0,
-          size: initialParticleData.byteLength,
+        {
+          binding: 2,
+          resource: {
+            buffer: particleBuffers[(i + 1) % 2],
+            offset: 0,
+            size: initialParticleData.byteLength,
+          },
         },
-      }],
+      ],
     });
   }
 
   let t = 0;
   return function frame() {
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
+    renderPassDescriptor.colorAttachments[0].attachment = swapChain
+      .getCurrentTexture()
+      .createView();
 
     const commandEncoder = device.createCommandEncoder();
     {
@@ -222,7 +239,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     device.defaultQueue.submit([commandEncoder.finish()]);
 
     ++t;
-  }
+  };
 }
 
 const glslShaders = {
@@ -456,7 +473,8 @@ fn main() -> void {
 
 export default makeBasicExample({
   name: 'Compute Boids',
-  description: 'A GPU compute particle simulation that mimics \
+  description:
+    'A GPU compute particle simulation that mimics \
                 the flocking behavior of birds. A compute shader updates \
                 two ping-pong buffers which store particle data. The data \
                 is used to draw instanced particles.',

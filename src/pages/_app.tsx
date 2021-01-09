@@ -8,7 +8,10 @@ import styles from './MainLayout.module.css';
 
 const title = 'WebGPU Samples';
 
-function MainLayout({ Component, pageProps }: AppProps) {
+const MainLayout: React.FunctionComponent<AppProps> = ({
+  Component,
+  pageProps,
+}) => {
   const router = useRouter();
   const samplesNames = [
     'helloTriangle',
@@ -29,20 +32,23 @@ function MainLayout({ Component, pageProps }: AppProps) {
     const wgsl = oldPathSyntaxMatch[1];
     const slug = oldPathSyntaxMatch[2];
     router.replace(`/samples/${slug}/${wgsl}`);
-    return <></>
+    return <></>;
   }
 
   const makeSampleList = (useWGSL: boolean) => {
-    return samplesNames.map(slug => {
-      const className = (
+    return samplesNames.map((slug) => {
+      const className =
         router.pathname === `/samples/${slug}` &&
         (router.query['wgsl'] === '0') === !useWGSL
-      ) ? styles.selected : undefined;
+          ? styles.selected
+          : undefined;
       return (
         <li key={slug} className={className}>
-          <Link href={`/samples/${slug}/?wgsl=${useWGSL ? '1' : '0'}`}>{slug}</Link>
+          <Link href={`/samples/${slug}/?wgsl=${useWGSL ? '1' : '0'}`}>
+            {slug}
+          </Link>
         </li>
-      )
+      );
     });
   };
 
@@ -50,32 +56,45 @@ function MainLayout({ Component, pageProps }: AppProps) {
     <>
       <Head>
         <title>{title}</title>
-        <meta name="description" content="The WebGPU Samples are a set of WGSL and SPIR-V compatible samples demonstrating the use of the WebGPU API" />
+        <meta
+          name="description"
+          content="The WebGPU Samples are a set of WGSL and SPIR-V compatible samples demonstrating the use of the WebGPU API"
+        />
         <meta name="author" content="Austin Eng" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet" />
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" rel="stylesheet" />
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css" rel="stylesheet" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no"
+        />
+        <link
+          href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css"
+          rel="stylesheet"
+        />
+        <link
+          href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css"
+          rel="stylesheet"
+        />
       </Head>
       <div className={styles.wrapper}>
         <nav className={`${styles.panel} ${styles.container}`}>
-          <h1><Link href="/">{title}</Link></h1>
+          <h1>
+            <Link href="/">{title}</Link>
+          </h1>
           <a href="https://github.com/austinEng/webgpu-samples">Github</a>
           <hr />
           <p>WGSL based samples</p>
-          <ul className={styles.exampleList}>
-            {makeSampleList(true)}
-          </ul>
+          <ul className={styles.exampleList}>{makeSampleList(true)}</ul>
           <hr />
           <p>SPIR-V based samples</p>
-          <ul className={styles.exampleList}>
-            {makeSampleList(false)}
-          </ul>
+          <ul className={styles.exampleList}>{makeSampleList(false)}</ul>
         </nav>
-        <Component { ...pageProps } />
+        <Component {...pageProps} />
       </div>
     </>
   );
-}
+};
 
 export default MainLayout;

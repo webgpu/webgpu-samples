@@ -1,6 +1,11 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { makeBasicExample } from '../../components/basicExample';
-import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../../cube';
+import {
+  cubeVertexArray,
+  cubeVertexSize,
+  cubeColorOffset,
+  cubePositionOffset,
+} from '../../cube';
 import glslangModule from '../../glslang';
 
 async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
@@ -9,14 +14,14 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
-  let projectionMatrix = mat4.create();
+  const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
   const context = canvas.getContext('gpupresent');
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm"
+    format: 'bgra8unorm',
   });
 
   const verticesBuffer = device.createBuffer({
@@ -35,9 +40,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: useWGSL
@@ -46,16 +51,16 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
     depthStencilState: {
       depthWriteEnabled: true,
-      depthCompare: "less",
-      format: "depth24plus-stencil8",
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
     },
     vertexState: {
       vertexBuffers: [
@@ -66,13 +71,13 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
               // position
               shaderLocation: 0,
               offset: cubePositionOffset,
-              format: "float4",
+              format: 'float4',
             },
             {
               // color
               shaderLocation: 1,
               offset: cubeColorOffset,
-              format: "float4",
+              format: 'float4',
             },
           ],
         },
@@ -80,12 +85,12 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     },
 
     rasterizationState: {
-      cullMode: "back",
+      cullMode: 'back',
     },
 
     colorStates: [
       {
-        format: "bgra8unorm",
+        format: 'bgra8unorm',
       },
     ],
   });
@@ -94,30 +99,32 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depth: 1
+      depth: 1,
     },
-    format: "depth24plus-stencil8",
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT
+    format: 'depth24plus-stencil8',
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [{
-      // attachment is acquired in render loop.
-      attachment: undefined,
+    colorAttachments: [
+      {
+        // attachment is acquired in render loop.
+        attachment: undefined,
 
-      loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
-    }],
+        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+      },
+    ],
     depthStencilAttachment: {
       attachment: depthTexture.createView(),
 
       depthLoadValue: 1.0,
-      depthStoreOp: "store",
+      depthStoreOp: 'store',
       stencilLoadValue: 0,
-      stencilStoreOp: "store",
-    }
+      stencilStoreOp: 'store',
+    },
   };
 
-  const matrixSize = 4 * 16;  // 4x4 matrix
+  const matrixSize = 4 * 16; // 4x4 matrix
   const offset = 256; // uniformBindGroup offset must be 256-byte aligned
   const uniformBufferSize = offset + matrixSize;
 
@@ -128,51 +135,72 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const uniformBindGroup1 = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-        offset: 0,
-        size: matrixSize
-      }
-    }],
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+          offset: 0,
+          size: matrixSize,
+        },
+      },
+    ],
   });
 
   const uniformBindGroup2 = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-        offset: offset,
-        size: matrixSize
-      }
-    }]
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+          offset: offset,
+          size: matrixSize,
+        },
+      },
+    ],
   });
 
-  let modelMatrix1 = mat4.create();
+  const modelMatrix1 = mat4.create();
   mat4.translate(modelMatrix1, modelMatrix1, vec3.fromValues(-2, 0, 0));
-  let modelMatrix2 = mat4.create();
+  const modelMatrix2 = mat4.create();
   mat4.translate(modelMatrix2, modelMatrix2, vec3.fromValues(2, 0, 0));
-  let modelViewProjectionMatrix1 = mat4.create() as Float32Array;
-  let modelViewProjectionMatrix2 = mat4.create() as Float32Array;
-  let viewMatrix = mat4.create();
+  const modelViewProjectionMatrix1 = mat4.create() as Float32Array;
+  const modelViewProjectionMatrix2 = mat4.create() as Float32Array;
+  const viewMatrix = mat4.create();
   mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -7));
 
-  let tmpMat41 = mat4.create();
-  let tmpMat42 = mat4.create();
+  const tmpMat41 = mat4.create();
+  const tmpMat42 = mat4.create();
 
   function updateTransformationMatrix() {
+    const now = Date.now() / 1000;
 
-    let now = Date.now() / 1000;
-
-    mat4.rotate(tmpMat41, modelMatrix1, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
-    mat4.rotate(tmpMat42, modelMatrix2, 1, vec3.fromValues(Math.cos(now), Math.sin(now), 0));
+    mat4.rotate(
+      tmpMat41,
+      modelMatrix1,
+      1,
+      vec3.fromValues(Math.sin(now), Math.cos(now), 0)
+    );
+    mat4.rotate(
+      tmpMat42,
+      modelMatrix2,
+      1,
+      vec3.fromValues(Math.cos(now), Math.sin(now), 0)
+    );
 
     mat4.multiply(modelViewProjectionMatrix1, viewMatrix, tmpMat41);
-    mat4.multiply(modelViewProjectionMatrix1, projectionMatrix, modelViewProjectionMatrix1);
+    mat4.multiply(
+      modelViewProjectionMatrix1,
+      projectionMatrix,
+      modelViewProjectionMatrix1
+    );
     mat4.multiply(modelViewProjectionMatrix2, viewMatrix, tmpMat42);
-    mat4.multiply(modelViewProjectionMatrix2, projectionMatrix, modelViewProjectionMatrix2);
+    mat4.multiply(
+      modelViewProjectionMatrix2,
+      projectionMatrix,
+      modelViewProjectionMatrix2
+    );
   }
 
   return function frame() {
@@ -193,7 +221,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       modelViewProjectionMatrix2.byteLength
     );
 
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
+    renderPassDescriptor.colorAttachments[0].attachment = swapChain
+      .getCurrentTexture()
+      .createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -209,7 +239,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.endPass();
 
     device.defaultQueue.submit([commandEncoder.finish()]);
-  }
+  };
 }
 
 const glslShaders = {
@@ -272,7 +302,8 @@ fn main() -> void {
 
 export default makeBasicExample({
   name: 'Two Cubes',
-  description: 'This example shows some of the alignment requirements \
+  description:
+    'This example shows some of the alignment requirements \
                 involved when updating and binding multiple slices of a \
                 uniform buffer.',
   slug: 'twoCubes',

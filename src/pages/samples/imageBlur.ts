@@ -11,8 +11,9 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
   const glslang = await glslangModule();
   const context = canvas.getContext('gpupresent');
 
-  const swapChainFormat = "bgra8unorm";
+  const swapChainFormat = 'bgra8unorm';
 
+  // prettier-ignore
   const rectVerts = new Float32Array([
     1.0,  1.0, 0.0, 1.0, 0.0,
     1.0, -1.0, 0.0, 1.0, 1.0,
@@ -39,54 +40,61 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
     computeStage: {
       module: device.createShaderModule({
         code: glslShaders.blur,
-        transform: (glsl) => glslang.compileGLSL(glsl, "compute"),
+        transform: (glsl) => glslang.compileGLSL(glsl, 'compute'),
       }),
-      entryPoint: "main"
-    }
+      entryPoint: 'main',
+    },
   });
 
   const pipeline = device.createRenderPipeline({
     vertexStage: {
       module: device.createShaderModule({
         code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+        transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
       }),
-      entryPoint: "main"
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: device.createShaderModule({
         code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
       }),
-      entryPoint: "main"
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
     vertexState: {
-      vertexBuffers: [{
-        arrayStride: 20,
-        attributes: [{
-          // position
-          shaderLocation: 0,
-          offset: 0,
-          format: "float3"
-        }, {
-          // uv
-          shaderLocation: 1,
-          offset: 12,
-          format: "float2"
-        }]
-      }],
+      vertexBuffers: [
+        {
+          arrayStride: 20,
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: 0,
+              format: 'float3',
+            },
+            {
+              // uv
+              shaderLocation: 1,
+              offset: 12,
+              format: 'float2',
+            },
+          ],
+        },
+      ],
     },
 
-    colorStates: [{
-      format: swapChainFormat,
-    }],
+    colorStates: [
+      {
+        format: swapChainFormat,
+      },
+    ],
   });
 
   const sampler = device.createSampler({
-    magFilter: "linear",
-    minFilter: "linear",
+    magFilter: 'linear',
+    minFilter: 'linear',
   });
 
   const img = document.createElement('img');
@@ -97,12 +105,14 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
   const [srcWidth, srcHeight] = [imageBitmap.width, imageBitmap.height];
   const cubeTexture = device.createTexture({
     size: [srcWidth, srcHeight, 1],
-    format: "rgba8unorm",
+    format: 'rgba8unorm',
     usage: GPUTextureUsage.SAMPLED | GPUTextureUsage.COPY_DST,
   });
   device.defaultQueue.copyImageBitmapToTexture(
-    { imageBitmap }, { texture: cubeTexture },
-    [imageBitmap.width, imageBitmap.height, 1]);
+    { imageBitmap },
+    { texture: cubeTexture },
+    [imageBitmap.width, imageBitmap.height, 1]
+  );
 
   const textures = [0, 1].map(() => {
     return device.createTexture({
@@ -112,7 +122,10 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
         depth: 1,
       },
       format: 'rgba8unorm',
-      usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.STORAGE | GPUTextureUsage.SAMPLED,
+      usage:
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.STORAGE |
+        GPUTextureUsage.SAMPLED,
     });
   });
 
@@ -145,74 +158,92 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
 
   const computeConstants = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: sampler,
-    }, {
-      binding: 1,
-      resource: {
-        buffer: blurParamsBuffer,
+    entries: [
+      {
+        binding: 0,
+        resource: sampler,
       },
-    }],
+      {
+        binding: 1,
+        resource: {
+          buffer: blurParamsBuffer,
+        },
+      },
+    ],
   });
 
   const computeBindGroup0 = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(1),
-    entries: [{
-      binding: 1,
-      resource: cubeTexture.createView(),
-    }, {
-      binding: 2,
-      resource: textures[0].createView(),
-    }, {
-      binding: 3,
-      resource: {
-        buffer: buffer0,
+    entries: [
+      {
+        binding: 1,
+        resource: cubeTexture.createView(),
       },
-    }],
+      {
+        binding: 2,
+        resource: textures[0].createView(),
+      },
+      {
+        binding: 3,
+        resource: {
+          buffer: buffer0,
+        },
+      },
+    ],
   });
 
   const computeBindGroup1 = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(1),
-    entries: [{
-      binding: 1,
-      resource: textures[0].createView(),
-    }, {
-      binding: 2,
-      resource: textures[1].createView(),
-    }, {
-      binding: 3,
-      resource: {
-        buffer: buffer1,
+    entries: [
+      {
+        binding: 1,
+        resource: textures[0].createView(),
       },
-    }],
+      {
+        binding: 2,
+        resource: textures[1].createView(),
+      },
+      {
+        binding: 3,
+        resource: {
+          buffer: buffer1,
+        },
+      },
+    ],
   });
 
   const computeBindGroup2 = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(1),
-    entries: [{
-      binding: 1,
-      resource: textures[1].createView(),
-    }, {
-      binding: 2,
-      resource: textures[0].createView(),
-    }, {
-      binding: 3,
-      resource: {
-        buffer: buffer0,
+    entries: [
+      {
+        binding: 1,
+        resource: textures[1].createView(),
       },
-    }],
+      {
+        binding: 2,
+        resource: textures[0].createView(),
+      },
+      {
+        binding: 3,
+        resource: {
+          buffer: buffer0,
+        },
+      },
+    ],
   });
 
   const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: sampler,
-    }, {
-      binding: 1,
-      resource: textures[1].createView(),
-    }],
+    entries: [
+      {
+        binding: 0,
+        resource: sampler,
+      },
+      {
+        binding: 1,
+        resource: textures[1].createView(),
+      },
+    ],
   });
 
   const settings = {
@@ -223,8 +254,12 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
   let blockDim: number;
   const updateSettings = () => {
     blockDim = tileDim - (settings.filterSize - 1);
-    device.defaultQueue.writeBuffer(blurParamsBuffer, 0, new Uint32Array([settings.filterSize, blockDim]));
-  }
+    device.defaultQueue.writeBuffer(
+      blurParamsBuffer,
+      0,
+      new Uint32Array([settings.filterSize, blockDim])
+    );
+  };
   gui.add(settings, 'filterSize', 1, 33).step(2).onChange(updateSettings);
   gui.add(settings, 'iterations', 1, 10).step(1);
 
@@ -238,27 +273,41 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
     computePass.setBindGroup(0, computeConstants);
 
     computePass.setBindGroup(1, computeBindGroup0);
-    computePass.dispatch(Math.ceil(srcWidth / blockDim), Math.ceil(srcHeight / batch[1]));
+    computePass.dispatch(
+      Math.ceil(srcWidth / blockDim),
+      Math.ceil(srcHeight / batch[1])
+    );
     computePass.dispatch(2, Math.ceil(srcHeight / batch[1]));
 
     computePass.setBindGroup(1, computeBindGroup1);
-    computePass.dispatch(Math.ceil(srcHeight / blockDim), Math.ceil(srcWidth / batch[1]));
+    computePass.dispatch(
+      Math.ceil(srcHeight / blockDim),
+      Math.ceil(srcWidth / batch[1])
+    );
 
     for (let i = 0; i < settings.iterations - 1; ++i) {
       computePass.setBindGroup(1, computeBindGroup2);
-      computePass.dispatch(Math.ceil(srcWidth / blockDim), Math.ceil(srcHeight / batch[1]));
+      computePass.dispatch(
+        Math.ceil(srcWidth / blockDim),
+        Math.ceil(srcHeight / batch[1])
+      );
 
       computePass.setBindGroup(1, computeBindGroup1);
-      computePass.dispatch(Math.ceil(srcHeight / blockDim), Math.ceil(srcWidth / batch[1]));
+      computePass.dispatch(
+        Math.ceil(srcHeight / blockDim),
+        Math.ceil(srcWidth / batch[1])
+      );
     }
 
     computePass.endPass();
 
     const passEncoder = commandEncoder.beginRenderPass({
-      colorAttachments: [{
-        attachment: swapChain.getCurrentTexture().createView(),
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-      }],
+      colorAttachments: [
+        {
+          attachment: swapChain.getCurrentTexture().createView(),
+          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        },
+      ],
     });
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setPipeline(pipeline);
@@ -267,10 +316,11 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
     passEncoder.draw(6, 1, 0, 0);
     passEncoder.endPass();
     device.defaultQueue.submit([commandEncoder.finish()]);
-  }
+  };
 }
 
 const glslShaders = {
+  // prettier-ignore
   blur: `#version 450
   layout(set = 0, binding = 0) uniform sampler samp;
   layout(set = 0, binding = 1) uniform Params {
@@ -375,7 +425,8 @@ void main() {
 
 export default makeBasicExample({
   name: 'Image Blur',
-  description: 'This example shows how to blur an image using a WebGPU compute shader.',
+  description:
+    'This example shows how to blur an image using a WebGPU compute shader.',
   slug: 'imageBlur',
   init,
   glslShaders,

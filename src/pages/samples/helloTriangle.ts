@@ -6,9 +6,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
 
-  const context = canvas.getContext("gpupresent");
+  const context = canvas.getContext('gpupresent');
 
-  const swapChainFormat = "bgra8unorm";
+  const swapChainFormat = 'bgra8unorm';
 
   const swapChain = context.configureSwapChain({
     device,
@@ -23,9 +23,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
     fragmentStage: {
       module: useWGSL
@@ -34,12 +34,12 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           })
         : device.createShaderModule({
             code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
-      entryPoint: "main",
+      entryPoint: 'main',
     },
 
-    primitiveTopology: "triangle-list",
+    primitiveTopology: 'triangle-list',
 
     colorStates: [
       {
@@ -116,7 +116,6 @@ fn main() -> void {
 }
 `,
 };
-
 
 // import ma from '../../components/BasicExample';
 
