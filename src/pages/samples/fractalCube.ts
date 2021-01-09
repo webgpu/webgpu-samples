@@ -1,13 +1,9 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../cube';
-import glslangModule from '../glslang';
+import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubeUVOffset, cubePositionOffset } from '../../cube';
+import glslangModule from '../../glslang';
+import { makeBasicExample } from '../../components/basicExample';
 
-export const title = 'Two Cubes';
-export const description = 'This example shows some of the alignment requirements \
-                            involved when updating and binding multiple slices of a \
-                            uniform buffer.';
-
-export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -20,7 +16,8 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm"
+    format: "bgra8unorm",
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.COPY_SRC,
   });
 
   const verticesBuffer = device.createBuffer({
@@ -33,25 +30,17 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const pipeline = device.createRenderPipeline({
     vertexStage: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
-          }),
+      module: device.createShaderModule({
+        code: glslShaders.vertex,
+        transform: (glsl) => glslang.compileGLSL(glsl, "vertex"),
+      }),
       entryPoint: "main",
     },
     fragmentStage: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
-          }),
+      module: device.createShaderModule({
+        code: glslShaders.fragment,
+        transform: (glsl) => glslang.compileGLSL(glsl, "fragment"),
+      }),
       entryPoint: "main",
     },
 
@@ -78,6 +67,12 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
               offset: cubeColorOffset,
               format: "float4",
             },
+            {
+              // uv
+              shaderLocation: 2,
+              offset: cubeUVOffset,
+              format: "float2",
+            },
           ],
         },
       ],
@@ -95,20 +90,14 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const depthTexture = device.createTexture({
-    size: {
-      width: canvas.width,
-      height: canvas.height,
-      depth: 1
-    },
+    size: { width: canvas.width, height: canvas.height, depth: 1 },
     format: "depth24plus-stencil8",
     usage: GPUTextureUsage.OUTPUT_ATTACHMENT
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [{
-      // attachment is acquired in render loop.
-      attachment: undefined,
-
+      attachment: undefined, // Attachment is set later
       loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
     }],
     depthStencilAttachment: {
@@ -121,102 +110,88 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     }
   };
 
-  const matrixSize = 4 * 16;  // 4x4 matrix
-  const offset = 256; // uniformBindGroup offset must be 256-byte aligned
-  const uniformBufferSize = offset + matrixSize;
-
+  const uniformBufferSize = 4 * 16; // 4x4 matrix
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const uniformBindGroup1 = device.createBindGroup({
+  const cubeTexture = device.createTexture({
+    size: { width: canvas.width, height: canvas.height, depth: 1 },
+    format: "bgra8unorm",
+    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
+  });
+
+  const sampler = device.createSampler({
+    magFilter: "linear",
+    minFilter: "linear",
+  });
+
+  const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
     entries: [{
       binding: 0,
       resource: {
         buffer: uniformBuffer,
-        offset: 0,
-        size: matrixSize
-      }
+      },
+    }, {
+      binding: 1,
+      resource: sampler,
+    }, {
+      binding: 2,
+      resource: cubeTexture.createView(),
     }],
   });
 
-  const uniformBindGroup2 = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-        offset: offset,
-        size: matrixSize
-      }
-    }]
-  });
-
-  let modelMatrix1 = mat4.create();
-  mat4.translate(modelMatrix1, modelMatrix1, vec3.fromValues(-2, 0, 0));
-  let modelMatrix2 = mat4.create();
-  mat4.translate(modelMatrix2, modelMatrix2, vec3.fromValues(2, 0, 0));
-  let modelViewProjectionMatrix1 = mat4.create() as Float32Array;
-  let modelViewProjectionMatrix2 = mat4.create() as Float32Array;
-  let viewMatrix = mat4.create();
-  mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -7));
-
-  let tmpMat41 = mat4.create();
-  let tmpMat42 = mat4.create();
-
-  function updateTransformationMatrix() {
-
+  function getTransformationMatrix() {
+    let viewMatrix = mat4.create();
+    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -4));
     let now = Date.now() / 1000;
+    mat4.rotate(viewMatrix, viewMatrix, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
 
-    mat4.rotate(tmpMat41, modelMatrix1, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
-    mat4.rotate(tmpMat42, modelMatrix2, 1, vec3.fromValues(Math.cos(now), Math.sin(now), 0));
+    let modelViewProjectionMatrix = mat4.create();
+    mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
 
-    mat4.multiply(modelViewProjectionMatrix1, viewMatrix, tmpMat41);
-    mat4.multiply(modelViewProjectionMatrix1, projectionMatrix, modelViewProjectionMatrix1);
-    mat4.multiply(modelViewProjectionMatrix2, viewMatrix, tmpMat42);
-    mat4.multiply(modelViewProjectionMatrix2, projectionMatrix, modelViewProjectionMatrix2);
+    return modelViewProjectionMatrix as Float32Array;
   }
 
   return function frame() {
-    updateTransformationMatrix();
-
+    const transformationMatrix = getTransformationMatrix();
     device.defaultQueue.writeBuffer(
       uniformBuffer,
       0,
-      modelViewProjectionMatrix1.buffer,
-      modelViewProjectionMatrix1.byteOffset,
-      modelViewProjectionMatrix1.byteLength
-    );
-    device.defaultQueue.writeBuffer(
-      uniformBuffer,
-      offset,
-      modelViewProjectionMatrix2.buffer,
-      modelViewProjectionMatrix2.byteOffset,
-      modelViewProjectionMatrix2.byteLength
+      transformationMatrix.buffer,
+      transformationMatrix.byteOffset,
+      transformationMatrix.byteLength
     );
 
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
+    const swapChainTexture = swapChain.getCurrentTexture();
+    renderPassDescriptor.colorAttachments[0].attachment = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
+
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
-
-    passEncoder.setBindGroup(0, uniformBindGroup1);
     passEncoder.draw(36, 1, 0, 0);
-
-    passEncoder.setBindGroup(0, uniformBindGroup2);
-    passEncoder.draw(36, 1, 0, 0);
-
     passEncoder.endPass();
+
+    commandEncoder.copyTextureToTexture({
+      texture: swapChainTexture,
+    }, {
+      texture: cubeTexture,
+    }, {
+      width: canvas.width,
+      height: canvas.height,
+      depth: 1,
+    });
 
     device.defaultQueue.submit([commandEncoder.finish()]);
   }
 }
 
-export const glslShaders = {
+const glslShaders = {
   vertex: `#version 450
 layout(set = 0, binding = 0) uniform Uniforms {
   mat4 modelViewProjectionMatrix;
@@ -224,52 +199,84 @@ layout(set = 0, binding = 0) uniform Uniforms {
 
 layout(location = 0) in vec4 position;
 layout(location = 1) in vec4 color;
+layout(location = 2) in vec2 uv;
 
 layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec2 fragUV;
 
 void main() {
   gl_Position = uniforms.modelViewProjectionMatrix * position;
   fragColor = color;
+  fragUV = uv;
 }`,
 
   fragment: `#version 450
+layout(set = 0, binding = 1) uniform sampler mySampler;
+layout(set = 0, binding = 2) uniform texture2D myTexture;
+
 layout(location = 0) in vec4 fragColor;
+layout(location = 1) in vec2 fragUV;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-  outColor = fragColor;
+  vec4 texColor = texture(sampler2D(myTexture, mySampler), fragUV * 0.8 + 0.1);
+
+  // 1.0 if we're sampling the background
+  float f = float(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) < 0.01);
+
+  outColor = mix(texColor, fragColor, f);
 }`,
 };
 
-export const wgslShaders = {
+const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
   [[offset(0)]] modelViewProjectionMatrix : mat4x4<f32>;
 };
-
 [[binding(0), set(0)]] var<uniform> uniforms : Uniforms;
 
 [[location(0)]] var<in> position : vec4<f32>;
 [[location(1)]] var<in> color : vec4<f32>;
+[[location(2)]] var<in> uv : vec2<f32>;
 
 [[builtin(position)]] var<out> Position : vec4<f32>;
 [[location(0)]] var<out> fragColor : vec4<f32>;
+[[location(1)]] var<out> fragUV: vec2<f32>;
 
 [[stage(vertex)]]
 fn main() -> void {
   Position = uniforms.modelViewProjectionMatrix * position;
   fragColor = color;
+  fragUV = uv;
   return;
 }
 `,
+
   fragment: `
-[[location(0)]] var<in> fragColor : vec4<f32>;
+[[binding(1), set(0)]] var<uniform_constant> mySampler: sampler;
+[[binding(2), set(0)]] var<uniform_constant> myTexture: texture_sampled_2d<f32>;
+
+[[location(0)]] var<in> fragColor: vec4<f32>;
+[[location(1)]] var<in> fragUV: vec2<f32>;
 [[location(0)]] var<out> outColor : vec4<f32>;
 
 [[stage(fragment)]]
 fn main() -> void {
-  outColor = fragColor;
+  var texColor : vec4<f32> = textureSample(myTexture, mySampler, fragUV * 0.8 + 0.1) * fragPosition;
+  var f : f32 = f32(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) < 0.01);
+  outColor = mix(texColor, fragColor, f);
   return;
 }
 `,
-};
+}
+
+export default makeBasicExample({
+  name: 'Fractal Cube',
+  description: 'This example uses the previous frame\'s rendering result \
+                as the source texture for the next frame.',
+  slug: 'fractalCube',
+  init,
+  wgslShaders,
+  glslShaders,
+  source: __SOURCE__,
+});

@@ -1,13 +1,30 @@
 {
-    "compilerOptions": {
-        "sourceMap": true,
-        "module": "esNext",
-        "target": "es6",
-        "moduleResolution": "node",
-        "allowSyntheticDefaultImports": true,
-    },
-    "include": [
-        "src/**/*",
-        "node_modules/@webgpu/types"
-    ]
+  "compilerOptions": {
+    "sourceMap": true,
+    "module": "esNext",
+    "target": "es6",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve"
+  },
+  "include": [
+    "src/**/*.ts",
+    "node_modules/@webgpu/types"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

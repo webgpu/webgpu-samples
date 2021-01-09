@@ -1,9 +1,7 @@
-import glslangModule from '../glslang';
+import { makeBasicExample } from '../../components/basicExample';
+import glslangModule from '../../glslang';
 
-export const title = 'Hello Triangle';
-export const description = 'Shows rendering a basic triangle.';
-
-export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -12,10 +10,12 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const swapChainFormat = "bgra8unorm";
 
-  const swapChain = context.configureSwapChain({
+  const swapChain: GPUSwapChain = context.configureSwapChain({
     device,
     format: swapChainFormat,
   });
+
+  const sampleCount = 4;
 
   const pipeline = device.createRenderPipeline({
     vertexStage: {
@@ -48,16 +48,30 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
         format: swapChainFormat,
       },
     ],
+
+    sampleCount,
   });
+
+  const texture = device.createTexture({
+    size: {
+      width: canvas.width,
+      height: canvas.height,
+      depth: 1,
+    },
+    sampleCount,
+    format: swapChainFormat,
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
+  });
+  const attachment = texture.createView();
 
   function frame() {
     const commandEncoder = device.createCommandEncoder();
-    const textureView = swapChain.getCurrentTexture().createView();
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          attachment: textureView,
+          attachment: attachment,
+          resolveTarget: swapChain.getCurrentTexture().createView(),
           loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         },
       ],
@@ -74,7 +88,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   return frame;
 }
 
-export const glslShaders = {
+const glslShaders = {
   vertex: `#version 450
 const vec2 pos[3] = vec2[3](vec2(0.0f, 0.5f), vec2(-0.5f, -0.5f), vec2(0.5f, -0.5f));
 
@@ -92,7 +106,7 @@ void main() {
 `,
 };
 
-export const wgslShaders = {
+const wgslShaders = {
   vertex: `
 const pos : array<vec2<f32>, 3> = array<vec2<f32>, 3>(
     vec2<f32>(0.0, 0.5),
@@ -118,3 +132,13 @@ fn main() -> void {
 }
 `,
 };
+
+export default makeBasicExample({
+  name: 'Hello Triangle MSAA',
+  description: 'Shows rendering a basic triangle with multisampling.',
+  slug: 'helloTriangleMSAA',
+  init,
+  wgslShaders,
+  glslShaders,
+  source: __SOURCE__,
+});

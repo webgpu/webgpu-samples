@@ -1,12 +1,9 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../cube';
-import glslangModule from '../glslang';
+import { makeBasicExample } from '../../components/basicExample';
+import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../../cube';
+import glslangModule from '../../glslang';
 
-export const title = 'Rotating Cube';
-export const description = 'The rotating cube demonstrates vertex input \
-              and update of uniform data every frame.';
-
-export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -15,11 +12,11 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   let projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
-  const context = canvas.getContext("gpupresent");
+  const context = canvas.getContext('gpupresent');
 
   const swapChain = context.configureSwapChain({
     device,
-    format: "bgra8unorm",
+    format: "bgra8unorm"
   });
 
   const verticesBuffer = device.createBuffer({
@@ -97,21 +94,19 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depth: 1,
+      depth: 1
     },
     format: "depth24plus-stencil8",
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [
-      {
-        // attachment is acquired and set in render loop.
-        attachment: undefined,
+    colorAttachments: [{
+      // attachment is acquired in render loop.
+      attachment: undefined,
 
-        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
-      },
-    ],
+      loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+    }],
     depthStencilAttachment: {
       attachment: depthTexture.createView(),
 
@@ -119,70 +114,105 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       depthStoreOp: "store",
       stencilLoadValue: 0,
       stencilStoreOp: "store",
-    },
+    }
   };
 
-  const uniformBufferSize = 4 * 16; // 4x4 matrix
+  const matrixSize = 4 * 16;  // 4x4 matrix
+  const offset = 256; // uniformBindGroup offset must be 256-byte aligned
+  const uniformBufferSize = offset + matrixSize;
 
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const uniformBindGroup = device.createBindGroup({
+  const uniformBindGroup1 = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-    ],
+    entries: [{
+      binding: 0,
+      resource: {
+        buffer: uniformBuffer,
+        offset: 0,
+        size: matrixSize
+      }
+    }],
   });
 
-  function getTransformationMatrix() {
-    let viewMatrix = mat4.create();
-    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -5));
+  const uniformBindGroup2 = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [{
+      binding: 0,
+      resource: {
+        buffer: uniformBuffer,
+        offset: offset,
+        size: matrixSize
+      }
+    }]
+  });
+
+  let modelMatrix1 = mat4.create();
+  mat4.translate(modelMatrix1, modelMatrix1, vec3.fromValues(-2, 0, 0));
+  let modelMatrix2 = mat4.create();
+  mat4.translate(modelMatrix2, modelMatrix2, vec3.fromValues(2, 0, 0));
+  let modelViewProjectionMatrix1 = mat4.create() as Float32Array;
+  let modelViewProjectionMatrix2 = mat4.create() as Float32Array;
+  let viewMatrix = mat4.create();
+  mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -7));
+
+  let tmpMat41 = mat4.create();
+  let tmpMat42 = mat4.create();
+
+  function updateTransformationMatrix() {
+
     let now = Date.now() / 1000;
-    mat4.rotate(
-      viewMatrix,
-      viewMatrix,
-      1,
-      vec3.fromValues(Math.sin(now), Math.cos(now), 0)
-    );
 
-    let modelViewProjectionMatrix = mat4.create();
-    mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
+    mat4.rotate(tmpMat41, modelMatrix1, 1, vec3.fromValues(Math.sin(now), Math.cos(now), 0));
+    mat4.rotate(tmpMat42, modelMatrix2, 1, vec3.fromValues(Math.cos(now), Math.sin(now), 0));
 
-    return modelViewProjectionMatrix as Float32Array;
+    mat4.multiply(modelViewProjectionMatrix1, viewMatrix, tmpMat41);
+    mat4.multiply(modelViewProjectionMatrix1, projectionMatrix, modelViewProjectionMatrix1);
+    mat4.multiply(modelViewProjectionMatrix2, viewMatrix, tmpMat42);
+    mat4.multiply(modelViewProjectionMatrix2, projectionMatrix, modelViewProjectionMatrix2);
   }
 
   return function frame() {
-    const transformationMatrix = getTransformationMatrix();
+    updateTransformationMatrix();
+
     device.defaultQueue.writeBuffer(
       uniformBuffer,
       0,
-      transformationMatrix.buffer,
-      transformationMatrix.byteOffset,
-      transformationMatrix.byteLength
+      modelViewProjectionMatrix1.buffer,
+      modelViewProjectionMatrix1.byteOffset,
+      modelViewProjectionMatrix1.byteLength
     );
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain
-      .getCurrentTexture()
-      .createView();
+    device.defaultQueue.writeBuffer(
+      uniformBuffer,
+      offset,
+      modelViewProjectionMatrix2.buffer,
+      modelViewProjectionMatrix2.byteOffset,
+      modelViewProjectionMatrix2.byteLength
+    );
+
+    renderPassDescriptor.colorAttachments[0].attachment = swapChain.getCurrentTexture().createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
-    passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
+
+    passEncoder.setBindGroup(0, uniformBindGroup1);
     passEncoder.draw(36, 1, 0, 0);
+
+    passEncoder.setBindGroup(0, uniformBindGroup2);
+    passEncoder.draw(36, 1, 0, 0);
+
     passEncoder.endPass();
+
     device.defaultQueue.submit([commandEncoder.finish()]);
-  };
+  }
 }
 
-export const glslShaders = {
+const glslShaders = {
   vertex: `#version 450
 layout(set = 0, binding = 0) uniform Uniforms {
   mat4 modelViewProjectionMatrix;
@@ -196,8 +226,7 @@ layout(location = 0) out vec4 fragColor;
 void main() {
   gl_Position = uniforms.modelViewProjectionMatrix * position;
   fragColor = color;
-}
-`,
+}`,
 
   fragment: `#version 450
 layout(location = 0) in vec4 fragColor;
@@ -205,11 +234,10 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
   outColor = fragColor;
-}
-`,
+}`,
 };
 
-export const wgslShaders = {
+const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
   [[offset(0)]] modelViewProjectionMatrix : mat4x4<f32>;
@@ -241,3 +269,15 @@ fn main() -> void {
 }
 `,
 };
+
+export default makeBasicExample({
+  name: 'Two Cubes',
+  description: 'This example shows some of the alignment requirements \
+                involved when updating and binding multiple slices of a \
+                uniform buffer.',
+  slug: 'twoCubes',
+  init,
+  wgslShaders,
+  glslShaders,
+  source: __SOURCE__,
+});

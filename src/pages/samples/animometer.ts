@@ -1,10 +1,19 @@
-import * as dat from 'dat.gui';
-import glslangModule from '../glslang';
+import type { GUI } from 'dat.gui';
+import { makeBasicExample } from '../../components/basicExample';
+import glslangModule from '../../glslang';
 
-export const title = 'Animometer';
-export const description = 'A WebGPU of port of the Animometer MotionMark benchmark.';
+async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
+  const perfDisplayContainer = document.createElement('div');
+  perfDisplayContainer.style.color = 'white';
+  perfDisplayContainer.style.background = 'black';
+  perfDisplayContainer.style.position = 'absolute';
+  perfDisplayContainer.style.top = '10px';
+  perfDisplayContainer.style.left = '10px';
 
-export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+  const perfDisplay = document.createElement('pre');
+  perfDisplayContainer.appendChild(perfDisplay);
+  canvas.parentNode.appendChild(perfDisplayContainer);
+
   const params = new URLSearchParams(window.location.search);
   const settings = {
     numTriangles: Number(params.get('numTriangles')) || 20000,
@@ -276,26 +285,9 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   let doDraw = configure();
 
   const updateSettings = () => { doDraw = configure(); }
-  const gui = new dat.GUI({ autoPlace: false });
   gui.add(settings, 'numTriangles', 0, 200000).step(1).onFinishChange(updateSettings);
   gui.add(settings, 'renderBundles');
   gui.add(settings, 'dynamicOffsets');
-
-  gui.domElement.style.position = 'absolute';
-  gui.domElement.style.top = '10px';
-  gui.domElement.style.right = '10px';
-  canvas.parentNode.appendChild(gui.domElement);
-
-  const perfDisplayContainer = document.createElement('div');
-  perfDisplayContainer.style.color = 'white';
-  perfDisplayContainer.style.background = 'black';
-  perfDisplayContainer.style.position = 'absolute';
-  perfDisplayContainer.style.top = '10px';
-  perfDisplayContainer.style.left = '10px';
-
-  const perfDisplay = document.createElement('pre');
-  perfDisplayContainer.appendChild(perfDisplay);
-  canvas.parentNode.appendChild(perfDisplayContainer);
 
   let previousFrameTimestamp = undefined;
   let jsTimeAvg = undefined;
@@ -333,7 +325,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   }
 }
 
-export const glslShaders = {
+const glslShaders = {
   vertex: `#version 450
   layout(std140, set = 0, binding = 0) uniform Time {
       float time;
@@ -380,7 +372,7 @@ export const glslShaders = {
 `,
 };
 
-export const wgslShaders = {
+const wgslShaders = {
   vertex: `
 [[block]] struct Time {
   [[offset(0)]] value : f32;
@@ -435,3 +427,14 @@ fn main() -> void {
 }
 `,
 };
+
+export default makeBasicExample({
+  name: 'Animometer',
+  slug: 'animometer',
+  description: 'A WebGPU of port of the Animometer MotionMark benchmark.',
+  gui: true,
+  init,
+  wgslShaders,
+  glslShaders,
+  source: __SOURCE__,
+});

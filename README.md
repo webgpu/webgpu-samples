@@ -12,13 +12,14 @@ something isn't working, please file an issue
 
 ## Building
 `webgpu-samples` is built with [Typescript](https://www.typescriptlang.org/)
-and compiled using [webpack](https://webpack.js.org/). Building the project
+and compiled using [Next.js](https://nextjs.org/). Building the project
 requires an installation of [Node.js](https://nodejs.org/en/).
 
 - Install dependencies: `npm install`.
 - For development, start the dev server which will watch and recompile
-  sources: `npm start`.
+  sources: `npm start`. You can navigate to http://localhost:3000 to view the project.
 - For production, compile the project: `npm run build`.
+- To run a production server to serve the built assets, do `npm run server`.
 - To view the project locally in the browser, start a web server in the project
   root directory. [`http-server`](https://www.npmjs.com/package/http-server) is
   the recommended package.
