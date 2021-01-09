@@ -1,11 +1,9 @@
 import { mat4, vec3 } from 'gl-matrix';
-import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../cube';
-import glslangModule from '../glslang';
+import { cubeVertexArray, cubeVertexSize, cubeColorOffset, cubePositionOffset } from '../../cube';
+import glslangModule from '../../glslang';
+import { makeBasicExample } from '../../components/basicExample';
 
-export const title = 'Instanced Cube';
-export const description = 'This example shows the use of instancing.';
-
-export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -211,7 +209,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   }
 }
 
-export const glslShaders = {
+const glslShaders = {
   vertex: `#version 450
 #define MAX_NUM_INSTANCES 16
 layout(set = 0, binding = 0) uniform Uniforms {
@@ -237,7 +235,7 @@ void main() {
 }`,
 };
 
-export const wgslShaders = {
+const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
   [[offset(0)]] modelViewProjectionMatrix : [[stride(64)]] array<mat4x4<f32>, 16>;
@@ -270,3 +268,13 @@ fn main() -> void {
 }
 `,
 };
+
+export default makeBasicExample({
+  name: 'Instanced Cube',
+  description: 'This example shows the use of instancing.',
+  slug: 'instancedCube',
+  init,
+  wgslShaders,
+  glslShaders,
+  source: __SOURCE__,
+});

@@ -1,0 +1,25 @@
+
+.shaderEditor::before {
+  content: "Edit me! (Save to update)";
+  position: relative;
+  display: block;
+  font-weight: bold;
+  text-align: right;
+  margin-bottom: -0.5em;
+  margin-right: 5px;
+}
+
+.updateShaderBtn {
+  position: relative;
+  left: 100%;
+  transform: translateX(-108%);
+  margin-right: 10px;
+  margin-top: 5px;
+  cursor: pointer;
+}
+
+.canvasContainer {
+  text-align: center;
+  position: relative;
+  margin-top: 10px;
+}

@@ -1,12 +1,7 @@
-import glslangModule from '../glslang';
+import { makeBasicExample } from '../../components/basicExample';
+import glslangModule from '../../glslang';
 
-export const title = 'Compute Boids';
-export const description = 'A GPU compute particle simulation that mimics \
-                            the flocking behavior of birds. A compute shader updates \
-                            two ping-pong buffers which store particle data. The data \
-                            is used to draw instanced particles.';
-
-export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const numParticles = 1500;
 
   const adapter = await navigator.gpu.requestAdapter();
@@ -230,7 +225,7 @@ export async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   }
 }
 
-export const glslShaders = {
+const glslShaders = {
   vertex: `#version 450
 layout(location = 0) in vec2 a_particlePos;
 layout(location = 1) in vec2 a_particleVel;
@@ -334,7 +329,7 @@ void main() {
 }`,
 };
 
-export const wgslShaders = {
+const wgslShaders = {
   vertex: `
 [[location(0)]] var<in> a_particlePos : vec2<f32>;
 [[location(1)]] var<in> a_particleVel : vec2<f32>;
@@ -458,3 +453,16 @@ fn main() -> void {
 }
 `,
 };
+
+export default makeBasicExample({
+  name: 'Compute Boids',
+  description: 'A GPU compute particle simulation that mimics \
+                the flocking behavior of birds. A compute shader updates \
+                two ping-pong buffers which store particle data. The data \
+                is used to draw instanced particles.',
+  slug: 'computeBoids',
+  wgslShaders,
+  glslShaders,
+  init,
+  source: __SOURCE__,
+});

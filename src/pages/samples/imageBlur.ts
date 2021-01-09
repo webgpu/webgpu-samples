@@ -1,13 +1,11 @@
-import * as dat from 'dat.gui';
-import glslangModule from '../glslang';
-
-export const title = 'Image Blur';
-export const description = 'This example shows how to blur an image using a WebGPU compute shader.';
+import type { GUI } from 'dat.gui';
+import { makeBasicExample } from '../../components/basicExample';
+import glslangModule from '../../glslang';
 
 const tileDim = 256;
 const batch = [4, 4];
 
-export async function init(canvas: HTMLCanvasElement) {
+async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -92,7 +90,7 @@ export async function init(canvas: HTMLCanvasElement) {
   });
 
   const img = document.createElement('img');
-  img.src = 'assets/img/Di-3d.png';
+  img.src = require('../../../assets/img/Di-3d.png');
   await img.decode();
   const imageBitmap = await createImageBitmap(img);
 
@@ -227,14 +225,8 @@ export async function init(canvas: HTMLCanvasElement) {
     blockDim = tileDim - (settings.filterSize - 1);
     device.defaultQueue.writeBuffer(blurParamsBuffer, 0, new Uint32Array([settings.filterSize, blockDim]));
   }
-  const gui = new dat.GUI({ autoPlace: false });
   gui.add(settings, 'filterSize', 1, 33).step(2).onChange(updateSettings);
   gui.add(settings, 'iterations', 1, 10).step(1);
-
-  gui.domElement.style.position = 'absolute';
-  gui.domElement.style.top = '10px';
-  gui.domElement.style.right = '10px';
-  canvas.parentNode.appendChild(gui.domElement);
 
   updateSettings();
 
@@ -278,7 +270,7 @@ export async function init(canvas: HTMLCanvasElement) {
   }
 }
 
-export const glslShaders = {
+const glslShaders = {
   blur: `#version 450
   layout(set = 0, binding = 0) uniform sampler samp;
   layout(set = 0, binding = 1) uniform Params {
@@ -380,3 +372,13 @@ void main() {
 }
 `,
 };
+
+export default makeBasicExample({
+  name: 'Image Blur',
+  description: 'This example shows how to blur an image using a WebGPU compute shader.',
+  slug: 'imageBlur',
+  init,
+  glslShaders,
+  source: __SOURCE__,
+  gui: true,
+});

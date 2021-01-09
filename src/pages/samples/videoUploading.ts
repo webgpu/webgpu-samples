@@ -1,15 +1,14 @@
-import glslangModule from '../glslang';
+import { makeBasicExample } from '../../components/basicExample';
+import glslangModule from '../../glslang';
 
-export const title = 'Video Texture';
-export const description = 'This example shows how to upload video frame to WebGPU.';
-
-export async function init(canvas: HTMLCanvasElement) {
+async function init(canvas: HTMLCanvasElement) {
   // Set video element
   const video = document.createElement('video');
   video.loop = true;
   video.autoplay = true;
   video.muted = true;
-  video.src = 'assets/video/pano.webm';
+  // video.src = require('https://upload.wikimedia.org/wikipedia/commons/c/c0/Big_Buck_Bunny_4K.webm');
+  video.src = require('../../../assets/video/pano.webm');
   await video.play();
 
   const adapter = await navigator.gpu.requestAdapter();
@@ -135,7 +134,7 @@ export async function init(canvas: HTMLCanvasElement) {
   }
 }
 
-export const glslShaders = {
+const glslShaders = {
   vertex: `#version 450
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 uv;
@@ -161,8 +160,8 @@ void main() {
 `,
 };
 
-export const wgslShaders = {
-  vertex: `#version 450
+const wgslShaders = {
+  vertex: `
 [[location(0)]] var<in> position : vec3<f32>;
 [[location(1)]] var<in> uv : vec2<f32>;
 
@@ -189,3 +188,13 @@ fn main() -> void {
 }
 `,
 };
+
+export default makeBasicExample({
+  name: 'Video Uploading',
+  description: 'This example shows how to upload video frame to WebGPU.',
+  slug: 'videoUploading',
+  init,
+  glslShaders,
+  wgslShaders,
+  source: __SOURCE__,
+});
