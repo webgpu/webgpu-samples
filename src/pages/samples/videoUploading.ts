@@ -7,7 +7,6 @@ async function init(canvas: HTMLCanvasElement) {
   video.loop = true;
   video.autoplay = true;
   video.muted = true;
-  // video.src = require('https://upload.wikimedia.org/wikipedia/commons/c/c0/Big_Buck_Bunny_4K.webm');
   video.src = require('../../../assets/video/pano.webm');
   await video.play();
 
