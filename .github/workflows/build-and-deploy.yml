@@ -29,6 +29,7 @@ jobs:
           npm run-script lint
           npm run-script build
           npm run-script export
+          touch out/.nojekyll
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@3.6.2
