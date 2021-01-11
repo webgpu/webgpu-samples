@@ -4,7 +4,7 @@ import {
   cubeVertexSize,
   cubeColorOffset,
   cubePositionOffset,
-} from '../../cube';
+} from '../../meshes/cube';
 import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
 

@@ -5,7 +5,7 @@ import {
   cubeVertexSize,
   cubeUVOffset,
   cubePositionOffset,
-} from '../../cube';
+} from '../../meshes/cube';
 import glslangModule from '../../glslang';
 
 async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
