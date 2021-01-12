@@ -396,7 +396,7 @@ fn main() -> void {
 [[binding(2), set(0)]] var<storage_buffer> particlesB : Particles;
 [[builtin(global_invocation_id)]] var<in> GlobalInvocationID : vec3<u32>;
 
-# https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
+// https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 [[stage(compute)]]
 fn main() -> void {
   var index : u32 = GlobalInvocationID.x;
@@ -435,22 +435,22 @@ fn main() -> void {
   if (cMassCount > 0u) {
     var temp : f32 = f32(cMassCount);
     cMass = (cMass / vec2<f32>(temp, temp)) - vPos;
-    # cMass =
-    #   (cMass / vec2<f32>(f32(cMassCount), f32(cMassCount))) - vPos;
+    // cMass =
+    //  (cMass / vec2<f32>(f32(cMassCount), f32(cMassCount))) - vPos;
   }
   if (cVelCount > 0u) {
     var temp : f32 = f32(cVelCount);
     cVel = cVel / vec2<f32>(temp, temp);
-    # cVel = cVel / vec2<f32>(f32(cVelCount), f32(cVelCount));
+    // cVel = cVel / vec2<f32>(f32(cVelCount), f32(cVelCount));
   }
   vVel = vVel + (cMass * params.rule1Scale) + (colVel * params.rule2Scale) +
       (cVel * params.rule3Scale);
 
-  # clamp velocity for a more pleasing simulation
+  // clamp velocity for a more pleasing simulation
   vVel = normalize(vVel) * clamp(length(vVel), 0.0, 0.1);
-  # kinematic update
+  // kinematic update
   vPos = vPos + (vVel * params.deltaT);
-  # Wrap around boundary
+  // Wrap around boundary
   if (vPos.x < -1.0) {
     vPos.x = 1.0;
   }
@@ -463,7 +463,7 @@ fn main() -> void {
   if (vPos.y > 1.0) {
     vPos.y = -1.0;
   }
-  # Write back
+  // Write back
   particlesB.particles[index].pos = vPos;
   particlesB.particles[index].vel = vVel;
   return;
