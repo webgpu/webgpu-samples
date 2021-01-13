@@ -296,7 +296,7 @@ fn main() -> void {
 `,
   fragment: `
 [[binding(1), set(0)]] var<uniform_constant> mySampler: sampler;
-[[binding(2), set(0)]] var<uniform_constant> myTexture: texture_sampled_2d<f32>;
+[[binding(2), set(0)]] var<uniform_constant> myTexture: texture_2d<f32>;
 
 [[location(0)]] var<in> fragUV: vec2<f32>;
 [[location(1)]] var<in> fragPosition: vec4<f32>;
