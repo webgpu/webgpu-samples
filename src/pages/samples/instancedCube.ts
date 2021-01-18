@@ -267,7 +267,7 @@ const wgslShaders = {
 
 [[binding(0), set(0)]] var<uniform> uniforms : Uniforms;
 
-[[builtin(instance_idx)]] var<in> instanceIdx : i32;
+[[builtin(instance_index)]] var<in> instanceIdx : i32;
 [[location(0)]] var<in> position : vec4<f32>;
 [[location(1)]] var<in> color : vec4<f32>;
 
