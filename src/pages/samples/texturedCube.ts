@@ -277,7 +277,7 @@ const wgslShaders = {
 [[block]] struct Uniforms {
   [[offset(0)]] modelViewProjectionMatrix : mat4x4<f32>;
 };
-[[binding(0), set(0)]] var<uniform> uniforms : Uniforms;
+[[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 
 [[location(0)]] var<in> position : vec4<f32>;
 [[location(1)]] var<in> uv : vec2<f32>;
@@ -295,8 +295,8 @@ fn main() -> void {
 }
 `,
   fragment: `
-[[binding(1), set(0)]] var<uniform_constant> mySampler: sampler;
-[[binding(2), set(0)]] var<uniform_constant> myTexture: texture_2d<f32>;
+[[binding(1), group(0)]] var<uniform_constant> mySampler: sampler;
+[[binding(2), group(0)]] var<uniform_constant> myTexture: texture_2d<f32>;
 
 [[location(0)]] var<in> fragUV: vec2<f32>;
 [[location(1)]] var<in> fragPosition: vec4<f32>;

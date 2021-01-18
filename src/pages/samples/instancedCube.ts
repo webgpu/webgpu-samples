@@ -265,7 +265,7 @@ const wgslShaders = {
   [[offset(0)]] modelViewProjectionMatrix : [[stride(64)]] array<mat4x4<f32>, 16>;
 };
 
-[[binding(0), set(0)]] var<uniform> uniforms : Uniforms;
+[[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 
 [[builtin(instance_index)]] var<in> instanceIdx : i32;
 [[location(0)]] var<in> position : vec4<f32>;

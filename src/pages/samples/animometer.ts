@@ -430,8 +430,8 @@ const wgslShaders = {
   [[offset(16)]] scalarOffset : f32;
 };
 
-[[binding(0), set(0)]] var<uniform> time : Time;
-[[binding(0), set(1)]] var<uniform> uniforms : Uniforms;
+[[binding(0), group(0)]] var<uniform> time : Time;
+[[binding(0), group(1)]] var<uniform> uniforms : Uniforms;
 
 [[location(0)]] var<in> position : vec4<f32>;
 [[location(1)]] var<in> color : vec4<f32>;

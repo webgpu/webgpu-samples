@@ -591,8 +591,8 @@ const wgslShaders = {
   [[offset(0)]] modelMatrix : mat4x4<f32>;
 };
 
-[[set(0), binding(0)]] var<uniform> scene : Scene;
-[[set(1), binding(0)]] var<uniform> model : Model;
+[[group(0), binding(0)]] var<uniform> scene : Scene;
+[[group(1), binding(0)]] var<uniform> model : Model;
 
 [[location(0)]] var<in> position : vec3<f32>;
 
@@ -621,8 +621,8 @@ fn main() -> void {
   [[offset(0)]] modelMatrix : mat4x4<f32>;
 };
 
-[[set(0), binding(0)]] var<uniform> scene : Scene;
-[[set(1), binding(0)]] var<uniform> model : Model;
+[[group(0), binding(0)]] var<uniform> scene : Scene;
+[[group(1), binding(0)]] var<uniform> model : Model;
 
 [[location(0)]] var<in> position : vec3<f32>;
 [[location(1)]] var<in> normal : vec3<f32>;
@@ -657,9 +657,9 @@ fn main() -> void {
   [[offset(128)]] lightPos : vec3<f32>;
 };
 
-[[set(0), binding(0)]] var<uniform> scene : Scene;
-[[set(0), binding(1)]] var<uniform_constant> shadowMap: texture_depth_2d;
-[[set(0), binding(2)]] var<uniform_constant> shadowSampler: sampler_comparison;
+[[group(0), binding(0)]] var<uniform> scene : Scene;
+[[group(0), binding(1)]] var<uniform_constant> shadowMap: texture_depth_2d;
+[[group(0), binding(2)]] var<uniform_constant> shadowSampler: sampler_comparison;
 
 [[location(0)]] var<in> shadowPos : vec3<f32>;
 [[location(1)]] var<in> fragPos : vec3<f32>;
