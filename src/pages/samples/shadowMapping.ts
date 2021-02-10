@@ -658,8 +658,8 @@ fn main() -> void {
 };
 
 [[group(0), binding(0)]] var<uniform> scene : Scene;
-[[group(0), binding(1)]] var<uniform_constant> shadowMap: texture_depth_2d;
-[[group(0), binding(2)]] var<uniform_constant> shadowSampler: sampler_comparison;
+[[group(0), binding(1)]] var shadowMap: texture_depth_2d;
+[[group(0), binding(2)]] var shadowSampler: sampler_comparison;
 
 [[location(0)]] var<in> shadowPos : vec3<f32>;
 [[location(1)]] var<in> fragPos : vec3<f32>;
