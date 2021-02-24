@@ -106,9 +106,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const depthTexture = device.createTexture({
-    size: { width: canvas.width, height: canvas.height, depth: 1 },
+    size: { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 },
     format: 'depth24plus-stencil8',
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -236,7 +236,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       passEncoder.draw(3, numParticles, 0, 0);
       passEncoder.endPass();
     }
-    device.defaultQueue.submit([commandEncoder.finish()]);
+    device.queue.submit([commandEncoder.finish()]);
 
     ++t;
   };

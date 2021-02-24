@@ -56,11 +56,11 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depth: 1,
+      depthOrArrayLayers: 1,
     },
     sampleCount,
     format: swapChainFormat,
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
   const attachment = texture.createView();
 
@@ -82,7 +82,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.draw(3, 1, 0, 0);
     passEncoder.endPass();
 
-    device.defaultQueue.submit([commandEncoder.finish()]);
+    device.queue.submit([commandEncoder.finish()]);
   }
 
   return frame;
