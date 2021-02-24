@@ -32,7 +32,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
   const swapChain = context.configureSwapChain({
     device,
     format: swapChainFormat,
-    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.OUTPUT_ATTACHMENT,
+    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   const timeBindGroupLayout = device.createBindGroupLayout({
@@ -241,7 +241,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
         maxMappingLength
       );
 
-      device.defaultQueue.writeBuffer(
+      device.queue.writeBuffer(
         uniformBuffer,
         offset * Float32Array.BYTES_PER_ELEMENT,
         uniformBufferData.buffer,
@@ -295,7 +295,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
         startTime = timestamp;
       }
       uniformTime[0] = (timestamp - startTime) / 1000;
-      device.defaultQueue.writeBuffer(
+      device.queue.writeBuffer(
         uniformBuffer,
         timeOffset,
         uniformTime.buffer
@@ -315,7 +315,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
       }
 
       passEncoder.endPass();
-      device.defaultQueue.submit([commandEncoder.finish()]);
+      device.queue.submit([commandEncoder.finish()]);
     };
   }
 

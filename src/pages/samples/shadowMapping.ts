@@ -108,7 +108,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   // Create the depth texture for rendering/sampling the shadow map.
   const shadowDepthTexture = device.createTexture({
     size: [shadowDepthTextureSize, shadowDepthTextureSize, 1],
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.SAMPLED,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
     format: 'depth32float',
   });
   const shadowDepthTextureView = shadowDepthTexture.createView();
@@ -251,10 +251,10 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depth: 1,
+      depthOrArrayLayers: 1,
     },
     format: 'depth24plus-stencil8',
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -374,7 +374,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   // The camera/light aren't moving, so write them into buffers now.
   {
     const lightMatrixData = lightViewProjMatrix as Float32Array;
-    device.defaultQueue.writeBuffer(
+    device.queue.writeBuffer(
       sceneUniformBuffer,
       0,
       lightMatrixData.buffer,
@@ -383,7 +383,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     );
 
     const cameraMatrixData = viewProjMatrix as Float32Array;
-    device.defaultQueue.writeBuffer(
+    device.queue.writeBuffer(
       sceneUniformBuffer,
       64,
       cameraMatrixData.buffer,
@@ -392,7 +392,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     );
 
     const lightData = lightPosition as Float32Array;
-    device.defaultQueue.writeBuffer(
+    device.queue.writeBuffer(
       sceneUniformBuffer,
       128,
       lightData.buffer,
@@ -401,7 +401,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     );
 
     const modelData = modelMatrix as Float32Array;
-    device.defaultQueue.writeBuffer(
+    device.queue.writeBuffer(
       modelUniformBuffer,
       0,
       modelData.buffer,
@@ -437,7 +437,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   return function frame() {
     const cameraViewProj = getCameraViewProjMatrix();
-    device.defaultQueue.writeBuffer(
+    device.queue.writeBuffer(
       sceneUniformBuffer,
       64,
       cameraViewProj.buffer,
@@ -472,7 +472,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
       renderPass.endPass();
     }
-    device.defaultQueue.submit([commandEncoder.finish()]);
+    device.queue.submit([commandEncoder.finish()]);
   };
 }
 

@@ -95,7 +95,7 @@ async function init(canvas: HTMLCanvasElement) {
     size: {
       width: video.videoWidth,
       height: video.videoHeight,
-      depth: 1,
+      depthOrArrayLayers: 1,
     },
     format: 'rgba8unorm',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
@@ -117,10 +117,10 @@ async function init(canvas: HTMLCanvasElement) {
 
   return function frame() {
     createImageBitmap(video).then((videoFrame) => {
-      device.defaultQueue.copyImageBitmapToTexture(
+      device.queue.copyImageBitmapToTexture(
         { imageBitmap: videoFrame, origin: { x: 0, y: 0 } },
         { texture: videoTexture },
-        { width: video.videoWidth, height: video.videoHeight, depth: 1 }
+        { width: video.videoWidth, height: video.videoHeight, depthOrArrayLayers: 1 }
       );
 
       const commandEncoder = device.createCommandEncoder();
@@ -141,7 +141,7 @@ async function init(canvas: HTMLCanvasElement) {
       passEncoder.setBindGroup(0, uniformBindGroup);
       passEncoder.draw(6, 1, 0, 0);
       passEncoder.endPass();
-      device.defaultQueue.submit([commandEncoder.finish()]);
+      device.queue.submit([commandEncoder.finish()]);
     });
   };
 }

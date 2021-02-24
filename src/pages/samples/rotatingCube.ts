@@ -99,10 +99,10 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depth: 1,
+      depthOrArrayLayers: 1,
     },
     format: 'depth24plus-stencil8',
-    usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -162,7 +162,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   return function frame() {
     const transformationMatrix = getTransformationMatrix();
-    device.defaultQueue.writeBuffer(
+    device.queue.writeBuffer(
       uniformBuffer,
       0,
       transformationMatrix.buffer,
@@ -180,7 +180,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.draw(36, 1, 0, 0);
     passEncoder.endPass();
-    device.defaultQueue.submit([commandEncoder.finish()]);
+    device.queue.submit([commandEncoder.finish()]);
   };
 }
 

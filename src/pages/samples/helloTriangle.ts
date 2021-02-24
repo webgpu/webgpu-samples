@@ -66,7 +66,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.draw(3, 1, 0, 0);
     passEncoder.endPass();
 
-    device.defaultQueue.submit([commandEncoder.finish()]);
+    device.queue.submit([commandEncoder.finish()]);
   }
 
   return frame;
