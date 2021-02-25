@@ -122,7 +122,6 @@ async function init(canvas: HTMLCanvasElement) {
         {
           width: video.videoWidth,
           height: video.videoHeight,
-          depthOrArrayLayers: 1,
         }
       );
 
