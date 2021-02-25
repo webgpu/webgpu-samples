@@ -95,7 +95,6 @@ async function init(canvas: HTMLCanvasElement) {
     size: {
       width: video.videoWidth,
       height: video.videoHeight,
-      depthOrArrayLayers: 1,
     },
     format: 'rgba8unorm',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
@@ -120,7 +119,11 @@ async function init(canvas: HTMLCanvasElement) {
       device.queue.copyImageBitmapToTexture(
         { imageBitmap: videoFrame, origin: { x: 0, y: 0 } },
         { texture: videoTexture },
-        { width: video.videoWidth, height: video.videoHeight, depthOrArrayLayers: 1 }
+        {
+          width: video.videoWidth,
+          height: video.videoHeight,
+          depthOrArrayLayers: 1,
+        }
       );
 
       const commandEncoder = device.createCommandEncoder();

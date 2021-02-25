@@ -119,7 +119,6 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
       size: {
         width: srcWidth,
         height: srcHeight,
-        depthOrArrayLayers: 1,
       },
       format: 'rgba8unorm',
       usage:
