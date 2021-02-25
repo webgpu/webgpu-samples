@@ -96,7 +96,7 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const depthTexture = device.createTexture({
-    size: { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 },
+    size: { width: canvas.width, height: canvas.height },
     format: 'depth24plus-stencil8',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -125,7 +125,7 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const cubeTexture = device.createTexture({
-    size: { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 },
+    size: { width: canvas.width, height: canvas.height },
     format: 'bgra8unorm',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
   });
@@ -204,7 +204,6 @@ async function init(canvas: HTMLCanvasElement) {
       {
         width: canvas.width,
         height: canvas.height,
-        depthOrArrayLayers: 1,
       }
     );
 

@@ -56,7 +56,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     size: {
       width: canvas.width,
       height: canvas.height,
-      depthOrArrayLayers: 1,
     },
     sampleCount,
     format: swapChainFormat,

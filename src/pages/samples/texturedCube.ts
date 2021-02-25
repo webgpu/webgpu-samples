@@ -125,7 +125,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const depthTexture = device.createTexture({
-    size: { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 },
+    size: { width: canvas.width, height: canvas.height },
     format: 'depth24plus-stencil8',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });

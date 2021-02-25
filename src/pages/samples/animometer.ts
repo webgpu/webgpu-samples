@@ -295,11 +295,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
         startTime = timestamp;
       }
       uniformTime[0] = (timestamp - startTime) / 1000;
-      device.queue.writeBuffer(
-        uniformBuffer,
-        timeOffset,
-        uniformTime.buffer
-      );
+      device.queue.writeBuffer(uniformBuffer, timeOffset, uniformTime.buffer);
 
       renderPassDescriptor.colorAttachments[0].attachment = swapChain
         .getCurrentTexture()
