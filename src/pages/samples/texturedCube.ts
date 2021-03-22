@@ -38,19 +38,25 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
         // Transform
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
-        type: 'uniform-buffer',
+        buffer: {
+          type: 'uniform',
+        },
       },
       {
         // Sampler
         binding: 1,
         visibility: GPUShaderStage.FRAGMENT,
-        type: 'sampler',
+        sampler: {
+          type: 'filtering',
+        },
       },
       {
         // Texture view
         binding: 2,
         visibility: GPUShaderStage.FRAGMENT,
-        type: 'sampled-texture',
+        texture: {
+          sampleType: 'float',
+        },
       },
     ],
   });
@@ -62,7 +68,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   const pipeline = device.createRenderPipeline({
     layout: pipelineLayout,
 
-    vertexStage: {
+    vertex: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.vertex,
@@ -72,8 +78,27 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
       entryPoint: 'main',
+      buffers: [
+        {
+          arrayStride: cubeVertexSize,
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: cubePositionOffset,
+              format: 'float32x4',
+            },
+            {
+              // uv
+              shaderLocation: 1,
+              offset: cubeUVOffset,
+              format: 'float32x2',
+            },
+          ],
+        },
+      ],
     },
-    fragmentStage: {
+    fragment: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.fragment,
@@ -83,45 +108,21 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
       entryPoint: 'main',
+      targets: [
+        {
+          format: 'bgra8unorm',
+        },
+      ],
     },
-
-    primitiveTopology: 'triangle-list',
-    depthStencilState: {
+    primitive: {
+      topology: 'triangle-list',
+      cullMode: 'back',
+    },
+    depthStencil: {
       depthWriteEnabled: true,
       depthCompare: 'less',
       format: 'depth24plus-stencil8',
     },
-    vertexState: {
-      vertexBuffers: [
-        {
-          arrayStride: cubeVertexSize,
-          attributes: [
-            {
-              // position
-              shaderLocation: 0,
-              offset: cubePositionOffset,
-              format: 'float4',
-            },
-            {
-              // uv
-              shaderLocation: 1,
-              offset: cubeUVOffset,
-              format: 'float2',
-            },
-          ],
-        },
-      ],
-    },
-
-    rasterizationState: {
-      cullMode: 'back',
-    },
-
-    colorStates: [
-      {
-        format: 'bgra8unorm',
-      },
-    ],
   });
 
   const depthTexture = device.createTexture({

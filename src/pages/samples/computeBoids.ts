@@ -16,7 +16,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const renderPipeline = device.createRenderPipeline({
-    vertexStage: {
+    vertex: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.vertex,
@@ -26,29 +26,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
       entryPoint: 'main',
-    },
-    fragmentStage: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
-      entryPoint: 'main',
-    },
-
-    primitiveTopology: 'triangle-list',
-
-    depthStencilState: {
-      depthWriteEnabled: true,
-      depthCompare: 'less',
-      format: 'depth24plus-stencil8',
-    },
-
-    vertexState: {
-      vertexBuffers: [
+      buffers: [
         {
           // instanced particles buffer
           arrayStride: 4 * 4,
@@ -58,13 +36,13 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
               // instance position
               shaderLocation: 0,
               offset: 0,
-              format: 'float2',
+              format: 'float32x2',
             },
             {
               // instance velocity
               shaderLocation: 1,
               offset: 2 * 4,
-              format: 'float2',
+              format: 'float32x2',
             },
           ],
         },
@@ -77,18 +55,36 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
               // vertex positions
               shaderLocation: 2,
               offset: 0,
-              format: 'float2',
+              format: 'float32x2',
             },
           ],
         },
       ],
     },
-
-    colorStates: [
-      {
-        format: 'bgra8unorm',
-      },
-    ],
+    fragment: {
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
+          }),
+      entryPoint: 'main',
+      targets: [
+        {
+          format: 'bgra8unorm',
+        },
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
+    },
   });
 
   const computePipeline = device.createComputePipeline({
@@ -400,7 +396,7 @@ fn main() -> void {
 [[stage(compute)]]
 fn main() -> void {
   var index : u32 = GlobalInvocationID.x;
-  if (index >= ${numParticles}) {
+  if (index >= ${numParticles}u) {
     return;
   }
   var vPos : vec2<f32> = particlesA.particles[index].pos;

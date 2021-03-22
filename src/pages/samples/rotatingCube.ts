@@ -33,7 +33,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   verticesBuffer.unmap();
 
   const pipeline = device.createRenderPipeline({
-    vertexStage: {
+    vertex: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.vertex,
@@ -43,8 +43,27 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
       entryPoint: 'main',
+      buffers: [
+        {
+          arrayStride: cubeVertexSize,
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: cubePositionOffset,
+              format: 'float32x4',
+            },
+            {
+              // color
+              shaderLocation: 1,
+              offset: cubeColorOffset,
+              format: 'float32x4',
+            },
+          ],
+        },
+      ],
     },
-    fragmentStage: {
+    fragment: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.fragment,
@@ -54,45 +73,21 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
       entryPoint: 'main',
+      targets: [
+        {
+          format: 'bgra8unorm',
+        },
+      ],
     },
-
-    primitiveTopology: 'triangle-list',
-    depthStencilState: {
+    primitive: {
+      topology: 'triangle-list',
+      cullMode: 'back',
+    },
+    depthStencil: {
       depthWriteEnabled: true,
       depthCompare: 'less',
       format: 'depth24plus-stencil8',
     },
-    vertexState: {
-      vertexBuffers: [
-        {
-          arrayStride: cubeVertexSize,
-          attributes: [
-            {
-              // position
-              shaderLocation: 0,
-              offset: cubePositionOffset,
-              format: 'float4',
-            },
-            {
-              // color
-              shaderLocation: 1,
-              offset: cubeColorOffset,
-              format: 'float4',
-            },
-          ],
-        },
-      ],
-    },
-
-    rasterizationState: {
-      cullMode: 'back',
-    },
-
-    colorStates: [
-      {
-        format: 'bgra8unorm',
-      },
-    ],
   });
 
   const depthTexture = device.createTexture({
