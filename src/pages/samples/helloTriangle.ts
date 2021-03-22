@@ -16,7 +16,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const pipeline = device.createRenderPipeline({
-    vertexStage: {
+    vertex: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.vertex,
@@ -27,7 +27,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
           }),
       entryPoint: 'main',
     },
-    fragmentStage: {
+    fragment: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.fragment,
@@ -37,15 +37,15 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
       entryPoint: 'main',
+      targets: [
+        {
+          format: swapChainFormat,
+        },
+      ],
     },
-
-    primitiveTopology: 'triangle-list',
-
-    colorStates: [
-      {
-        format: swapChainFormat,
-      },
-    ],
+    primitive: {
+      topology: 'triangle-list',
+    },
   });
 
   function frame() {

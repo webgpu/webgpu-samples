@@ -40,8 +40,10 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
       {
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
-        type: 'uniform-buffer',
-        minBufferBindingSize: 4,
+        buffer: {
+          type: 'uniform',
+          minBindingSize: 4,
+        },
       },
     ],
   });
@@ -51,8 +53,10 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
       {
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
-        type: 'uniform-buffer',
-        minBufferBindingSize: 20,
+        buffer: {
+          type: 'uniform',
+          minBindingSize: 20,
+        },
       },
     ],
   });
@@ -62,9 +66,11 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
       {
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
-        type: 'uniform-buffer',
-        hasDynamicOffset: true,
-        minBufferBindingSize: 20,
+        buffer: {
+          type: 'uniform',
+          hasDynamicOffset: true,
+          minBindingSize: 20,
+        },
       },
     ],
   });
@@ -77,7 +83,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
     bindGroupLayouts: [timeBindGroupLayout, dynamicBindGroupLayout],
   });
   const pipelineDesc: GPURenderPipelineDescriptor = {
-    vertexStage: {
+    vertex: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.vertex,
@@ -87,21 +93,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
       entryPoint: 'main',
-    },
-    fragmentStage: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
-      entryPoint: 'main',
-    },
-    primitiveTopology: 'triangle-list',
-    vertexState: {
-      vertexBuffers: [
+      buffers: [
         {
           // vertex buffer
           arrayStride: 2 * vec4Size,
@@ -111,27 +103,39 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
               // vertex positions
               shaderLocation: 0,
               offset: 0,
-              format: 'float4',
+              format: 'float32x4',
             },
             {
               // vertex colors
               shaderLocation: 1,
               offset: vec4Size,
-              format: 'float4',
+              format: 'float32x4',
             },
           ],
         },
       ],
     },
-    rasterizationState: {
+    fragment: {
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
+          }),
+      entryPoint: 'main',
+      targets: [
+        {
+          format: swapChainFormat,
+        },
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
       frontFace: 'ccw',
       cullMode: 'none',
     },
-    colorStates: [
-      {
-        format: swapChainFormat,
-      },
-    ],
   };
 
   const pipeline = device.createRenderPipeline({

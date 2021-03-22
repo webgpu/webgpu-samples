@@ -35,29 +35,13 @@ async function init(canvas: HTMLCanvasElement) {
   verticesBuffer.unmap();
 
   const pipeline = device.createRenderPipeline({
-    vertexStage: {
+    vertex: {
       module: device.createShaderModule({
         code: glslShaders.vertex,
         transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
       }),
       entryPoint: 'main',
-    },
-    fragmentStage: {
-      module: device.createShaderModule({
-        code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-      }),
-      entryPoint: 'main',
-    },
-
-    primitiveTopology: 'triangle-list',
-    depthStencilState: {
-      depthWriteEnabled: true,
-      depthCompare: 'less',
-      format: 'depth24plus-stencil8',
-    },
-    vertexState: {
-      vertexBuffers: [
+      buffers: [
         {
           arrayStride: cubeVertexSize,
           attributes: [
@@ -65,34 +49,45 @@ async function init(canvas: HTMLCanvasElement) {
               // position
               shaderLocation: 0,
               offset: cubePositionOffset,
-              format: 'float4',
+              format: 'float32x4',
             },
             {
               // color
               shaderLocation: 1,
               offset: cubeColorOffset,
-              format: 'float4',
+              format: 'float32x4',
             },
             {
               // uv
               shaderLocation: 2,
               offset: cubeUVOffset,
-              format: 'float2',
+              format: 'float32x2',
             },
           ],
         },
       ],
     },
-
-    rasterizationState: {
+    fragment: {
+      module: device.createShaderModule({
+        code: glslShaders.fragment,
+        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
+      }),
+      entryPoint: 'main',
+      targets: [
+        {
+          format: 'bgra8unorm',
+        },
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
       cullMode: 'back',
     },
-
-    colorStates: [
-      {
-        format: 'bgra8unorm',
-      },
-    ],
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      format: 'depth24plus-stencil8',
+    },
   });
 
   const depthTexture = device.createTexture({

@@ -1,7 +1,7 @@
 import { makeBasicExample } from '../../components/basicExample';
 import glslangModule from '../../glslang';
 
-async function init(canvas: HTMLCanvasElement) {
+async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   // Set video element
   const video = document.createElement('video');
   video.loop = true;
@@ -41,24 +41,17 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const pipeline = device.createRenderPipeline({
-    vertexStage: {
-      module: device.createShaderModule({
-        code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-      }),
+    vertex: {
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.vertex,
+          })
+        : device.createShaderModule({
+            code: glslShaders.vertex,
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
+          }),
       entryPoint: 'main',
-    },
-    fragmentStage: {
-      module: device.createShaderModule({
-        code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-      }),
-      entryPoint: 'main',
-    },
-
-    primitiveTopology: 'triangle-list',
-    vertexState: {
-      vertexBuffers: [
+      buffers: [
         {
           arrayStride: 20,
           attributes: [
@@ -66,24 +59,37 @@ async function init(canvas: HTMLCanvasElement) {
               // position
               shaderLocation: 0,
               offset: 0,
-              format: 'float3',
+              format: 'float32x3',
             },
             {
               // uv
               shaderLocation: 1,
               offset: 12,
-              format: 'float2',
+              format: 'float32x2',
             },
           ],
         },
       ],
     },
-
-    colorStates: [
-      {
-        format: swapChainFormat,
-      },
-    ],
+    fragment: {
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
+          }),
+      entryPoint: 'main',
+      targets: [
+        {
+          format: swapChainFormat,
+        },
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
+    },
   });
 
   const sampler = device.createSampler({
@@ -182,8 +188,9 @@ const wgslShaders = {
 [[location(0)]] var<out> fragUV : vec2<f32>;
 [[builtin(position)]] var<out> Position : vec4<f32>;
 
-void main() {
-  Position = vec4(position, 1.0);
+[[stage(vertex)]]
+fn main() -> void {
+  Position = vec4<f32>(position, 1.0);
   fragUV = uv;
 }
 `,

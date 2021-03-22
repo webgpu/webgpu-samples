@@ -115,35 +115,33 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   // Create some common descriptors used for both the shadow pipeline
   // and the color rendering pipeline.
-  const vertexState: GPUVertexStateDescriptor = {
-    vertexBuffers: [
-      {
-        arrayStride: Float32Array.BYTES_PER_ELEMENT * 6,
-        attributes: [
-          {
-            // position
-            shaderLocation: 0,
-            offset: 0,
-            format: 'float3',
-          },
-          {
-            // normal
-            shaderLocation: 1,
-            offset: Float32Array.BYTES_PER_ELEMENT * 3,
-            format: 'float3',
-          },
-        ],
-      },
-    ],
-  };
+  const vertexBuffers: Iterable<GPUVertexBufferLayout> = [
+    {
+      arrayStride: Float32Array.BYTES_PER_ELEMENT * 6,
+      attributes: [
+        {
+          // position
+          shaderLocation: 0,
+          offset: 0,
+          format: 'float32x3',
+        },
+        {
+          // normal
+          shaderLocation: 1,
+          offset: Float32Array.BYTES_PER_ELEMENT * 3,
+          format: 'float32x3',
+        },
+      ],
+    },
+  ];
 
-  const primitiveTopology = 'triangle-list' as const;
-  const rasterizationState: GPURasterizationStateDescriptor = {
+  const primitive: GPUPrimitiveState = {
+    topology: 'triangle-list',
     cullMode: 'back',
   };
 
   const shadowPipeline = device.createRenderPipeline({
-    vertexStage: {
+    vertex: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.vertexShadow,
@@ -153,8 +151,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
       entryPoint: 'main',
+      buffers: vertexBuffers,
     },
-    fragmentStage: {
+    fragment: {
       // This should be omitted and we can use a vertex-only pipeline, but it's
       // not yet implemented.
       module: useWGSL
@@ -166,16 +165,14 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
       entryPoint: 'main',
+      targets: [],
     },
-    depthStencilState: {
+    depthStencil: {
       depthWriteEnabled: true,
       depthCompare: 'less',
       format: 'depth32float',
     },
-    primitiveTopology,
-    vertexState,
-    rasterizationState,
-    colorStates: [],
+    primitive,
   });
 
   // Create a bind group layout which holds the scene uniforms and
@@ -186,20 +183,23 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       {
         binding: 0,
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-        type: 'uniform-buffer',
+        buffer: {
+          type: 'uniform',
+        },
       },
       {
         binding: 1,
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-        type: 'sampled-texture',
-
-        // Not added in the current types yet, and this API is changing.
-        textureComponentType: 'depth-comparison' as GPUTextureComponentType,
+        texture: {
+          sampleType: 'depth',
+        },
       },
       {
         binding: 2,
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-        type: 'comparison-sampler',
+        sampler: {
+          type: 'comparison',
+        },
       },
     ],
   });
@@ -210,7 +210,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     layout: device.createPipelineLayout({
       bindGroupLayouts: [bglForRender, shadowPipeline.getBindGroupLayout(1)],
     }),
-    vertexStage: {
+    vertex: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.vertex,
@@ -220,8 +220,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
           }),
       entryPoint: 'main',
+      buffers: vertexBuffers,
     },
-    fragmentStage: {
+    fragment: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.fragment,
@@ -231,20 +232,18 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
             transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
           }),
       entryPoint: 'main',
+      targets: [
+        {
+          format: 'bgra8unorm',
+        },
+      ],
     },
-    depthStencilState: {
+    depthStencil: {
       depthWriteEnabled: true,
       depthCompare: 'less',
       format: 'depth24plus-stencil8',
     },
-    primitiveTopology,
-    vertexState,
-    rasterizationState,
-    colorStates: [
-      {
-        format: 'bgra8unorm',
-      },
-    ],
+    primitive,
   });
 
   const depthTexture = device.createTexture({
