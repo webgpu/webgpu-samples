@@ -26,6 +26,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
     'videoUploading',
     'imageBlur',
     'shadowMapping',
+    'reversedZ',
   ];
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
