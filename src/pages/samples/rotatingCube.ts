@@ -5,7 +5,7 @@ import {
   cubeVertexSize,
   cubeColorOffset,
   cubePositionOffset,
-  cubeDrawCount,
+  cubeVertexCount,
 } from '../../meshes/cube';
 import glslangModule from '../../glslang';
 
@@ -173,7 +173,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
-    passEncoder.draw(cubeDrawCount, 1, 0, 0);
+    passEncoder.draw(cubeVertexCount, 1, 0, 0);
     passEncoder.endPass();
     device.queue.submit([commandEncoder.finish()]);
   };

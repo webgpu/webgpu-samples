@@ -4,7 +4,7 @@ import {
   cubeVertexSize,
   cubeColorOffset,
   cubePositionOffset,
-  cubeDrawCount,
+  cubeVertexCount,
 } from '../../meshes/cube';
 import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
@@ -220,7 +220,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.setVertexBuffer(0, verticesBuffer);
 
     passEncoder.setBindGroup(0, uniformBindGroup);
-    passEncoder.draw(cubeDrawCount, numInstances, 0, 0);
+    passEncoder.draw(cubeVertexCount, numInstances, 0, 0);
 
     passEncoder.endPass();
 

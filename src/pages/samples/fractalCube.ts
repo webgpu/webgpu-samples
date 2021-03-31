@@ -5,7 +5,7 @@ import {
   cubeColorOffset,
   cubeUVOffset,
   cubePositionOffset,
-  cubeDrawCount,
+  cubeVertexCount,
 } from '../../meshes/cube';
 import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
@@ -187,7 +187,7 @@ async function init(canvas: HTMLCanvasElement) {
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
-    passEncoder.draw(cubeDrawCount, 1, 0, 0);
+    passEncoder.draw(cubeVertexCount, 1, 0, 0);
     passEncoder.endPass();
 
     commandEncoder.copyTextureToTexture(
