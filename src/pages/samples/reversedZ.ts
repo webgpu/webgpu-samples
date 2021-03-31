@@ -859,13 +859,13 @@ void main() {
 const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
-  [[offset(0)]] modelMatrix : [[stride(${matrixStride})]] array<mat4x4<f32>, ${numInstances}>;
+  modelMatrix : [[stride(${matrixStride})]] array<mat4x4<f32>, ${numInstances}>;
 };
 [[block]] struct Camera {
-  [[offset(0)]] viewProjectionMatrix : mat4x4<f32>;
+  viewProjectionMatrix : mat4x4<f32>;
 };
 
-[[builtin(instance_index)]] var<in> instanceIdx : i32;
+[[builtin(instance_index)]] var<in> instanceIdx : u32;
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 [[binding(1), group(0)]] var<uniform> camera : Camera;
 
@@ -892,13 +892,13 @@ fn main() -> void {
 `,
   vertexDepthPrePass: `
 [[block]] struct Uniforms {
-  [[offset(0)]] modelMatrix : [[stride(${matrixStride})]] array<mat4x4<f32>, ${numInstances}>;
+  modelMatrix : [[stride(${matrixStride})]] array<mat4x4<f32>, ${numInstances}>;
 };
 [[block]] struct Camera {
-  [[offset(0)]] viewProjectionMatrix : mat4x4<f32>;
+  viewProjectionMatrix : mat4x4<f32>;
 };
 
-[[builtin(instance_index)]] var<in> instanceIdx : i32;
+[[builtin(instance_index)]] var<in> instanceIdx : u32;
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 [[binding(1), group(0)]] var<uniform> camera : Camera;
 
@@ -918,13 +918,13 @@ fn main() -> void {
 `,
   vertexPrecisionErrorPass: `
 [[block]] struct Uniforms {
-  [[offset(0)]] modelMatrix : [[stride(${matrixStride})]] array<mat4x4<f32>, ${numInstances}>;
+  modelMatrix : [[stride(${matrixStride})]] array<mat4x4<f32>, ${numInstances}>;
 };
 [[block]] struct Camera {
-  [[offset(0)]] viewProjectionMatrix : mat4x4<f32>;
+  viewProjectionMatrix : mat4x4<f32>;
 };
 
-[[builtin(instance_index)]] var<in> instanceIdx : i32;
+[[builtin(instance_index)]] var<in> instanceIdx : u32;
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 [[binding(1), group(0)]] var<uniform> camera : Camera;
 
@@ -963,7 +963,7 @@ const pos : array<vec2<f32>, 6> = array<vec2<f32>, 6>(
   vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0));
 
 [[builtin(position)]] var<out> Position : vec4<f32>;
-[[builtin(vertex_index)]] var<in> VertexIndex : i32;
+[[builtin(vertex_index)]] var<in> VertexIndex : u32;
 
 [[stage(vertex)]]
 fn main() -> void {
