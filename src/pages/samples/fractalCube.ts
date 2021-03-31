@@ -5,6 +5,7 @@ import {
   cubeColorOffset,
   cubeUVOffset,
   cubePositionOffset,
+  cubeVertexCount,
 } from '../../meshes/cube';
 import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
@@ -186,7 +187,7 @@ async function init(canvas: HTMLCanvasElement) {
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
-    passEncoder.draw(36, 1, 0, 0);
+    passEncoder.draw(cubeVertexCount, 1, 0, 0);
     passEncoder.endPass();
 
     commandEncoder.copyTextureToTexture(
@@ -246,7 +247,7 @@ void main() {
 const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
-  [[offset(0)]] modelViewProjectionMatrix : mat4x4<f32>;
+  modelViewProjectionMatrix : mat4x4<f32>;
 };
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 

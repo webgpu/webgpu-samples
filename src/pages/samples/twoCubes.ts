@@ -5,6 +5,7 @@ import {
   cubeVertexSize,
   cubeColorOffset,
   cubePositionOffset,
+  cubeVertexCount,
 } from '../../meshes/cube';
 import glslangModule from '../../glslang';
 
@@ -225,10 +226,10 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
     passEncoder.setVertexBuffer(0, verticesBuffer);
 
     passEncoder.setBindGroup(0, uniformBindGroup1);
-    passEncoder.draw(36, 1, 0, 0);
+    passEncoder.draw(cubeVertexCount, 1, 0, 0);
 
     passEncoder.setBindGroup(0, uniformBindGroup2);
-    passEncoder.draw(36, 1, 0, 0);
+    passEncoder.draw(cubeVertexCount, 1, 0, 0);
 
     passEncoder.endPass();
 
@@ -264,7 +265,7 @@ void main() {
 const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
-  [[offset(0)]] modelViewProjectionMatrix : mat4x4<f32>;
+  modelViewProjectionMatrix : mat4x4<f32>;
 };
 
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
