@@ -98,7 +98,7 @@ const pos : array<vec2<f32>, 3> = array<vec2<f32>, 3>(
     vec2<f32>(0.5, -0.5));
 
 [[builtin(position)]] var<out> Position : vec4<f32>;
-[[builtin(vertex_index)]] var<in> VertexIndex : i32;
+[[builtin(vertex_index)]] var<in> VertexIndex : u32;
 
 [[stage(vertex)]]
 fn main() -> void {
