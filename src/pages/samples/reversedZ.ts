@@ -5,14 +5,34 @@ import {
   kDefaultCanvasHeight,
   makeBasicExample,
 } from '../../components/basicExample';
-import {
-  geometryVertexArray,
-  geometryVertexSize,
-  geometryColorOffset,
-  geometryPositionOffset,
-  geometryDrawCount,
-} from '../../meshes/depthTestGeometry';
 import glslangModule from '../../glslang';
+
+// Two planes close to each other for depth precision test
+const geometryVertexSize = 4 * 8; // Byte size of one geometry vertex.
+const geometryPositionOffset = 0;
+const geometryColorOffset = 4 * 4; // Byte offset of geometry vertex color attribute.
+const geometryDrawCount = 6 * 2;
+
+const d = 0.0001; // half distance between two planes
+const o = 0.5; // half x offset to shift planes so they are only partially overlaping
+
+// prettier-ignore
+export const geometryVertexArray = new Float32Array([
+  // float4 position, float4 color
+  -1 - o, -1, d, 1, 1, 0, 0, 1, 
+   1 - o, -1, d, 1,  1, 0, 0, 1, 
+  -1 - o, 1, d, 1,  1, 0, 0, 1, 
+   1 - o, -1,  d, 1, 1, 0, 0, 1, 
+   1 - o, 1,  d, 1,  1, 0, 0, 1,
+   -1 - o, 1, d, 1,  1, 0, 0, 1, 
+ 
+  -1 + o, -1, -d, 1, 0, 1, 0, 1, 
+   1 + o, -1, -d, 1,  0, 1, 0, 1, 
+  -1 + o, 1, -d, 1,  0, 1, 0, 1, 
+   1 + o, -1,  -d, 1, 0, 1, 0, 1, 
+   1 + o, 1,  -d, 1,  0, 1, 0, 1, 
+  -1 + o, 1, -d, 1,  0, 1, 0, 1, 
+]);
 
 const kViewportWidth = kDefaultCanvasWidth / 2;
 
@@ -57,12 +77,20 @@ function perspectiveZO(out, fovy, aspect, near, far) {
 enum DepthBufferMode {
   Default = 0,
   Reversed,
-
-  COUNT,
 }
 
-const depthCompareFuncs: GPUCompareFunction[] = ['less', 'greater'];
-const depthLoadValues = [1.0, 0.0];
+const depthBufferModes: DepthBufferMode[] = [
+  DepthBufferMode.Default,
+  DepthBufferMode.Reversed,
+];
+const depthCompareFuncs = {
+  [DepthBufferMode.Default]: 'less' as GPUCompareFunction,
+  [DepthBufferMode.Reversed]: 'greater' as GPUCompareFunction,
+};
+const depthLoadValues = {
+  [DepthBufferMode.Default]: 1.0,
+  [DepthBufferMode.Reversed]: 0.0,
+};
 
 async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   const adapter = await navigator.gpu.requestAdapter();
@@ -86,6 +114,8 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
 
   const depthBufferFormat = 'depth24plus';
 
+  // depthPrePass is used to render scene to the depth texture
+  // this is not needed if you just want to use reversed z to render a scene
   const depthPrePassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     vertex: {
       module: useWGSL
@@ -133,6 +163,8 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
       format: depthBufferFormat,
     },
   };
+  // we need the depthCompare to fit the depth buffer mode we are using.
+  // this is the same for other passes
   const depthPrePassPipelines: GPURenderPipeline[] = [];
   depthPrePassRenderPipelineDescriptorBase.depthStencil.depthCompare =
     depthCompareFuncs[DepthBufferMode.Default];
@@ -145,6 +177,8 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
     depthPrePassRenderPipelineDescriptorBase
   );
 
+  // precisionPass is to draw precision error as color of depth value stored in depth buffer
+  // compared to that directly calcualated in the shader
   const precisionPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     vertex: {
       module: useWGSL
@@ -208,6 +242,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
     DepthBufferMode.Reversed
   ] = device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
 
+  // colorPass is the regular render pass to render the scene
   const colorPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     vertex: {
       module: useWGSL
@@ -277,6 +312,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
     colorPassRenderPipelineDescriptorBase
   );
 
+  // textureQuadPass is draw a full screen quad of depth texture
+  // to see the difference of depth value using reversed z compared to default depth buffer usage
+  // 0.0 will be the furthest and 1.0 will be the closest
   const textureQuadPassPipline = device.createRenderPipeline({
     vertex: {
       module: useWGSL
@@ -342,6 +380,10 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
     },
   };
 
+  // drawPassDescriptor and drawPassLoadDescriptor are used for drawing
+  // the scene twice using different depth buffer mode on splitted viewport
+  // of the same canvas
+  // see the difference of the loadValue of the colorAttachments
   const drawPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
@@ -529,6 +571,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   const viewProjectionMatrix = mat4.create();
   mat4.multiply(viewProjectionMatrix, projectionMatrix, viewMatrix);
   const reversedRangeViewProjectionMatrix = mat4.create();
+  // to use 1/z we just multiple depthRangeRemapMatrix to our default camera view projection matrix
   mat4.multiply(
     reversedRangeViewProjectionMatrix,
     depthRangeRemapMatrix,
@@ -585,18 +628,18 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
     const attachment = swapChain.getCurrentTexture().createView();
     const commandEncoder = device.createCommandEncoder();
     if (settings.mode === 'color') {
-      for (let i = 0; i < DepthBufferMode.COUNT; i++) {
-        drawPassDescriptors[i].colorAttachments[0].attachment = attachment;
-        drawPassDescriptors[i].depthStencilAttachment.depthLoadValue =
-          depthLoadValues[i];
+      for (const m of depthBufferModes) {
+        drawPassDescriptors[m].colorAttachments[0].attachment = attachment;
+        drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
+          depthLoadValues[m];
         const colorPass = commandEncoder.beginRenderPass(
-          drawPassDescriptors[i]
+          drawPassDescriptors[m]
         );
-        colorPass.setPipeline(colorPassPipelines[i]);
-        colorPass.setBindGroup(0, uniformBindGroups[i]);
+        colorPass.setPipeline(colorPassPipelines[m]);
+        colorPass.setBindGroup(0, uniformBindGroups[m]);
         colorPass.setVertexBuffer(0, verticesBuffer);
         colorPass.setViewport(
-          kViewportWidth * i,
+          kViewportWidth * m,
           0,
           kViewportWidth,
           kDefaultCanvasHeight,
@@ -607,18 +650,18 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
         colorPass.endPass();
       }
     } else if (settings.mode === 'precision-error') {
-      for (let i = 0; i < DepthBufferMode.COUNT; i++) {
+      for (const m of depthBufferModes) {
         {
           depthPrePassDescriptor.depthStencilAttachment.depthLoadValue =
-            depthLoadValues[i];
+            depthLoadValues[m];
           const depthPrePass = commandEncoder.beginRenderPass(
             depthPrePassDescriptor
           );
-          depthPrePass.setPipeline(depthPrePassPipelines[i]);
-          depthPrePass.setBindGroup(0, uniformBindGroups[i]);
+          depthPrePass.setPipeline(depthPrePassPipelines[m]);
+          depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            kViewportWidth * i,
+            kViewportWidth * m,
             0,
             kViewportWidth,
             kDefaultCanvasHeight,
@@ -629,18 +672,18 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
           depthPrePass.endPass();
         }
         {
-          drawPassDescriptors[i].colorAttachments[0].attachment = attachment;
-          drawPassDescriptors[i].depthStencilAttachment.depthLoadValue =
-            depthLoadValues[i];
+          drawPassDescriptors[m].colorAttachments[0].attachment = attachment;
+          drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
+            depthLoadValues[m];
           const precisionErrorPass = commandEncoder.beginRenderPass(
-            drawPassDescriptors[i]
+            drawPassDescriptors[m]
           );
-          precisionErrorPass.setPipeline(precisionPassPipelines[i]);
-          precisionErrorPass.setBindGroup(0, uniformBindGroups[i]);
+          precisionErrorPass.setPipeline(precisionPassPipelines[m]);
+          precisionErrorPass.setBindGroup(0, uniformBindGroups[m]);
           precisionErrorPass.setBindGroup(1, depthTextureBindGroup);
           precisionErrorPass.setVertexBuffer(0, verticesBuffer);
           precisionErrorPass.setViewport(
-            kViewportWidth * i,
+            kViewportWidth * m,
             0,
             kViewportWidth,
             kDefaultCanvasHeight,
@@ -653,18 +696,18 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
       }
     } else {
       // depth texture quad
-      for (let i = 0; i < DepthBufferMode.COUNT; i++) {
+      for (const m of depthBufferModes) {
         {
           depthPrePassDescriptor.depthStencilAttachment.depthLoadValue =
-            depthLoadValues[i];
+            depthLoadValues[m];
           const depthPrePass = commandEncoder.beginRenderPass(
             depthPrePassDescriptor
           );
-          depthPrePass.setPipeline(depthPrePassPipelines[i]);
-          depthPrePass.setBindGroup(0, uniformBindGroups[i]);
+          depthPrePass.setPipeline(depthPrePassPipelines[m]);
+          depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            kViewportWidth * i,
+            kViewportWidth * m,
             0,
             kViewportWidth,
             kDefaultCanvasHeight,
@@ -676,15 +719,15 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
         }
         {
           textureQuadPassDescriptors[
-            i
+            m
           ].colorAttachments[0].attachment = attachment;
           const depthTextureQuadPass = commandEncoder.beginRenderPass(
-            textureQuadPassDescriptors[i]
+            textureQuadPassDescriptors[m]
           );
           depthTextureQuadPass.setPipeline(textureQuadPassPipline);
           depthTextureQuadPass.setBindGroup(0, depthTextureBindGroup);
           depthTextureQuadPass.setViewport(
-            kViewportWidth * i,
+            kViewportWidth * m,
             0,
             kViewportWidth,
             kDefaultCanvasHeight,
@@ -702,9 +745,8 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
 
 const glslShaders = {
   vertex: `#version 450
-#define MAX_NUM_INSTANCES ${numInstances}
 layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelMatrix[MAX_NUM_INSTANCES];
+  mat4 modelMatrix[${numInstances}];
 } uniforms;
 
 layout(set = 0, binding = 1) uniform CameraMatrix {
@@ -732,9 +774,8 @@ void main() {
   `,
 
   vertexDepthPrePass: `#version 450
-#define MAX_NUM_INSTANCES ${numInstances}
 layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelMatrix[MAX_NUM_INSTANCES];
+  mat4 modelMatrix[${numInstances}];
 } uniforms;
 
 layout(set = 0, binding = 1) uniform CameraMatrix {
@@ -754,9 +795,8 @@ void main() {
 `,
 
   vertexPrecisionErrorPass: `#version 450
-#define MAX_NUM_INSTANCES ${numInstances}
 layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelMatrix[MAX_NUM_INSTANCES];
+  mat4 modelMatrix[${numInstances}];
 } uniforms;
 
 layout(set = 0, binding = 1) uniform CameraMatrix {
@@ -839,7 +879,6 @@ const wgslShaders = {
 fn main() -> void {
   Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
   fragColor = color;
-  return;
 }
 `,
   fragment: `
@@ -849,7 +888,6 @@ fn main() -> void {
 [[stage(fragment)]]
 fn main() -> void {
   outColor = fragColor;
-  return;
 }
 `,
   vertexDepthPrePass: `
@@ -871,13 +909,11 @@ fn main() -> void {
 [[stage(vertex)]]
 fn main() -> void {
   Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
-  return;
 }
 `,
   fragmentDepthPrePass: `
 [[stage(fragment)]]
 fn main() -> void {
-  return;
 }
 `,
   vertexPrecisionErrorPass: `
@@ -901,7 +937,6 @@ fn main() -> void {
 fn main() -> void {
   Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
   clipPos = Position;
-  return;
 }
 `,
   fragmentPrecisionErrorPass: `
@@ -920,7 +955,6 @@ fn main() -> void {
   )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
   const v : f32 = abs(clipPos.z / clipPos.w - depthValue) * 2000000.0;
   outColor = vec4<f32>(v, v, v, 1.0) ;
-  return;
 }
 `,
   vertexTextureQuad: `
@@ -934,7 +968,6 @@ const pos : array<vec2<f32>, 6> = array<vec2<f32>, 6>(
 [[stage(vertex)]]
 fn main() -> void {
   Position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
-  return;
 }
 `,
   fragmentTextureQuad: `
@@ -950,16 +983,18 @@ fn main() -> void {
     1
   )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
   outColor = vec4<f32>(depthValue, depthValue, depthValue, 1.0);
-  return;
 }
 `,
 };
 
 export default makeBasicExample({
   name: 'Reversed Z',
-  description: `This example shows the use of reversed z technique for better utilization of depth buffer precision. The left column uses regular method, while the right one uses reversed z technique.
+  description: `This example shows the use of reversed z technique for better utilization of depth buffer precision.
+    The left column uses regular method, while the right one uses reversed z technique.
     Both are using depth24plus as their depth buffer format. A set of red and green planes are positioned very close to each other.
     Higher sets are placed further from camera (and are scaled for better visual purpose).
+    To use reversed z to render your scene, you will need depth store value to be 0.0, depth compare function to be greater,
+    and remap depth range by multiplying an additional matrix to your projection matrix.
     Related reading:
     https://developer.nvidia.com/content/depth-precision-visualized
     https://thxforthefish.com/posts/reverse_z/
