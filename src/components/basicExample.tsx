@@ -6,6 +6,9 @@ import type { GUI } from 'dat.gui';
 
 import styles from './BasicExample.module.css';
 
+export const kDefaultCanvasWidth = 600;
+export const kDefaultCanvasHeight = 600;
+
 if (process.browser) {
   require('codemirror/mode/javascript/javascript');
   require('webgpu-shader-module-transform');
@@ -230,12 +233,12 @@ export function makeBasicExample(props: {
               addShaderEditor={(shaderEditor: JSX.Element) =>
                 setShaderEditors([...shaderEditors, shaderEditor])
               }
-              width={600}
-              height={600}
+              width={kDefaultCanvasWidth}
+              height={kDefaultCanvasHeight}
             />
           ) : (
             // Placeholder
-            <canvas width={600} height={600} />
+            <canvas width={kDefaultCanvasWidth} height={kDefaultCanvasHeight} />
           )}
         </div>
         <div>
