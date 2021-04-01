@@ -112,7 +112,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   new Float32Array(verticesBuffer.getMappedRange()).set(geometryVertexArray);
   verticesBuffer.unmap();
 
-  const depthBufferFormat = 'depth24plus';
+  const depthBufferFormat = 'depth32float';
 
   // depthPrePass is used to render scene to the depth texture
   // this is not needed if you just want to use reversed z to render a scene
@@ -991,7 +991,7 @@ export default makeBasicExample({
   name: 'Reversed Z',
   description: `This example shows the use of reversed z technique for better utilization of depth buffer precision.
     The left column uses regular method, while the right one uses reversed z technique.
-    Both are using depth24plus as their depth buffer format. A set of red and green planes are positioned very close to each other.
+    Both are using depth32float as their depth buffer format. A set of red and green planes are positioned very close to each other.
     Higher sets are placed further from camera (and are scaled for better visual purpose).
     To use reversed z to render your scene, you will need depth store value to be 0.0, depth compare function to be greater,
     and remap depth range by multiplying an additional matrix to your projection matrix.
