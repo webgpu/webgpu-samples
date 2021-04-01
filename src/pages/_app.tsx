@@ -62,7 +62,6 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
           name="description"
           content="The WebGPU Samples are a set of WGSL and SPIR-V compatible samples demonstrating the use of the WebGPU API"
         />
-        <meta name="author" content="Austin Eng" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
