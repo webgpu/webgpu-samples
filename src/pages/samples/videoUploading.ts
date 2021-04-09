@@ -182,16 +182,19 @@ void main() {
 
 const wgslShaders = {
   vertex: `
-[[location(0)]] var<in> position : vec3<f32>;
-[[location(1)]] var<in> uv : vec2<f32>;
+struct VertexInput {
+  [[location(0)]] position : vec3<f32>;
+  [[location(1)]] uv : vec2<f32>;
+};
 
-[[location(0)]] var<out> fragUV : vec2<f32>;
-[[builtin(position)]] var<out> Position : vec4<f32>;
+struct VertexOutput {
+  [[builtin(position)]] Position : vec4<f32>;
+  [[location(0)]] fragUV : vec2<f32>;
+};
 
 [[stage(vertex)]]
-fn main() -> void {
-  Position = vec4<f32>(position, 1.0);
-  fragUV = uv;
+fn main(input : VertexInput) -> VertexOutput {
+  return VertexOutput(vec4<f32>(input.position, 1.0), input.uv);
 }
 `,
 
@@ -199,13 +202,9 @@ fn main() -> void {
 [[binding(0), group(0)]] var mySampler: sampler;
 [[binding(1), group(0)]] var myTexture: texture_2d<f32>;
 
-[[location(0)]] var<in> fragUV : vec2<f32>;
-[[location(0)]] var<out> outColor : vec4<f32>;
-
 [[stage(fragment)]]
-fn main() -> void {
-  outColor =  textureSample(myTexture, mySampler, fragUV);
-  return;
+fn main([[location(0)]] fragUV : vec2<f32>) -> [[location(0)]] vec4<f32> {
+  return textureSample(myTexture, mySampler, fragUV);
 }
 `,
 };

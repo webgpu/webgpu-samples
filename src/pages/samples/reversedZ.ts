@@ -865,29 +865,28 @@ const wgslShaders = {
   viewProjectionMatrix : mat4x4<f32>;
 };
 
-[[builtin(instance_index)]] var<in> instanceIdx : u32;
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 [[binding(1), group(0)]] var<uniform> camera : Camera;
 
-[[location(0)]] var<in> position : vec4<f32>;
-[[location(1)]] var<in> color : vec4<f32>;
-
-[[builtin(position)]] var<out> Position : vec4<f32>;
-[[location(0)]] var<out> fragColor : vec4<f32>;
+struct VertexOutput {
+  [[builtin(position)]] Position : vec4<f32>;
+  [[location(0)]] fragColor : vec4<f32>;
+};
 
 [[stage(vertex)]]
-fn main() -> void {
-  Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
-  fragColor = color;
+fn main([[builtin(instance_index)]] instanceIdx : u32,
+        [[location(0)]] position : vec4<f32>,
+        [[location(1)]] color : vec4<f32>) -> VertexOutput {
+  var output : VertexOutput;
+  output.Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
+  output.fragColor = color;
+  return output;
 }
 `,
   fragment: `
-[[location(0)]] var<in> fragColor : vec4<f32>;
-[[location(0)]] var<out> outColor : vec4<f32>;
-
 [[stage(fragment)]]
-fn main() -> void {
-  outColor = fragColor;
+fn main([[location(0)]] fragColor : vec4<f32>) -> [[location(0)]] vec4<f32> {
+  return fragColor;
 }
 `,
   vertexDepthPrePass: `
@@ -898,17 +897,14 @@ fn main() -> void {
   viewProjectionMatrix : mat4x4<f32>;
 };
 
-[[builtin(instance_index)]] var<in> instanceIdx : u32;
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 [[binding(1), group(0)]] var<uniform> camera : Camera;
 
-[[location(0)]] var<in> position : vec4<f32>;
-
-[[builtin(position)]] var<out> Position : vec4<f32>;
-
 [[stage(vertex)]]
-fn main() -> void {
-  Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
+fn main([[builtin(instance_index)]] instanceIdx : u32,
+        [[location(0)]] position : vec4<f32>)
+     -> [[builtin(position)]] vec4<f32> {
+  return camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
 }
 `,
   fragmentDepthPrePass: `
@@ -924,37 +920,36 @@ fn main() -> void {
   viewProjectionMatrix : mat4x4<f32>;
 };
 
-[[builtin(instance_index)]] var<in> instanceIdx : u32;
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 [[binding(1), group(0)]] var<uniform> camera : Camera;
 
-[[location(0)]] var<in> position : vec4<f32>;
-
-[[builtin(position)]] var<out> Position : vec4<f32>;
-[[location(0)]] var<out> clipPos : vec4<f32>;
+struct VertexOutput {
+  [[builtin(position)]] Position : vec4<f32>;
+  [[location(0)]] clipPos : vec4<f32>;
+};
 
 [[stage(vertex)]]
-fn main() -> void {
-  Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
-  clipPos = Position;
+fn main([[builtin(instance_index)]] instanceIdx : u32,
+        [[location(0)]] position : vec4<f32>) -> VertexOutput {
+  var output : VertexOutput;
+  output.Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
+  output.clipPos = output.Position;
+  return output;
 }
 `,
   fragmentPrecisionErrorPass: `
 [[group(1), binding(0)]] var depthTexture: texture_2d<f32>;
 [[group(1), binding(1)]] var depthSampler: sampler;
 
-[[location(0)]] var<in> clipPos : vec4<f32>;
-[[builtin(frag_coord)]] var<in> coord : vec4<f32>;
-
-[[location(0)]] var<out> outColor : vec4<f32>;
-
 [[stage(fragment)]]
-fn main() -> void {
+fn main([[builtin(frag_coord)]] coord : vec4<f32>,
+        [[location(0)]] clipPos : vec4<f32>)
+     -> [[location(0)]] vec4<f32> {
   const depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
     1
   )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
   const v : f32 = abs(clipPos.z / clipPos.w - depthValue) * 2000000.0;
-  outColor = vec4<f32>(v, v, v, 1.0) ;
+  return vec4<f32>(v, v, v, 1.0) ;
 }
 `,
   vertexTextureQuad: `
@@ -962,27 +957,23 @@ const pos : array<vec2<f32>, 6> = array<vec2<f32>, 6>(
   vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0),
   vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0));
 
-[[builtin(position)]] var<out> Position : vec4<f32>;
-[[builtin(vertex_index)]] var<in> VertexIndex : u32;
-
 [[stage(vertex)]]
-fn main() -> void {
-  Position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
+fn main([[builtin(vertex_index)]] VertexIndex : u32)
+     -> [[builtin(position)]] vec4<f32> {
+  return vec4<f32>(pos[VertexIndex], 0.0, 1.0);
 }
 `,
   fragmentTextureQuad: `
 [[group(0), binding(0)]] var depthTexture: texture_2d<f32>;
 [[group(0), binding(1)]] var depthSampler: sampler;
 
-[[builtin(frag_coord)]] var<in> coord : vec4<f32>;
-[[location(0)]] var<out> outColor : vec4<f32>;
-
 [[stage(fragment)]]
-fn main() -> void {
+fn main([[builtin(frag_coord)]] coord : vec4<f32>)
+     -> [[location(0)]] vec4<f32> {
   const depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
     1
   )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
-  outColor = vec4<f32>(depthValue, depthValue, depthValue, 1.0);
+  return vec4<f32>(depthValue, depthValue, depthValue, 1.0);
 }
 `,
 };

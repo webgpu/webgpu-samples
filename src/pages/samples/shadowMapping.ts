@@ -592,13 +592,10 @@ const wgslShaders = {
 [[group(0), binding(0)]] var<uniform> scene : Scene;
 [[group(1), binding(0)]] var<uniform> model : Model;
 
-[[location(0)]] var<in> position : vec3<f32>;
-
-[[builtin(position)]] var<out> Position : vec4<f32>;
-
 [[stage(vertex)]]
-fn main() -> void {
-  Position = scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
+fn main([[location(0)]] position : vec3<f32>)
+     -> [[builtin(position)]] vec4<f32> {
+  return scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
 }
 `,
 
@@ -622,30 +619,33 @@ fn main() -> void {
 [[group(0), binding(0)]] var<uniform> scene : Scene;
 [[group(1), binding(0)]] var<uniform> model : Model;
 
-[[location(0)]] var<in> position : vec3<f32>;
-[[location(1)]] var<in> normal : vec3<f32>;
+struct VertexOutput {
+  [[location(0)]] shadowPos : vec3<f32>;
+  [[location(1)]] fragPos : vec3<f32>;
+  [[location(2)]] fragNorm : vec3<f32>;
 
-[[location(0)]] var<out> shadowPos : vec3<f32>;
-[[location(1)]] var<out> fragPos : vec3<f32>;
-[[location(2)]] var<out> fragNorm : vec3<f32>;
-
-[[builtin(position)]] var<out> Position : vec4<f32>;
+  [[builtin(position)]] Position : vec4<f32>;
+};
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main([[location(0)]] position : vec3<f32>,
+        [[location(1)]] normal : vec3<f32>) -> VertexOutput {
+  var output : VertexOutput;
+
   // XY is in (-1, 1) space, Z is in (0, 1) space
   const posFromLight : vec4<f32> = scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
 
   // Convert XY to (0, 1)
   // Y is flipped because texture coords are Y-down.
-  shadowPos = vec3<f32>(
+  output.shadowPos = vec3<f32>(
     posFromLight.xy * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5),
     posFromLight.z
   );
 
-  Position = scene.cameraViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
-  fragPos = Position.xyz;
-  fragNorm = normal;
+  output.Position = scene.cameraViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
+  output.fragPos = output.Position.xyz;
+  output.fragNorm = normal;
+  return output;
 }
 `,
   fragment: `
@@ -659,17 +659,17 @@ fn main() -> void {
 [[group(0), binding(1)]] var shadowMap: texture_depth_2d;
 [[group(0), binding(2)]] var shadowSampler: sampler_comparison;
 
-[[location(0)]] var<in> shadowPos : vec3<f32>;
-[[location(1)]] var<in> fragPos : vec3<f32>;
-[[location(2)]] var<in> fragNorm : vec3<f32>;
-
-[[location(0)]] var<out> outColor : vec4<f32>;
+struct FragmentInput {
+  [[location(0)]] shadowPos : vec3<f32>;
+  [[location(1)]] fragPos : vec3<f32>;
+  [[location(2)]] fragNorm : vec3<f32>;
+};
 
 const albedo : vec3<f32> = vec3<f32>(0.9, 0.9, 0.9);
 const ambientFactor : f32 = 0.2;
 
 [[stage(fragment)]]
-fn main() -> void {
+fn main(input : FragmentInput) -> [[location(0)]] vec4<f32> {
   // Percentage-closer filtering. Sample texels in the region
   // to smooth the result.
   var shadowFactor : f32 = 0.0;
@@ -681,16 +681,16 @@ fn main() -> void {
 
         shadowFactor = shadowFactor + textureSampleCompare(
           shadowMap, shadowSampler,
-          shadowPos.xy + offset, shadowPos.z - 0.007);
+          input.shadowPos.xy + offset, input.shadowPos.z - 0.007);
       }
   }
 
   shadowFactor = ambientFactor + shadowFactor / 9.0;
 
-  const lambertFactor : f32 = abs(dot(normalize(scene.lightPos - fragPos), fragNorm));
+  const lambertFactor : f32 = abs(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm));
 
   const lightingFactor : f32 = min(shadowFactor * lambertFactor, 1.0);
-  outColor = vec4<f32>(lightingFactor * albedo, 1.0);
+  return vec4<f32>(lightingFactor * albedo, 1.0);
 }
 `,
 };
