@@ -251,20 +251,25 @@ const wgslShaders = {
 };
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 
-[[location(0)]] var<in> position : vec4<f32>;
-[[location(1)]] var<in> color : vec4<f32>;
-[[location(2)]] var<in> uv : vec2<f32>;
+struct VertexInput {
+  [[location(0)]] position : vec4<f32>;
+  [[location(1)]] color : vec4<f32>;
+  [[location(2)]] uv : vec2<f32>;
+};
 
-[[builtin(position)]] var<out> Position : vec4<f32>;
-[[location(0)]] var<out> fragColor : vec4<f32>;
-[[location(1)]] var<out> fragUV: vec2<f32>;
+struct VertexOutput {
+  [[builtin(position)]] Position : vec4<f32>;
+  [[location(0)]] fragColor : vec4<f32>;
+  [[location(1)]] fragUV: vec2<f32>;
+};
 
 [[stage(vertex)]]
-fn main() -> void {
-  Position = uniforms.modelViewProjectionMatrix * position;
-  fragColor = color;
-  fragUV = uv;
-  return;
+fn main(input : VertexInput) -> VertexOutput {
+  var output : VertexOutput;
+  output.Position = uniforms.modelViewProjectionMatrix * input.position;
+  output.fragColor = input.color;
+  output.fragUV = input.uv;
+  return output;
 }
 `,
 
@@ -272,16 +277,16 @@ fn main() -> void {
 [[binding(1), group(0)]] var mySampler: sampler;
 [[binding(2), group(0)]] var myTexture: texture_2d<f32>;
 
-[[location(0)]] var<in> fragColor: vec4<f32>;
-[[location(1)]] var<in> fragUV: vec2<f32>;
-[[location(0)]] var<out> outColor : vec4<f32>;
+struct FragmentInput {
+  [[location(0)]] fragColor: vec4<f32>;
+  [[location(1)]] fragUV: vec2<f32>;
+};
 
 [[stage(fragment)]]
-fn main() -> void {
-  var texColor : vec4<f32> = textureSample(myTexture, mySampler, fragUV * 0.8 + 0.1) * fragPosition;
+fn main(input : FragmentInput) -> [[location(0)]] vec4<f32> {
+  var texColor : vec4<f32> = textureSample(myTexture, mySampler, input.fragUV * 0.8 + 0.1) * fragPosition;
   var f : f32 = f32(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) < 0.01);
-  outColor = mix(texColor, fragColor, f);
-  return;
+  return mix(texColor, input.fragColor, f);
 }
 `,
 };

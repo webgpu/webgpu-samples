@@ -433,14 +433,14 @@ const wgslShaders = {
 [[binding(0), group(0)]] var<uniform> time : Time;
 [[binding(0), group(1)]] var<uniform> uniforms : Uniforms;
 
-[[location(0)]] var<in> position : vec4<f32>;
-[[location(1)]] var<in> color : vec4<f32>;
-
-[[builtin(position)]] var<out> Position : vec4<f32>;
-[[location(0)]] var<out> v_color : vec4<f32>;
+struct VertexOutput {
+  [[builtin(position)]] Position : vec4<f32>;
+  [[location(0)]] v_color : vec4<f32>;
+};
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main([[location(0)]] position : vec4<f32>,
+        [[location(1)]] color : vec4<f32>) -> VertexOutput {
     var fade : f32 = (uniforms.scalarOffset + time.value * uniforms.scalar / 10.0) % 1.0;
     if (fade < 0.5) {
         fade = fade * 2.0;
@@ -454,20 +454,17 @@ fn main() -> void {
     var yrot : f32 = xpos * sin(angle) + ypos * cos(angle);
     xpos = xrot + uniforms.offsetX;
     ypos = yrot + uniforms.offsetY;
-    v_color = vec4<f32>(fade, 1.0 - fade, 0.0, 1.0) + color;
-    Position = vec4<f32>(xpos, ypos, 0.0, 1.0);
-    return;
+    var output : VertexOutput;
+    output.v_color = vec4<f32>(fade, 1.0 - fade, 0.0, 1.0) + color;
+    output.Position = vec4<f32>(xpos, ypos, 0.0, 1.0);
+    return output;
 }
 `,
 
   fragment: `
-[[location(0)]] var<in> v_color : vec4<f32>;
-[[location(0)]] var<out> outColor : vec4<f32>;
-
 [[stage(fragment)]]
-fn main() -> void {
-  outColor = v_color;
-  return;
+fn main([[location(0)]] v_color : vec4<f32>) -> [[location(0)]] vec4<f32> {
+  return v_color;
 }
 `,
 };

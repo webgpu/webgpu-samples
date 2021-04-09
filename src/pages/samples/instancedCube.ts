@@ -262,28 +262,25 @@ const wgslShaders = {
 
 [[binding(0), group(0)]] var<uniform> uniforms : Uniforms;
 
-[[builtin(instance_index)]] var<in> instanceIdx : u32;
-[[location(0)]] var<in> position : vec4<f32>;
-[[location(1)]] var<in> color : vec4<f32>;
-
-[[builtin(position)]] var<out> Position : vec4<f32>;
-[[location(0)]] var<out> fragColor : vec4<f32>;
+struct VertexOutput {
+  [[builtin(position)]] Position : vec4<f32>;
+  [[location(0)]] fragColor : vec4<f32>;
+};
 
 [[stage(vertex)]]
-fn main() -> void {
-  Position = uniforms.modelViewProjectionMatrix[instanceIdx] * position;
-  fragColor = color;
-  return;
+fn main([[builtin(instance_index)]] instanceIdx : u32,
+        [[location(0)]] position : vec4<f32>,
+        [[location(1)]] color : vec4<f32>) -> VertexOutput {
+  var output : VertexOutput;
+  output.Position = uniforms.modelViewProjectionMatrix[instanceIdx] * position;
+  output.fragColor = color;
+  return output;
 }
 `,
   fragment: `
-[[location(0)]] var<in> fragColor : vec4<f32>;
-[[location(0)]] var<out> outColor : vec4<f32>;
-
 [[stage(fragment)]]
-fn main() -> void {
-  outColor = fragColor;
-  return;
+fn main([[location(0)]] fragColor : vec4<f32>) -> [[location(0)]] vec4<f32> {
+  return fragColor;
 }
 `,
 };
