@@ -274,7 +274,6 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
       Math.ceil(srcWidth / blockDim),
       Math.ceil(srcHeight / batch[1])
     );
-    computePass.dispatch(2, Math.ceil(srcHeight / batch[1]));
 
     computePass.setBindGroup(1, computeBindGroup1);
     computePass.dispatch(
