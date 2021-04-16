@@ -601,7 +601,7 @@ fn main([[location(0)]] position : vec3<f32>)
 
   fragmentShadow: `
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
 }
 `,
 
@@ -633,7 +633,7 @@ fn main([[location(0)]] position : vec3<f32>,
   var output : VertexOutput;
 
   // XY is in (-1, 1) space, Z is in (0, 1) space
-  const posFromLight : vec4<f32> = scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
+  let posFromLight : vec4<f32> = scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
 
   // Convert XY to (0, 1)
   // Y is flipped because texture coords are Y-down.
@@ -665,8 +665,8 @@ struct FragmentInput {
   [[location(2)]] fragNorm : vec3<f32>;
 };
 
-const albedo : vec3<f32> = vec3<f32>(0.9, 0.9, 0.9);
-const ambientFactor : f32 = 0.2;
+let albedo : vec3<f32> = vec3<f32>(0.9, 0.9, 0.9);
+let ambientFactor : f32 = 0.2;
 
 [[stage(fragment)]]
 fn main(input : FragmentInput) -> [[location(0)]] vec4<f32> {
@@ -675,7 +675,7 @@ fn main(input : FragmentInput) -> [[location(0)]] vec4<f32> {
   var shadowFactor : f32 = 0.0;
   for (var y : i32 = -1 ; y <= 1 ; y = y + 1) {
       for (var x : i32 = -1 ; x <= 1 ; x = x + 1) {
-        const offset : vec2<f32> = vec2<f32>(
+        let offset : vec2<f32> = vec2<f32>(
           f32(x) * ${1 / shadowDepthTextureSize},
           f32(y) * ${1 / shadowDepthTextureSize});
 
@@ -687,9 +687,9 @@ fn main(input : FragmentInput) -> [[location(0)]] vec4<f32> {
 
   shadowFactor = ambientFactor + shadowFactor / 9.0;
 
-  const lambertFactor : f32 = abs(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm));
+  let lambertFactor : f32 = abs(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm));
 
-  const lightingFactor : f32 = min(shadowFactor * lambertFactor, 1.0);
+  let lightingFactor : f32 = min(shadowFactor * lambertFactor, 1.0);
   return vec4<f32>(lightingFactor * albedo, 1.0);
 }
 `,

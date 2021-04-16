@@ -909,7 +909,7 @@ fn main([[builtin(instance_index)]] instanceIdx : u32,
 `,
   fragmentDepthPrePass: `
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
 }
 `,
   vertexPrecisionErrorPass: `
@@ -945,15 +945,15 @@ fn main([[builtin(instance_index)]] instanceIdx : u32,
 fn main([[builtin(frag_coord)]] coord : vec4<f32>,
         [[location(0)]] clipPos : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
-  const depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
+  let depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
     1
   )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
-  const v : f32 = abs(clipPos.z / clipPos.w - depthValue) * 2000000.0;
+  let v : f32 = abs(clipPos.z / clipPos.w - depthValue) * 2000000.0;
   return vec4<f32>(v, v, v, 1.0) ;
 }
 `,
   vertexTextureQuad: `
-const pos : array<vec2<f32>, 6> = array<vec2<f32>, 6>(
+let pos : array<vec2<f32>, 6> = array<vec2<f32>, 6>(
   vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0),
   vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0));
 
@@ -970,7 +970,7 @@ fn main([[builtin(vertex_index)]] VertexIndex : u32)
 [[stage(fragment)]]
 fn main([[builtin(frag_coord)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
-  const depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
+  let depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
     1
   )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
   return vec4<f32>(depthValue, depthValue, depthValue, 1.0);
