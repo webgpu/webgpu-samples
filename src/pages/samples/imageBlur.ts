@@ -5,7 +5,7 @@ import glslangModule from '../../glslang';
 const tileDim = 256;
 const batch = [4, 4];
 
-async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
+async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const glslang = await glslangModule();
@@ -38,20 +38,28 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
 
   const blurPipeline = device.createComputePipeline({
     computeStage: {
-      module: device.createShaderModule({
-        code: glslShaders.blur,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'compute'),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.blur,
+          })
+        : device.createShaderModule({
+            code: glslShaders.blur,
+            transform: (glsl) => glslang.compileGLSL(glsl, 'compute'),
+          }),
       entryPoint: 'main',
     },
   });
 
   const pipeline = device.createRenderPipeline({
     vertex: {
-      module: device.createShaderModule({
-        code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.vertex,
+          })
+        : device.createShaderModule({
+            code: glslShaders.vertex,
+            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
+          }),
       entryPoint: 'main',
       buffers: [
         {
@@ -74,10 +82,14 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
       ],
     },
     fragment: {
-      module: device.createShaderModule({
-        code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-      }),
+      module: useWGSL
+        ? device.createShaderModule({
+            code: wgslShaders.fragment,
+          })
+        : device.createShaderModule({
+            code: glslShaders.fragment,
+            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
+          }),
       entryPoint: 'main',
       targets: [
         {
@@ -419,6 +431,118 @@ void main() {
 `,
 };
 
+const wgslShaders = {
+  // prettier-ignore
+  blur: `
+  [[block]] struct Params {
+    filterDim : u32;
+    blockDim : u32;
+  };
+
+  [[group(0), binding(0)]] var samp : sampler;
+  [[group(0), binding(1)]] var<uniform> params : Params;
+  [[group(1), binding(1)]] var inputTex : texture_2d<f32>;
+  [[group(1), binding(2)]] var outputTex : [[access(write)]] texture_storage_2d<rgba8unorm>;
+
+  [[block]] struct Flip {
+    value : u32;
+  };
+  [[group(1), binding(3)]] var<uniform> flip : Flip;
+
+  // This shader blurs the input texture in one direction, depending on whether
+  // |flip.value| is 0 or 1.
+  // It does so by running ${tileDim / batch[0]} threads per workgroup to load ${tileDim}
+  // texels into ${batch[1]} rows of shared memory. Each thread loads a
+  // ${batch[0]} x ${batch[1]} block of texels to take advantage of the texture sampling
+  // hardware.
+  // Then, each thread computes the blur result by averaging the adjacent texel values
+  // in shared memory.
+  // Because we're operating on a subset of the texture, we cannot compute all of the
+  // results since not all of the neighbors are available in shared memory.
+  // Specifically, with ${tileDim} x ${tileDim} tiles, we can only compute and write out
+  // square blocks of size ${tileDim} - (filterSize - 1). We compute the number of blocks
+  // needed and dispatch that amount.
+
+  var<workgroup> tile : array<array<vec3<f32>, ${tileDim}>, ${batch[1]}>;
+
+  [[stage(compute), workgroup_size(${tileDim / batch[0]}, 1, 1)]]
+  fn main(
+    [[builtin(workgroup_id)]] WorkGroupID : vec3<u32>,
+    [[builtin(local_invocation_id)]] LocalInvocationID : vec3<u32>
+  ) {
+    let filterOffset : u32 = (params.filterDim - 1u) / 2u;
+    let dims : vec2<i32> = textureDimensions(inputTex, 0);
+
+    let baseIndex : vec2<i32> = vec2<i32>(
+      WorkGroupID.xy * vec2<u32>(params.blockDim, ${batch[1]}u) +
+      LocalInvocationID.xy * vec2<u32>(${batch[0]}u, 1u)
+    ) - vec2<i32>(i32(filterOffset), 0);
+
+    for (var r : u32 = 0u; r < ${batch[1]}u; r = r + 1u) {
+      for (var c : u32 = 0u; c < ${batch[0]}u; c = c + 1u) {
+        var loadIndex : vec2<i32> = baseIndex + vec2<i32>(i32(c), i32(r));
+        if (flip.value != 0u) {
+          loadIndex = loadIndex.yx;
+        }
+
+        tile[r][${batch[0]}u * LocalInvocationID.x + c] =
+          textureSampleLevel(inputTex, samp,
+            (vec2<f32>(loadIndex) + vec2<f32>(0.25, 0.25)) / vec2<f32>(dims), 0.0).rgb;
+      }
+    }
+
+    workgroupBarrier();
+
+    for (var r : u32 = 0u; r < ${batch[1]}u; r = r + 1u) {
+      for (var c : u32 = 0u; c < ${batch[0]}u; c = c + 1u) {
+        var writeIndex : vec2<i32> = baseIndex + vec2<i32>(i32(c), i32(r));
+        if (flip.value != 0u) {
+          writeIndex = writeIndex.yx;
+        }
+
+        let center : u32 = ${batch[0]}u * LocalInvocationID.x + c;
+        if (center >= filterOffset &&
+            center < ${tileDim}u - filterOffset &&
+            all(writeIndex < dims)) {
+          var acc : vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+          for (var f : u32 = 0u; f < params.filterDim; f = f + 1u) {
+            var i : u32 = center + f - filterOffset;
+            acc = acc + (1.0 / f32(params.filterDim)) * tile[r][i];
+          }
+          textureStore(outputTex, writeIndex, vec4<f32>(acc, 1.0));
+        }
+      }
+    }
+  }
+  `,
+
+  vertex: `
+[[location(0)]] var<out> fragUV : vec2<f32>;
+[[builtin(position)]] var<out> Position : vec4<f32>;
+
+[[stage(vertex)]]
+fn main(
+  [[location(0)]] position : vec3<f32>,
+  [[location(1)]] uv : vec2<f32>
+) {
+  Position = vec4<f32>(position, 1.0);
+  fragUV = uv;
+}
+`,
+
+  fragment: `
+[[group(0), binding(0)]] var mySampler : sampler;
+[[group(0), binding(1)]] var myTexture : texture_2d<f32>;
+
+[[location(0)]] var<out> outColor : vec4<f32>;
+
+[[stage(fragment)]]
+fn main([[location(0)]] fragUV : vec2<f32>) {
+  outColor = textureSample(myTexture, mySampler, fragUV);
+}
+`,
+};
+
 export default makeBasicExample({
   name: 'Image Blur',
   description:
@@ -426,6 +550,7 @@ export default makeBasicExample({
   slug: 'imageBlur',
   init,
   glslShaders,
+  wgslShaders,
   source: __SOURCE__,
   gui: true,
 });
