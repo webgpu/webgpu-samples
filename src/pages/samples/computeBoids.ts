@@ -386,7 +386,7 @@ fn main() -> [[location(0)]] vec4<f32> {
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 [[stage(compute)]]
-fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) -> void {
+fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
   var index : u32 = GlobalInvocationID.x;
   if (index >= ${numParticles}u) {
     return;
@@ -423,13 +423,10 @@ fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) -> voi
   if (cMassCount > 0u) {
     var temp : f32 = f32(cMassCount);
     cMass = (cMass / vec2<f32>(temp, temp)) - vPos;
-    // cMass =
-    //  (cMass / vec2<f32>(f32(cMassCount), f32(cMassCount))) - vPos;
   }
   if (cVelCount > 0u) {
     var temp : f32 = f32(cVelCount);
     cVel = cVel / vec2<f32>(temp, temp);
-    // cVel = cVel / vec2<f32>(f32(cVelCount), f32(cVelCount));
   }
   vVel = vVel + (cMass * params.rule1Scale) + (colVel * params.rule2Scale) +
       (cVel * params.rule3Scale);
