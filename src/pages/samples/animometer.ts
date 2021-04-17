@@ -1,8 +1,7 @@
 import type { GUI } from 'dat.gui';
 import { makeBasicExample } from '../../components/basicExample';
-import glslangModule from '../../glslang';
 
-async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
+async function init(canvas: HTMLCanvasElement, gui: GUI) {
   const perfDisplayContainer = document.createElement('div');
   perfDisplayContainer.style.color = 'white';
   perfDisplayContainer.style.background = 'black';
@@ -23,7 +22,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
 
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
 
   const context = canvas.getContext('gpupresent');
 
@@ -84,14 +82,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
   });
   const pipelineDesc: GPURenderPipelineDescriptor = {
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertex,
+      }),
       entryPoint: 'main',
       buffers: [
         {
@@ -116,14 +109,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
       ],
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragment,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -369,53 +357,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui: GUI) {
   };
 }
 
-const glslShaders = {
-  vertex: `#version 450
-  layout(std140, set = 0, binding = 0) uniform Time {
-      float time;
-  };
-  layout(std140, set = 1, binding = 0) uniform Uniforms {
-      float scale;
-      float offsetX;
-      float offsetY;
-      float scalar;
-      float scalarOffset;
-  };
-
-  layout(location = 0) in vec4 position;
-  layout(location = 1) in vec4 color;
-
-  layout(location = 0) out vec4 v_color;
-
-  void main() {
-      float fade = mod(scalarOffset + time * scalar / 10.0, 1.0);
-      if (fade < 0.5) {
-          fade = fade * 2.0;
-      } else {
-          fade = (1.0 - fade) * 2.0;
-      }
-      float xpos = position.x * scale;
-      float ypos = position.y * scale;
-      float angle = 3.14159 * 2.0 * fade;
-      float xrot = xpos * cos(angle) - ypos * sin(angle);
-      float yrot = xpos * sin(angle) + ypos * cos(angle);
-      xpos = xrot + offsetX;
-      ypos = yrot + offsetY;
-      v_color = vec4(fade, 1.0 - fade, 0.0, 1.0) + color;
-      gl_Position = vec4(xpos, ypos, 0.0, 1.0);
-  }
-`,
-
-  fragment: `#version 450
-  layout(location = 0) in vec4 v_color;
-  layout(location = 0) out vec4 outColor;
-
-  void main() {
-      outColor = v_color;
-  }
-`,
-};
-
 const wgslShaders = {
   vertex: `
 [[block]] struct Time {
@@ -475,7 +416,5 @@ export default makeBasicExample({
   description: 'A WebGPU of port of the Animometer MotionMark benchmark.',
   gui: true,
   init,
-  wgslShaders,
-  glslShaders,
   source: __SOURCE__,
 });

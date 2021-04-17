@@ -1,14 +1,12 @@
 import type { GUI } from 'dat.gui';
 import { makeBasicExample } from '../../components/basicExample';
-import glslangModule from '../../glslang';
 
 const tileDim = 256;
 const batch = [4, 4];
 
-async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
+async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
   const context = canvas.getContext('gpupresent');
 
   const swapChainFormat = 'bgra8unorm';
@@ -38,28 +36,18 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
 
   const blurPipeline = device.createComputePipeline({
     computeStage: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.blur,
-          })
-        : device.createShaderModule({
-            code: glslShaders.blur,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'compute'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.blur,
+      }),
       entryPoint: 'main',
     },
   });
 
   const pipeline = device.createRenderPipeline({
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertex,
+      }),
       entryPoint: 'main',
       buffers: [
         {
@@ -82,14 +70,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
       ],
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragment,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -327,110 +310,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   };
 }
 
-const glslShaders = {
-  // prettier-ignore
-  blur: `#version 450
-  layout(set = 0, binding = 0) uniform sampler samp;
-  layout(set = 0, binding = 1) uniform Params {
-    uint uFilterDim;
-    uint uBlockDim;
-  };
-  layout(set = 1, binding = 1) uniform texture2D inputTex;
-  layout(set = 1, binding = 2, rgba8) uniform writeonly image2D outputTex;
-  layout(set = 1, binding = 3) uniform Uniforms {
-    uint uFlip;
-  };
-
-  // This shader blurs the input texture in one diection, depending on whether
-  // |uFlip| is 0 or 1.
-  // It does so by running ${tileDim / batch[0]} threads per workgroup to load ${tileDim}
-  // texels into ${batch[1]} rows of shared memory. Each thread loads a
-  // ${batch[0]} x ${batch[1]} block of texels to take advantage of the texture sampling
-  // hardware.
-  // Then, each thread computes the blur result by averaging the adjacent texel values
-  // in shared memory.
-  // Because we're operating on a subset of the texture, we cannot compute all of the
-  // results since not all of the neighbors are available in shared memory.
-  // Specifically, with ${tileDim} x ${tileDim} tiles, we can only compute and write out
-  // square blocks of size ${tileDim} - (filterSize - 1). We compute the number of blocks
-  // needed and dispatch that amount.
-
-  shared vec3[${tileDim}] tile[${batch[1]}];
-
-  layout(local_size_x = ${tileDim / batch[0]}, local_size_y = 1, local_size_z = 1) in;
-  void main() {
-    int filterOffset = int(uFilterDim - 1) / 2;
-    ivec2 dims = textureSize(sampler2D(inputTex, samp), 0);
-
-    ivec2 baseIndex = ivec2(
-      gl_WorkGroupID.xy * uvec2(uBlockDim, ${batch[1]}) +
-      gl_LocalInvocationID.xy * uvec2(${batch[0]}, 1)
-    ) - ivec2(filterOffset, 0);
-
-    for (uint r = 0; r < ${batch[1]}; ++r) {
-      for (uint c = 0; c < ${batch[0]}; ++c) {
-        ivec2 loadIndex = baseIndex + ivec2(c, r);
-        if (uFlip != 0) {
-          loadIndex = loadIndex.yx;
-        }
-
-        tile[r][${batch[0]} * gl_LocalInvocationID.x + c] =
-          texture(
-            sampler2D(inputTex, samp),
-            (vec2(loadIndex) + vec2(0.25)) / vec2(dims)).rgb;
-      }
-    }
-
-    barrier();
-
-    for (uint r = 0; r < ${batch[1]}; ++r) {
-      for (uint c = 0; c < ${batch[0]}; ++c) {
-        ivec2 writeIndex = baseIndex + ivec2(c, r);
-        if (uFlip != 0) {
-          writeIndex = writeIndex.yx;
-        }
-
-        uint center = ${batch[0]} * gl_LocalInvocationID.x + c;
-        if (center >= filterOffset &&
-            center < ${tileDim} - filterOffset &&
-            all(lessThan(writeIndex, dims))) {
-          vec3 acc = vec3(0.0);
-          for (uint f = 0; f < uFilterDim; ++f) {
-            uint i = center + f - filterOffset;
-            acc += (1.0 / float(uFilterDim)) * tile[r][i];
-          }
-          imageStore(outputTex, writeIndex, vec4(acc, 1.0));
-        }
-      }
-    }
-  }
-  `,
-
-  vertex: `#version 450
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec2 uv;
-
-layout(location = 0) out vec2 fragUV;
-
-void main() {
-  gl_Position = vec4(position, 1.0);
-  fragUV = uv;
-}
-`,
-
-  fragment: `#version 450
-layout(set = 0, binding = 0) uniform sampler mySampler;
-layout(set = 0, binding = 1) uniform texture2D myTexture;
-
-layout(location = 0) in vec2 fragUV;
-layout(location = 0) out vec4 outColor;
-
-void main() {
-  outColor = texture(sampler2D(myTexture, mySampler), fragUV);
-}
-`,
-};
-
 const wgslShaders = {
   // prettier-ignore
   blur: `
@@ -549,8 +428,6 @@ export default makeBasicExample({
     'This example shows how to blur an image using a WebGPU compute shader.',
   slug: 'imageBlur',
   init,
-  glslShaders,
-  wgslShaders,
   source: __SOURCE__,
   gui: true,
 });

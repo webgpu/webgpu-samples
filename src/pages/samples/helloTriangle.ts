@@ -1,10 +1,8 @@
 import { makeBasicExample } from '../../components/basicExample';
-import glslangModule from '../../glslang';
 
-async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
 
   const context = canvas.getContext('gpupresent');
 
@@ -17,25 +15,15 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const pipeline = device.createRenderPipeline({
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertex,
+      }),
       entryPoint: 'main',
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragment,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -72,24 +60,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   return frame;
 }
 
-const glslShaders = {
-  vertex: `#version 450
-const vec2 pos[3] = vec2[3](vec2(0.0f, 0.5f), vec2(-0.5f, -0.5f), vec2(0.5f, -0.5f));
-
-void main() {
-    gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0);
-}
-`,
-
-  fragment: `#version 450
-  layout(location = 0) out vec4 outColor;
-
-  void main() {
-      outColor = vec4(1.0, 0.0, 0.0, 1.0);
-  }
-`,
-};
-
 const wgslShaders = {
   vertex: `
 let pos : array<vec2<f32>, 3> = array<vec2<f32>, 3>(
@@ -117,8 +87,6 @@ const HelloTriangle = makeBasicExample({
   name: 'Hello Triangle',
   description: 'Shows rendering a basic triangle.',
   slug: 'helloTriangle',
-  wgslShaders,
-  glslShaders,
   init,
   source: __SOURCE__,
 });

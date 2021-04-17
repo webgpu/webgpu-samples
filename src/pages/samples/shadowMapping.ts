@@ -1,6 +1,5 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { makeBasicExample } from '../../components/basicExample';
-import glslangModule from '../../glslang';
 
 import dragonRawData from 'stanford-dragon/4';
 const mesh = {
@@ -11,10 +10,9 @@ const mesh = {
 
 const shadowDepthTextureSize = 1024;
 
-async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
 
@@ -142,28 +140,18 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const shadowPipeline = device.createRenderPipeline({
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertexShadow,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertexShadow,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertexShadow,
+      }),
       entryPoint: 'main',
       buffers: vertexBuffers,
     },
     fragment: {
       // This should be omitted and we can use a vertex-only pipeline, but it's
       // not yet implemented.
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragmentShadow,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragmentShadow,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragmentShadow,
+      }),
       entryPoint: 'main',
       targets: [],
     },
@@ -211,26 +199,16 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       bindGroupLayouts: [bglForRender, shadowPipeline.getBindGroupLayout(1)],
     }),
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertex,
+      }),
       entryPoint: 'main',
       buffers: vertexBuffers,
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragment,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -474,109 +452,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   };
 }
 
-const glslShaders = {
-  vertexShadow: `#version 450
-layout(set = 0, binding = 0) uniform Scene {
-  mat4 lightViewProjMatrix;
-  mat4 cameraViewProjMatrix;
-  vec3 lightPos;
-} scene;
-
-layout(set = 1, binding = 0) uniform Model {
-  mat4 modelMatrix;
-} model;
-
-layout(location = 0) in vec3 position;
-
-void main() {
-  gl_Position =
-    scene.lightViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
-}
-`,
-
-  fragmentShadow: `#version 450
-void main() {
-}
-`,
-
-  vertex: `#version 450
-layout(set = 0, binding = 0) uniform Scene {
-  mat4 lightViewProjMatrix;
-  mat4 cameraViewProjMatrix;
-  vec3 lightPos;
-} scene;
-
-layout(set = 1, binding = 0) uniform Model {
-  mat4 modelMatrix;
-} model;
-
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 normal;
-
-layout(location = 0) out vec3 shadowPos;
-layout(location = 1) out vec3 fragPos;
-layout(location = 2) out vec3 fragNorm;
-
-void main() {
-  // XY is in (-1, 1) space, Z is in (0, 1) space
-  vec4 posFromLight = scene.lightViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
-
-  // Convert XY to (0, 1)
-  // Y is flipped because texture coords are Y down.
-  shadowPos = vec3(posFromLight.xy * vec2(0.5, -0.5) + 0.5, posFromLight.z);
-
-  gl_Position =
-    scene.cameraViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
-  fragPos = gl_Position.xyz;
-  fragNorm = normal;
-}
-`,
-
-  // prettier-ignore
-  fragment: `#version 450
-layout(set = 0, binding = 0) uniform Scene {
-  mat4 lightViewProjMatrix;
-  mat4 cameraViewProjMatrix;
-  vec3 lightPos;
-} scene;
-layout(set = 0, binding = 1) uniform texture2D shadowMap;
-layout(set = 0, binding = 2) uniform samplerShadow shadowSampler;
-
-layout(location = 0) in vec3 shadowPos;
-layout(location = 1) in vec3 fragPos;
-layout(location = 2) in vec3 fragNorm;
-
-layout(location = 0) out vec4 outColor;
-
-const vec3 albedo = vec3(0.9);
-const float ambientFactor = 0.2;
-
-void main() {
-  // Percentage-closer filtering. Sample texels in the region
-  // to smooth the result.
-  float shadowFactor = 0.0;
-  for (int y = -1 ; y <= 1 ; y++) {
-      for (int x = -1 ; x <= 1 ; x++) {
-        vec2 offset = vec2(
-          x * ${1 / shadowDepthTextureSize},
-          y * ${1 / shadowDepthTextureSize});
-
-        shadowFactor += texture(
-          sampler2DShadow(shadowMap, shadowSampler),
-          vec3(shadowPos.xy + offset, shadowPos.z - 0.007));
-      }
-  }
-
-  shadowFactor = ambientFactor + shadowFactor / 9.0;
-
-  float lambertFactor = abs(dot(normalize(scene.lightPos - fragPos), fragNorm));
-
-  float lightingFactor = min(shadowFactor * lambertFactor, 1.0);
-  outColor = vec4(lightingFactor * albedo, 1.0);
-}
-`,
-};
-
 const wgslShaders = {
   vertexShadow: `
 [[block]] struct Scene {
@@ -701,7 +576,5 @@ export default makeBasicExample({
     'This example shows how to sample from a depth texture to render shadows.',
   slug: 'shadowMapping',
   init,
-  wgslShaders,
-  glslShaders,
   source: __SOURCE__,
 });

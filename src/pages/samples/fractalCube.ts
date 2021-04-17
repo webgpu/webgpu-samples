@@ -7,13 +7,11 @@ import {
   cubePositionOffset,
   cubeVertexCount,
 } from '../../meshes/cube';
-import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
 
 async function init(canvas: HTMLCanvasElement) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
   const projectionMatrix = mat4.create();
@@ -38,8 +36,7 @@ async function init(canvas: HTMLCanvasElement) {
   const pipeline = device.createRenderPipeline({
     vertex: {
       module: device.createShaderModule({
-        code: glslShaders.vertex,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
+        code: wgslShaders.vertex,
       }),
       entryPoint: 'main',
       buffers: [
@@ -70,8 +67,7 @@ async function init(canvas: HTMLCanvasElement) {
     },
     fragment: {
       module: device.createShaderModule({
-        code: glslShaders.fragment,
-        transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
+        code: wgslShaders.fragment,
       }),
       entryPoint: 'main',
       targets: [
@@ -207,43 +203,6 @@ async function init(canvas: HTMLCanvasElement) {
   };
 }
 
-const glslShaders = {
-  vertex: `#version 450
-layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelViewProjectionMatrix;
-} uniforms;
-
-layout(location = 0) in vec4 position;
-layout(location = 1) in vec4 color;
-layout(location = 2) in vec2 uv;
-
-layout(location = 0) out vec4 fragColor;
-layout(location = 1) out vec2 fragUV;
-
-void main() {
-  gl_Position = uniforms.modelViewProjectionMatrix * position;
-  fragColor = color;
-  fragUV = uv;
-}`,
-
-  fragment: `#version 450
-layout(set = 0, binding = 1) uniform sampler mySampler;
-layout(set = 0, binding = 2) uniform texture2D myTexture;
-
-layout(location = 0) in vec4 fragColor;
-layout(location = 1) in vec2 fragUV;
-layout(location = 0) out vec4 outColor;
-
-void main() {
-  vec4 texColor = texture(sampler2D(myTexture, mySampler), fragUV * 0.8 + 0.1);
-
-  // 1.0 if we're sampling the background
-  float f = float(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) < 0.01);
-
-  outColor = mix(texColor, fragColor, f);
-}`,
-};
-
 const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
@@ -284,9 +243,14 @@ struct FragmentInput {
 
 [[stage(fragment)]]
 fn main(input : FragmentInput) -> [[location(0)]] vec4<f32> {
-  var texColor : vec4<f32> = textureSample(myTexture, mySampler, input.fragUV * 0.8 + 0.1) * fragPosition;
-  var f : f32 = f32(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) < 0.01);
-  return mix(texColor, input.fragColor, f);
+  var texColor : vec4<f32> = textureSample(myTexture, mySampler, input.fragUV * 0.8 + vec2<f32>(0.1, 0.1));
+  var f : f32;
+  if (length(texColor.rgb - vec3<f32>(0.5, 0.5, 0.5)) < 0.01) {
+    f = 1.0;
+  } else {
+    f = 0.0;
+  }
+  return (1.0 - f) * texColor + f * input.fragColor;
 }
 `,
 };
@@ -298,7 +262,5 @@ export default makeBasicExample({
                 as the source texture for the next frame.",
   slug: 'fractalCube',
   init,
-  wgslShaders,
-  glslShaders,
   source: __SOURCE__,
 });

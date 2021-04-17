@@ -1,6 +1,5 @@
 import Head from 'next/head';
-import { useRouter } from 'next/router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import type { GUI } from 'dat.gui';
 
@@ -11,7 +10,6 @@ export const kDefaultCanvasHeight = 600;
 
 if (process.browser) {
   require('codemirror/mode/javascript/javascript');
-  require('webgpu-shader-module-transform');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -23,14 +21,12 @@ const setShaderRegisteredCallback =
 
 type BasicExampleInitFn = (
   canvas: HTMLCanvasElement,
-  useWGSL: boolean,
   gui?: GUI
 ) => Promise<(timestamp: DOMHighResTimeStamp) => void>;
 
 class CanvasRAFWhileMounted extends React.Component<
   JSX.IntrinsicElements['canvas'] & {
     init: BasicExampleInitFn;
-    useWGSL: boolean;
     gui: boolean;
     addShaderEditor: (shaderEditor: JSX.Element) => void;
   }
@@ -85,17 +81,15 @@ class CanvasRAFWhileMounted extends React.Component<
     if (!this.canvasRef.current) {
       return;
     }
-    this.props
-      .init(this.canvasRef.current, this.props.useWGSL, gui)
-      .then((frame) => {
-        const doFrame = (timestamp: DOMHighResTimeStamp) => {
-          if (this.stopRunning) return;
+    this.props.init(this.canvasRef.current, gui).then((frame) => {
+      const doFrame = (timestamp: DOMHighResTimeStamp) => {
+        if (this.stopRunning) return;
 
-          frame(timestamp);
-          requestAnimationFrame(doFrame);
-        };
+        frame(timestamp);
         requestAnimationFrame(doFrame);
-      });
+      };
+      requestAnimationFrame(doFrame);
+    });
   }
 
   componentWillUnmount() {
@@ -103,7 +97,7 @@ class CanvasRAFWhileMounted extends React.Component<
   }
 
   render() {
-    const { gui, init, useWGSL, addShaderEditor, ...rest } = this.props;
+    const { gui, init, addShaderEditor, ...rest } = this.props;
     return <canvas {...rest} ref={this.canvasRef} />;
   }
 }
@@ -115,35 +109,18 @@ export function makeBasicExample(props: {
   init: BasicExampleInitFn;
   source: string;
   gui?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  wgslShaders?: { [k: string]: string | ((...args: any[]) => string) };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  glslShaders?: { [k: string]: string | ((...args: any[]) => string) };
 }) {
   return function BasicExample(): JSX.Element {
-    const router = useRouter();
-    const useWGSL = router.query['wgsl'] !== '0';
-    const shaders = useWGSL ? props.wgslShaders : props.glslShaders;
-
     const [supported, setSupported] = useState(
       !process.browser || // Assume there's support for static site generation.
         (typeof navigator !== 'undefined' && !!navigator.gpu)
     );
 
-    const notWritten = shaders ? null : (
-      <>
-        <br />
-        <br />
-        Sorry, this example hasn&apos;t been written for{' '}
-        {useWGSL ? 'WGSL' : 'GLSL'} yet.
-      </>
-    );
-
     // Wrap init the catch errors. If there's an error it probably means the example
     // is out of date, uses features unimplemented in the browser, or WebGPU isn't enabled.
-    const initFn: BasicExampleInitFn = async (canvas, useWGSL, gui) => {
+    const initFn: BasicExampleInitFn = async (canvas, gui) => {
       try {
-        return await props.init(canvas, useWGSL, gui);
+        return await props.init(canvas, gui);
       } catch (err) {
         console.error(err);
         setSupported(false);
@@ -151,15 +128,6 @@ export function makeBasicExample(props: {
     };
 
     const [shaderEditors, setShaderEditors] = useState<JSX.Element[]>([]);
-
-    // When useWGSL changes, we need to force an unmount by removing
-    // the child component, then adding it again.
-    const [shouldRender, setShouldRender] = useState(true);
-    useEffect(() => {
-      setShouldRender(false);
-      setShaderEditors([]);
-      setTimeout(() => setShouldRender(true), 0);
-    }, [useWGSL]);
 
     // Memoize this since it creates elements outside the React tree.
     const sourceView = useMemo(
@@ -222,12 +190,10 @@ export function makeBasicExample(props: {
               </p>
             </>
           )}
-          {notWritten}
         </div>
         <div className={styles.canvasContainer}>
-          {supported && shouldRender && shaders ? (
+          {supported ? (
             <CanvasRAFWhileMounted
-              useWGSL={useWGSL}
               init={initFn}
               gui={props.gui}
               addShaderEditor={(shaderEditor: JSX.Element) =>

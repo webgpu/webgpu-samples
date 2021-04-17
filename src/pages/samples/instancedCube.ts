@@ -6,13 +6,11 @@ import {
   cubePositionOffset,
   cubeVertexCount,
 } from '../../meshes/cube';
-import glslangModule from '../../glslang';
 import { makeBasicExample } from '../../components/basicExample';
 
-async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
 
   const aspect = Math.abs(canvas.width / canvas.height);
   const projectionMatrix = mat4.create();
@@ -35,14 +33,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const pipeline = device.createRenderPipeline({
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertex,
+      }),
       entryPoint: 'main',
       buffers: [
         {
@@ -66,14 +59,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       ],
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragment,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -228,32 +216,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   };
 }
 
-const glslShaders = {
-  vertex: `#version 450
-#define MAX_NUM_INSTANCES 16
-layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelViewProjectionMatrix[MAX_NUM_INSTANCES];
-} uniforms;
-
-layout(location = 0) in vec4 position;
-layout(location = 1) in vec4 color;
-
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-  gl_Position = uniforms.modelViewProjectionMatrix[gl_InstanceIndex] * position;
-  fragColor = color;
-}`,
-
-  fragment: `#version 450
-layout(location = 0) in vec4 fragColor;
-layout(location = 0) out vec4 outColor;
-
-void main() {
-  outColor = fragColor;
-}`,
-};
-
 const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
@@ -290,7 +252,5 @@ export default makeBasicExample({
   description: 'This example shows the use of instancing.',
   slug: 'instancedCube',
   init,
-  wgslShaders,
-  glslShaders,
   source: __SOURCE__,
 });
