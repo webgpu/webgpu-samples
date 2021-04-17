@@ -50,6 +50,7 @@ class CanvasRAFWhileMounted extends React.Component<
       updatedSource: (source: any) => void;
     }
 
+    let shaderKey = 0;
     setShaderRegisteredCallback(async (source, updatedSource) => {
       const configuration: CodeMirror.EditorConfiguration = {
         value: source,
@@ -60,7 +61,7 @@ class CanvasRAFWhileMounted extends React.Component<
       this.props.addShaderEditor(
         <div
           className={styles.shaderEditor}
-          key={source}
+          key={source + shaderKey++}
           ref={(el) => {
             if (!el) return;
 
