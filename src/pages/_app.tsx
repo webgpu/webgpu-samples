@@ -31,28 +31,10 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
   if (oldPathSyntaxMatch) {
-    const wgsl = oldPathSyntaxMatch[1];
     const slug = oldPathSyntaxMatch[2];
-    router.replace(`/samples/${slug}/${wgsl}`);
+    router.replace(`/samples/${slug}`);
     return <></>;
   }
-
-  const makeSampleList = (useWGSL: boolean) => {
-    return samplesNames.map((slug) => {
-      const className =
-        router.pathname === `/samples/${slug}` &&
-        (router.query['wgsl'] === '0') === !useWGSL
-          ? styles.selected
-          : undefined;
-      return (
-        <li key={slug} className={className}>
-          <Link href={`/samples/${slug}/?wgsl=${useWGSL ? '1' : '0'}`}>
-            {slug}
-          </Link>
-        </li>
-      );
-    });
-  };
 
   return (
     <>
@@ -86,11 +68,19 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
           </h1>
           <a href="https://github.com/austinEng/webgpu-samples">Github</a>
           <hr />
-          <p>WGSL based samples</p>
-          <ul className={styles.exampleList}>{makeSampleList(true)}</ul>
-          <hr />
-          <p>SPIR-V based samples</p>
-          <ul className={styles.exampleList}>{makeSampleList(false)}</ul>
+          <ul className={styles.exampleList}>
+            {samplesNames.map((slug) => {
+              const className =
+                router.pathname === `/samples/${slug}`
+                  ? styles.selected
+                  : undefined;
+              return (
+                <li key={slug} className={className}>
+                  <Link href={`/samples/${slug}`}>{slug}</Link>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
         <Component {...pageProps} />
       </div>

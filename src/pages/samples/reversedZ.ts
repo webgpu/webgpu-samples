@@ -5,7 +5,6 @@ import {
   kDefaultCanvasHeight,
   makeBasicExample,
 } from '../../components/basicExample';
-import glslangModule from '../../glslang';
 
 // Two planes close to each other for depth precision test
 const geometryVertexSize = 4 * 8; // Byte size of one geometry vertex.
@@ -19,19 +18,19 @@ const o = 0.5; // half x offset to shift planes so they are only partially overl
 // prettier-ignore
 export const geometryVertexArray = new Float32Array([
   // float4 position, float4 color
-  -1 - o, -1, d, 1, 1, 0, 0, 1, 
-   1 - o, -1, d, 1,  1, 0, 0, 1, 
-  -1 - o, 1, d, 1,  1, 0, 0, 1, 
-   1 - o, -1,  d, 1, 1, 0, 0, 1, 
+  -1 - o, -1, d, 1, 1, 0, 0, 1,
+   1 - o, -1, d, 1,  1, 0, 0, 1,
+  -1 - o, 1, d, 1,  1, 0, 0, 1,
+   1 - o, -1,  d, 1, 1, 0, 0, 1,
    1 - o, 1,  d, 1,  1, 0, 0, 1,
-  -1 - o, 1, d, 1,  1, 0, 0, 1, 
- 
-  -1 + o, -1, -d, 1, 0, 1, 0, 1, 
-   1 + o, -1, -d, 1,  0, 1, 0, 1, 
-  -1 + o, 1, -d, 1,  0, 1, 0, 1, 
-   1 + o, -1,  -d, 1, 0, 1, 0, 1, 
-   1 + o, 1,  -d, 1,  0, 1, 0, 1, 
-  -1 + o, 1, -d, 1,  0, 1, 0, 1, 
+  -1 - o, 1, d, 1,  1, 0, 0, 1,
+
+  -1 + o, -1, -d, 1, 0, 1, 0, 1,
+   1 + o, -1, -d, 1,  0, 1, 0, 1,
+  -1 + o, 1, -d, 1,  0, 1, 0, 1,
+   1 + o, -1,  -d, 1, 0, 1, 0, 1,
+   1 + o, 1,  -d, 1,  0, 1, 0, 1,
+  -1 + o, 1, -d, 1,  0, 1, 0, 1,
 ]);
 
 const kViewportWidth = kDefaultCanvasWidth / 2;
@@ -92,10 +91,9 @@ const depthLoadValues = {
   [DepthBufferMode.Reversed]: 0.0,
 };
 
-async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
+async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
 
   const context = canvas.getContext('gpupresent');
 
@@ -118,14 +116,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   // this is not needed if you just want to use reversed z to render a scene
   const depthPrePassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertexDepthPrePass,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertexDepthPrePass,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertexDepthPrePass,
+      }),
       entryPoint: 'main',
       buffers: [
         {
@@ -142,14 +135,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
       ],
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragmentDepthPrePass,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragmentDepthPrePass,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragmentDepthPrePass,
+      }),
       entryPoint: 'main',
       targets: [],
     },
@@ -181,14 +169,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   // compared to that directly calcualated in the shader
   const precisionPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertexPrecisionErrorPass,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertexPrecisionErrorPass,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertexPrecisionErrorPass,
+      }),
       entryPoint: 'main',
       buffers: [
         {
@@ -205,14 +188,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
       ],
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragmentPrecisionErrorPass,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragmentPrecisionErrorPass,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragmentPrecisionErrorPass,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -245,14 +223,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   // colorPass is the regular render pass to render the scene
   const colorPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertex,
+      }),
       entryPoint: 'main',
       buffers: [
         {
@@ -275,14 +248,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
       ],
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragment,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -317,25 +285,15 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   // 0.0 will be the furthest and 1.0 will be the closest
   const textureQuadPassPipline = device.createRenderPipeline({
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertexTextureQuad,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertexTextureQuad,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertexTextureQuad,
+      }),
       entryPoint: 'main',
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragmentTextureQuad,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragmentTextureQuad,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragmentTextureQuad,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -743,119 +701,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean, gui?: GUI) {
   };
 }
 
-const glslShaders = {
-  vertex: `#version 450
-layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelMatrix[${numInstances}];
-} uniforms;
-
-layout(set = 0, binding = 1) uniform CameraMatrix {
-  mat4 viewProjectionMatrix;
-} camera;
-
-layout(location = 0) in vec4 position;
-layout(location = 1) in vec4 color;
-
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-  gl_Position = camera.viewProjectionMatrix * uniforms.modelMatrix[gl_InstanceIndex] * position;
-  fragColor = color;
-}
-`,
-
-  fragment: `#version 450
-layout(location = 0) in vec4 fragColor;
-layout(location = 0) out vec4 outColor;
-
-void main() {
-  outColor = fragColor;
-}
-  `,
-
-  vertexDepthPrePass: `#version 450
-layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelMatrix[${numInstances}];
-} uniforms;
-
-layout(set = 0, binding = 1) uniform CameraMatrix {
-  mat4 viewProjectionMatrix;
-} camera;
-
-layout(location = 0) in vec4 position;
-
-void main() {
-  gl_Position = camera.viewProjectionMatrix * uniforms.modelMatrix[gl_InstanceIndex] * position;
-}
-`,
-
-  fragmentDepthPrePass: `#version 450
-void main() {
-}
-`,
-
-  vertexPrecisionErrorPass: `#version 450
-layout(set = 0, binding = 0) uniform Uniforms {
-  mat4 modelMatrix[${numInstances}];
-} uniforms;
-
-layout(set = 0, binding = 1) uniform CameraMatrix {
-  mat4 viewProjectionMatrix;
-} camera;
-
-
-layout(location = 0) in vec4 position;
-
-layout(location = 0) out vec4 clipPos;
-
-void main() {
-  gl_Position = camera.viewProjectionMatrix * uniforms.modelMatrix[gl_InstanceIndex] * position;
-  clipPos = gl_Position;
-}
-`,
-
-  fragmentPrecisionErrorPass: `#version 450
-layout(location = 0) in vec4 clipPos;
-layout(location = 0) out vec4 outColor;
-
-layout(set = 1, binding = 0) uniform texture2D depthMap;
-layout(set = 1, binding = 1) uniform sampler depthSampler;
-
-void main() {
-  vec2 fragUV = gl_FragCoord.xy / vec2(${kDefaultCanvasWidth.toFixed(
-    1
-  )}, ${kDefaultCanvasHeight.toFixed(1)});
-  float depthValue = texture(sampler2D(depthMap, depthSampler), fragUV).r;
-  float error = abs(clipPos.z / clipPos.w - depthValue);
-  outColor = vec4(vec3(error * 2000000.0), 1.0);
-}
-`,
-
-  vertexTextureQuad: `#version 450
-const vec2 pos[6] = vec2[6](
-  vec2(-1.0f, -1.0f), vec2(1.0f, -1.0f), vec2(-1.0f, 1.0f),
-  vec2(-1.0f, 1.0f), vec2(1.0f, -1.0f), vec2(1.0f, 1.0f)
-);
-void main() {
-  gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0);
-}
-  `,
-  fragmentTextureQuad: `#version 450
-layout(set = 0, binding = 0) uniform texture2D map;
-layout(set = 0, binding = 1) uniform sampler mapSampler;
-
-layout(location = 0) out vec4 outColor;
-
-void main() {
-  vec2 fragUV = gl_FragCoord.xy / vec2(${kDefaultCanvasWidth.toFixed(
-    1
-  )}, ${kDefaultCanvasHeight.toFixed(1)});
-  float value = texture(sampler2D(map, mapSampler), fragUV).r;
-  outColor = vec4(vec3(value), 1.0);
-}
-  `,
-};
-
 const wgslShaders = {
   vertex: `
 [[block]] struct Uniforms {
@@ -992,8 +837,6 @@ export default makeBasicExample({
     `,
   slug: 'reversedZ',
   init,
-  wgslShaders,
-  glslShaders,
   source: __SOURCE__,
   gui: true,
 });

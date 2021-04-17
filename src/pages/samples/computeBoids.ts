@@ -1,12 +1,10 @@
 import { makeBasicExample } from '../../components/basicExample';
-import glslangModule from '../../glslang';
 
-async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
+async function init(canvas: HTMLCanvasElement) {
   const numParticles = 1500;
 
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const glslang = await glslangModule();
 
   const context = canvas.getContext('gpupresent');
 
@@ -17,14 +15,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const renderPipeline = device.createRenderPipeline({
     vertex: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.vertex,
-          })
-        : device.createShaderModule({
-            code: glslShaders.vertex,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'vertex'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.vertex,
+      }),
       entryPoint: 'main',
       buffers: [
         {
@@ -62,14 +55,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
       ],
     },
     fragment: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.fragment,
-          })
-        : device.createShaderModule({
-            code: glslShaders.fragment,
-            transform: (glsl) => glslang.compileGLSL(glsl, 'fragment'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.fragment,
+      }),
       entryPoint: 'main',
       targets: [
         {
@@ -89,14 +77,9 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
 
   const computePipeline = device.createComputePipeline({
     computeStage: {
-      module: useWGSL
-        ? device.createShaderModule({
-            code: wgslShaders.compute(numParticles),
-          })
-        : device.createShaderModule({
-            code: glslShaders.compute(numParticles),
-            transform: (glsl) => glslang.compileGLSL(glsl, 'compute'),
-          }),
+      module: device.createShaderModule({
+        code: wgslShaders.compute(numParticles),
+      }),
       entryPoint: 'main',
     },
   });
@@ -238,110 +221,6 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   };
 }
 
-const glslShaders = {
-  vertex: `#version 450
-layout(location = 0) in vec2 a_particlePos;
-layout(location = 1) in vec2 a_particleVel;
-layout(location = 2) in vec2 a_pos;
-void main() {
-  float angle = -atan(a_particleVel.x, a_particleVel.y);
-  vec2 pos = vec2(a_pos.x * cos(angle) - a_pos.y * sin(angle),
-          a_pos.x * sin(angle) + a_pos.y * cos(angle));
-  gl_Position = vec4(pos + a_particlePos, 0, 1);
-}`,
-
-  fragment: `#version 450
-layout(location = 0) out vec4 fragColor;
-void main() {
-  fragColor = vec4(1.0);
-}`,
-
-  compute: (numParticles: number) => `#version 450
-struct Particle {
-  vec2 pos;
-  vec2 vel;
-};
-
-layout(std140, set = 0, binding = 0) uniform SimParams {
-  float deltaT;
-  float rule1Distance;
-  float rule2Distance;
-  float rule3Distance;
-  float rule1Scale;
-  float rule2Scale;
-  float rule3Scale;
-} params;
-
-layout(std140, set = 0, binding = 1) buffer ParticlesA {
-  Particle particles[${numParticles} /* numParticles */];
-} particlesA;
-
-layout(std140, set = 0, binding = 2) buffer ParticlesB {
-  Particle particles[${numParticles} /* numParticles */];
-} particlesB;
-
-void main() {
-  // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
-
-  uint index = gl_GlobalInvocationID.x;
-  if (index >= ${numParticles} /* numParticles */) { return; }
-
-  vec2 vPos = particlesA.particles[index].pos;
-  vec2 vVel = particlesA.particles[index].vel;
-
-  vec2 cMass = vec2(0.0, 0.0);
-  vec2 cVel = vec2(0.0, 0.0);
-  vec2 colVel = vec2(0.0, 0.0);
-  int cMassCount = 0;
-  int cVelCount = 0;
-
-  vec2 pos;
-  vec2 vel;
-  for (int i = 0; i < ${numParticles} /* numParticles */; ++i) {
-    if (i == index) { continue; }
-    pos = particlesA.particles[i].pos.xy;
-    vel = particlesA.particles[i].vel.xy;
-
-    if (distance(pos, vPos) < params.rule1Distance) {
-      cMass += pos;
-      cMassCount++;
-    }
-    if (distance(pos, vPos) < params.rule2Distance) {
-      colVel -= (pos - vPos);
-    }
-    if (distance(pos, vPos) < params.rule3Distance) {
-      cVel += vel;
-      cVelCount++;
-    }
-  }
-  if (cMassCount > 0) {
-    cMass = cMass / cMassCount - vPos;
-  }
-  if (cVelCount > 0) {
-    cVel = cVel / cVelCount;
-  }
-
-  vVel += cMass * params.rule1Scale + colVel * params.rule2Scale + cVel * params.rule3Scale;
-
-  // clamp velocity for a more pleasing simulation.
-  vVel = normalize(vVel) * clamp(length(vVel), 0.0, 0.1);
-
-  // kinematic update
-  vPos += vVel * params.deltaT;
-
-  // Wrap around boundary
-  if (vPos.x < -1.0) vPos.x = 1.0;
-  if (vPos.x > 1.0) vPos.x = -1.0;
-  if (vPos.y < -1.0) vPos.y = 1.0;
-  if (vPos.y > 1.0) vPos.y = -1.0;
-
-  particlesB.particles[index].pos = vPos;
-
-  // Write back
-  particlesB.particles[index].vel = vVel;
-}`,
-};
-
 const wgslShaders = {
   vertex: `
 [[stage(vertex)]]
@@ -464,8 +343,6 @@ export default makeBasicExample({
                 two ping-pong buffers which store particle data. The data \
                 is used to draw instanced particles.',
   slug: 'computeBoids',
-  wgslShaders,
-  glslShaders,
   init,
   source: __SOURCE__,
 });
