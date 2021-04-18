@@ -88,7 +88,7 @@ async function init(canvas: HTMLCanvasElement, useWGSL: boolean) {
   });
 
   const computePipeline = device.createComputePipeline({
-    computeStage: {
+    compute: {
       module: useWGSL
         ? device.createShaderModule({
             code: wgslShaders.compute(numParticles),

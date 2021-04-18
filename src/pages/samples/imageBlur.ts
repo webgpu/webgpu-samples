@@ -37,7 +37,7 @@ async function init(canvas: HTMLCanvasElement, _useWGSL: boolean, gui?: GUI) {
   });
 
   const blurPipeline = device.createComputePipeline({
-    computeStage: {
+    compute: {
       module: device.createShaderModule({
         code: glslShaders.blur,
         transform: (glsl) => glslang.compileGLSL(glsl, 'compute'),
