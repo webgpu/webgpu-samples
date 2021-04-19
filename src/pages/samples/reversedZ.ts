@@ -942,7 +942,7 @@ fn main([[builtin(instance_index)]] instanceIdx : u32,
 [[group(1), binding(1)]] var depthSampler: sampler;
 
 [[stage(fragment)]]
-fn main([[builtin(frag_coord)]] coord : vec4<f32>,
+fn main([[builtin(position)]] coord : vec4<f32>,
         [[location(0)]] clipPos : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
   let depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
@@ -968,7 +968,7 @@ fn main([[builtin(vertex_index)]] VertexIndex : u32)
 [[group(0), binding(1)]] var depthSampler: sampler;
 
 [[stage(fragment)]]
-fn main([[builtin(frag_coord)]] coord : vec4<f32>)
+fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
   let depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
     1
