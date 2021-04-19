@@ -236,14 +236,15 @@ async function init(canvas: HTMLCanvasElement) {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        // attachment is acquired and set in render loop.
-        attachment: undefined,
+        // view is acquired and set in render loop.
+        view: undefined,
 
         loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
-      attachment: depthTexture.createView(),
+      view: depthTexture.createView(),
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
@@ -403,7 +404,7 @@ async function init(canvas: HTMLCanvasElement) {
   const shadowPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [],
     depthStencilAttachment: {
-      attachment: shadowDepthTextureView,
+      view: shadowDepthTextureView,
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
       stencilLoadValue: 0,
@@ -421,7 +422,7 @@ async function init(canvas: HTMLCanvasElement) {
       cameraViewProj.byteLength
     );
 
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain
+    renderPassDescriptor.colorAttachments[0].view = swapChain
       .getCurrentTexture()
       .createView();
 

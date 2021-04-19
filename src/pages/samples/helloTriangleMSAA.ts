@@ -50,7 +50,7 @@ async function init(canvas: HTMLCanvasElement) {
     format: swapChainFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
-  const attachment = texture.createView();
+  const view = texture.createView();
 
   function frame() {
     const commandEncoder = device.createCommandEncoder();
@@ -58,9 +58,10 @@ async function init(canvas: HTMLCanvasElement) {
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          attachment: attachment,
+          view,
           resolveTarget: swapChain.getCurrentTexture().createView(),
           loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          storeOp: 'clear',
         },
       ],
     };

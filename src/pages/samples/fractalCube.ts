@@ -96,12 +96,13 @@ async function init(canvas: HTMLCanvasElement) {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        attachment: undefined, // Attachment is set later
+        view: undefined, // Attachment is set later
         loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
-      attachment: depthTexture.createView(),
+      view: depthTexture.createView(),
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
@@ -175,7 +176,7 @@ async function init(canvas: HTMLCanvasElement) {
     );
 
     const swapChainTexture = swapChain.getCurrentTexture();
-    renderPassDescriptor.colorAttachments[0].attachment = swapChainTexture.createView();
+    renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
 

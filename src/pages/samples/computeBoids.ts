@@ -76,7 +76,7 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const computePipeline = device.createComputePipeline({
-    computeStage: {
+    compute: {
       module: device.createShaderModule({
         code: wgslShaders.compute(numParticles),
       }),
@@ -93,12 +93,13 @@ async function init(canvas: HTMLCanvasElement) {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        attachment: undefined, // Assigned later
+        view: undefined, // Assigned later
         loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
-      attachment: depthTexture.createView(),
+      view: depthTexture.createView(),
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
       stencilLoadValue: 0,
@@ -195,7 +196,7 @@ async function init(canvas: HTMLCanvasElement) {
 
   let t = 0;
   return function frame() {
-    renderPassDescriptor.colorAttachments[0].attachment = swapChain
+    renderPassDescriptor.colorAttachments[0].view = swapChain
       .getCurrentTexture()
       .createView();
 

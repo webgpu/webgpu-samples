@@ -329,7 +329,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const depthPrePassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [],
     depthStencilAttachment: {
-      attachment: depthTextureView,
+      view: depthTextureView,
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
@@ -345,14 +345,15 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const drawPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        // attachment is acquired and set in render loop.
-        attachment: undefined,
+        // view is acquired and set in render loop.
+        view: undefined,
 
         loadValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
-      attachment: defaultDepthTextureView,
+      view: defaultDepthTextureView,
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
@@ -364,13 +365,14 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
     colorAttachments: [
       {
         // attachment is acquired and set in render loop.
-        attachment: undefined,
+        view: undefined,
 
         loadValue: 'load',
+        storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
-      attachment: defaultDepthTextureView,
+      view: defaultDepthTextureView,
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
@@ -383,20 +385,22 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const textureQuadPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        // attachment is acquired and set in render loop.
-        attachment: undefined,
+        // view is acquired and set in render loop.
+        view: undefined,
 
         loadValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        storeOp: 'store',
       },
     ],
   };
   const textureQuadPassLoadDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        // attachment is acquired and set in render loop.
-        attachment: undefined,
+        // view is acquired and set in render loop.
+        view: undefined,
 
         loadValue: 'load',
+        storeOp: 'store',
       },
     ],
   };
@@ -587,7 +591,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
     const commandEncoder = device.createCommandEncoder();
     if (settings.mode === 'color') {
       for (const m of depthBufferModes) {
-        drawPassDescriptors[m].colorAttachments[0].attachment = attachment;
+        drawPassDescriptors[m].colorAttachments[0].view = attachment;
         drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
           depthLoadValues[m];
         const colorPass = commandEncoder.beginRenderPass(
@@ -630,7 +634,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
           depthPrePass.endPass();
         }
         {
-          drawPassDescriptors[m].colorAttachments[0].attachment = attachment;
+          drawPassDescriptors[m].colorAttachments[0].view = attachment;
           drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
             depthLoadValues[m];
           const precisionErrorPass = commandEncoder.beginRenderPass(
@@ -676,9 +680,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
           depthPrePass.endPass();
         }
         {
-          textureQuadPassDescriptors[
-            m
-          ].colorAttachments[0].attachment = attachment;
+          textureQuadPassDescriptors[m].colorAttachments[0].view = attachment;
           const depthTextureQuadPass = commandEncoder.beginRenderPass(
             textureQuadPassDescriptors[m]
           );
