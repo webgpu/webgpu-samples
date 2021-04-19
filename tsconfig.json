@@ -18,11 +18,16 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "typeRoots": [
+      "./node_modules/@webgpu/types",
+      "./node_modules/@types"
+    ]
   },
   "include": [
     "src/**/*.ts",
-    "node_modules/@webgpu/types"
+    "src/**/*.tsx",
+    "src/**/*.d.ts",
   ],
   "exclude": [
     "node_modules"
