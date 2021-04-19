@@ -456,13 +456,13 @@ async function init(canvas: HTMLCanvasElement) {
 const wgslShaders = {
   vertexShadow: `
 [[block]] struct Scene {
-  [[offset(0)]] lightViewProjMatrix : mat4x4<f32>;
-  [[offset(64)]] cameraViewProjMatrix : mat4x4<f32>;
-  [[offset(128)]] lightPos : vec3<f32>;
+  lightViewProjMatrix : mat4x4<f32>;
+  cameraViewProjMatrix : mat4x4<f32>;
+  lightPos : vec3<f32>;
 };
 
 [[block]] struct Model {
-  [[offset(0)]] modelMatrix : mat4x4<f32>;
+  modelMatrix : mat4x4<f32>;
 };
 
 [[group(0), binding(0)]] var<uniform> scene : Scene;
@@ -483,13 +483,13 @@ fn main() {
 
   vertex: `
 [[block]] struct Scene {
-  [[offset(0)]] lightViewProjMatrix : mat4x4<f32>;
-  [[offset(64)]] cameraViewProjMatrix : mat4x4<f32>;
-  [[offset(128)]] lightPos : vec3<f32>;
+  lightViewProjMatrix : mat4x4<f32>;
+  cameraViewProjMatrix : mat4x4<f32>;
+  lightPos : vec3<f32>;
 };
 
 [[block]] struct Model {
-  [[offset(0)]] modelMatrix : mat4x4<f32>;
+  modelMatrix : mat4x4<f32>;
 };
 
 [[group(0), binding(0)]] var<uniform> scene : Scene;
@@ -526,9 +526,9 @@ fn main([[location(0)]] position : vec3<f32>,
 `,
   fragment: `
 [[block]] struct Scene {
-  [[offset(0)]] lightViewProjMatrix : mat4x4<f32>;
-  [[offset(64)]] cameraViewProjMatrix : mat4x4<f32>;
-  [[offset(128)]] lightPos : vec3<f32>;
+  lightViewProjMatrix : mat4x4<f32>;
+  cameraViewProjMatrix : mat4x4<f32>;
+  lightPos : vec3<f32>;
 };
 
 [[group(0), binding(0)]] var<uniform> scene : Scene;

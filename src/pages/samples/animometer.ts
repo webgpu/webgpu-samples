@@ -361,15 +361,15 @@ async function init(canvas: HTMLCanvasElement, gui: GUI) {
 const wgslShaders = {
   vertex: `
 [[block]] struct Time {
-  [[offset(0)]] value : f32;
+  value : f32;
 };
 
 [[block]] struct Uniforms {
-  [[offset(0)]] scale : f32;
-  [[offset(4)]] offsetX : f32;
-  [[offset(8)]] offsetY : f32;
-  [[offset(12)]] scalar : f32;
-  [[offset(16)]] scalarOffset : f32;
+  scale : f32;
+  offsetX : f32;
+  offsetY : f32;
+  scalar : f32;
+  scalarOffset : f32;
 };
 
 [[binding(0), group(0)]] var<uniform> time : Time;
