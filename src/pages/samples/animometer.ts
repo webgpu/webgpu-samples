@@ -270,8 +270,9 @@ async function init(canvas: HTMLCanvasElement, gui: GUI) {
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          attachment: undefined, // Assigned later
+          view: undefined, // Assigned later
           loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          storeOp: 'store',
         },
       ],
     };
@@ -289,7 +290,7 @@ async function init(canvas: HTMLCanvasElement, gui: GUI) {
       uniformTime[0] = (timestamp - startTime) / 1000;
       device.queue.writeBuffer(uniformBuffer, timeOffset, uniformTime.buffer);
 
-      renderPassDescriptor.colorAttachments[0].attachment = swapChain
+      renderPassDescriptor.colorAttachments[0].view = swapChain
         .getCurrentTexture()
         .createView();
 

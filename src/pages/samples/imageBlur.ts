@@ -35,7 +35,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   });
 
   const blurPipeline = device.createComputePipeline({
-    computeStage: {
+    compute: {
       module: device.createShaderModule({
         code: wgslShaders.blur,
       }),
@@ -295,8 +295,9 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
-          attachment: swapChain.getCurrentTexture().createView(),
+          view: swapChain.getCurrentTexture().createView(),
           loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          storeOp: 'store',
         },
       ],
     });
