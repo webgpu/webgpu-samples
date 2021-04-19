@@ -20,3 +20,8 @@ declare namespace NodeJS {
     readonly NODE_ENV: 'development' | 'production' | 'test';
   }
 }
+
+declare module '*.wgsl' {
+  const shader: 'string';
+  export default shader;
+}
