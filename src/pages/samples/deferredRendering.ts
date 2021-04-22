@@ -63,9 +63,9 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
     // Initialize to zero.
     return [0, 0];
   });
-  let extentMin = [Infinity, Infinity];
-  let extentMax = [-Infinity, -Infinity];
-  mesh.positions.forEach(([x, y, z], idx) => {
+  const extentMin = [Infinity, Infinity];
+  const extentMax = [-Infinity, -Infinity];
+  mesh.positions.forEach(([x, y], idx) => {
     // Simply project along the z axis
     mesh.uvs[idx][0] = x;
     mesh.uvs[idx][1] = y;
@@ -119,7 +119,8 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const kVertexStride = 8;
   const vertexBuffer = device.createBuffer({
     // position: vec3, normal: vec3, uv: vec2
-    size: mesh.positions.length * kVertexStride * Float32Array.BYTES_PER_ELEMENT,
+    size:
+      mesh.positions.length * kVertexStride * Float32Array.BYTES_PER_ELEMENT,
     usage: GPUBufferUsage.VERTEX,
     mappedAtCreation: true,
   });
@@ -217,9 +218,9 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       }),
       entryPoint: 'main',
       targets: [
-        { format: 'rgba32float' }, 
-        { format: 'rgba32float' }, 
-        { format: 'bgra8unorm' }, 
+        { format: 'rgba32float' },
+        { format: 'rgba32float' },
+        { format: 'bgra8unorm' },
       ],
     },
     depthStencil: {
@@ -286,7 +287,12 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       {
         view: gBufferTextures[0].createView(),
 
-        loadValue: { r: Number.MAX_VALUE, g: Number.MAX_VALUE, b: Number.MAX_VALUE, a: 1.0 },
+        loadValue: {
+          r: Number.MAX_VALUE,
+          g: Number.MAX_VALUE,
+          b: Number.MAX_VALUE,
+          a: 1.0,
+        },
         storeOp: 'store',
       },
       {
@@ -340,13 +346,16 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   })();
 
   gui.add(settings, 'mode', ['rendering', 'gBuffers view']);
-  gui.add(settings, 'numLights', 1, kMaxNumLights).step(1).onChange(() => {
-    device.queue.writeBuffer(
-      configUniformBuffer,
-      0,
-      new Uint32Array([settings.numLights])
-    );
-  });
+  gui
+    .add(settings, 'numLights', 1, kMaxNumLights)
+    .step(1)
+    .onChange(() => {
+      device.queue.writeBuffer(
+        configUniformBuffer,
+        0,
+        new Uint32Array([settings.numLights])
+      );
+    });
 
   const modelUniformBuffer = device.createBuffer({
     size: 4 * 16 * 2, // two 4x4 matrix
@@ -403,7 +412,8 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const extent = vec3.create();
   vec3.sub(extent, lightExtentMax, lightExtentMin);
   const lightDataStride = 8;
-  const bufferSizeInByte = Float32Array.BYTES_PER_ELEMENT * lightDataStride * kMaxNumLights;
+  const bufferSizeInByte =
+    Float32Array.BYTES_PER_ELEMENT * lightDataStride * kMaxNumLights;
   const lightsBuffer = device.createBuffer({
     size: bufferSizeInByte,
     usage: GPUBufferUsage.STORAGE,
@@ -413,20 +423,20 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const tmpVec4 = vec4.create();
   let offset = 0;
   for (let i = 0; i < kMaxNumLights; i++) {
-      offset = lightDataStride * i;
-      // position
-      for (let i = 0; i < 3; i++) {
-          tmpVec4[i] = Math.random() * extent[i] + lightExtentMin[i];
-      }
-      tmpVec4[3] = 1;
-      lightData.set(tmpVec4, offset);
-      // color
-      tmpVec4[0] = Math.random() * 2;
-      tmpVec4[1] = Math.random() * 2;
-      tmpVec4[2] = Math.random() * 2;
-      // radius
-      tmpVec4[3] = 20.0;
-      lightData.set(tmpVec4, offset + 4);
+    offset = lightDataStride * i;
+    // position
+    for (let i = 0; i < 3; i++) {
+      tmpVec4[i] = Math.random() * extent[i] + lightExtentMin[i];
+    }
+    tmpVec4[3] = 1;
+    lightData.set(tmpVec4, offset);
+    // color
+    tmpVec4[0] = Math.random() * 2;
+    tmpVec4[1] = Math.random() * 2;
+    tmpVec4[2] = Math.random() * 2;
+    // radius
+    tmpVec4[3] = 20.0;
+    lightData.set(tmpVec4, offset + 4);
   }
   lightsBuffer.unmap();
 
@@ -435,42 +445,42 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       module: device.createShaderModule({
         code: wgslShaders.lightUpdate,
       }),
-      entryPoint: "main"
-    }
+      entryPoint: 'main',
+    },
   });
   const lightsBufferBindGroup = device.createBindGroup({
-      layout: deferredRenderPipeline.getBindGroupLayout(1),
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: lightsBuffer,
-          }
+    layout: deferredRenderPipeline.getBindGroupLayout(1),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: lightsBuffer,
         },
-        {
-          binding: 1,
-          resource: {
-            buffer: configUniformBuffer,
-          }
+      },
+      {
+        binding: 1,
+        resource: {
+          buffer: configUniformBuffer,
         },
-      ]
+      },
+    ],
   });
   const lightsBufferComputeBindGroup = device.createBindGroup({
-      layout: lightUpdateComputePipeline.getBindGroupLayout(0),
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: lightsBuffer,
-          }
+    layout: lightUpdateComputePipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: lightsBuffer,
         },
-        {
-          binding: 1,
-          resource: {
-            buffer: configUniformBuffer,
-          }
+      },
+      {
+        binding: 1,
+        resource: {
+          buffer: configUniformBuffer,
         },
-      ]
+      },
+    ],
   });
   //--------------------
 
@@ -548,7 +558,9 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
     const commandEncoder = device.createCommandEncoder();
     {
       // geometry pass write to g buffers
-      const gBufferPass = commandEncoder.beginRenderPass(writeGBufferPassDescriptor);
+      const gBufferPass = commandEncoder.beginRenderPass(
+        writeGBufferPassDescriptor
+      );
       gBufferPass.setPipeline(WriteGBuffersPipeline);
       gBufferPass.setBindGroup(0, sceneUniformBindGroup);
       gBufferPass.setVertexBuffer(0, vertexBuffer);
@@ -569,7 +581,9 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
         textureQuadPassDescriptor.colorAttachments[0].view = swapChain
           .getCurrentTexture()
           .createView();
-        const debugViewPass = commandEncoder.beginRenderPass(textureQuadPassDescriptor);
+        const debugViewPass = commandEncoder.beginRenderPass(
+          textureQuadPassDescriptor
+        );
         debugViewPass.setPipeline(gBuffersDebugViewPipeline);
         debugViewPass.setBindGroup(0, gBufferTexturesBindGroup);
         debugViewPass.draw(6);
@@ -579,7 +593,9 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
         textureQuadPassDescriptor.colorAttachments[0].view = swapChain
           .getCurrentTexture()
           .createView();
-        const deferredRenderingPass = commandEncoder.beginRenderPass(textureQuadPassDescriptor);
+        const deferredRenderingPass = commandEncoder.beginRenderPass(
+          textureQuadPassDescriptor
+        );
         deferredRenderingPass.setPipeline(deferredRenderPipeline);
         deferredRenderingPass.setBindGroup(0, gBufferTexturesBindGroup);
         deferredRenderingPass.setBindGroup(1, lightsBufferBindGroup);
@@ -643,7 +659,9 @@ fn main([[builtin(vertex_index)]] VertexIndex : u32)
 fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
   var result : vec4<f32>;
-  var c : vec2<f32> = coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(1)}, ${kDefaultCanvasHeight.toFixed(1)});
+  var c : vec2<f32> = coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
+    1
+  )}, ${kDefaultCanvasHeight.toFixed(1)});
   if (c.x < 0.33333) {
     result = textureSample(
       gBufferPosition,
@@ -694,7 +712,9 @@ struct LightData {
 fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
   var result : vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
-  var c : vec2<f32> = coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(1)}, ${kDefaultCanvasHeight.toFixed(1)});
+  var c : vec2<f32> = coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
+    1
+  )}, ${kDefaultCanvasHeight.toFixed(1)});
 
   var position : vec3<f32> = textureSample(
     gBufferPosition,
