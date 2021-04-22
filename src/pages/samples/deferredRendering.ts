@@ -11,12 +11,6 @@ const lightExtentMin = vec3.fromValues(-50, -30, -50);
 const lightExtentMax = vec3.fromValues(50, 50, 50);
 
 import dragonRawData from 'stanford-dragon/4';
-const mesh = {
-  positions: dragonRawData.positions as [number, number, number][],
-  triangles: dragonRawData.cells as [number, number, number][],
-  normals: [] as [number, number, number][],
-  uvs: [] as [number, number][],
-};
 
 async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const adapter = await navigator.gpu.requestAdapter();
@@ -30,6 +24,13 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
     device,
     format: 'bgra8unorm',
   });
+
+  const mesh = {
+    positions: [...dragonRawData.positions] as [number, number, number][],
+    triangles: [...dragonRawData.cells] as [number, number, number][],
+    normals: [] as [number, number, number][],
+    uvs: [] as [number, number][],
+  };
 
   // Compute surface normals
   mesh.normals = mesh.positions.map(() => {

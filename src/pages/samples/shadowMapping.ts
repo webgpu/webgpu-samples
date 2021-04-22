@@ -2,11 +2,6 @@ import { mat4, vec3 } from 'gl-matrix';
 import { makeBasicExample } from '../../components/basicExample';
 
 import dragonRawData from 'stanford-dragon/4';
-const mesh = {
-  positions: dragonRawData.positions as [number, number, number][],
-  triangles: dragonRawData.cells as [number, number, number][],
-  normals: [] as [number, number, number][],
-};
 
 const shadowDepthTextureSize = 1024;
 
@@ -22,6 +17,12 @@ async function init(canvas: HTMLCanvasElement) {
     device,
     format: 'bgra8unorm',
   });
+
+  const mesh = {
+    positions: [...dragonRawData.positions] as [number, number, number][],
+    triangles: [...dragonRawData.cells] as [number, number, number][],
+    normals: [] as [number, number, number][],
+  };
 
   // Push indices for an additional ground plane
   mesh.triangles.push(
