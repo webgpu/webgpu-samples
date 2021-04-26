@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import type { GUI } from 'dat.gui';
 import type { Editor, EditorConfiguration } from 'codemirror';
 interface CodeMirrorEditor extends Editor {
   updatedSource: (source: string) => void;
@@ -17,6 +18,7 @@ type SourceFileInfo = {
 
 export type SampleInit = (params: {
   canvasRef: React.RefObject<HTMLCanvasElement>;
+  gui?: GUI;
 }) => void | Promise<void>;
 
 const setShaderRegisteredCallback =
@@ -86,6 +88,7 @@ const SampleLayout: React.FunctionComponent<
     name: string;
     description: string;
     filename: string;
+    gui?: boolean;
     init: SampleInit;
     sources: SourceFileInfo[];
   }>
@@ -98,6 +101,16 @@ const SampleLayout: React.FunctionComponent<
       }),
     props.sources
   );
+
+  const guiParentRef = useRef<HTMLDivElement | null>(null);
+  const gui: GUI | undefined = useMemo(() => {
+    if (props.gui && process.browser) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const dat = require('dat.gui');
+      return new dat.GUI({ autoPlace: false });
+    }
+    return undefined;
+  }, []);
 
   const router = useRouter();
   const currentHash = router.asPath.match(/#([a-zA-Z0-9\.\/]+)/);
@@ -112,9 +125,14 @@ const SampleLayout: React.FunctionComponent<
       setActiveHash(sources[0].name);
     }
 
+    if (gui && guiParentRef.current) {
+      guiParentRef.current.appendChild(gui.domElement);
+    }
+
     try {
       const p = props.init({
         canvasRef,
+        gui,
       });
 
       if (p instanceof Promise) {
@@ -179,6 +197,13 @@ const SampleLayout: React.FunctionComponent<
         ) : null}
       </div>
       <div className={styles.canvasContainer}>
+        <div
+          style={{
+            position: 'absolute',
+            right: 10,
+          }}
+          ref={guiParentRef}
+        ></div>
         <canvas ref={canvasRef} width={600} height={600}></canvas>
       </div>
       <div>

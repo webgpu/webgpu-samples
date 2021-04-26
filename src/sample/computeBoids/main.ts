@@ -3,7 +3,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import spriteWGSL from './sprite.wgsl';
 import updateSpritesWGSL from './updateSprites.wgsl';
 
-const init: SampleInit = async ({ canvasRef }) => {
+const init: SampleInit = async ({ canvasRef, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
@@ -103,22 +103,42 @@ const init: SampleInit = async ({ canvasRef }) => {
   new Float32Array(spriteVertexBuffer.getMappedRange()).set(vertexBufferData);
   spriteVertexBuffer.unmap();
 
-  const simParamData = new Float32Array([
-    0.04, // deltaT;
-    0.1, // rule1Distance;
-    0.025, // rule2Distance;
-    0.025, // rule3Distance;
-    0.02, // rule1Scale;
-    0.05, // rule2Scale;
-    0.005, // rule3Scale;
-  ]);
+  const simParams = {
+    deltaT: 0.04,
+    rule1Distance: 0.1,
+    rule2Distance: 0.025,
+    rule3Distance: 0.025,
+    rule1Scale: 0.02,
+    rule2Scale: 0.05,
+    rule3Scale: 0.005,
+  };
+
+  const simParamBufferSize = 7 * Float32Array.BYTES_PER_ELEMENT;
   const simParamBuffer = device.createBuffer({
-    size: simParamData.byteLength,
-    usage: GPUBufferUsage.UNIFORM,
-    mappedAtCreation: true,
+    size: simParamBufferSize,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  new Float32Array(simParamBuffer.getMappedRange()).set(simParamData);
-  simParamBuffer.unmap();
+
+  function updateSimParams() {
+    device.queue.writeBuffer(
+      simParamBuffer,
+      0,
+      new Float32Array([
+        simParams.deltaT,
+        simParams.rule1Distance,
+        simParams.rule2Distance,
+        simParams.rule3Distance,
+        simParams.rule1Scale,
+        simParams.rule2Scale,
+        simParams.rule3Scale,
+      ])
+    );
+  }
+
+  updateSimParams();
+  Object.keys(simParams).forEach((k) => {
+    gui.add(simParams, k).onFinishChange(updateSimParams);
+  });
 
   const numParticles = 1500;
   const initialParticleData = new Float32Array(numParticles * 4);
@@ -151,8 +171,6 @@ const init: SampleInit = async ({ canvasRef }) => {
           binding: 0,
           resource: {
             buffer: simParamBuffer,
-            offset: 0,
-            size: simParamData.byteLength,
           },
         },
         {
@@ -214,6 +232,7 @@ const ComputeBoids: () => JSX.Element = () =>
 the flocking behavior of birds. A compute shader updates \
 two ping-pong buffers which store particle data. The data \
 is used to draw instanced particles.',
+    gui: true,
     init,
     sources: [
       {
