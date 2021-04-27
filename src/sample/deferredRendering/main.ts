@@ -110,7 +110,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     cullMode: 'back',
   };
 
-  const WriteGBuffersPipeline = device.createRenderPipeline({
+  const writeGBuffersPipeline = device.createRenderPipeline({
     vertex: {
       module: device.createShaderModule({
         code: vertexWriteGBuffers,
@@ -124,8 +124,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       }),
       entryPoint: 'main',
       targets: [
+        // position
         { format: 'rgba32float' },
+        // normal
         { format: 'rgba32float' },
+        // albedo
         { format: 'bgra8unorm' },
       ],
     },
@@ -274,7 +277,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const sceneUniformBindGroup = device.createBindGroup({
-    layout: WriteGBuffersPipeline.getBindGroupLayout(0),
+    layout: writeGBuffersPipeline.getBindGroupLayout(0),
     entries: [
       {
         binding: 0,
@@ -342,6 +345,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     usage: GPUBufferUsage.STORAGE,
     mappedAtCreation: true,
   });
+
+  // We randomaly populate lights randomly in a box range
+  // And simply move them along y-axis per frame to show they are
+  // dynamic lightings
   const lightData = new Float32Array(lightsBuffer.getMappedRange());
   const tmpVec4 = vec4.create();
   let offset = 0;
@@ -428,7 +435,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
   //--------------------
 
-  // scene matrices
+  // Scene matrices
   const eyePosition = vec3.fromValues(0, 50, -100);
   const upVector = vec3.fromValues(0, 1, 0);
   const origin = vec3.fromValues(0, 0, 0);
@@ -474,6 +481,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     normalModelData.byteOffset,
     normalModelData.byteLength
   );
+  // Pass the canvas size to shader to help sample from gBuffer textures using coord
   const canvasSizeData = new Float32Array([
     canvasRef.current.width,
     canvasRef.current.height,
@@ -512,11 +520,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
     const commandEncoder = device.createCommandEncoder();
     {
-      // geometry pass write to g buffers
+      // Write position, normal, albedo etc. data to gBuffers
       const gBufferPass = commandEncoder.beginRenderPass(
         writeGBufferPassDescriptor
       );
-      gBufferPass.setPipeline(WriteGBuffersPipeline);
+      gBufferPass.setPipeline(writeGBuffersPipeline);
       gBufferPass.setBindGroup(0, sceneUniformBindGroup);
       gBufferPass.setVertexBuffer(0, vertexBuffer);
       gBufferPass.setIndexBuffer(indexBuffer, 'uint16');
@@ -524,7 +532,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       gBufferPass.endPass();
     }
     {
-      // update lights
+      // Update lights position
       const lightPass = commandEncoder.beginComputePass();
       lightPass.setPipeline(lightUpdateComputePipeline);
       lightPass.setBindGroup(0, lightsBufferComputeBindGroup);
@@ -533,6 +541,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     }
     {
       if (settings.mode === 'gBuffers view') {
+        // GBuffers debug view
+        // Left: position
+        // Middle: normal
+        // Right: albedo (use uv to mimic a checkerboard texture)
         textureQuadPassDescriptor.colorAttachments[0].view = swapChain
           .getCurrentTexture()
           .createView();
@@ -545,7 +557,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         debugViewPass.draw(6);
         debugViewPass.endPass();
       } else {
-        // deferred rendering
+        // Deferred rendering
         textureQuadPassDescriptor.colorAttachments[0].view = swapChain
           .getCurrentTexture()
           .createView();
@@ -570,8 +582,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 const DeferredRendering: () => JSX.Element = () =>
   makeSample({
     name: 'Deferred Rendering',
-    description:
-      'This example shows how to do deferred rendering with webgpu. Render geometry info to GBuffers and do the lighting independent of scene complexity.',
+    description: `This example shows how to do deferred rendering with webgpu.
+      Render geometry info to multiple targets in the gBuffers in the first pass.
+      In this sample we have 3 gBuffers for positions, normals, and albedo.
+      And then do the lighting in a second pass with per fragment data read from gBuffers so it's independent of scene complexity.
+      We also update light position in a compute shader, where further operations like tile/cluster culling could happen.`,
     gui: true,
     init,
     sources: [
