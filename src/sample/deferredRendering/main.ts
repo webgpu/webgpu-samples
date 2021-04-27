@@ -63,27 +63,20 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   }
 
   // GBuffer texture render targets
-  // Currently chrome still do not support layered rendering.
-  // Use multiple Texture2D instead of Texture2DArray as render target
-  const gBufferTextures = [
-    // Position
-    device.createTexture({
-      size: [canvasRef.current.width, canvasRef.current.height, 1],
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
-      format: 'rgba32float',
-    }),
-    // Normal
-    device.createTexture({
-      size: [canvasRef.current.width, canvasRef.current.height, 1],
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
-      format: 'rgba32float',
-    }),
-    // Albedo
-    device.createTexture({
-      size: [canvasRef.current.width, canvasRef.current.height, 1],
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
-      format: 'bgra8unorm',
-    }),
+  const gBufferTexture2DFloat = device.createTexture({
+    size: [canvasRef.current.width, canvasRef.current.height, 3],
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
+    format: 'rgba32float',
+  });
+  const gBufferTextureAlbedo = device.createTexture({
+    size: [canvasRef.current.width, canvasRef.current.height, 1],
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
+    format: 'bgra8unorm',
+  });
+  const gBufferTextureViews = [
+    gBufferTexture2DFloat.createView({ baseArrayLayer: 0, arrayLayerCount: 1 }),
+    gBufferTexture2DFloat.createView({ baseArrayLayer: 1, arrayLayerCount: 1 }),
+    gBufferTextureAlbedo.createView(),
   ];
 
   const vertexBuffers: Iterable<GPUVertexBufferLayout> = [
@@ -198,7 +191,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const writeGBufferPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: gBufferTextures[0].createView(),
+        view: gBufferTextureViews[0],
 
         loadValue: {
           r: Number.MAX_VALUE,
@@ -209,13 +202,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         storeOp: 'store',
       },
       {
-        view: gBufferTextures[1].createView(),
+        view: gBufferTextureViews[1],
 
         loadValue: { r: 0.0, g: 0.0, b: 1.0, a: 1.0 },
         storeOp: 'store',
       },
       {
-        view: gBufferTextures[2].createView(),
+        view: gBufferTextureViews[2],
 
         loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         storeOp: 'store',
@@ -324,15 +317,15 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       },
       {
         binding: 1,
-        resource: gBufferTextures[0].createView(),
+        resource: gBufferTextureViews[0],
       },
       {
         binding: 2,
-        resource: gBufferTextures[1].createView(),
+        resource: gBufferTextureViews[1],
       },
       {
         binding: 3,
-        resource: gBufferTextures[2].createView(),
+        resource: gBufferTextureViews[2],
       },
     ],
   });
@@ -578,7 +571,7 @@ const DeferredRendering: () => JSX.Element = () =>
   makeSample({
     name: 'Deferred Rendering',
     description:
-      'This example shows how to do deferred rendering with webgpu. Layered rendering is still not fully implemented by browser so it is now using Texture 2D instead of Texture 2D Arrays for G-Buffers',
+      'This example shows how to do deferred rendering with webgpu. Render geometry info to GBuffers and do the lighting independent of scene complexity.',
     gui: true,
     init,
     sources: [
