@@ -3,11 +3,16 @@
 [[group(0), binding(2)]] var gBufferNormal: texture_2d<f32>;
 [[group(0), binding(3)]] var gBufferAlbedo: texture_2d<f32>;
 
+[[block]] struct CanvasConstants {
+  size: vec2<f32>;
+};
+[[group(1), binding(0)]] var<uniform> canvas : CanvasConstants;
+
 [[stage(fragment)]]
 fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
   var result : vec4<f32>;
-  var c : vec2<f32> = coord.xy / vec2<f32>(600.0, 600.0);
+  var c : vec2<f32> = coord.xy / canvas.size;
   if (c.x < 0.33333) {
     result = textureSample(
       gBufferPosition,

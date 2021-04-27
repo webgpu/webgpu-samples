@@ -1,9 +1,5 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { mat4, vec3, vec4 } from 'gl-matrix';
-import {
-  kDefaultCanvasWidth,
-  kDefaultCanvasHeight,
-} from '../../components/basicExample';
 import { mesh } from '../../meshes/stanfordDragon';
 
 import lightUpdate from './lightUpdate.wgsl';
@@ -72,19 +68,19 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const gBufferTextures = [
     // Position
     device.createTexture({
-      size: [kDefaultCanvasWidth, kDefaultCanvasHeight, 1],
+      size: [canvasRef.current.width, canvasRef.current.height, 1],
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
       format: 'rgba32float',
     }),
     // Normal
     device.createTexture({
-      size: [kDefaultCanvasWidth, kDefaultCanvasHeight, 1],
+      size: [canvasRef.current.width, canvasRef.current.height, 1],
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
       format: 'rgba32float',
     }),
     // Albedo
     device.createTexture({
-      size: [kDefaultCanvasWidth, kDefaultCanvasHeight, 1],
+      size: [canvasRef.current.width, canvasRef.current.height, 1],
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
       format: 'bgra8unorm',
     }),
@@ -302,6 +298,23 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     ],
   });
 
+  const canvasSizeUniformBuffer = device.createBuffer({
+    size: 4 * 2,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const canvasSizeUniformBindGroup = device.createBindGroup({
+    layout: gBuffersDebugViewPipeline.getBindGroupLayout(1),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: canvasSizeUniformBuffer,
+        },
+      },
+    ],
+  });
+
   const gBufferTexturesBindGroup = device.createBindGroup({
     layout: gBuffersDebugViewPipeline.getBindGroupLayout(0),
     entries: [
@@ -357,6 +370,21 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   }
   lightsBuffer.unmap();
 
+  const lightExtentBuffer = device.createBuffer({
+    size: 4 * 8,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+  const lightExtentData = new Float32Array(8);
+  lightExtentData.set(lightExtentMin, 0);
+  lightExtentData.set(lightExtentMax, 4);
+  device.queue.writeBuffer(
+    lightExtentBuffer,
+    0,
+    lightExtentData.buffer,
+    lightExtentData.byteOffset,
+    lightExtentData.byteLength
+  );
+
   const lightUpdateComputePipeline = device.createComputePipeline({
     compute: {
       module: device.createShaderModule({
@@ -395,6 +423,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         binding: 1,
         resource: {
           buffer: configUniformBuffer,
+        },
+      },
+      {
+        binding: 2,
+        resource: {
+          buffer: lightExtentBuffer,
         },
       },
     ],
@@ -446,6 +480,17 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     normalModelData.buffer,
     normalModelData.byteOffset,
     normalModelData.byteLength
+  );
+  const canvasSizeData = new Float32Array([
+    canvasRef.current.width,
+    canvasRef.current.height,
+  ]);
+  device.queue.writeBuffer(
+    canvasSizeUniformBuffer,
+    0,
+    canvasSizeData.buffer,
+    canvasSizeData.byteOffset,
+    canvasSizeData.byteLength
   );
 
   // Rotates the camera around the origin based on time.
@@ -503,6 +548,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         );
         debugViewPass.setPipeline(gBuffersDebugViewPipeline);
         debugViewPass.setBindGroup(0, gBufferTexturesBindGroup);
+        debugViewPass.setBindGroup(1, canvasSizeUniformBindGroup);
         debugViewPass.draw(6);
         debugViewPass.endPass();
       } else {
@@ -516,6 +562,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         deferredRenderingPass.setPipeline(deferredRenderPipeline);
         deferredRenderingPass.setBindGroup(0, gBufferTexturesBindGroup);
         deferredRenderingPass.setBindGroup(1, lightsBufferBindGroup);
+        deferredRenderingPass.setBindGroup(2, canvasSizeUniformBindGroup);
         deferredRenderingPass.draw(6);
         deferredRenderingPass.endPass();
       }
@@ -526,213 +573,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   }
   requestAnimationFrame(frame);
 };
-
-// const wgslShaders = {
-//   lightUpdate: `
-// struct LightData {
-//   position : vec4<f32>;
-//   color : vec3<f32>;
-//   radius : f32;
-// };
-// [[block]] struct LightsBuffer {
-//   lights: array<LightData>;
-// };
-// [[group(0), binding(0)]] var<storage> lightsBuffer: [[access(read_write)]] LightsBuffer;
-
-// [[block]] struct Config {
-//   numLights : u32;
-// };
-// [[group(0), binding(1)]] var<uniform> config: Config;
-
-// [[stage(compute)]]
-// fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
-//   var index : u32 = GlobalInvocationID.x;
-//   if (index >= config.numLights) {
-//     return;
-//   }
-
-//   lightsBuffer.lights[index].position.y = lightsBuffer.lights[index].position.y - 0.5 - 0.003 * (f32(index) - 64.0 * floor(f32(index) / 64.0));
-
-//   if (lightsBuffer.lights[index].position.y < ${lightExtentMin[1].toFixed(1)}) {
-//     lightsBuffer.lights[index].position.y = ${lightExtentMax[1].toFixed(1)};
-//   }
-// }
-// `,
-//   vertexTextureQuad: `
-// let pos : array<vec2<f32>, 6> = array<vec2<f32>, 6>(
-//     vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0),
-//     vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0));
-
-// [[stage(vertex)]]
-// fn main([[builtin(vertex_index)]] VertexIndex : u32)
-//         -> [[builtin(position)]] vec4<f32> {
-//     return vec4<f32>(pos[VertexIndex], 0.0, 1.0);
-// }
-// `,
-//   fragmentGBuffersDebugView: `
-// [[group(0), binding(0)]] var mySampler: sampler;
-// [[group(0), binding(1)]] var gBufferPosition: texture_2d<f32>;
-// [[group(0), binding(2)]] var gBufferNormal: texture_2d<f32>;
-// [[group(0), binding(3)]] var gBufferAlbedo: texture_2d<f32>;
-
-// [[stage(fragment)]]
-// fn main([[builtin(position)]] coord : vec4<f32>)
-//      -> [[location(0)]] vec4<f32> {
-//   var result : vec4<f32>;
-//   var c : vec2<f32> = coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
-//     1
-//   )}, ${kDefaultCanvasHeight.toFixed(1)});
-//   if (c.x < 0.33333) {
-//     result = textureSample(
-//       gBufferPosition,
-//       mySampler,
-//       c
-//     );
-//   } elseif (c.x < 0.66667) {
-//     result = textureSample(
-//       gBufferNormal,
-//       mySampler,
-//       c
-//     );
-//     result.x = (result.x + 1.0) * 0.5;
-//     result.y = (result.y + 1.0) * 0.5;
-//     result.z = (result.z + 1.0) * 0.5;
-//   } else {
-//     result = textureSample(
-//       gBufferAlbedo,
-//       mySampler,
-//       c
-//     );
-//   }
-//   return result;
-// }
-// `,
-//   fragmentDeferredRendering: `
-// [[group(0), binding(0)]] var mySampler: sampler;
-// [[group(0), binding(1)]] var gBufferPosition: texture_2d<f32>;
-// [[group(0), binding(2)]] var gBufferNormal: texture_2d<f32>;
-// [[group(0), binding(3)]] var gBufferAlbedo: texture_2d<f32>;
-
-// struct LightData {
-//   position : vec4<f32>;
-//   color : vec3<f32>;
-//   radius : f32;
-// };
-// [[block]] struct LightsBuffer {
-//   lights: array<LightData>;
-// };
-// [[group(1), binding(0)]] var<storage> lightsBuffer: [[access(read)]] LightsBuffer;
-
-// [[block]] struct Config {
-//   numLights : u32;
-// };
-// [[group(1), binding(1)]] var<uniform> config: Config;
-
-// [[stage(fragment)]]
-// fn main([[builtin(position)]] coord : vec4<f32>)
-//      -> [[location(0)]] vec4<f32> {
-//   var result : vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
-//   var c : vec2<f32> = coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
-//     1
-//   )}, ${kDefaultCanvasHeight.toFixed(1)});
-
-//   var position : vec3<f32> = textureSample(
-//     gBufferPosition,
-//     mySampler,
-//     c
-//   ).xyz;
-
-//   if (position.z > 10000.0) {
-//     discard;
-//   }
-
-//   var normal : vec3<f32> = textureSample(
-//     gBufferNormal,
-//     mySampler,
-//     c
-//   ).xyz;
-
-//   var albedo : vec3<f32> = textureSample(
-//     gBufferAlbedo,
-//     mySampler,
-//     c
-//   ).rgb;
-
-//   for (var i : u32 = 0u; i < ${kMaxNumLights}u; i = i + 1u) {
-//     if (i >= config.numLights) {
-//       break;
-//     }
-
-//     var L : vec3<f32> = lightsBuffer.lights[i].position.xyz - position;
-//     var distance : f32 = length(L);
-//     if (distance > lightsBuffer.lights[i].radius) {
-//         continue;
-//     }
-//     var lambert : f32 = max(dot(normal, normalize(L)), 0.0);
-//     result = result + vec3<f32>(
-//       lambert * pow(1.0 - distance / lightsBuffer.lights[i].radius, 2.0) * lightsBuffer.lights[i].color * albedo);
-//   }
-
-//   // some manual ambient
-//   result = result + vec3<f32>(0.2, 0.2, 0.2);
-
-//   return vec4<f32>(result, 1.0);
-// }
-// `,
-//   vertexWriteGBuffers: `
-// [[block]] struct Uniforms {
-//   modelMatrix : mat4x4<f32>;
-//   normalModelMatrix : mat4x4<f32>;
-// };
-// [[block]] struct Camera {
-//   viewProjectionMatrix : mat4x4<f32>;
-// };
-// [[group(0), binding(0)]] var<uniform> uniforms : Uniforms;
-// [[group(0), binding(1)]] var<uniform> camera : Camera;
-
-// struct VertexOutput {
-//   [[builtin(position)]] Position : vec4<f32>;
-//   [[location(0)]] fragPosition: vec3<f32>;  // position in world space
-//   [[location(1)]] fragNormal: vec3<f32>;    // normal in world space
-//   [[location(2)]] fragUV: vec2<f32>;
-// };
-
-// [[stage(vertex)]]
-// fn main([[location(0)]] position : vec3<f32>,
-//         [[location(1)]] normal : vec3<f32>,
-//         [[location(2)]] uv : vec2<f32>) -> VertexOutput {
-//   var output : VertexOutput;
-//   output.fragPosition = (uniforms.modelMatrix * vec4<f32>(position, 1.0)).xyz;
-//   output.Position = camera.viewProjectionMatrix * vec4<f32>(output.fragPosition, 1.0);
-//   output.fragNormal = normalize((uniforms.normalModelMatrix * vec4<f32>(normal, 1.0)).xyz);
-//   output.fragUV = uv;
-//   return output;
-// }
-//   `,
-//   fragmentWriteGBuffers: `
-// struct GBufferOutput {
-//   [[location(0)]] position : vec4<f32>;
-//   [[location(1)]] normal : vec4<f32>;
-
-//   // Textures: diffuse color, specular color, smoothness, emissive etc. could go here
-//   [[location(2)]] albedo : vec4<f32>;
-// };
-
-// [[stage(fragment)]]
-// fn main([[location(0)]] fragPosition: vec3<f32>,
-//         [[location(1)]] fragNormal: vec3<f32>,
-//         [[location(2)]] fragUV : vec2<f32>) -> GBufferOutput {
-//     var output : GBufferOutput;
-//     output.position = vec4<f32>(fragPosition, 1.0);
-//     output.normal = vec4<f32>(fragNormal, 1.0);
-//     // faking some kind of checkerboard texture
-//     var uv : vec2<f32> = floor(30.0 * fragUV);
-//     var c: f32 = 0.2 + 0.5 * ((uv.x + uv.y) - 2.0 * floor((uv.x + uv.y) / 2.0));
-//     output.albedo = vec4<f32>(c, c, c, 1.0);
-//     return output;
-// }
-//   `,
-// };
 
 const DeferredRendering: () => JSX.Element = () =>
   makeSample({
@@ -773,7 +613,6 @@ const DeferredRendering: () => JSX.Element = () =>
       },
       {
         name: 'lightUpdate.wgsl',
-        // contents: lightUpdate.replace('zzz', lightExtentMin[1].toFixed(1)),
         contents: lightUpdate,
         editable: true,
       },
