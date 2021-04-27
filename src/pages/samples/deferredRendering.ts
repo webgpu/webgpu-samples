@@ -10,7 +10,7 @@ const kMaxNumLights = 1024;
 const lightExtentMin = vec3.fromValues(-50, -30, -50);
 const lightExtentMax = vec3.fromValues(50, 50, 50);
 
-import dragonRawData from 'stanford-dragon/4';
+import { mesh } from '../../meshes/stanfordDragon';
 
 async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const adapter = await navigator.gpu.requestAdapter();
@@ -20,101 +20,11 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
 
   const context = canvas.getContext('gpupresent');
 
+  const swapChainFormat = 'bgra8unorm';
   const swapChain = context.configureSwapChain({
     device,
-    format: 'bgra8unorm',
+    format: swapChainFormat,
   });
-
-  const mesh = {
-    positions: [...dragonRawData.positions] as [number, number, number][],
-    triangles: [...dragonRawData.cells] as [number, number, number][],
-    normals: [] as [number, number, number][],
-    uvs: [] as [number, number][],
-  };
-
-  // Compute surface normals
-  mesh.normals = mesh.positions.map(() => {
-    // Initialize to zero.
-    return [0, 0, 0];
-  });
-  mesh.triangles.forEach(([i0, i1, i2]) => {
-    const p0 = mesh.positions[i0];
-    const p1 = mesh.positions[i1];
-    const p2 = mesh.positions[i2];
-
-    const v0 = vec3.subtract(vec3.create(), p1, p0);
-    const v1 = vec3.subtract(vec3.create(), p2, p0);
-
-    vec3.normalize(v0, v0);
-    vec3.normalize(v1, v1);
-    const norm = vec3.cross(vec3.create(), v0, v1);
-
-    // Accumulate the normals.
-    vec3.add(mesh.normals[i0], mesh.normals[i0], norm);
-    vec3.add(mesh.normals[i1], mesh.normals[i1], norm);
-    vec3.add(mesh.normals[i2], mesh.normals[i2], norm);
-  });
-  mesh.normals.forEach((n) => {
-    // Normalize accumulated normals.
-    vec3.normalize(n, n);
-  });
-
-  // Compute some easy uvs for testing
-  mesh.uvs = mesh.positions.map(() => {
-    // Initialize to zero.
-    return [0, 0];
-  });
-  const extentMin = [Infinity, Infinity];
-  const extentMax = [-Infinity, -Infinity];
-  mesh.positions.forEach(([x, y], idx) => {
-    // Simply project along the z axis
-    mesh.uvs[idx][0] = x;
-    mesh.uvs[idx][1] = y;
-
-    extentMin[0] = Math.min(x, extentMin[0]);
-    extentMin[1] = Math.min(y, extentMin[1]);
-    extentMax[0] = Math.max(x, extentMax[0]);
-    extentMax[1] = Math.max(y, extentMax[1]);
-  });
-  mesh.uvs.forEach((uv) => {
-    uv[0] = (uv[0] - extentMin[0]) / (extentMax[0] - extentMin[0]);
-    uv[1] = (uv[1] - extentMin[1]) / (extentMax[1] - extentMin[1]);
-  });
-
-  // Push indices for an additional ground plane
-  mesh.triangles.push(
-    [
-      mesh.positions.length,
-      mesh.positions.length + 2,
-      mesh.positions.length + 1,
-    ],
-    [
-      mesh.positions.length,
-      mesh.positions.length + 1,
-      mesh.positions.length + 3,
-    ]
-  );
-
-  // Push vertex attributes for an additional ground plane
-  // prettier-ignore
-  mesh.positions.push(
-    [-100, 20, -100], //
-    [ 100, 20,  100], //
-    [-100, 20,  100], //
-    [ 100, 20, -100]
-  );
-  mesh.normals.push(
-    [0, 1, 0], //
-    [0, 1, 0], //
-    [0, 1, 0], //
-    [0, 1, 0]
-  );
-  mesh.uvs.push(
-    [0, 0], //
-    [1, 1], //
-    [0, 1], //
-    [1, 0]
-  );
 
   // Create the model vertex buffer.
   const kVertexStride = 8;
@@ -246,7 +156,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       entryPoint: 'main',
       targets: [
         {
-          format: 'bgra8unorm',
+          format: swapChainFormat,
         },
       ],
     },
