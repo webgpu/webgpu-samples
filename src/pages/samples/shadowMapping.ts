@@ -1,12 +1,7 @@
 import { mat4, vec3 } from 'gl-matrix';
 import { makeBasicExample } from '../../components/basicExample';
 
-import dragonRawData from 'stanford-dragon/4';
-const mesh = {
-  positions: dragonRawData.positions as [number, number, number][],
-  triangles: dragonRawData.cells as [number, number, number][],
-  normals: [] as [number, number, number][],
-};
+import { mesh } from '../../meshes/stanfordDragon';
 
 const shadowDepthTextureSize = 1024;
 
@@ -18,59 +13,10 @@ async function init(canvas: HTMLCanvasElement) {
 
   const context = canvas.getContext('gpupresent');
 
+  const swapChainFormat = 'bgra8unorm';
   const swapChain = context.configureSwapChain({
     device,
-    format: 'bgra8unorm',
-  });
-
-  // Push indices for an additional ground plane
-  mesh.triangles.push(
-    [
-      mesh.positions.length,
-      mesh.positions.length + 2,
-      mesh.positions.length + 1,
-    ],
-    [
-      mesh.positions.length,
-      mesh.positions.length + 1,
-      mesh.positions.length + 3,
-    ]
-  );
-
-  // Push positions for an additional ground plane
-  // prettier-ignore
-  mesh.positions.push(
-    [-100, 20, -100], //
-    [ 100, 20,  100], //
-    [-100, 20,  100], //
-    [ 100, 20, -100]
-  );
-
-  // Compute surface normals
-  mesh.normals = mesh.positions.map(() => {
-    // Initialize to zero.
-    return [0, 0, 0];
-  });
-  mesh.triangles.forEach(([i0, i1, i2]) => {
-    const p0 = mesh.positions[i0];
-    const p1 = mesh.positions[i1];
-    const p2 = mesh.positions[i2];
-
-    const v0 = vec3.subtract(vec3.create(), p1, p0);
-    const v1 = vec3.subtract(vec3.create(), p2, p0);
-
-    vec3.normalize(v0, v0);
-    vec3.normalize(v1, v1);
-    const norm = vec3.cross(vec3.create(), v0, v1);
-
-    // Accumulate the normals.
-    vec3.add(mesh.normals[i0], mesh.normals[i0], norm);
-    vec3.add(mesh.normals[i1], mesh.normals[i1], norm);
-    vec3.add(mesh.normals[i2], mesh.normals[i2], norm);
-  });
-  mesh.normals.forEach((n) => {
-    // Normalize accumulated normals.
-    vec3.normalize(n, n);
+    format: swapChainFormat,
   });
 
   // Create the model vertex buffer.
@@ -212,7 +158,7 @@ async function init(canvas: HTMLCanvasElement) {
       entryPoint: 'main',
       targets: [
         {
-          format: 'bgra8unorm',
+          format: swapChainFormat,
         },
       ],
     },
