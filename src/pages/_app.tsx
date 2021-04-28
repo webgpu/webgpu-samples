@@ -16,6 +16,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   const samplesNames = [
     'helloTriangle',
     'helloTriangleMSAA',
+    'resizeCanvas',
     'rotatingCube',
     'twoCubes',
     'texturedCube',
