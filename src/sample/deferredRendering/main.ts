@@ -509,6 +509,9 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   }
 
   function frame() {
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
+
     const cameraViewProj = getCameraViewProjMatrix();
     device.queue.writeBuffer(
       cameraUniformBuffer,

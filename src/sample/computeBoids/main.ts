@@ -195,10 +195,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   let t = 0;
   function frame() {
-    const backbuffer = swapChain.getCurrentTexture();
-    if (!backbuffer) return;
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
 
-    renderPassDescriptor.colorAttachments[0].view = backbuffer.createView();
+    renderPassDescriptor.colorAttachments[0].view = swapChain
+      .getCurrentTexture()
+      .createView();
 
     const commandEncoder = device.createCommandEncoder();
     {

@@ -55,6 +55,9 @@ const init: SampleInit = async ({ canvasRef }) => {
   canvasRef.current.classList.add(styles.animatedCanvasSize);
 
   function frame() {
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
+
     // The canvas size is animating via CSS.
     // When the size changes, we need to reallocate the render target.
     // We also need to set the physical size of the canvas to match the computed CSS size.

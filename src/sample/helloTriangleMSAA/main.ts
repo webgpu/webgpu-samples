@@ -57,6 +57,9 @@ const init: SampleInit = async ({ canvasRef }) => {
   const view = texture.createView();
 
   function frame() {
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
+
     const commandEncoder = device.createCommandEncoder();
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
