@@ -41,6 +41,9 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   function frame() {
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
+
     const commandEncoder = device.createCommandEncoder();
     const textureView = swapChain.getCurrentTexture().createView();
 
