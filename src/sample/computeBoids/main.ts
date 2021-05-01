@@ -207,7 +207,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       const passEncoder = commandEncoder.beginComputePass();
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, particleBindGroups[t % 2]);
-      passEncoder.dispatch(numParticles);
+      passEncoder.dispatch(Math.ceil(numParticles / 64));
       passEncoder.endPass();
     }
     {
