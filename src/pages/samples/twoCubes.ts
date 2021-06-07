@@ -282,7 +282,7 @@ const wgslShaders = {
 [[location(0)]] var<out> fragColor : vec4<f32>;
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main() {
   Position = uniforms.modelViewProjectionMatrix * position;
   fragColor = color;
   return;
@@ -293,7 +293,7 @@ fn main() -> void {
 [[location(0)]] var<out> outColor : vec4<f32>;
 
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
   outColor = fragColor;
   return;
 }

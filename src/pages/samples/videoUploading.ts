@@ -194,7 +194,7 @@ void main() {
 [[location(0)]] var<out> outColor : vec4<f32>;
 
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
   outColor =  textureSample(myTexture, mySampler, fragUV);
   return;
 }

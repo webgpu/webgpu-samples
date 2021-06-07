@@ -287,7 +287,7 @@ const wgslShaders = {
 [[location(1)]] var<out> fragPosition: vec4<f32>;
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main() {
   fragPosition = 0.5 * (position + vec4<f32>(1.0, 1.0, 1.0, 1.0));
   Position = uniforms.modelViewProjectionMatrix * position;
   fragUV = uv;
@@ -303,7 +303,7 @@ fn main() -> void {
 [[location(0)]] var<out> outColor : vec4<f32>;
 
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
   outColor =  textureSample(myTexture, mySampler, fragUV) * fragPosition;
   return;
 }

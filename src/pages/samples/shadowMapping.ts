@@ -599,14 +599,14 @@ const wgslShaders = {
 [[builtin(position)]] var<out> Position : vec4<f32>;
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main() {
   Position = scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
 }
 `,
 
   fragmentShadow: `
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
 }
 `,
 
@@ -634,7 +634,7 @@ fn main() -> void {
 [[builtin(position)]] var<out> Position : vec4<f32>;
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main() {
   // XY is in (-1, 1) space, Z is in (0, 1) space
   const posFromLight : vec4<f32> = scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
 
@@ -671,7 +671,7 @@ const albedo : vec3<f32> = vec3<f32>(0.9, 0.9, 0.9);
 const ambientFactor : f32 = 0.2;
 
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
   // Percentage-closer filtering. Sample texels in the region
   // to smooth the result.
   var shadowFactor : f32 = 0.0;

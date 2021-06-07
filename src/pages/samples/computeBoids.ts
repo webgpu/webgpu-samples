@@ -354,7 +354,7 @@ const wgslShaders = {
 [[builtin(position)]] var<out> Position : vec4<f32>;
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main() {
   var angle : f32 = -atan2(a_particleVel.x, a_particleVel.y);
   var pos : vec2<f32> = vec2<f32>(
       (a_pos.x * cos(angle)) - (a_pos.y * sin(angle)),
@@ -368,7 +368,7 @@ fn main() -> void {
 [[location(0)]] var<out> fragColor : vec4<f32>;
 
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
   fragColor = vec4<f32>(1.0, 1.0, 1.0, 1.0);
   return;
 }
@@ -398,7 +398,7 @@ fn main() -> void {
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 [[stage(compute)]]
-fn main() -> void {
+fn main() {
   var index : u32 = GlobalInvocationID.x;
   if (index >= ${numParticles}) {
     return;

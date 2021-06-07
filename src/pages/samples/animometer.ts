@@ -440,7 +440,7 @@ const wgslShaders = {
 [[location(0)]] var<out> v_color : vec4<f32>;
 
 [[stage(vertex)]]
-fn main() -> void {
+fn main() {
     var fade : f32 = (uniforms.scalarOffset + time.value * uniforms.scalar / 10.0) % 1.0;
     if (fade < 0.5) {
         fade = fade * 2.0;
@@ -465,7 +465,7 @@ fn main() -> void {
 [[location(0)]] var<out> outColor : vec4<f32>;
 
 [[stage(fragment)]]
-fn main() -> void {
+fn main() {
   outColor = v_color;
   return;
 }
