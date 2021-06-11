@@ -6,7 +6,7 @@ struct LightData {
 [[block]] struct LightsBuffer {
   lights: array<LightData>;
 };
-[[group(0), binding(0)]] var<storage> lightsBuffer: [[access(read_write)]] LightsBuffer;
+[[group(0), binding(0)]] var<storage, read_write> lightsBuffer: LightsBuffer;
 
 [[block]] struct Config {
   numLights : u32;
@@ -27,7 +27,7 @@ fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
   }
 
   lightsBuffer.lights[index].position.y = lightsBuffer.lights[index].position.y - 0.5 - 0.003 * (f32(index) - 64.0 * floor(f32(index) / 64.0));
-  
+
   if (lightsBuffer.lights[index].position.y < lightExtent.min.y) {
     lightsBuffer.lights[index].position.y = lightExtent.max.y;
   }

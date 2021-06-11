@@ -15,8 +15,8 @@ struct Particle {
   particles : [[stride(16)]] array<Particle>;
 };
 [[binding(0), group(0)]] var<uniform> params : SimParams;
-[[binding(1), group(0)]] var<storage> particlesA : [[access(read)]] Particles;
-[[binding(2), group(0)]] var<storage> particlesB : [[access(read_write)]] Particles;
+[[binding(1), group(0)]] var<storage, read> particlesA : Particles;
+[[binding(2), group(0)]] var<storage, read_write> particlesB : Particles;
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 [[stage(compute), workgroup_size(64)]]
@@ -33,7 +33,7 @@ fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
   var pos : vec2<f32>;
   var vel : vec2<f32>;
 
-  for (var i : u32 = 0u; i < arrayLength(particlesA.particles); i = i + 1u) {
+  for (var i : u32 = 0u; i < arrayLength(&particlesA.particles); i = i + 1u) {
     if (i == index) {
       continue;
     }

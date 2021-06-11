@@ -11,7 +11,7 @@ struct LightData {
 [[block]] struct LightsBuffer {
   lights: array<LightData>;
 };
-[[group(1), binding(0)]] var<storage> lightsBuffer: [[access(read)]] LightsBuffer;
+[[group(1), binding(0)]] var<storage, read> lightsBuffer: LightsBuffer;
 
 [[block]] struct Config {
   numLights : u32;

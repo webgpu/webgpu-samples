@@ -6,7 +6,7 @@
 [[group(0), binding(0)]] var samp : sampler;
 [[group(0), binding(1)]] var<uniform> params : Params;
 [[group(1), binding(1)]] var inputTex : texture_2d<f32>;
-[[group(1), binding(2)]] var outputTex : [[access(write)]] texture_storage_2d<rgba8unorm>;
+[[group(1), binding(2)]] var outputTex : texture_storage_2d<rgba8unorm, write>;
 
 [[block]] struct Flip {
   value : u32;
