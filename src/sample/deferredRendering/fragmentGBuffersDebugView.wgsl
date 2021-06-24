@@ -12,7 +12,7 @@
 fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
   var result : vec4<f32>;
-  var c : vec2<f32> = coord.xy / canvas.size;
+  var c = coord.xy / canvas.size;
   if (c.x < 0.33333) {
     result = textureSample(
       gBufferPosition,

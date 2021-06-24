@@ -26,10 +26,10 @@ struct LightData {
 [[stage(fragment)]]
 fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
-  var result : vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
-  var c : vec2<f32> = coord.xy / canvas.size;
+  var result = vec3<f32>(0.0, 0.0, 0.0);
+  var c = coord.xy / canvas.size;
 
-  var position : vec3<f32> = textureSample(
+  var position = textureSample(
     gBufferPosition,
     mySampler,
     c
@@ -39,25 +39,25 @@ fn main([[builtin(position)]] coord : vec4<f32>)
     discard;
   }
 
-  var normal : vec3<f32> = textureSample(
+  var normal = textureSample(
     gBufferNormal,
     mySampler,
     c
   ).xyz;
 
-  var albedo : vec3<f32> = textureSample(
+  var albedo = textureSample(
     gBufferAlbedo,
     mySampler,
     c
   ).rgb;
 
   for (var i : u32 = 0u; i < config.numLights; i = i + 1u) {
-    var L : vec3<f32> = lightsBuffer.lights[i].position.xyz - position;
-    var distance : f32 = length(L);
+    var L = lightsBuffer.lights[i].position.xyz - position;
+    var distance = length(L);
     if (distance > lightsBuffer.lights[i].radius) {
         continue;
     }
-    var lambert : f32 = max(dot(normal, normalize(L)), 0.0);
+    var lambert = max(dot(normal, normalize(L)), 0.0);
     result = result + vec3<f32>(
       lambert * pow(1.0 - distance / lightsBuffer.lights[i].radius, 2.0) * lightsBuffer.lights[i].color * albedo);
   }

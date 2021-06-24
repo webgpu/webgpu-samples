@@ -23,11 +23,11 @@ struct Particle {
 fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
   var index : u32 = GlobalInvocationID.x;
 
-  var vPos : vec2<f32> = particlesA.particles[index].pos;
-  var vVel : vec2<f32> = particlesA.particles[index].vel;
-  var cMass : vec2<f32> = vec2<f32>(0.0, 0.0);
-  var cVel : vec2<f32> = vec2<f32>(0.0, 0.0);
-  var colVel : vec2<f32> = vec2<f32>(0.0, 0.0);
+  var vPos = particlesA.particles[index].pos;
+  var vVel = particlesA.particles[index].vel;
+  var cMass = vec2<f32>(0.0, 0.0);
+  var cVel = vec2<f32>(0.0, 0.0);
+  var colVel = vec2<f32>(0.0, 0.0);
   var cMassCount : u32 = 0u;
   var cVelCount : u32 = 0u;
   var pos : vec2<f32>;
@@ -53,11 +53,11 @@ fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
     }
   }
   if (cMassCount > 0u) {
-    var temp : f32 = f32(cMassCount);
+    var temp = f32(cMassCount);
     cMass = (cMass / vec2<f32>(temp, temp)) - vPos;
   }
   if (cVelCount > 0u) {
-    var temp : f32 = f32(cVelCount);
+    var temp = f32(cVelCount);
     cVel = cVel / vec2<f32>(temp, temp);
   }
   vVel = vVel + (cMass * params.rule1Scale) + (colVel * params.rule2Scale) +
