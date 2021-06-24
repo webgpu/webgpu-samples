@@ -21,7 +21,7 @@ struct LightData {
 
 [[stage(compute)]]
 fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
-  var index : u32 = GlobalInvocationID.x;
+  var index = GlobalInvocationID.x;
   if (index >= config.numLights) {
     return;
   }
