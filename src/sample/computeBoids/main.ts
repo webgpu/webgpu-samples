@@ -10,10 +10,16 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
-  const swapChain = context.configureSwapChain({
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   const spriteShaderModule = device.createShaderModule({ code: spriteWGSL });
@@ -61,7 +67,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       entryPoint: 'frag_main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -198,7 +204,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     // Sample is no longer the active page.
     if (!canvasRef.current) return;
 
-    renderPassDescriptor.colorAttachments[0].view = swapChain
+    renderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
 

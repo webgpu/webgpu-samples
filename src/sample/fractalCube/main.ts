@@ -19,15 +19,21 @@ const init: SampleInit = async ({ canvasRef }) => {
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
 
-  const swapChain = context.configureSwapChain({
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
 
     // Specify we want both RENDER_ATTACHMENT and COPY_SRC since we
     // will copy out of the swapchain texture.
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    size: presentationSize,
   });
 
   // Create a vertex buffer from the cube data.
@@ -72,7 +78,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -95,7 +101,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: { width: canvasRef.current.width, height: canvasRef.current.width },
+    size: presentationSize,
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -109,8 +115,8 @@ const init: SampleInit = async ({ canvasRef }) => {
   // We will copy the frame's rendering results into this texture and
   // sample it on the next frame.
   const cubeTexture = device.createTexture({
-    size: [canvasRef.current.width, canvasRef.current.height, 1],
-    format: swapChainFormat,
+    size: presentationSize,
+    format: presentationFormat,
     usage: GPUTextureUsage.SAMPLED | GPUTextureUsage.COPY_DST,
   });
 
@@ -159,7 +165,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     },
   };
 
-  const aspect = Math.abs(canvasRef.current.width / canvasRef.current.height);
+  const aspect = presentationSize[0] / presentationSize[1];
   const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
@@ -193,7 +199,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       transformationMatrix.byteLength
     );
 
-    const swapChainTexture = swapChain.getCurrentTexture();
+    const swapChainTexture = context.getCurrentTexture();
     renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
@@ -212,10 +218,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       {
         texture: cubeTexture,
       },
-      {
-        width: canvasRef.current.width,
-        height: canvasRef.current.height,
-      }
+      presentationSize
     );
 
     device.queue.submit([commandEncoder.finish()]);

@@ -25,12 +25,18 @@ async function init(canvas: HTMLCanvasElement, gui: GUI) {
 
   const context = canvas.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
 
-  const swapChain = context.configureSwapChain({
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    size: presentationSize,
   });
 
   const timeBindGroupLayout = device.createBindGroupLayout({
@@ -115,7 +121,7 @@ async function init(canvas: HTMLCanvasElement, gui: GUI) {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -278,7 +284,7 @@ async function init(canvas: HTMLCanvasElement, gui: GUI) {
     };
 
     const renderBundleEncoder = device.createRenderBundleEncoder({
-      colorFormats: [swapChainFormat],
+      colorFormats: [presentationFormat],
     });
     recordRenderPass(renderBundleEncoder);
     const renderBundle = renderBundleEncoder.finish();
@@ -290,7 +296,7 @@ async function init(canvas: HTMLCanvasElement, gui: GUI) {
       uniformTime[0] = (timestamp - startTime) / 1000;
       device.queue.writeBuffer(uniformBuffer, timeOffset, uniformTime.buffer);
 
-      renderPassDescriptor.colorAttachments[0].view = swapChain
+      renderPassDescriptor.colorAttachments[0].view = context
         .getCurrentTexture()
         .createView();
 

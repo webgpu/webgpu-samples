@@ -97,9 +97,17 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
 
   const context = canvas.getContext('gpupresent');
 
-  const swapChain = context.configureSwapChain({
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
+
+  context.configure({
     device,
-    format: 'bgra8unorm',
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   const verticesBuffer = device.createBuffer({
@@ -194,7 +202,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       entryPoint: 'main',
       targets: [
         {
-          format: 'bgra8unorm',
+          format: presentationFormat,
         },
       ],
     },
@@ -254,7 +262,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       entryPoint: 'main',
       targets: [
         {
-          format: 'bgra8unorm',
+          format: presentationFormat,
         },
       ],
     },
@@ -297,7 +305,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       entryPoint: 'main',
       targets: [
         {
-          format: 'bgra8unorm',
+          format: presentationFormat,
         },
       ],
     },
@@ -307,20 +315,14 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   });
 
   const depthTexture = device.createTexture({
-    size: {
-      width: canvas.width,
-      height: canvas.height,
-    },
+    size: presentationSize,
     format: depthBufferFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
   });
   const depthTextureView = depthTexture.createView();
 
   const defaultDepthTexture = device.createTexture({
-    size: {
-      width: canvas.width,
-      height: canvas.height,
-    },
+    size: presentationSize,
     format: depthBufferFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -526,7 +528,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const viewMatrix = mat4.create();
   mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -12));
 
-  const aspect = Math.abs(canvas.width / canvas.height) * 0.5;
+  const aspect = (0.5 * presentationSize[0]) / presentationSize[1];
   const projectionMatrix = mat4.create();
   perspectiveZO(projectionMatrix, (2 * Math.PI) / 5, aspect, 5, Infinity);
 
@@ -587,7 +589,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       mvpMatricesData.byteLength
     );
 
-    const attachment = swapChain.getCurrentTexture().createView();
+    const attachment = context.getCurrentTexture().createView();
     const commandEncoder = device.createCommandEncoder();
     if (settings.mode === 'color') {
       for (const m of depthBufferModes) {
@@ -601,10 +603,10 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
         colorPass.setBindGroup(0, uniformBindGroups[m]);
         colorPass.setVertexBuffer(0, verticesBuffer);
         colorPass.setViewport(
-          kViewportWidth * m,
+          devicePixelRatio * kViewportWidth * m,
           0,
-          kViewportWidth,
-          kDefaultCanvasHeight,
+          devicePixelRatio * kViewportWidth,
+          devicePixelRatio * kDefaultCanvasHeight,
           0,
           1
         );
@@ -623,10 +625,10 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
           depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            kViewportWidth * m,
+            devicePixelRatio * kViewportWidth * m,
             0,
-            kViewportWidth,
-            kDefaultCanvasHeight,
+            devicePixelRatio * kViewportWidth,
+            devicePixelRatio * kDefaultCanvasHeight,
             0,
             1
           );
@@ -645,10 +647,10 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
           precisionErrorPass.setBindGroup(1, depthTextureBindGroup);
           precisionErrorPass.setVertexBuffer(0, verticesBuffer);
           precisionErrorPass.setViewport(
-            kViewportWidth * m,
+            devicePixelRatio * kViewportWidth * m,
             0,
-            kViewportWidth,
-            kDefaultCanvasHeight,
+            devicePixelRatio * kViewportWidth,
+            devicePixelRatio * kDefaultCanvasHeight,
             0,
             1
           );
@@ -669,10 +671,10 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
           depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            kViewportWidth * m,
+            devicePixelRatio * kViewportWidth * m,
             0,
-            kViewportWidth,
-            kDefaultCanvasHeight,
+            devicePixelRatio * kViewportWidth,
+            devicePixelRatio * kDefaultCanvasHeight,
             0,
             1
           );
@@ -687,10 +689,10 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
           depthTextureQuadPass.setPipeline(textureQuadPassPipline);
           depthTextureQuadPass.setBindGroup(0, depthTextureBindGroup);
           depthTextureQuadPass.setViewport(
-            kViewportWidth * m,
+            devicePixelRatio * kViewportWidth * m,
             0,
-            kViewportWidth,
-            kDefaultCanvasHeight,
+            devicePixelRatio * kViewportWidth,
+            devicePixelRatio * kDefaultCanvasHeight,
             0,
             1
           );

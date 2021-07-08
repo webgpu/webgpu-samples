@@ -19,11 +19,17 @@ const init: SampleInit = async ({ canvasRef }) => {
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
 
-  const swapChain = context.configureSwapChain({
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   // Create a vertex buffer from the cube data.
@@ -68,7 +74,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -91,7 +97,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: { width: canvasRef.current.width, height: canvasRef.current.width },
+    size: presentationSize,
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -122,7 +128,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     ],
   });
 
-  const aspect = Math.abs(canvasRef.current.width / canvasRef.current.height);
+  const aspect = presentationSize[0] / presentationSize[1];
   const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
@@ -217,7 +223,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       mvpMatricesData.byteLength
     );
 
-    renderPassDescriptor.colorAttachments[0].view = swapChain
+    renderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
 
