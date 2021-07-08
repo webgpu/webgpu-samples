@@ -97,7 +97,10 @@ async function init(canvas: HTMLCanvasElement) {
       height: video.videoHeight,
     },
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
+    usage:
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.SAMPLED |
+      GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   const uniformBindGroup = device.createBindGroup({
@@ -116,13 +119,10 @@ async function init(canvas: HTMLCanvasElement) {
 
   return function frame() {
     createImageBitmap(video).then((videoFrame) => {
-      device.queue.copyImageBitmapToTexture(
-        { imageBitmap: videoFrame, origin: { x: 0, y: 0 } },
+      device.queue.copyExternalImageToTexture(
+        { source: videoFrame },
         { texture: videoTexture },
-        {
-          width: video.videoWidth,
-          height: video.videoHeight,
-        }
+        [video.videoWidth, video.videoHeight]
       );
 
       const commandEncoder = device.createCommandEncoder();
