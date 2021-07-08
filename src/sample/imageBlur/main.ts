@@ -73,12 +73,15 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const cubeTexture = device.createTexture({
     size: [srcWidth, srcHeight, 1],
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.SAMPLED | GPUTextureUsage.COPY_DST,
+    usage:
+      GPUTextureUsage.SAMPLED |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
   });
-  device.queue.copyImageBitmapToTexture(
-    { imageBitmap },
+  device.queue.copyExternalImageToTexture(
+    { source: imageBitmap },
     { texture: cubeTexture },
-    [imageBitmap.width, imageBitmap.height, 1]
+    [imageBitmap.width, imageBitmap.height]
   );
 
   const textures = [0, 1].map(() => {
