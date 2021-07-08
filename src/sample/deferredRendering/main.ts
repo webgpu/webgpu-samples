@@ -538,7 +538,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       const lightPass = commandEncoder.beginComputePass();
       lightPass.setPipeline(lightUpdateComputePipeline);
       lightPass.setBindGroup(0, lightsBufferComputeBindGroup);
-      lightPass.dispatch(kMaxNumLights);
+      lightPass.dispatch(Math.ceil(kMaxNumLights / 64));
       lightPass.endPass();
     }
     {
