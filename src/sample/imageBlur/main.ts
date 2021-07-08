@@ -14,11 +14,17 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
 
-  const swapChain = context.configureSwapChain({
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   const blurPipeline = device.createComputePipeline({
@@ -44,7 +50,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       entryPoint: 'frag_main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -266,7 +272,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
-          view: swapChain.getCurrentTexture().createView(),
+          view: context.getCurrentTexture().createView(),
           loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
           storeOp: 'store',
         },

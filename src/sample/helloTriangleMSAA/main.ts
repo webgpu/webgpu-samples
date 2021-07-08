@@ -10,11 +10,17 @@ const init: SampleInit = async ({ canvasRef }) => {
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
 
-  const swapChain = context.configureSwapChain({
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   const sampleCount = 4;
@@ -33,7 +39,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -46,12 +52,9 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   const texture = device.createTexture({
-    size: {
-      width: canvasRef.current.width,
-      height: canvasRef.current.height,
-    },
+    size: presentationSize,
     sampleCount,
-    format: swapChainFormat,
+    format: presentationFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
   const view = texture.createView();
@@ -66,7 +69,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       colorAttachments: [
         {
           view,
-          resolveTarget: swapChain.getCurrentTexture().createView(),
+          resolveTarget: context.getCurrentTexture().createView(),
           loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
           storeOp: 'store',
         },

@@ -9,14 +9,19 @@ async function init(canvas: HTMLCanvasElement) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  const aspect = Math.abs(canvas.width / canvas.height);
-
   const context = canvas.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
-  const swapChain = context.configureSwapChain({
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
+  ];
+  const aspect = presentationSize[0] / presentationSize[1];
+  const presentationFormat = context.getPreferredFormat(adapter);
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   // Create the model vertex buffer.
@@ -158,7 +163,7 @@ async function init(canvas: HTMLCanvasElement) {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -171,10 +176,7 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const depthTexture = device.createTexture({
-    size: {
-      width: canvas.width,
-      height: canvas.height,
-    },
+    size: presentationSize,
     format: 'depth24plus-stencil8',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -368,7 +370,7 @@ async function init(canvas: HTMLCanvasElement) {
       cameraViewProj.byteLength
     );
 
-    renderPassDescriptor.colorAttachments[0].view = swapChain
+    renderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
 

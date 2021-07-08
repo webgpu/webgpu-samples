@@ -20,12 +20,17 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('gpupresent');
 
-  const aspect = Math.abs(canvasRef.current.width / canvasRef.current.height);
-
-  const swapChainFormat = 'bgra8unorm';
-  const swapChain = context.configureSwapChain({
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
+  const aspect = presentationSize[0] / presentationSize[1];
+  const presentationFormat = context.getPreferredFormat(adapter);
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   // Create the model vertex buffer.
@@ -64,12 +69,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   // GBuffer texture render targets
   const gBufferTexture2DFloat = device.createTexture({
-    size: [canvasRef.current.width, canvasRef.current.height, 3],
+    size: [...presentationSize, 3],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
     format: 'rgba32float',
   });
   const gBufferTextureAlbedo = device.createTexture({
-    size: [canvasRef.current.width, canvasRef.current.height, 1],
+    size: presentationSize,
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
     format: 'bgra8unorm',
   });
@@ -154,7 +159,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -175,7 +180,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       entryPoint: 'main',
       targets: [
         {
-          format: 'bgra8unorm',
+          format: presentationFormat,
         },
       ],
     },
@@ -183,10 +188,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: {
-      width: canvasRef.current.width,
-      height: canvasRef.current.height,
-    },
+    size: presentationSize,
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -482,10 +484,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     normalModelData.byteLength
   );
   // Pass the canvas size to shader to help sample from gBuffer textures using coord
-  const canvasSizeData = new Float32Array([
-    canvasRef.current.width,
-    canvasRef.current.height,
-  ]);
+  const canvasSizeData = new Float32Array(presentationSize);
   device.queue.writeBuffer(
     canvasSizeUniformBuffer,
     0,
@@ -548,7 +547,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // Left: position
         // Middle: normal
         // Right: albedo (use uv to mimic a checkerboard texture)
-        textureQuadPassDescriptor.colorAttachments[0].view = swapChain
+        textureQuadPassDescriptor.colorAttachments[0].view = context
           .getCurrentTexture()
           .createView();
         const debugViewPass = commandEncoder.beginRenderPass(
@@ -561,7 +560,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         debugViewPass.endPass();
       } else {
         // Deferred rendering
-        textureQuadPassDescriptor.colorAttachments[0].view = swapChain
+        textureQuadPassDescriptor.colorAttachments[0].view = context
           .getCurrentTexture()
           .createView();
         const deferredRenderingPass = commandEncoder.beginRenderPass(

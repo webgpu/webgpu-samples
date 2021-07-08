@@ -12,11 +12,18 @@ const init: SampleInit = async ({ canvasRef }) => {
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
+  const presentationFormat = context.getPreferredFormat(adapter);
 
-  const swapChain = context.configureSwapChain({
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
+
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   const sampleCount = 4;
@@ -35,7 +42,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -49,8 +56,6 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   let renderTarget: GPUTexture | undefined = undefined;
   let renderTargetView: GPUTextureView;
-  let currentWidth = -1;
-  let currentHeight = -1;
 
   canvasRef.current.classList.add(styles.animatedCanvasSize);
 
@@ -62,31 +67,32 @@ const init: SampleInit = async ({ canvasRef }) => {
     // When the size changes, we need to reallocate the render target.
     // We also need to set the physical size of the canvas to match the computed CSS size.
     if (
-      canvasRef.current.clientWidth !== currentWidth ||
-      canvasRef.current.clientHeight !== currentHeight
+      canvasRef.current.clientWidth !== presentationSize[0] ||
+      canvasRef.current.clientHeight !== presentationSize[1]
     ) {
       if (renderTarget !== undefined) {
         // Destroy the previous render target
         renderTarget.destroy();
       }
 
-      // Set the canvas size to the computed size.
-      canvasRef.current.width = canvasRef.current.clientWidth;
-      canvasRef.current.height = canvasRef.current.clientHeight;
+      presentationSize[0] = canvasRef.current.clientWidth;
+      presentationSize[1] = canvasRef.current.clientHeight;
+
+      // Reconfigure the canvas size.
+      context.configure({
+        device,
+        format: presentationFormat,
+        size: presentationSize,
+      });
 
       renderTarget = device.createTexture({
-        size: {
-          width: canvasRef.current.width,
-          height: canvasRef.current.height,
-        },
+        size: presentationSize,
         sampleCount,
-        format: swapChainFormat,
+        format: presentationFormat,
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
       });
 
       renderTargetView = renderTarget.createView();
-      currentWidth = canvasRef.current.width;
-      currentHeight = canvasRef.current.height;
     }
 
     const commandEncoder = device.createCommandEncoder();
@@ -95,7 +101,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       colorAttachments: [
         {
           view: renderTargetView,
-          resolveTarget: swapChain.getCurrentTexture().createView(),
+          resolveTarget: context.getCurrentTexture().createView(),
           loadValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
           storeOp: 'store',
         },

@@ -13,7 +13,12 @@ async function init(canvas: HTMLCanvasElement) {
   const device = await adapter.requestDevice();
   const context = canvas.getContext('gpupresent');
 
-  const swapChainFormat = 'bgra8unorm';
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
+  ];
+  const presentationFormat = context.getPreferredFormat(adapter);
 
   // prettier-ignore
   const rectVerts = new Float32Array([
@@ -33,9 +38,10 @@ async function init(canvas: HTMLCanvasElement) {
   new Float32Array(verticesBuffer.getMappedRange()).set(rectVerts);
   verticesBuffer.unmap();
 
-  const swapChain = context.configureSwapChain({
+  context.configure({
     device,
-    format: swapChainFormat,
+    format: presentationFormat,
+    size: presentationSize,
   });
 
   const pipeline = device.createRenderPipeline({
@@ -71,7 +77,7 @@ async function init(canvas: HTMLCanvasElement) {
       entryPoint: 'main',
       targets: [
         {
-          format: swapChainFormat,
+          format: presentationFormat,
         },
       ],
     },
@@ -120,7 +126,7 @@ async function init(canvas: HTMLCanvasElement) {
       );
 
       const commandEncoder = device.createCommandEncoder();
-      const textureView = swapChain.getCurrentTexture().createView();
+      const textureView = context.getCurrentTexture().createView();
 
       const renderPassDescriptor: GPURenderPassDescriptor = {
         colorAttachments: [
