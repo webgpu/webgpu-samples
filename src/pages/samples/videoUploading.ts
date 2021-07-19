@@ -44,7 +44,25 @@ async function init(canvas: HTMLCanvasElement) {
     size: presentationSize,
   });
 
+  const bgl = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT,
+        sampler: {
+          type: 'filtering',
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        externalTexture: {},
+      },
+    ],
+  });
+
   const pipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({ bindGroupLayouts: [bgl] }),
     vertex: {
       module: device.createShaderModule({
         code: wgslShaders.vertex,
@@ -91,61 +109,43 @@ async function init(canvas: HTMLCanvasElement) {
     minFilter: 'linear',
   });
 
-  const videoTexture = device.createTexture({
-    size: {
-      width: video.videoWidth,
-      height: video.videoHeight,
-    },
-    format: 'rgba8unorm',
-    usage:
-      GPUTextureUsage.COPY_DST |
-      GPUTextureUsage.SAMPLED |
-      GPUTextureUsage.RENDER_ATTACHMENT,
-  });
-
-  const uniformBindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [
-      {
-        binding: 0,
-        resource: sampler,
-      },
-      {
-        binding: 1,
-        resource: videoTexture.createView(),
-      },
-    ],
-  });
-
   return function frame() {
-    createImageBitmap(video).then((videoFrame) => {
-      device.queue.copyExternalImageToTexture(
-        { source: videoFrame },
-        { texture: videoTexture },
-        [video.videoWidth, video.videoHeight]
-      );
-
-      const commandEncoder = device.createCommandEncoder();
-      const textureView = context.getCurrentTexture().createView();
-
-      const renderPassDescriptor: GPURenderPassDescriptor = {
-        colorAttachments: [
-          {
-            view: textureView,
-            loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-            storeOp: 'store',
-          },
-        ],
-      };
-
-      const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-      passEncoder.setPipeline(pipeline);
-      passEncoder.setVertexBuffer(0, verticesBuffer);
-      passEncoder.setBindGroup(0, uniformBindGroup);
-      passEncoder.draw(6, 1, 0, 0);
-      passEncoder.endPass();
-      device.queue.submit([commandEncoder.finish()]);
+    const uniformBindGroup = device.createBindGroup({
+      layout: bgl,
+      entries: [
+        {
+          binding: 0,
+          resource: sampler,
+        },
+        {
+          binding: 1,
+          resource: device.importExternalTexture({
+            source: video,
+          }),
+        },
+      ],
     });
+
+    const commandEncoder = device.createCommandEncoder();
+    const textureView = context.getCurrentTexture().createView();
+
+    const renderPassDescriptor: GPURenderPassDescriptor = {
+      colorAttachments: [
+        {
+          view: textureView,
+          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          storeOp: 'store',
+        },
+      ],
+    };
+
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setVertexBuffer(0, verticesBuffer);
+    passEncoder.setBindGroup(0, uniformBindGroup);
+    passEncoder.draw(6, 1, 0, 0);
+    passEncoder.endPass();
+    device.queue.submit([commandEncoder.finish()]);
   };
 }
 
@@ -169,11 +169,11 @@ fn main(input : VertexInput) -> VertexOutput {
 
   fragment: `
 [[binding(0), group(0)]] var mySampler: sampler;
-[[binding(1), group(0)]] var myTexture: texture_2d<f32>;
+[[binding(1), group(0)]] var myTexture: texture_external;
 
 [[stage(fragment)]]
 fn main([[location(0)]] fragUV : vec2<f32>) -> [[location(0)]] vec4<f32> {
-  return textureSample(myTexture, mySampler, fragUV);
+  return textureSampleLevel(myTexture, mySampler, fragUV);
 }
 `,
 };
