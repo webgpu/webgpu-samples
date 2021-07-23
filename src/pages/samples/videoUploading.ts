@@ -44,25 +44,7 @@ async function init(canvas: HTMLCanvasElement) {
     size: presentationSize,
   });
 
-  const bgl = device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.FRAGMENT,
-        sampler: {
-          type: 'filtering',
-        },
-      },
-      {
-        binding: 1,
-        visibility: GPUShaderStage.FRAGMENT,
-        externalTexture: {},
-      },
-    ],
-  });
-
   const pipeline = device.createRenderPipeline({
-    layout: device.createPipelineLayout({ bindGroupLayouts: [bgl] }),
     vertex: {
       module: device.createShaderModule({
         code: wgslShaders.vertex,
@@ -111,7 +93,7 @@ async function init(canvas: HTMLCanvasElement) {
 
   return function frame() {
     const uniformBindGroup = device.createBindGroup({
-      layout: bgl,
+      layout: pipeline.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
