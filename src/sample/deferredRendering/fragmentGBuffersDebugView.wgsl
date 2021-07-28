@@ -1,4 +1,3 @@
-[[group(0), binding(0)]] var mySampler: sampler;
 [[group(0), binding(1)]] var gBufferPosition: texture_2d<f32>;
 [[group(0), binding(2)]] var gBufferNormal: texture_2d<f32>;
 [[group(0), binding(3)]] var gBufferAlbedo: texture_2d<f32>;
@@ -14,25 +13,25 @@ fn main([[builtin(position)]] coord : vec4<f32>)
   var result : vec4<f32>;
   var c = coord.xy / canvas.size;
   if (c.x < 0.33333) {
-    result = textureSample(
+    result = textureLoad(
       gBufferPosition,
-      mySampler,
-      c
+      vec2<i32>(round(coord.xy)),
+      0
     );
   } elseif (c.x < 0.66667) {
-    result = textureSample(
+    result = textureLoad(
       gBufferNormal,
-      mySampler,
-      c
+      vec2<i32>(round(coord.xy)),
+      0
     );
     result.x = (result.x + 1.0) * 0.5;
     result.y = (result.y + 1.0) * 0.5;
     result.z = (result.z + 1.0) * 0.5;
   } else {
-    result = textureSample(
+    result = textureLoad(
       gBufferAlbedo,
-      mySampler,
-      c
+      vec2<i32>(round(coord.xy)),
+      0
     );
   }
   return result;
