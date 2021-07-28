@@ -10,7 +10,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   const device = await adapter.requestDevice();
 
   if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('gpupresent');
+  const context = canvasRef.current.getContext('webgpu');
 
   const presentationFormat = context.getPreferredFormat(adapter);
 
