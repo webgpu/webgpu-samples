@@ -11,7 +11,7 @@ async function init(canvas: HTMLCanvasElement) {
 
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const context = canvas.getContext('gpupresent');
+  const context = canvas.getContext('webgpu');
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
