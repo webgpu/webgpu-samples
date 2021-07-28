@@ -317,10 +317,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     layout: gBuffersDebugViewPipeline.getBindGroupLayout(0),
     entries: [
       {
-        binding: 0,
-        resource: device.createSampler(),
-      },
-      {
         binding: 1,
         resource: gBufferTextureViews[0],
       },
