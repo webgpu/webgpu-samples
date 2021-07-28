@@ -4,7 +4,7 @@ import blurWGSL from './blur.wgsl';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
 
 // Contants from the blur.wgsl shader.
-const tileDim = 256;
+const tileDim = 128;
 const batch = [4, 4];
 
 const init: SampleInit = async ({ canvasRef, gui }) => {

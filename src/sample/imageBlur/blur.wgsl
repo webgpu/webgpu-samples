@@ -15,7 +15,7 @@
 
 // This shader blurs the input texture in one direction, depending on whether
 // |flip.value| is 0 or 1.
-// It does so by running (256 / 4) threads per workgroup to load 256
+// It does so by running (128 / 4) threads per workgroup to load 128
 // texels into 4 rows of shared memory. Each thread loads a
 // 4 x 4 block of texels to take advantage of the texture sampling
 // hardware.
@@ -23,13 +23,13 @@
 // in shared memory.
 // Because we're operating on a subset of the texture, we cannot compute all of the
 // results since not all of the neighbors are available in shared memory.
-// Specifically, with 256 x 256 tiles, we can only compute and write out
-// square blocks of size 256 - (filterSize - 1). We compute the number of blocks
+// Specifically, with 128 x 128 tiles, we can only compute and write out
+// square blocks of size 128 - (filterSize - 1). We compute the number of blocks
 // needed in Javascript and dispatch that amount.
 
-var<workgroup> tile : array<array<vec3<f32>, 256>, 4>;
+var<workgroup> tile : array<array<vec3<f32>, 128>, 4>;
 
-[[stage(compute), workgroup_size(64, 1, 1)]]
+[[stage(compute), workgroup_size(32, 1, 1)]]
 fn main(
   [[builtin(workgroup_id)]] WorkGroupID : vec3<u32>,
   [[builtin(local_invocation_id)]] LocalInvocationID : vec3<u32>
@@ -66,7 +66,7 @@ fn main(
 
       let center : u32 = 4u * LocalInvocationID.x + c;
       if (center >= filterOffset &&
-          center < 256u - filterOffset &&
+          center < 128u - filterOffset &&
           all(writeIndex < dims)) {
         var acc : vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
         for (var f : u32 = 0u; f < params.filterDim; f = f + 1u) {
