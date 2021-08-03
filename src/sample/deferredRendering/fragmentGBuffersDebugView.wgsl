@@ -15,13 +15,13 @@ fn main([[builtin(position)]] coord : vec4<f32>)
   if (c.x < 0.33333) {
     result = textureLoad(
       gBufferPosition,
-      vec2<i32>(round(coord.xy)),
+      vec2<i32>(floor(coord.xy)),
       0
     );
   } elseif (c.x < 0.66667) {
     result = textureLoad(
       gBufferNormal,
-      vec2<i32>(round(coord.xy)),
+      vec2<i32>(floor(coord.xy)),
       0
     );
     result.x = (result.x + 1.0) * 0.5;
@@ -30,7 +30,7 @@ fn main([[builtin(position)]] coord : vec4<f32>)
   } else {
     result = textureLoad(
       gBufferAlbedo,
-      vec2<i32>(round(coord.xy)),
+      vec2<i32>(floor(coord.xy)),
       0
     );
   }

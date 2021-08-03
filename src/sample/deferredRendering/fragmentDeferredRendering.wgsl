@@ -30,7 +30,7 @@ fn main([[builtin(position)]] coord : vec4<f32>)
 
   var position = textureLoad(
     gBufferPosition,
-    vec2<i32>(round(coord.xy)),
+    vec2<i32>(floor(coord.xy)),
     0
   ).xyz;
 
@@ -40,13 +40,13 @@ fn main([[builtin(position)]] coord : vec4<f32>)
 
   var normal = textureLoad(
     gBufferNormal,
-    vec2<i32>(round(coord.xy)),
+    vec2<i32>(floor(coord.xy)),
     0
   ).xyz;
 
   var albedo = textureLoad(
     gBufferAlbedo,
-    vec2<i32>(round(coord.xy)),
+    vec2<i32>(floor(coord.xy)),
     0
   ).rgb;
 
