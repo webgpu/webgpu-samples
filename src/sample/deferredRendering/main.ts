@@ -70,12 +70,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   // GBuffer texture render targets
   const gBufferTexture2DFloat = device.createTexture({
     size: [...presentationSize, 3],
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'rgba32float',
   });
   const gBufferTextureAlbedo = device.createTexture({
     size: presentationSize,
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'bgra8unorm',
   });
   const gBufferTextureViews = [

@@ -317,7 +317,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   const depthTexture = device.createTexture({
     size: presentationSize,
     format: depthBufferFormat,
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
   });
   const depthTextureView = depthTexture.createView();
 
