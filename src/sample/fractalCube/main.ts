@@ -117,7 +117,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   const cubeTexture = device.createTexture({
     size: presentationSize,
     format: presentationFormat,
-    usage: GPUTextureUsage.SAMPLED | GPUTextureUsage.COPY_DST,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
   });
 
   // Create a sampler with linear filtering for smooth interpolation.

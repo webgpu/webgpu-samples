@@ -57,7 +57,7 @@ async function init(canvas: HTMLCanvasElement) {
   // Create the depth texture for rendering/sampling the shadow map.
   const shadowDepthTexture = device.createTexture({
     size: [shadowDepthTextureSize, shadowDepthTextureSize, 1],
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.SAMPLED,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'depth32float',
   });
   const shadowDepthTextureView = shadowDepthTexture.createView();

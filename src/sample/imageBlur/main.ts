@@ -74,7 +74,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     size: [srcWidth, srcHeight, 1],
     format: 'rgba8unorm',
     usage:
-      GPUTextureUsage.SAMPLED |
+      GPUTextureUsage.TEXTURE_BINDING |
       GPUTextureUsage.COPY_DST |
       GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -93,8 +93,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       format: 'rgba8unorm',
       usage:
         GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.STORAGE |
-        GPUTextureUsage.SAMPLED,
+        GPUTextureUsage.STORAGE_BINDING |
+        GPUTextureUsage.TEXTURE_BINDING,
     });
   });
 
