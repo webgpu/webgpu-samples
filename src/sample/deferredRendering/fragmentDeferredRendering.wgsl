@@ -26,9 +26,8 @@ struct LightData {
 fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
   var result = vec3<f32>(0.0, 0.0, 0.0);
-  var c = coord.xy / canvas.size;
 
-  var position = textureLoad(
+  let position = textureLoad(
     gBufferPosition,
     vec2<i32>(floor(coord.xy)),
     0
@@ -38,25 +37,25 @@ fn main([[builtin(position)]] coord : vec4<f32>)
     discard;
   }
 
-  var normal = textureLoad(
+  let normal = textureLoad(
     gBufferNormal,
     vec2<i32>(floor(coord.xy)),
     0
   ).xyz;
 
-  var albedo = textureLoad(
+  let albedo = textureLoad(
     gBufferAlbedo,
     vec2<i32>(floor(coord.xy)),
     0
   ).rgb;
 
   for (var i : u32 = 0u; i < config.numLights; i = i + 1u) {
-    var L = lightsBuffer.lights[i].position.xyz - position;
-    var distance = length(L);
+    let L = lightsBuffer.lights[i].position.xyz - position;
+    let distance = length(L);
     if (distance > lightsBuffer.lights[i].radius) {
         continue;
     }
-    var lambert = max(dot(normal, normalize(L)), 0.0);
+    let lambert = max(dot(normal, normalize(L)), 0.0);
     result = result + vec3<f32>(
       lambert * pow(1.0 - distance / lightsBuffer.lights[i].radius, 2.0) * lightsBuffer.lights[i].color * albedo);
   }
