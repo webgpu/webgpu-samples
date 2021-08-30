@@ -62,6 +62,10 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
           href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css"
           rel="stylesheet"
         />
+        <meta
+          httpEquiv="origin-trial"
+          content="AitBSTXH6T6yCRN0yjxirWV9fihPdy8/dLn/1QU4ACdIq0papXRJsBX//gjTjjN58AzWqA5NCUaTUqhbsGkxlwgAAABOeyJvcmlnaW4iOiJodHRwczovL2F1c3Rpbi1lbmcuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJHUFUiLCJleHBpcnkiOjE2NDMxNTUxOTl9"
+        />
       </Head>
       <div className={styles.wrapper}>
         <nav className={`${styles.panel} ${styles.container}`}>
