@@ -417,14 +417,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
         binding: 0,
         visibility: GPUShaderStage.FRAGMENT,
         texture: {
-          sampleType: 'float',
-        },
-      },
-      {
-        binding: 1,
-        visibility: GPUShaderStage.FRAGMENT,
-        sampler: {
-          type: 'filtering',
+          sampleType: 'depth',
         },
       },
     ],
@@ -435,10 +428,6 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       {
         binding: 0,
         resource: depthTextureView,
-      },
-      {
-        binding: 1,
-        resource: device.createSampler(),
       },
     ],
   });
@@ -787,18 +776,15 @@ fn main([[builtin(instance_index)]] instanceIdx : u32,
 }
 `,
   fragmentPrecisionErrorPass: `
-[[group(1), binding(0)]] var depthTexture: texture_2d<f32>;
-[[group(1), binding(1)]] var depthSampler: sampler;
+[[group(1), binding(0)]] var depthTexture: texture_depth_2d;
 
 [[stage(fragment)]]
 fn main([[builtin(position)]] coord : vec4<f32>,
         [[location(0)]] clipPos : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
-  let depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
-    1
-  )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
+  let depthValue = textureLoad(depthTexture, vec2<i32>(floor(coord.xy)), 0);
   let v : f32 = abs(clipPos.z / clipPos.w - depthValue) * 2000000.0;
-  return vec4<f32>(v, v, v, 1.0) ;
+  return vec4<f32>(v, v, v, 1.0);
 }
 `,
   vertexTextureQuad: `
@@ -813,15 +799,12 @@ fn main([[builtin(vertex_index)]] VertexIndex : u32)
 }
 `,
   fragmentTextureQuad: `
-[[group(0), binding(0)]] var depthTexture: texture_2d<f32>;
-[[group(0), binding(1)]] var depthSampler: sampler;
+[[group(0), binding(0)]] var depthTexture: texture_depth_2d;
 
 [[stage(fragment)]]
 fn main([[builtin(position)]] coord : vec4<f32>)
      -> [[location(0)]] vec4<f32> {
-  let depthValue : f32 = textureSample(depthTexture, depthSampler, coord.xy / vec2<f32>(${kDefaultCanvasWidth.toFixed(
-    1
-  )}, ${kDefaultCanvasHeight.toFixed(1)})).r;
+  let depthValue = textureLoad(depthTexture, vec2<i32>(floor(coord.xy)), 0);
   return vec4<f32>(depthValue, depthValue, depthValue, 1.0);
 }
 `,
