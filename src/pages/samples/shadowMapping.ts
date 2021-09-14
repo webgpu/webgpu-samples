@@ -89,7 +89,22 @@ async function init(canvas: HTMLCanvasElement) {
     cullMode: 'back',
   };
 
+  const uniformBufferBindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+    ],
+  });
+
   const shadowPipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [uniformBufferBindGroupLayout, uniformBufferBindGroupLayout],
+    }),
     vertex: {
       module: device.createShaderModule({
         code: wgslShaders.vertexShadow,
@@ -144,10 +159,8 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const pipeline = device.createRenderPipeline({
-    // Specify the pipeline layout. The layout for the model is the same, so
-    // reuse it from the shadow pipeline.
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [bglForRender, shadowPipeline.getBindGroupLayout(1)],
+      bindGroupLayouts: [bglForRender, uniformBufferBindGroupLayout],
     }),
     vertex: {
       module: device.createShaderModule({
@@ -215,7 +228,7 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const sceneBindGroupForShadow = device.createBindGroup({
-    layout: shadowPipeline.getBindGroupLayout(0),
+    layout: uniformBufferBindGroupLayout,
     entries: [
       {
         binding: 0,
@@ -249,7 +262,7 @@ async function init(canvas: HTMLCanvasElement) {
   });
 
   const modelBindGroup = device.createBindGroup({
-    layout: shadowPipeline.getBindGroupLayout(1),
+    layout: uniformBufferBindGroupLayout,
     entries: [
       {
         binding: 0,
