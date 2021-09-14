@@ -145,7 +145,70 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     primitive,
   });
 
+  const gBufferTexturesBindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: {
+          sampleType: 'unfilterable-float',
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: {
+          sampleType: 'unfilterable-float',
+        },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: {
+          sampleType: 'unfilterable-float',
+        },
+      },
+    ],
+  });
+
+  const lightsBufferBindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+        buffer: {
+          type: 'storage',
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+    ],
+  });
+
+  const canvasSizeUniformBindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+    ],
+  });
+
   const gBuffersDebugViewPipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        gBufferTexturesBindGroupLayout,
+        canvasSizeUniformBindGroupLayout,
+      ],
+    }),
     vertex: {
       module: device.createShaderModule({
         code: vertexTextureQuad,
@@ -167,6 +230,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const deferredRenderPipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        gBufferTexturesBindGroupLayout,
+        lightsBufferBindGroupLayout,
+        canvasSizeUniformBindGroupLayout,
+      ],
+    }),
     vertex: {
       module: device.createShaderModule({
         code: vertexTextureQuad,
@@ -302,7 +372,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const canvasSizeUniformBindGroup = device.createBindGroup({
-    layout: gBuffersDebugViewPipeline.getBindGroupLayout(1),
+    layout: canvasSizeUniformBindGroupLayout,
     entries: [
       {
         binding: 0,
@@ -314,18 +384,18 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const gBufferTexturesBindGroup = device.createBindGroup({
-    layout: gBuffersDebugViewPipeline.getBindGroupLayout(0),
+    layout: gBufferTexturesBindGroupLayout,
     entries: [
       {
-        binding: 1,
+        binding: 0,
         resource: gBufferTextureViews[0],
       },
       {
-        binding: 2,
+        binding: 1,
         resource: gBufferTextureViews[1],
       },
       {
-        binding: 3,
+        binding: 2,
         resource: gBufferTextureViews[2],
       },
     ],
@@ -392,7 +462,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     },
   });
   const lightsBufferBindGroup = device.createBindGroup({
-    layout: deferredRenderPipeline.getBindGroupLayout(1),
+    layout: lightsBufferBindGroupLayout,
     entries: [
       {
         binding: 0,

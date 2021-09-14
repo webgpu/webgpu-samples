@@ -1,6 +1,6 @@
-[[group(0), binding(1)]] var gBufferPosition: texture_2d<f32>;
-[[group(0), binding(2)]] var gBufferNormal: texture_2d<f32>;
-[[group(0), binding(3)]] var gBufferAlbedo: texture_2d<f32>;
+[[group(0), binding(0)]] var gBufferPosition: texture_2d<f32>;
+[[group(0), binding(1)]] var gBufferNormal: texture_2d<f32>;
+[[group(0), binding(2)]] var gBufferAlbedo: texture_2d<f32>;
 
 struct LightData {
   position : vec4<f32>;
