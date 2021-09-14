@@ -265,8 +265,9 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   );
   precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
     depthCompareFuncs[DepthBufferMode.Reversed];
-  precisionPassPipelines[DepthBufferMode.Reversed] =
-    device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
+  precisionPassPipelines[
+    DepthBufferMode.Reversed
+  ] = device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
 
   // colorPass is the regular render pass to render the scene
   const colorPassRenderPiplineLayout = device.createPipelineLayout({

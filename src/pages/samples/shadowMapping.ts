@@ -103,7 +103,10 @@ async function init(canvas: HTMLCanvasElement) {
 
   const shadowPipeline = device.createRenderPipeline({
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [uniformBufferBindGroupLayout, uniformBufferBindGroupLayout],
+      bindGroupLayouts: [
+        uniformBufferBindGroupLayout,
+        uniformBufferBindGroupLayout,
+      ],
     }),
     vertex: {
       module: device.createShaderModule({
