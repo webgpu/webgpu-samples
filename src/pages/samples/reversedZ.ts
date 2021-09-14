@@ -120,9 +120,46 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
 
   const depthBufferFormat = 'depth32float';
 
+  const depthTextureBindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: {
+          sampleType: 'depth',
+        },
+      },
+    ],
+  });
+
+  // Model, view, projection matrices
+  const uniformBindGroupLayout = device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+    ],
+  });
+
+  const depthPrePassRenderPipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [uniformBindGroupLayout],
+  });
+
   // depthPrePass is used to render scene to the depth texture
   // this is not needed if you just want to use reversed z to render a scene
   const depthPrePassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
+    layout: depthPrePassRenderPipelineLayout,
     vertex: {
       module: device.createShaderModule({
         code: wgslShaders.vertexDepthPrePass,
@@ -175,7 +212,11 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
 
   // precisionPass is to draw precision error as color of depth value stored in depth buffer
   // compared to that directly calcualated in the shader
+  const precisionPassRenderPipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [uniformBindGroupLayout, depthTextureBindGroupLayout],
+  });
   const precisionPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
+    layout: precisionPassRenderPipelineLayout,
     vertex: {
       module: device.createShaderModule({
         code: wgslShaders.vertexPrecisionErrorPass,
@@ -224,12 +265,15 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   );
   precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
     depthCompareFuncs[DepthBufferMode.Reversed];
-  precisionPassPipelines[
-    DepthBufferMode.Reversed
-  ] = device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
+  precisionPassPipelines[DepthBufferMode.Reversed] =
+    device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
 
   // colorPass is the regular render pass to render the scene
+  const colorPassRenderPiplineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [uniformBindGroupLayout],
+  });
   const colorPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
+    layout: colorPassRenderPiplineLayout,
     vertex: {
       module: device.createShaderModule({
         code: wgslShaders.vertex,
@@ -291,7 +335,11 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
   // textureQuadPass is draw a full screen quad of depth texture
   // to see the difference of depth value using reversed z compared to default depth buffer usage
   // 0.0 will be the furthest and 1.0 will be the closest
+  const textureQuadPassPiplineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [depthTextureBindGroupLayout],
+  });
   const textureQuadPassPipline = device.createRenderPipeline({
+    layout: textureQuadPassPiplineLayout,
     vertex: {
       module: device.createShaderModule({
         code: wgslShaders.vertexTextureQuad,
@@ -411,17 +459,6 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
     textureQuadPassLoadDescriptor,
   ];
 
-  const depthTextureBindGroupLayout = device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.FRAGMENT,
-        texture: {
-          sampleType: 'depth',
-        },
-      },
-    ],
-  });
   const depthTextureBindGroup = device.createBindGroup({
     layout: depthTextureBindGroupLayout,
     entries: [
@@ -449,9 +486,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
 
   const uniformBindGroups = [
     device.createBindGroup({
-      layout: depthPrePassPipelines[DepthBufferMode.Default].getBindGroupLayout(
-        0
-      ),
+      layout: uniformBindGroupLayout,
       entries: [
         {
           binding: 0,
@@ -468,9 +503,7 @@ async function init(canvas: HTMLCanvasElement, gui?: GUI) {
       ],
     }),
     device.createBindGroup({
-      layout: depthPrePassPipelines[
-        DepthBufferMode.Reversed
-      ].getBindGroupLayout(0),
+      layout: uniformBindGroupLayout,
       entries: [
         {
           binding: 0,
