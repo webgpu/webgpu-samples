@@ -29,6 +29,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
     'shadowMapping',
     'reversedZ',
     'deferredRendering',
+    'particles',
   ];
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
