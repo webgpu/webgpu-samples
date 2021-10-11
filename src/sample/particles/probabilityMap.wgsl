@@ -32,7 +32,7 @@ fn import_level([[builtin(global_invocation_id)]] coord : vec3<u32>) {
 // Loads 4 f32 weight values from buf_in.weights, and stores summed value into
 // buf_out.weights, along with the calculated 'probabilty' vec4 values into the
 // mip level of tex_out. See simulate() in particle.wgsl to understand the
-// probibility logic.
+// probability logic.
 ////////////////////////////////////////////////////////////////////////////////
 [[stage(compute), workgroup_size(64)]]
 fn export_level([[builtin(global_invocation_id)]] coord : vec3<u32>) {
