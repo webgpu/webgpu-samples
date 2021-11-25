@@ -21,7 +21,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 [[stage(compute), workgroup_size(64)]]
 fn import_level([[builtin(global_invocation_id)]] coord : vec3<u32>) {
-  ignore(buf_in);
+  _ = &buf_in;
   let offset = coord.x + coord.y * ubo.width;
   buf_out.weights[offset] = textureLoad(tex_in, vec2<i32>(coord.xy), 0).w;
 }
