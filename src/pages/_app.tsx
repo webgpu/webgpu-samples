@@ -68,7 +68,13 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                   ? styles.selected
                   : undefined;
               return (
-                <li key={slug} className={className}>
+                <li
+                  key={slug}
+                  className={className}
+                  onMouseOver={() => {
+                    pages[slug].render.preload();
+                  }}
+                >
                   <Link href={`/samples/${slug}`}>{slug}</Link>
                 </li>
               );
