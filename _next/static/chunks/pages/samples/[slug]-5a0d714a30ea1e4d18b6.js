@@ -1,0 +1,1 @@
+_N_E=(window.webpackJsonp_N_E=window.webpackJsonp_N_E||[]).push([[10],{lID8:function(_,n,w){(window.__NEXT_P=window.__NEXT_P||[]).push(["/samples/[slug]",function(){return w("ACZe")}])}},[["lID8",2,3,0,4]]]);
