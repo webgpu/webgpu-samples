@@ -6,6 +6,8 @@ import { useRouter } from 'next/router';
 import './styles.css';
 import styles from './MainLayout.module.css';
 
+import { pages } from './samples/[slug]';
+
 const title = 'WebGPU Samples';
 
 const MainLayout: React.FunctionComponent<AppProps> = ({
@@ -13,24 +15,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   pageProps,
 }) => {
   const router = useRouter();
-  const samplesNames = [
-    'helloTriangle',
-    'helloTriangleMSAA',
-    'resizeCanvas',
-    'rotatingCube',
-    'twoCubes',
-    'texturedCube',
-    'instancedCube',
-    'fractalCube',
-    'computeBoids',
-    'animometer',
-    'videoUploading',
-    'imageBlur',
-    'shadowMapping',
-    'reversedZ',
-    'deferredRendering',
-    'particles',
-  ];
+  const samplesNames = Object.keys(pages);
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
   if (oldPathSyntaxMatch) {
@@ -78,7 +63,8 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
           <ul className={styles.exampleList}>
             {samplesNames.map((slug) => {
               const className =
-                router.pathname === `/samples/${slug}`
+                router.pathname === `/samples/[slug]` &&
+                router.query['slug'] === slug
                   ? styles.selected
                   : undefined;
               return (
