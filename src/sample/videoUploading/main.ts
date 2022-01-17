@@ -61,6 +61,9 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   function frame() {
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
+
     const uniformBindGroup = device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
       entries: [

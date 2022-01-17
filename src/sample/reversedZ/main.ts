@@ -599,6 +599,9 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   gui.add(settings, 'mode', ['color', 'precision-error', 'depth-texture']);
 
   function frame() {
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
+
     updateTransformationMatrix();
     device.queue.writeBuffer(
       uniformBuffer,

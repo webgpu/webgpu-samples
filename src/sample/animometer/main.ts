@@ -335,6 +335,9 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   let updateDisplay = true;
 
   function frame(timestamp) {
+    // Sample is no longer the active page.
+    if (!canvasRef.current) return;
+
     let frameTime = 0;
     if (previousFrameTimestamp !== undefined) {
       frameTime = timestamp - previousFrameTimestamp;
