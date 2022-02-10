@@ -69,7 +69,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   // GBuffer texture render targets
   const gBufferTexture2DFloat = device.createTexture({
-    size: [...presentationSize, 3],
+    size: [...presentationSize, 2],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'rgba32float',
   });
