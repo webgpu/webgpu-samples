@@ -30,7 +30,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         <title>{title}</title>
         <meta
           name="description"
-          content="The WebGPU Samples are a set of WGSL and SPIR-V compatible samples demonstrating the use of the WebGPU API"
+          content="The WebGPU Samples are a set of samples demonstrating the use of the WebGPU API."
         />
         <meta
           name="viewport"
@@ -50,7 +50,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         />
         <meta
           httpEquiv="origin-trial"
-          content="AitBSTXH6T6yCRN0yjxirWV9fihPdy8/dLn/1QU4ACdIq0papXRJsBX//gjTjjN58AzWqA5NCUaTUqhbsGkxlwgAAABOeyJvcmlnaW4iOiJodHRwczovL2F1c3Rpbi1lbmcuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJHUFUiLCJleHBpcnkiOjE2NDMxNTUxOTl9"
+          content="AshBU1LuQdIkqHIYpTG4yNXLqE6dbU5fzjEKR0CRKL63fsD59THLj75S31R5XdttW2J0TGcGCPzJHCqpxbS/YAoAAABOeyJvcmlnaW4iOiJodHRwczovL2F1c3Rpbi1lbmcuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJHUFUiLCJleHBpcnkiOjE2NTI4MzE5OTl9"
         />
       </Head>
       <div className={styles.wrapper}>

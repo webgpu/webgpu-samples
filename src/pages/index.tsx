@@ -4,17 +4,15 @@ const HomePage: React.FunctionComponent = () => {
   return (
     <main className={styles.homePage}>
       <p>
-        The WebGPU Samples are a set of WGSL and SPIR-V compatible samples
-        demonstrating the use of the <a href="//webgpu.dev">WebGPU API</a>.
-        Please see the current implementation status at{' '}
-        <a href="//webgpu.io">webgpu.io</a>. SPIR-V compatible samples will be
-        removed when WGSL is fully implemented.
+        The WebGPU Samples are a set of samples demonstrating the use of the{' '}
+        <a href="//webgpu.dev">WebGPU API</a>. Please see the current
+        implementation status at <a href="//webgpu.io">webgpu.io</a>.
       </p>
 
       <p>
-        These samples run in Chrome Canary behind the flag
-        &quot;--enable-unsafe-webgpu&quot;. If something isn&apos;t working,
-        please file an issue{' '}
+        These samples run in Google Chrome. The goal is that they continue to
+        work both in Chrome Stable, and in the latest Chrome Canary. If
+        something isn&apos;t working, please file an issue{' '}
         <a href="https://github.com/austinEng/webgpu-samples/issues">here</a>.
       </p>
 
