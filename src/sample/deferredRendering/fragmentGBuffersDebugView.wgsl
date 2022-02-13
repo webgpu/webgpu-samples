@@ -1,15 +1,15 @@
-[[group(0), binding(0)]] var gBufferPosition: texture_2d<f32>;
-[[group(0), binding(1)]] var gBufferNormal: texture_2d<f32>;
-[[group(0), binding(2)]] var gBufferAlbedo: texture_2d<f32>;
+@group(0) @binding(0) var gBufferPosition: texture_2d<f32>;
+@group(0) @binding(1) var gBufferNormal: texture_2d<f32>;
+@group(0) @binding(2) var gBufferAlbedo: texture_2d<f32>;
 
-[[block]] struct CanvasConstants {
+struct CanvasConstants {
   size: vec2<f32>;
 };
-[[group(1), binding(0)]] var<uniform> canvas : CanvasConstants;
+@group(1) @binding(1) var<uniform> canvas : CanvasConstants;
 
-[[stage(fragment)]]
-fn main([[builtin(position)]] coord : vec4<f32>)
-     -> [[location(0)]] vec4<f32> {
+@stage(fragment)
+fn main(@builtin(position) coord : vec4<f32>)
+     -> @location(0) vec4<f32> {
   var result : vec4<f32>;
   let c = coord.xy / canvas.size;
   if (c.x < 0.33333) {
@@ -18,7 +18,7 @@ fn main([[builtin(position)]] coord : vec4<f32>)
       vec2<i32>(floor(coord.xy)),
       0
     );
-  } elseif (c.x < 0.66667) {
+  } else if (c.x < 0.66667) {
     result = textureLoad(
       gBufferNormal,
       vec2<i32>(floor(coord.xy)),

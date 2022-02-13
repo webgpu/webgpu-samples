@@ -1,17 +1,17 @@
-[[block]] struct Params {
+struct Params {
   filterDim : u32;
   blockDim : u32;
 };
 
-[[group(0), binding(0)]] var samp : sampler;
-[[group(0), binding(1)]] var<uniform> params : Params;
-[[group(1), binding(1)]] var inputTex : texture_2d<f32>;
-[[group(1), binding(2)]] var outputTex : texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(0) var samp : sampler;
+@group(0) @binding(1) var<uniform> params : Params;
+@group(1) @binding(1) var inputTex : texture_2d<f32>;
+@group(1) @binding(2) var outputTex : texture_storage_2d<rgba8unorm, write>;
 
-[[block]] struct Flip {
+struct Flip {
   value : u32;
 };
-[[group(1), binding(3)]] var<uniform> flip : Flip;
+@group(1) @binding(3) var<uniform> flip : Flip;
 
 // This shader blurs the input texture in one direction, depending on whether
 // |flip.value| is 0 or 1.
@@ -29,10 +29,10 @@
 
 var<workgroup> tile : array<array<vec3<f32>, 128>, 4>;
 
-[[stage(compute), workgroup_size(32, 1, 1)]]
+@stage(compute) @workgroup_size(32, 1, 1)
 fn main(
-  [[builtin(workgroup_id)]] WorkGroupID : vec3<u32>,
-  [[builtin(local_invocation_id)]] LocalInvocationID : vec3<u32>
+  @builtin(workgroup_id) WorkGroupID : vec3<u32>,
+  @builtin(local_invocation_id) LocalInvocationID : vec3<u32>
 ) {
   let filterOffset : u32 = (params.filterDim - 1u) / 2u;
   let dims : vec2<i32> = textureDimensions(inputTex, 0);
