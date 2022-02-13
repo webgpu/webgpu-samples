@@ -3,24 +3,24 @@ struct LightData {
   color : vec3<f32>;
   radius : f32;
 };
-[[block]] struct LightsBuffer {
+struct LightsBuffer {
   lights: array<LightData>;
 };
-[[group(0), binding(0)]] var<storage, read_write> lightsBuffer: LightsBuffer;
+@group(0) @binding(0) var<storage, read_write> lightsBuffer: LightsBuffer;
 
-[[block]] struct Config {
+struct Config {
   numLights : u32;
 };
-[[group(0), binding(1)]] var<uniform> config: Config;
+@group(0) @binding(1) var<uniform> config: Config;
 
-[[block]] struct LightExtent {
+struct LightExtent {
   min : vec4<f32>;
   max : vec4<f32>;
 };
-[[group(0), binding(2)]] var<uniform> lightExtent: LightExtent;
+@group(0) @binding(2) var<uniform> lightExtent: LightExtent;
 
-[[stage(compute), workgroup_size(64, 1, 1)]]
-fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
+@stage(compute) @workgroup_size(64, 1, 1)
+fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var index = GlobalInvocationID.x;
   if (index >= config.numLights) {
     return;
