@@ -2,7 +2,7 @@ struct Particle {
   pos : vec2<f32>;
   vel : vec2<f32>;
 };
-[[block]] struct SimParams {
+struct SimParams {
   deltaT : f32;
   rule1Distance : f32;
   rule2Distance : f32;
@@ -11,16 +11,16 @@ struct Particle {
   rule2Scale : f32;
   rule3Scale : f32;
 };
-[[block]] struct Particles {
-  particles : [[stride(16)]] array<Particle>;
+struct Particles {
+  particles : array<Particle>;
 };
-[[binding(0), group(0)]] var<uniform> params : SimParams;
-[[binding(1), group(0)]] var<storage, read> particlesA : Particles;
-[[binding(2), group(0)]] var<storage, read_write> particlesB : Particles;
+@binding(0) @group(0) var<uniform> params : SimParams;
+@binding(1) @group(0) var<storage, read> particlesA : Particles;
+@binding(2) @group(0) var<storage, read_write> particlesB : Particles;
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
-[[stage(compute), workgroup_size(64)]]
-fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
+@stage(compute) @workgroup_size(64)
+fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var index : u32 = GlobalInvocationID.x;
 
   var vPos = particlesA.particles[index].pos;
