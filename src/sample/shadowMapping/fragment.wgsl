@@ -1,27 +1,27 @@
 // TODO: Use pipeline constants
 let shadowDepthTextureSize: f32 = 1024.0;
 
-[[block]] struct Scene {
+struct Scene {
   lightViewProjMatrix : mat4x4<f32>;
   cameraViewProjMatrix : mat4x4<f32>;
   lightPos : vec3<f32>;
 };
 
-[[group(0), binding(0)]] var<uniform> scene : Scene;
-[[group(0), binding(1)]] var shadowMap: texture_depth_2d;
-[[group(0), binding(2)]] var shadowSampler: sampler_comparison;
+@group(0) @binding(0) var<uniform> scene : Scene;
+@group(0) @binding(1) var shadowMap: texture_depth_2d;
+@group(0) @binding(2) var shadowSampler: sampler_comparison;
 
 struct FragmentInput {
-  [[location(0)]] shadowPos : vec3<f32>;
-  [[location(1)]] fragPos : vec3<f32>;
-  [[location(2)]] fragNorm : vec3<f32>;
+  @location(0) shadowPos : vec3<f32>;
+  @location(1) fragPos : vec3<f32>;
+  @location(2) fragNorm : vec3<f32>;
 };
 
 let albedo : vec3<f32> = vec3<f32>(0.9, 0.9, 0.9);
 let ambientFactor : f32 = 0.2;
 
-[[stage(fragment)]]
-fn main(input : FragmentInput) -> [[location(0)]] vec4<f32> {
+@stage(fragment)
+fn main(input : FragmentInput) -> @location(0) vec4<f32> {
   // Percentage-closer filtering. Sample texels in the region
   // to smooth the result.
   var visibility : f32 = 0.0;

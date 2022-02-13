@@ -12,26 +12,26 @@ fn rand() -> f32 {
 ////////////////////////////////////////////////////////////////////////////////
 // Vertex shader
 ////////////////////////////////////////////////////////////////////////////////
-[[block]] struct RenderParams {
+struct RenderParams {
   modelViewProjectionMatrix : mat4x4<f32>;
   right : vec3<f32>;
   up    : vec3<f32>;
 };
-[[binding(0), group(0)]] var<uniform> render_params : RenderParams;
+@binding(0) @group(0) var<uniform> render_params : RenderParams;
 
 struct VertexInput {
-  [[location(0)]] position : vec3<f32>;
-  [[location(1)]] color    : vec4<f32>;
-  [[location(2)]] quad_pos : vec2<f32>; // -1..+1
+  @location(0) position : vec3<f32>;
+  @location(1) color    : vec4<f32>;
+  @location(2) quad_pos : vec2<f32>; // -1..+1
 };
 
 struct VertexOutput {
-  [[builtin(position)]] position : vec4<f32>;
-  [[location(0)]]       color    : vec4<f32>;
-  [[location(1)]]       quad_pos : vec2<f32>; // -1..+1
+  @builtin(position) position : vec4<f32>;
+  @location(0)       color    : vec4<f32>;
+  @location(1)       quad_pos : vec2<f32>; // -1..+1
 };
 
-[[stage(vertex)]]
+@stage(vertex)
 fn vs_main(in : VertexInput) -> VertexOutput {
   var quad_pos = mat2x3<f32>(render_params.right, render_params.up) * in.quad_pos;
   var position = in.position + quad_pos * 0.01;
@@ -45,8 +45,8 @@ fn vs_main(in : VertexInput) -> VertexOutput {
 ////////////////////////////////////////////////////////////////////////////////
 // Fragment shader
 ////////////////////////////////////////////////////////////////////////////////
-[[stage(fragment)]]
-fn fs_main(in : VertexOutput) -> [[location(0)]] vec4<f32> {
+@stage(fragment)
+fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
   var color = in.color;
   // Apply a circular particle alpha mask
   color.a = color.a * max(1.0 - length(in.quad_pos), 0.0);
@@ -56,7 +56,7 @@ fn fs_main(in : VertexOutput) -> [[location(0)]] vec4<f32> {
 ////////////////////////////////////////////////////////////////////////////////
 // Simulation Compute shader
 ////////////////////////////////////////////////////////////////////////////////
-[[block]] struct SimulationParams {
+struct SimulationParams {
   deltaTime : f32;
   seed : vec4<f32>;
 };
@@ -68,16 +68,16 @@ struct Particle {
   velocity : vec3<f32>;
 };
 
-[[block]] struct Particles {
+struct Particles {
   particles : array<Particle>;
 };
 
-[[binding(0), group(0)]] var<uniform> sim_params : SimulationParams;
-[[binding(1), group(0)]] var<storage, read_write> data : Particles;
-[[binding(2), group(0)]] var texture : texture_2d<f32>;
+@binding(0) @group(0) var<uniform> sim_params : SimulationParams;
+@binding(1) @group(0) var<storage, read_write> data : Particles;
+@binding(2) @group(0) var texture : texture_2d<f32>;
 
-[[stage(compute), workgroup_size(64)]]
-fn simulate([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
+@stage(compute) @workgroup_size(64)
+fn simulate(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   rand_seed = (sim_params.seed.xy + vec2<f32>(GlobalInvocationID.xy)) * sim_params.seed.zw;
 
   let idx = GlobalInvocationID.x;

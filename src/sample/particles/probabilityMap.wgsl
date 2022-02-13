@@ -1,16 +1,16 @@
-[[block]] struct UBO {
+struct UBO {
   width : u32;
 };
 
-[[block]] struct Buffer {
+struct Buffer {
   weights : array<f32>;
 };
 
-[[binding(0), group(0)]] var<uniform> ubo : UBO;
-[[binding(1), group(0)]] var<storage, read> buf_in : Buffer;
-[[binding(2), group(0)]] var<storage, read_write> buf_out : Buffer;
-[[binding(3), group(0)]] var tex_in : texture_2d<f32>;
-[[binding(3), group(0)]] var tex_out : texture_storage_2d<rgba8unorm, write>;
+@binding(0) @group(0) var<uniform> ubo : UBO;
+@binding(1) @group(0) var<storage, read> buf_in : Buffer;
+@binding(2) @group(0) var<storage, read_write> buf_out : Buffer;
+@binding(3) @group(0) var tex_in : texture_2d<f32>;
+@binding(3) @group(0) var tex_out : texture_storage_2d<rgba8unorm, write>;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -19,8 +19,8 @@
 // Loads the alpha channel from a texel of the source image, and writes it to
 // the buf_out.weights.
 ////////////////////////////////////////////////////////////////////////////////
-[[stage(compute), workgroup_size(64)]]
-fn import_level([[builtin(global_invocation_id)]] coord : vec3<u32>) {
+@stage(compute) @workgroup_size(64)
+fn import_level(@builtin(global_invocation_id) coord : vec3<u32>) {
   _ = &buf_in;
   let offset = coord.x + coord.y * ubo.width;
   buf_out.weights[offset] = textureLoad(tex_in, vec2<i32>(coord.xy), 0).w;
@@ -34,8 +34,8 @@ fn import_level([[builtin(global_invocation_id)]] coord : vec3<u32>) {
 // mip level of tex_out. See simulate() in particle.wgsl to understand the
 // probability logic.
 ////////////////////////////////////////////////////////////////////////////////
-[[stage(compute), workgroup_size(64)]]
-fn export_level([[builtin(global_invocation_id)]] coord : vec3<u32>) {
+@stage(compute) @workgroup_size(64)
+fn export_level(@builtin(global_invocation_id) coord : vec3<u32>) {
   if (all(coord.xy < vec2<u32>(textureDimensions(tex_out)))) {
     let dst_offset = coord.x    + coord.y    * ubo.width;
     let src_offset = coord.x*2u + coord.y*2u * ubo.width;
