@@ -177,7 +177,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         binding: 0,
         visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
         buffer: {
-          type: 'storage',
+          type: 'read-only-storage',
         },
       },
       {
