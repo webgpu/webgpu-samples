@@ -149,17 +149,19 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     colorAttachments: [
       {
         view: undefined, // Assigned later
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadOp:'clear',
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
       view: depthTexture.createView(),
-
-      depthLoadValue: 1.0,
-      depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
+      depthLoadOp: 'clear',
+      depthClearValue: 1.0,
+      depthStoreOp:'store',
+      stencilLoadOp: 'clear',
+      stencilClearValue: 0,
+      stencilStoreOp:'store'
     },
   };
 
@@ -312,13 +314,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         passEncoder.setPipeline(probabilityMapImportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
         passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
-        passEncoder.endPass();
+        passEncoder.end();
       } else {
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(probabilityMapExportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
         passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
-        passEncoder.endPass();
+        passEncoder.end();
       }
     }
     device.queue.submit([commandEncoder.finish()]);
@@ -437,7 +439,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, computeBindGroup);
       passEncoder.dispatch(Math.ceil(numParticles / 64));
-      passEncoder.endPass();
+      passEncoder.end();
     }
     {
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -446,7 +448,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoder.setVertexBuffer(0, particlesBuffer);
       passEncoder.setVertexBuffer(1, quadVertexBuffer);
       passEncoder.draw(6, numParticles, 0, 0);
-      passEncoder.endPass();
+      passEncoder.end();
     }
 
     device.queue.submit([commandEncoder.finish()]);
