@@ -87,7 +87,8 @@ const init: SampleInit = async ({ canvasRef }) => {
       colorAttachments: [
         {
           view: textureView,
-          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          loadOp:'clear',
+          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
           storeOp: 'store',
         },
       ],
@@ -97,7 +98,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.draw(6, 1, 0, 0);
-    passEncoder.endPass();
+    passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
     requestAnimationFrame(frame);

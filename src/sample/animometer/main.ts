@@ -280,7 +280,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       colorAttachments: [
         {
           view: undefined, // Assigned later
-          loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          loadOp:'clear',
+          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
           storeOp: 'store',
         },
       ],
@@ -312,7 +313,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         recordRenderPass(passEncoder);
       }
 
-      passEncoder.endPass();
+      passEncoder.end();
       device.queue.submit([commandEncoder.finish()]);
     };
   }

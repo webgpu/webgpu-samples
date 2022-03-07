@@ -124,18 +124,19 @@ const init: SampleInit = async ({ canvasRef }) => {
     colorAttachments: [
       {
         view: undefined, // Assigned later
-
-        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        loadOp:'clear',
+        clearValue:{ r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
         storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
       view: depthTexture.createView(),
-
-      depthLoadValue: 1.0,
-      depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
+      depthLoadOp: 'clear',
+      depthClearValue: 1.0,
+      depthStoreOp:'store',
+      stencilLoadOp: 'clear',
+      stencilClearValue: 0,
+      stencilStoreOp:'store'
     },
   };
 
@@ -182,7 +183,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.draw(cubeVertexCount, 1, 0, 0);
-    passEncoder.endPass();
+    passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
     requestAnimationFrame(frame);

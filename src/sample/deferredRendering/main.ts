@@ -267,8 +267,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     colorAttachments: [
       {
         view: gBufferTextureViews[0],
-
-        loadValue: {
+        loadOp:'clear',
+        clearValue: {
           r: Number.MAX_VALUE,
           g: Number.MAX_VALUE,
           b: Number.MAX_VALUE,
@@ -279,23 +279,26 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       {
         view: gBufferTextureViews[1],
 
-        loadValue: { r: 0.0, g: 0.0, b: 1.0, a: 1.0 },
+        loadOp:'clear',
+        clearValue: { r: 0.0, g: 0.0, b: 1.0, a: 1.0 },
         storeOp: 'store',
       },
       {
         view: gBufferTextureViews[2],
-
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadOp:'clear',
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
       view: depthTexture.createView(),
 
-      depthLoadValue: 1.0,
-      depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
+      depthLoadOp: 'clear',
+      depthClearValue: 1.0,
+      depthStoreOp:'store',
+      stencilLoadOp: 'clear',
+      stencilClearValue: 0,
+      stencilStoreOp:'store'
     },
   };
 
@@ -304,8 +307,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       {
         // view is acquired and set in render loop.
         view: undefined,
-
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadOp:'clear',
+        clearValue:{ r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         storeOp: 'store',
       },
     ],
@@ -597,7 +600,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       gBufferPass.setVertexBuffer(0, vertexBuffer);
       gBufferPass.setIndexBuffer(indexBuffer, 'uint16');
       gBufferPass.drawIndexed(indexCount);
-      gBufferPass.endPass();
+      gBufferPass.end();
     }
     {
       // Update lights position
@@ -605,7 +608,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       lightPass.setPipeline(lightUpdateComputePipeline);
       lightPass.setBindGroup(0, lightsBufferComputeBindGroup);
       lightPass.dispatch(Math.ceil(kMaxNumLights / 64));
-      lightPass.endPass();
+      lightPass.end();
     }
     {
       if (settings.mode === 'gBuffers view') {
@@ -623,7 +626,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         debugViewPass.setBindGroup(0, gBufferTexturesBindGroup);
         debugViewPass.setBindGroup(1, canvasSizeUniformBindGroup);
         debugViewPass.draw(6);
-        debugViewPass.endPass();
+        debugViewPass.end();
       } else {
         // Deferred rendering
         textureQuadPassDescriptor.colorAttachments[0].view = context
@@ -637,7 +640,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         deferredRenderingPass.setBindGroup(1, lightsBufferBindGroup);
         deferredRenderingPass.setBindGroup(2, canvasSizeUniformBindGroup);
         deferredRenderingPass.draw(6);
-        deferredRenderingPass.endPass();
+        deferredRenderingPass.end();
       }
     }
     device.queue.submit([commandEncoder.finish()]);
