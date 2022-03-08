@@ -70,8 +70,8 @@ const init: SampleInit = async ({ canvasRef }) => {
         {
           view,
           resolveTarget: context.getCurrentTexture().createView(),
-          clearValue:{ r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-          loadOp:'clear',
+          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          loadOp: 'clear',
           storeOp: 'discard',
         },
       ],

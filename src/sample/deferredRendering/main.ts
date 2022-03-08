@@ -267,7 +267,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     colorAttachments: [
       {
         view: gBufferTextureViews[0],
-        loadOp:'clear',
+        loadOp: 'clear',
         clearValue: {
           r: Number.MAX_VALUE,
           g: Number.MAX_VALUE,
@@ -279,13 +279,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       {
         view: gBufferTextureViews[1],
 
-        loadOp:'clear',
+        loadOp: 'clear',
         clearValue: { r: 0.0, g: 0.0, b: 1.0, a: 1.0 },
         storeOp: 'store',
       },
       {
         view: gBufferTextureViews[2],
-        loadOp:'clear',
+        loadOp: 'clear',
         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         storeOp: 'store',
       },
@@ -295,10 +295,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
       depthLoadOp: 'clear',
       depthClearValue: 1.0,
-      depthStoreOp:'store',
+      depthStoreOp: 'store',
       stencilLoadOp: 'clear',
       stencilClearValue: 0,
-      stencilStoreOp:'store'
+      stencilStoreOp: 'store',
     },
   };
 
@@ -307,8 +307,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       {
         // view is acquired and set in render loop.
         view: undefined,
-        loadOp:'clear',
-        clearValue:{ r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadOp: 'clear',
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         storeOp: 'store',
       },
     ],

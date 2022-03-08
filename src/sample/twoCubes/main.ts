@@ -143,8 +143,8 @@ const init: SampleInit = async ({ canvasRef }) => {
     colorAttachments: [
       {
         view: undefined, // Assigned later
-        loadOp:'clear',
-        clearValue:{ r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        loadOp: 'clear',
+        clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
         storeOp: 'store',
       },
     ],
@@ -152,10 +152,10 @@ const init: SampleInit = async ({ canvasRef }) => {
       view: depthTexture.createView(),
       depthLoadOp: 'clear',
       depthClearValue: 1.0,
-      depthStoreOp:'store',
+      depthStoreOp: 'store',
       stencilLoadOp: 'clear',
       stencilClearValue: 0,
-      stencilStoreOp:'store'
+      stencilStoreOp: 'store',
     },
   };
 

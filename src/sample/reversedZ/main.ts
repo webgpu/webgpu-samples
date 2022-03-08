@@ -379,10 +379,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       view: depthTextureView,
       depthLoadOp: 'clear',
       depthClearValue: 1.0,
-      depthStoreOp:'store',
+      depthStoreOp: 'store',
       stencilLoadOp: 'clear',
       stencilClearValue: 0,
-      stencilStoreOp:'store'
+      stencilStoreOp: 'store',
     },
   };
 
@@ -395,7 +395,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       {
         // view is acquired and set in render loop.
         view: undefined,
-        loadOp:'clear',
+        loadOp: 'clear',
         clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
         storeOp: 'store',
       },
@@ -404,10 +404,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       view: defaultDepthTextureView,
       depthLoadOp: 'clear',
       depthClearValue: 1.0,
-      depthStoreOp:'store',
+      depthStoreOp: 'store',
       stencilLoadOp: 'clear',
       stencilClearValue: 0,
-      stencilStoreOp:'store'
+      stencilStoreOp: 'store',
     },
   };
   const drawPassLoadDescriptor: GPURenderPassDescriptor = {
@@ -424,10 +424,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       view: defaultDepthTextureView,
       depthLoadOp: 'clear',
       depthClearValue: 1.0,
-      depthStoreOp:'store',
+      depthStoreOp: 'store',
       stencilLoadOp: 'clear',
       stencilClearValue: 0,
-      stencilStoreOp:'store'
+      stencilStoreOp: 'store',
     },
   };
   const drawPassDescriptors = [drawPassDescriptor, drawPassLoadDescriptor];
@@ -437,7 +437,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       {
         // view is acquired and set in render loop.
         view: undefined,
-        loadOp:'clear',
+        loadOp: 'clear',
         clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
         storeOp: 'store',
       },
