@@ -87,7 +87,7 @@ const depthCompareFuncs = {
   [DepthBufferMode.Default]: 'less' as GPUCompareFunction,
   [DepthBufferMode.Reversed]: 'greater' as GPUCompareFunction,
 };
-const depthLoadValues = {
+const depthClearValues = {
   [DepthBufferMode.Default]: 1.0,
   [DepthBufferMode.Reversed]: 0.0,
 };
@@ -378,7 +378,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     depthStencilAttachment: {
       view: depthTextureView,
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
     },
   };
@@ -401,7 +402,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     depthStencilAttachment: {
       view: defaultDepthTextureView,
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
     },
   };
@@ -418,7 +420,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     depthStencilAttachment: {
       view: defaultDepthTextureView,
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
     },
   };
@@ -612,8 +615,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     if (settings.mode === 'color') {
       for (const m of depthBufferModes) {
         drawPassDescriptors[m].colorAttachments[0].view = attachment;
-        drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
-          depthLoadValues[m];
+        drawPassDescriptors[m].depthStencilAttachment.depthClearValue =
+          depthClearValues[m];
         const colorPass = commandEncoder.beginRenderPass(
           drawPassDescriptors[m]
         );
@@ -634,8 +637,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     } else if (settings.mode === 'precision-error') {
       for (const m of depthBufferModes) {
         {
-          depthPrePassDescriptor.depthStencilAttachment.depthLoadValue =
-            depthLoadValues[m];
+          depthPrePassDescriptor.depthStencilAttachment.depthClearValue =
+            depthClearValues[m];
           const depthPrePass = commandEncoder.beginRenderPass(
             depthPrePassDescriptor
           );
@@ -655,8 +658,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         }
         {
           drawPassDescriptors[m].colorAttachments[0].view = attachment;
-          drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
-            depthLoadValues[m];
+          drawPassDescriptors[m].depthStencilAttachment.depthClearValue =
+            depthClearValues[m];
           const precisionErrorPass = commandEncoder.beginRenderPass(
             drawPassDescriptors[m]
           );
@@ -680,8 +683,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       // depth texture quad
       for (const m of depthBufferModes) {
         {
-          depthPrePassDescriptor.depthStencilAttachment.depthLoadValue =
-            depthLoadValues[m];
+          depthPrePassDescriptor.depthStencilAttachment.depthClearValue =
+            depthClearValues[m];
           const depthPrePass = commandEncoder.beginRenderPass(
             depthPrePassDescriptor
           );

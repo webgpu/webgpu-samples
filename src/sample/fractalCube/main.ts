@@ -159,7 +159,8 @@ const init: SampleInit = async ({ canvasRef }) => {
     depthStencilAttachment: {
       view: depthTexture.createView(),
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
     },
   };
