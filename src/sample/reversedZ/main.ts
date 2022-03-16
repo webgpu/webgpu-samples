@@ -87,7 +87,7 @@ const depthCompareFuncs = {
   [DepthBufferMode.Default]: 'less' as GPUCompareFunction,
   [DepthBufferMode.Reversed]: 'greater' as GPUCompareFunction,
 };
-const depthLoadValues = {
+const depthClearValues = {
   [DepthBufferMode.Default]: 1.0,
   [DepthBufferMode.Reversed]: 0.0,
 };
@@ -378,34 +378,33 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     depthStencilAttachment: {
       view: depthTextureView,
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
     },
   };
 
   // drawPassDescriptor and drawPassLoadDescriptor are used for drawing
   // the scene twice using different depth buffer mode on splitted viewport
   // of the same canvas
-  // see the difference of the loadValue of the colorAttachments
+  // see the difference of the loadOp of the colorAttachments
   const drawPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
       view: defaultDepthTextureView,
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
-      stencilLoadValue: 0.0,
-      stencilStoreOp: 'store',
     },
   };
   const drawPassLoadDescriptor: GPURenderPassDescriptor = {
@@ -414,17 +413,16 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // attachment is acquired and set in render loop.
         view: undefined,
 
-        loadValue: 'load',
+        loadOp: 'load',
         storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
       view: defaultDepthTextureView,
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
-      stencilLoadValue: 0.0,
-      stencilStoreOp: 'store',
     },
   };
   const drawPassDescriptors = [drawPassDescriptor, drawPassLoadDescriptor];
@@ -435,7 +433,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
@@ -446,7 +445,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: 'load',
+        loadOp: 'load',
         storeOp: 'store',
       },
     ],
@@ -616,8 +615,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     if (settings.mode === 'color') {
       for (const m of depthBufferModes) {
         drawPassDescriptors[m].colorAttachments[0].view = attachment;
-        drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
-          depthLoadValues[m];
+        drawPassDescriptors[m].depthStencilAttachment.depthClearValue =
+          depthClearValues[m];
         const colorPass = commandEncoder.beginRenderPass(
           drawPassDescriptors[m]
         );
@@ -633,13 +632,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
           1
         );
         colorPass.draw(geometryDrawCount, numInstances, 0, 0);
-        colorPass.endPass();
+        colorPass.end();
       }
     } else if (settings.mode === 'precision-error') {
       for (const m of depthBufferModes) {
         {
-          depthPrePassDescriptor.depthStencilAttachment.depthLoadValue =
-            depthLoadValues[m];
+          depthPrePassDescriptor.depthStencilAttachment.depthClearValue =
+            depthClearValues[m];
           const depthPrePass = commandEncoder.beginRenderPass(
             depthPrePassDescriptor
           );
@@ -655,12 +654,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           depthPrePass.draw(geometryDrawCount, numInstances, 0, 0);
-          depthPrePass.endPass();
+          depthPrePass.end();
         }
         {
           drawPassDescriptors[m].colorAttachments[0].view = attachment;
-          drawPassDescriptors[m].depthStencilAttachment.depthLoadValue =
-            depthLoadValues[m];
+          drawPassDescriptors[m].depthStencilAttachment.depthClearValue =
+            depthClearValues[m];
           const precisionErrorPass = commandEncoder.beginRenderPass(
             drawPassDescriptors[m]
           );
@@ -677,15 +676,15 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           precisionErrorPass.draw(geometryDrawCount, numInstances, 0, 0);
-          precisionErrorPass.endPass();
+          precisionErrorPass.end();
         }
       }
     } else {
       // depth texture quad
       for (const m of depthBufferModes) {
         {
-          depthPrePassDescriptor.depthStencilAttachment.depthLoadValue =
-            depthLoadValues[m];
+          depthPrePassDescriptor.depthStencilAttachment.depthClearValue =
+            depthClearValues[m];
           const depthPrePass = commandEncoder.beginRenderPass(
             depthPrePassDescriptor
           );
@@ -701,7 +700,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           depthPrePass.draw(geometryDrawCount, numInstances, 0, 0);
-          depthPrePass.endPass();
+          depthPrePass.end();
         }
         {
           textureQuadPassDescriptors[m].colorAttachments[0].view = attachment;
@@ -719,7 +718,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           depthTextureQuadPass.draw(6, 1, 0, 0);
-          depthTextureQuadPass.endPass();
+          depthTextureQuadPass.end();
         }
       }
     }

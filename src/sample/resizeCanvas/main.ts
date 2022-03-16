@@ -102,7 +102,8 @@ const init: SampleInit = async ({ canvasRef }) => {
         {
           view: renderTargetView,
           resolveTarget: context.getCurrentTexture().createView(),
-          loadValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
+          clearValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
+          loadOp: 'clear',
           storeOp: 'store',
         },
       ],
@@ -111,7 +112,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.draw(3, 1, 0, 0);
-    passEncoder.endPass();
+    passEncoder.end();
 
     device.queue.submit([commandEncoder.finish()]);
     requestAnimationFrame(frame);

@@ -200,16 +200,19 @@ const init: SampleInit = async ({ canvasRef }) => {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
       view: depthTexture.createView(),
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
-      stencilLoadValue: 0,
+      stencilClearValue: 0,
+      stencilLoadOp: 'clear',
       stencilStoreOp: 'store',
     },
   };
@@ -366,10 +369,9 @@ const init: SampleInit = async ({ canvasRef }) => {
     colorAttachments: [],
     depthStencilAttachment: {
       view: shadowDepthTextureView,
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
     },
   };
 
@@ -400,7 +402,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       shadowPass.setIndexBuffer(indexBuffer, 'uint16');
       shadowPass.drawIndexed(indexCount);
 
-      shadowPass.endPass();
+      shadowPass.end();
     }
     {
       const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -411,7 +413,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       renderPass.setIndexBuffer(indexBuffer, 'uint16');
       renderPass.drawIndexed(indexCount);
 
-      renderPass.endPass();
+      renderPass.end();
     }
     device.queue.submit([commandEncoder.finish()]);
     requestAnimationFrame(frame);

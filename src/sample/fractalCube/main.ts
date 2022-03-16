@@ -151,17 +151,17 @@ const init: SampleInit = async ({ canvasRef }) => {
       {
         view: undefined, // Assigned later
 
-        loadValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
     depthStencilAttachment: {
       view: depthTexture.createView(),
 
-      depthLoadValue: 1.0,
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
       depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
     },
   };
 
@@ -208,7 +208,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.draw(cubeVertexCount, 1, 0, 0);
-    passEncoder.endPass();
+    passEncoder.end();
 
     // Copy the rendering results from the swapchain into |cubeTexture|.
     commandEncoder.copyTextureToTexture(
