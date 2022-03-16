@@ -380,8 +380,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
     },
   };
 
@@ -404,8 +402,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
-      stencilLoadValue: 0.0,
-      stencilStoreOp: 'store',
     },
   };
   const drawPassLoadDescriptor: GPURenderPassDescriptor = {
@@ -423,8 +419,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
-      stencilLoadValue: 0.0,
-      stencilStoreOp: 'store',
     },
   };
   const drawPassDescriptors = [drawPassDescriptor, drawPassLoadDescriptor];

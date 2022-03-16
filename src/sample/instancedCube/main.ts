@@ -204,8 +204,6 @@ const init: SampleInit = async ({ canvasRef }) => {
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
     },
   };
 

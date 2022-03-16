@@ -153,8 +153,6 @@ const init: SampleInit = async ({ canvasRef }) => {
 
       depthLoadValue: 1.0,
       depthStoreOp: 'store',
-      stencilLoadValue: 0,
-      stencilStoreOp: 'store',
     },
   };
 
@@ -241,7 +239,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     passEncoder.setBindGroup(0, uniformBindGroup2);
     passEncoder.draw(cubeVertexCount, 1, 0, 0);
 
-    passEncoder.endPass();
+    passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
     requestAnimationFrame(frame);
