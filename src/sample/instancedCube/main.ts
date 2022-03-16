@@ -232,7 +232,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.draw(cubeVertexCount, numInstances, 0, 0);
-    passEncoder.endPass();
+    passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
     requestAnimationFrame(frame);

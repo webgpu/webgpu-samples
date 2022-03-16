@@ -629,7 +629,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
           1
         );
         colorPass.draw(geometryDrawCount, numInstances, 0, 0);
-        colorPass.endPass();
+        colorPass.end();
       }
     } else if (settings.mode === 'precision-error') {
       for (const m of depthBufferModes) {
@@ -651,7 +651,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           depthPrePass.draw(geometryDrawCount, numInstances, 0, 0);
-          depthPrePass.endPass();
+          depthPrePass.end();
         }
         {
           drawPassDescriptors[m].colorAttachments[0].view = attachment;
@@ -673,7 +673,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           precisionErrorPass.draw(geometryDrawCount, numInstances, 0, 0);
-          precisionErrorPass.endPass();
+          precisionErrorPass.end();
         }
       }
     } else {
@@ -697,7 +697,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           depthPrePass.draw(geometryDrawCount, numInstances, 0, 0);
-          depthPrePass.endPass();
+          depthPrePass.end();
         }
         {
           textureQuadPassDescriptors[m].colorAttachments[0].view = attachment;
@@ -715,7 +715,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
             1
           );
           depthTextureQuadPass.draw(6, 1, 0, 0);
-          depthTextureQuadPass.endPass();
+          depthTextureQuadPass.end();
         }
       }
     }

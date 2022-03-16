@@ -215,7 +215,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, particleBindGroups[t % 2]);
       passEncoder.dispatch(Math.ceil(numParticles / 64));
-      passEncoder.endPass();
+      passEncoder.end();
     }
     {
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -223,7 +223,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoder.setVertexBuffer(0, particleBuffers[(t + 1) % 2]);
       passEncoder.setVertexBuffer(1, spriteVertexBuffer);
       passEncoder.draw(3, numParticles, 0, 0);
-      passEncoder.endPass();
+      passEncoder.end();
     }
     device.queue.submit([commandEncoder.finish()]);
 

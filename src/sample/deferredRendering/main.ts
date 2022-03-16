@@ -599,7 +599,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       gBufferPass.setVertexBuffer(0, vertexBuffer);
       gBufferPass.setIndexBuffer(indexBuffer, 'uint16');
       gBufferPass.drawIndexed(indexCount);
-      gBufferPass.endPass();
+      gBufferPass.end();
     }
     {
       // Update lights position
@@ -607,7 +607,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       lightPass.setPipeline(lightUpdateComputePipeline);
       lightPass.setBindGroup(0, lightsBufferComputeBindGroup);
       lightPass.dispatch(Math.ceil(kMaxNumLights / 64));
-      lightPass.endPass();
+      lightPass.end();
     }
     {
       if (settings.mode === 'gBuffers view') {
@@ -625,7 +625,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         debugViewPass.setBindGroup(0, gBufferTexturesBindGroup);
         debugViewPass.setBindGroup(1, canvasSizeUniformBindGroup);
         debugViewPass.draw(6);
-        debugViewPass.endPass();
+        debugViewPass.end();
       } else {
         // Deferred rendering
         textureQuadPassDescriptor.colorAttachments[0].view = context
@@ -639,7 +639,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         deferredRenderingPass.setBindGroup(1, lightsBufferBindGroup);
         deferredRenderingPass.setBindGroup(2, canvasSizeUniformBindGroup);
         deferredRenderingPass.draw(6);
-        deferredRenderingPass.endPass();
+        deferredRenderingPass.end();
       }
     }
     device.queue.submit([commandEncoder.finish()]);

@@ -207,7 +207,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.draw(cubeVertexCount, 1, 0, 0);
-    passEncoder.endPass();
+    passEncoder.end();
 
     // Copy the rendering results from the swapchain into |cubeTexture|.
     commandEncoder.copyTextureToTexture(

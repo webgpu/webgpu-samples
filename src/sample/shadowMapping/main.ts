@@ -399,7 +399,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       shadowPass.setIndexBuffer(indexBuffer, 'uint16');
       shadowPass.drawIndexed(indexCount);
 
-      shadowPass.endPass();
+      shadowPass.end();
     }
     {
       const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -410,7 +410,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       renderPass.setIndexBuffer(indexBuffer, 'uint16');
       renderPass.drawIndexed(indexCount);
 
-      renderPass.endPass();
+      renderPass.end();
     }
     device.queue.submit([commandEncoder.finish()]);
     requestAnimationFrame(frame);

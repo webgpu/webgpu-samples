@@ -270,7 +270,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       );
     }
 
-    computePass.endPass();
+    computePass.end();
 
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [
@@ -286,7 +286,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     passEncoder.setPipeline(fullscreenQuadPipeline);
     passEncoder.setBindGroup(0, showResultBindGroup);
     passEncoder.draw(6, 1, 0, 0);
-    passEncoder.endPass();
+    passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
     requestAnimationFrame(frame);

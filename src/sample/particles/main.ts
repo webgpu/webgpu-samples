@@ -311,13 +311,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         passEncoder.setPipeline(probabilityMapImportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
         passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
-        passEncoder.endPass();
+        passEncoder.end();
       } else {
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(probabilityMapExportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
         passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
-        passEncoder.endPass();
+        passEncoder.end();
       }
     }
     device.queue.submit([commandEncoder.finish()]);
@@ -436,7 +436,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, computeBindGroup);
       passEncoder.dispatch(Math.ceil(numParticles / 64));
-      passEncoder.endPass();
+      passEncoder.end();
     }
     {
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -445,7 +445,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoder.setVertexBuffer(0, particlesBuffer);
       passEncoder.setVertexBuffer(1, quadVertexBuffer);
       passEncoder.draw(6, numParticles, 0, 0);
-      passEncoder.endPass();
+      passEncoder.end();
     }
 
     device.queue.submit([commandEncoder.finish()]);

@@ -313,7 +313,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         recordRenderPass(passEncoder);
       }
 
-      passEncoder.endPass();
+      passEncoder.end();
       device.queue.submit([commandEncoder.finish()]);
     };
   }
