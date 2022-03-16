@@ -386,14 +386,15 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   // drawPassDescriptor and drawPassLoadDescriptor are used for drawing
   // the scene twice using different depth buffer mode on splitted viewport
   // of the same canvas
-  // see the difference of the loadValue of the colorAttachments
+  // see the difference of the loadOp of the colorAttachments
   const drawPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
@@ -410,7 +411,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // attachment is acquired and set in render loop.
         view: undefined,
 
-        loadValue: 'load',
+        loadOp: 'load',
         storeOp: 'store',
       },
     ],
@@ -429,7 +430,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
@@ -440,7 +442,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: 'load',
+        loadOp: 'load',
         storeOp: 'store',
       },
     ],

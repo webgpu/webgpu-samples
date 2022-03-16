@@ -268,24 +268,27 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       {
         view: gBufferTextureViews[0],
 
-        loadValue: {
+        clearValue: {
           r: Number.MAX_VALUE,
           g: Number.MAX_VALUE,
           b: Number.MAX_VALUE,
           a: 1.0,
         },
+        loadOp: 'clear',
         storeOp: 'store',
       },
       {
         view: gBufferTextureViews[1],
 
-        loadValue: { r: 0.0, g: 0.0, b: 1.0, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 1.0, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
       {
         view: gBufferTextureViews[2],
 
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
@@ -303,7 +306,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         // view is acquired and set in render loop.
         view: undefined,
 
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ],
