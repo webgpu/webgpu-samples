@@ -11,19 +11,24 @@ import {
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
+const canvas = new OffscreenCanvas(1, 1);
 
 const init: SampleInit = async ({ canvasRef }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
   if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu');
+  const renderingContext = canvasRef.current.getContext('2d');
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
     canvasRef.current.clientWidth * devicePixelRatio,
     canvasRef.current.clientHeight * devicePixelRatio,
   ];
+  
+  canvas.width = presentationSize[0];
+  canvas.height = presentationSize[1];
+  const context = canvas.getContext('webgpu');
   const presentationFormat = context.getPreferredFormat(adapter);
 
   context.configure({
@@ -184,6 +189,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     passEncoder.draw(cubeVertexCount, 1, 0, 0);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
+    renderingContext.drawImage(canvas, 0, 0);
 
     requestAnimationFrame(frame);
   }
