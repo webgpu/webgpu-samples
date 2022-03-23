@@ -5,7 +5,7 @@
 struct CanvasConstants {
   size: vec2<f32>;
 };
-@group(1) @binding(1) var<uniform> canvas : CanvasConstants;
+@group(1) @binding(0) var<uniform> canvas : CanvasConstants;
 
 @stage(fragment)
 fn main(@builtin(position) coord : vec4<f32>)
