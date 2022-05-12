@@ -222,6 +222,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   let blockDim: number;
   const updateSettings = () => {
+    settings.filterSize += 1;
+    
     blockDim = tileDim - (settings.filterSize - 1);
     device.queue.writeBuffer(
       blurParamsBuffer,
