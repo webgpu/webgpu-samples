@@ -10,7 +10,7 @@ import {
 } from '../../meshes/cube';
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
-import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
+import sampleCubemapWGSL from './sampleCubemap.frag.wgsl';
 
 const init: SampleInit = async ({ canvasRef }) => {
   const adapter = await navigator.gpu.requestAdapter();
@@ -69,7 +69,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     },
     fragment: {
       module: device.createShaderModule({
-        code: vertexPositionColorWGSL,
+        code: sampleCubemapWGSL,
       }),
       entryPoint: 'main',
       targets: [
@@ -85,6 +85,7 @@ const init: SampleInit = async ({ canvasRef }) => {
       // Faces pointing away from the camera will be occluded by faces
       // pointing toward the camera.
       cullMode: 'back',
+      // cullMode: 'none',
     },
 
     // Enable depth testing so that the fragment closest to the camera
@@ -102,6 +103,49 @@ const init: SampleInit = async ({ canvasRef }) => {
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
+  // Fetch the image and upload it into a GPUTexture.
+  // Make the cubemap from 6 separate images for negative/positive x, y, z axis
+  let cubemapTexture: GPUTexture;
+  {
+    // The order of the array layers is [+X, -X, +Y, -Y, +Z, -Z]
+    const imgSrcs = [
+      require(`../../../assets/img/cubemap/posx.jpg`),
+      require(`../../../assets/img/cubemap/negx.jpg`),
+      require(`../../../assets/img/cubemap/posy.jpg`),
+      require(`../../../assets/img/cubemap/negy.jpg`),
+      require(`../../../assets/img/cubemap/posz.jpg`),
+      require(`../../../assets/img/cubemap/negz.jpg`),
+    ];
+    const promises = imgSrcs.map(src => {
+      const img = document.createElement('img');
+      img.src = src;
+      return img.decode().then(() => createImageBitmap(img));
+    })
+    const imageBitmaps = await Promise.all(promises);
+
+    cubemapTexture = device.createTexture({
+      dimension: '2d',
+      // Assume each image has the same size
+      // Create a 2d array texture
+      size: [imageBitmaps[0].width, imageBitmaps[0].height, 6],
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
+    let i = 0;
+    for (const imageBitmap of imageBitmaps) {
+      device.queue.copyExternalImageToTexture(
+        { source: imageBitmap },
+        { texture: cubemapTexture, origin: [0, 0, i] },
+        [imageBitmap.width, imageBitmap.height],
+      );
+      i++;
+    }
+  }
+
   const matrixSize = 4 * 16; // 4x4 matrix
   const offset = 256; // uniformBindGroup offset must be 256-byte aligned
   const uniformBufferSize = offset + matrixSize;
@@ -109,6 +153,11 @@ const init: SampleInit = async ({ canvasRef }) => {
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const sampler = device.createSampler({
+    magFilter: 'linear',
+    minFilter: 'linear',
   });
 
   const uniformBindGroup1 = device.createBindGroup({
@@ -121,6 +170,16 @@ const init: SampleInit = async ({ canvasRef }) => {
           offset: 0,
           size: matrixSize,
         },
+      },
+      {
+        binding: 1,
+        resource: sampler,
+      },
+      {
+        binding: 2,
+        resource: cubemapTexture.createView({
+          dimension: 'cube',
+        }),
       },
     ],
   });
@@ -136,59 +195,18 @@ const init: SampleInit = async ({ canvasRef }) => {
           size: matrixSize,
         },
       },
+      {
+        binding: 1,
+        resource: sampler,
+      },
+      {
+        binding: 2,
+        resource: cubemapTexture.createView({
+          dimension: 'cube',
+        }),
+      },
     ],
   });
-
-  // Fetch the image and upload it into a GPUTexture.
-  // Make the cubemap from 6 separate images for negative/positive x, y, z axis
-  let cubemapTexture: GPUTexture;
-  {
-    const imgSrcs = [
-      // 'negx.jpg',
-      // 'negy.jpg',
-      // 'negz.jpg',
-      // 'posx.jpg',
-      // 'posy.jpg',
-      // 'posz.jpg',
-      require(`../../../assets/img/cubemap/negx.jpg`),
-      require(`../../../assets/img/cubemap/negy.jpg`),
-      require(`../../../assets/img/cubemap/negz.jpg`),
-      require(`../../../assets/img/cubemap/posx.jpg`),
-      require(`../../../assets/img/cubemap/posy.jpg`),
-      require(`../../../assets/img/cubemap/posz.jpg`),
-    ];
-    const promises = imgSrcs.map(src => {
-      const img = document.createElement('img');
-      // img.src = require(`../../../assets/img/cubemap.png/${src}`);
-      img.src = src;
-      return img.decode().then(() => createImageBitmap(img));
-    })
-    const imageBitmaps = await Promise.all(promises);
-    // const img = document.createElement('img');
-    // img.src = require('../../../assets/img/cubemap.png');
-    // await img.decode();
-    // const imageBitmap = await createImageBitmap(img);
-
-    cubemapTexture = device.createTexture({
-      dimension: '3d',
-      // Assume each image has the same size
-      size: [imageBitmaps[0].width, imageBitmaps[0].height, 6],
-      format: 'rgba8unorm',
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST,
-    });
-
-    let i = 0;
-    for (const imageBitmap of imageBitmaps) {
-      // device.queue.copyExternalImageToTexture(
-      //   { source: imageBitmap },
-      //   { texture: cubemapTexture, origin: [0, 0, i] },
-      //   [imageBitmap.width, imageBitmap.height]
-      // );
-      i++;
-    }
-  }
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
@@ -215,6 +233,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   const modelMatrix1 = mat4.create();
   mat4.translate(modelMatrix1, modelMatrix1, vec3.fromValues(-2, 0, 0));
+  // mat4.scale(modelMatrix1, modelMatrix1, vec3.fromValues(10, 10, 10));
   const modelMatrix2 = mat4.create();
   mat4.translate(modelMatrix2, modelMatrix2, vec3.fromValues(2, 0, 0));
   const modelViewProjectionMatrix1 = mat4.create() as Float32Array;
@@ -300,7 +319,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   requestAnimationFrame(frame);
 };
 
-const TwoCubes: () => JSX.Element = () =>
+const CubemapCubes: () => JSX.Element = () =>
   makeSample({
     name: 'Cubemap',
     description:
@@ -317,8 +336,8 @@ const TwoCubes: () => JSX.Element = () =>
         editable: true,
       },
       {
-        name: '../../shaders/vertexPositionColor.frag.wgsl',
-        contents: vertexPositionColorWGSL,
+        name: './sampleCubemap.frag.wgsl',
+        contents: sampleCubemapWGSL,
         editable: true,
       },
       {
@@ -330,4 +349,4 @@ const TwoCubes: () => JSX.Element = () =>
     filename: __filename,
   });
 
-export default TwoCubes;
+export default CubemapCubes;
