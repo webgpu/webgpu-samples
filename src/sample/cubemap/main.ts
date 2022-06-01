@@ -81,11 +81,10 @@ const init: SampleInit = async ({ canvasRef }) => {
     primitive: {
       topology: 'triangle-list',
 
-      // Backface culling since the cube is solid piece of geometry.
-      // Faces pointing away from the camera will be occluded by faces
-      // pointing toward the camera.
-      cullMode: 'back',
-      // cullMode: 'none',
+      // Since we are seeing from inside of the cube
+      // and we are using the regular cube geomtry data with outward-facing normals,
+      // the cullMode should be 'front' or 'none'.
+      cullMode: 'none',
     },
 
     // Enable depth testing so that the fragment closest to the camera
@@ -103,8 +102,8 @@ const init: SampleInit = async ({ canvasRef }) => {
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
-  // Fetch the image and upload it into a GPUTexture.
-  // Make the cubemap from 6 separate images for negative/positive x, y, z axis
+  // Fetch the 6 separate images for negative/positive x, y, z axis of a cubemap
+  // and upload it into a GPUTexture.
   let cubemapTexture: GPUTexture;
   {
     // The order of the array layers is [+X, -X, +Y, -Y, +Z, -Z]
@@ -116,17 +115,17 @@ const init: SampleInit = async ({ canvasRef }) => {
       require(`../../../assets/img/cubemap/posz.jpg`),
       require(`../../../assets/img/cubemap/negz.jpg`),
     ];
-    const promises = imgSrcs.map(src => {
+    const promises = imgSrcs.map((src) => {
       const img = document.createElement('img');
       img.src = src;
       return img.decode().then(() => createImageBitmap(img));
-    })
+    });
     const imageBitmaps = await Promise.all(promises);
 
     cubemapTexture = device.createTexture({
       dimension: '2d',
-      // Assume each image has the same size
-      // Create a 2d array texture
+      // Create a 2d array texture.
+      // Assume each image has the same size.
       size: [imageBitmaps[0].width, imageBitmaps[0].height, 6],
       format: 'rgba8unorm',
       usage:
@@ -140,15 +139,13 @@ const init: SampleInit = async ({ canvasRef }) => {
       device.queue.copyExternalImageToTexture(
         { source: imageBitmap },
         { texture: cubemapTexture, origin: [0, 0, i] },
-        [imageBitmap.width, imageBitmap.height],
+        [imageBitmap.width, imageBitmap.height]
       );
       i++;
     }
   }
 
-  const matrixSize = 4 * 16; // 4x4 matrix
-  const offset = 256; // uniformBindGroup offset must be 256-byte aligned
-  const uniformBufferSize = offset + matrixSize;
+  const uniformBufferSize = 4 * 16;
 
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
@@ -160,7 +157,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     minFilter: 'linear',
   });
 
-  const uniformBindGroup1 = device.createBindGroup({
+  const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
     entries: [
       {
@@ -168,31 +165,7 @@ const init: SampleInit = async ({ canvasRef }) => {
         resource: {
           buffer: uniformBuffer,
           offset: 0,
-          size: matrixSize,
-        },
-      },
-      {
-        binding: 1,
-        resource: sampler,
-      },
-      {
-        binding: 2,
-        resource: cubemapTexture.createView({
-          dimension: 'cube',
-        }),
-      },
-    ],
-  });
-
-  const uniformBindGroup2 = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-          offset: offset,
-          size: matrixSize,
+          size: uniformBufferSize,
         },
       },
       {
@@ -229,48 +202,31 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   const aspect = presentationSize[0] / presentationSize[1];
   const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
+  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 3000);
 
-  const modelMatrix1 = mat4.create();
-  mat4.translate(modelMatrix1, modelMatrix1, vec3.fromValues(-2, 0, 0));
-  // mat4.scale(modelMatrix1, modelMatrix1, vec3.fromValues(10, 10, 10));
-  const modelMatrix2 = mat4.create();
-  mat4.translate(modelMatrix2, modelMatrix2, vec3.fromValues(2, 0, 0));
-  const modelViewProjectionMatrix1 = mat4.create() as Float32Array;
-  const modelViewProjectionMatrix2 = mat4.create() as Float32Array;
+  const modelMatrix = mat4.create();
+  mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(1000, 1000, 1000));
+  const modelViewProjectionMatrix = mat4.create() as Float32Array;
   const viewMatrix = mat4.create();
-  mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -7));
 
-  const tmpMat41 = mat4.create();
-  const tmpMat42 = mat4.create();
+  const tmpMat4 = mat4.create();
 
   function updateTransformationMatrix() {
-    const now = Date.now() / 1000;
+    const now = Date.now() / 800;
 
     mat4.rotate(
-      tmpMat41,
-      modelMatrix1,
-      1,
-      vec3.fromValues(Math.sin(now), Math.cos(now), 0)
+      tmpMat4,
+      viewMatrix,
+      (Math.PI / 10) * Math.sin(now),
+      vec3.fromValues(1, 0, 0)
     );
-    mat4.rotate(
-      tmpMat42,
-      modelMatrix2,
-      1,
-      vec3.fromValues(Math.cos(now), Math.sin(now), 0)
-    );
+    mat4.rotate(tmpMat4, tmpMat4, now * 0.2, vec3.fromValues(0, 1, 0));
 
-    mat4.multiply(modelViewProjectionMatrix1, viewMatrix, tmpMat41);
+    mat4.multiply(modelViewProjectionMatrix, tmpMat4, modelMatrix);
     mat4.multiply(
-      modelViewProjectionMatrix1,
+      modelViewProjectionMatrix,
       projectionMatrix,
-      modelViewProjectionMatrix1
-    );
-    mat4.multiply(modelViewProjectionMatrix2, viewMatrix, tmpMat42);
-    mat4.multiply(
-      modelViewProjectionMatrix2,
-      projectionMatrix,
-      modelViewProjectionMatrix2
+      modelViewProjectionMatrix
     );
   }
 
@@ -282,16 +238,9 @@ const init: SampleInit = async ({ canvasRef }) => {
     device.queue.writeBuffer(
       uniformBuffer,
       0,
-      modelViewProjectionMatrix1.buffer,
-      modelViewProjectionMatrix1.byteOffset,
-      modelViewProjectionMatrix1.byteLength
-    );
-    device.queue.writeBuffer(
-      uniformBuffer,
-      offset,
-      modelViewProjectionMatrix2.buffer,
-      modelViewProjectionMatrix2.byteOffset,
-      modelViewProjectionMatrix2.byteLength
+      modelViewProjectionMatrix.buffer,
+      modelViewProjectionMatrix.byteOffset,
+      modelViewProjectionMatrix.byteLength
     );
 
     renderPassDescriptor.colorAttachments[0].view = context
@@ -302,15 +251,8 @@ const init: SampleInit = async ({ canvasRef }) => {
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setVertexBuffer(0, verticesBuffer);
-
-    // Bind the bind group (with the transformation matrix) for
-    // each cube, and draw.
-    passEncoder.setBindGroup(0, uniformBindGroup1);
+    passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.draw(cubeVertexCount, 1, 0, 0);
-
-    passEncoder.setBindGroup(0, uniformBindGroup2);
-    passEncoder.draw(cubeVertexCount, 1, 0, 0);
-
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
@@ -323,7 +265,7 @@ const CubemapCubes: () => JSX.Element = () =>
   makeSample({
     name: 'Cubemap',
     description:
-      'This example shows how to render and sample texture cube and texture cube array.',
+      'This example shows how to render and sample from a cubemap texture.',
     init,
     sources: [
       {

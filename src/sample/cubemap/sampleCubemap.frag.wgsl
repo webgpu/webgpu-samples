@@ -4,7 +4,6 @@
 @stage(fragment)
 fn main(@location(0) fragUV: vec2<f32>,
         @location(1) fragPosition: vec4<f32>) -> @location(0) vec4<f32> {
-  //var cubemapDir = vec3<f32>(fragUV.x, fragUV.y, 0.0);
   var cubemapDir = fragPosition.xyz - vec3<f32>(0.5, 0.5, 0.5);
   return textureSample(myTexture, mySampler, cubemapDir);
 }
