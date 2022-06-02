@@ -79,8 +79,16 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     format: 'bgra8unorm',
   });
   const gBufferTextureViews = [
-    gBufferTexture2DFloat.createView({ dimension: '2d', baseArrayLayer: 0, arrayLayerCount: 1 }),
-    gBufferTexture2DFloat.createView({ dimension: '2d', baseArrayLayer: 1, arrayLayerCount: 1 }),
+    gBufferTexture2DFloat.createView({
+      dimension: '2d',
+      baseArrayLayer: 0,
+      arrayLayerCount: 1,
+    }),
+    gBufferTexture2DFloat.createView({
+      dimension: '2d',
+      baseArrayLayer: 1,
+      arrayLayerCount: 1,
+    }),
     gBufferTextureAlbedo.createView(),
   ];
 
