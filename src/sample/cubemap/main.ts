@@ -134,19 +134,17 @@ const init: SampleInit = async ({ canvasRef }) => {
         GPUTextureUsage.RENDER_ATTACHMENT,
     });
 
-    let i = 0;
-    for (const imageBitmap of imageBitmaps) {
+    for (let i = 0; i < imageBitmaps.length; i++) {
+      const imageBitmap = imageBitmaps[i];
       device.queue.copyExternalImageToTexture(
         { source: imageBitmap },
         { texture: cubemapTexture, origin: [0, 0, i] },
         [imageBitmap.width, imageBitmap.height]
       );
-      i++;
     }
   }
 
-  const uniformBufferSize = 4 * 16;
-
+  const uniformBufferSize = 4 * 16; // 4x4 matrix
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -185,8 +183,6 @@ const init: SampleInit = async ({ canvasRef }) => {
     colorAttachments: [
       {
         view: undefined, // Assigned later
-
-        clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
         loadOp: 'clear',
         storeOp: 'store',
       },
@@ -211,6 +207,8 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   const tmpMat4 = mat4.create();
 
+  // Comppute camera movement:
+  // It rotates around Y axis with a slight pitch movement.
   function updateTransformationMatrix() {
     const now = Date.now() / 800;
 
