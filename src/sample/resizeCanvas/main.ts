@@ -63,20 +63,23 @@ const init: SampleInit = async ({ canvasRef }) => {
     // Sample is no longer the active page.
     if (!canvasRef.current) return;
 
+    const currentWidth = canvasRef.current.clientWidth * devicePixelRatio;
+    const currentHeight = canvasRef.current.clientHeight * devicePixelRatio;
+
     // The canvas size is animating via CSS.
     // When the size changes, we need to reallocate the render target.
     // We also need to set the physical size of the canvas to match the computed CSS size.
     if (
-      canvasRef.current.clientWidth !== presentationSize[0] ||
-      canvasRef.current.clientHeight !== presentationSize[1]
+      currentWidth !== presentationSize[0] ||
+      currentHeight !== presentationSize[1]
     ) {
       if (renderTarget !== undefined) {
         // Destroy the previous render target
         renderTarget.destroy();
       }
 
-      presentationSize[0] = canvasRef.current.clientWidth;
-      presentationSize[1] = canvasRef.current.clientHeight;
+      presentationSize[0] = currentWidth;
+      presentationSize[1] = currentHeight;
 
       // Reconfigure the canvas size.
       context.configure({
