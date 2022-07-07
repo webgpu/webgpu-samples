@@ -26,20 +26,15 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     dynamicOffsets: Boolean(params.get('dynamicOffsets')),
   };
 
-  const context = canvasRef.current.getContext('webgpu');
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
     format: presentationFormat,
+    alphaMode: 'opaque',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
-    size: presentationSize,
   });
 
   const timeBindGroupLayout = device.createBindGroupLayout({
@@ -94,6 +89,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     code: animometerWGSL,
   });
   const pipelineDesc: GPURenderPipelineDescriptor = {
+    layout: undefined,
     vertex: {
       module: shaderModule,
       entryPoint: 'vert_main',
@@ -381,7 +377,7 @@ const Animometer: () => JSX.Element = () =>
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {

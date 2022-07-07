@@ -20,19 +20,19 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const device = await adapter.requestDevice();
 
   if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu');
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
     canvasRef.current.clientWidth * devicePixelRatio,
     canvasRef.current.clientHeight * devicePixelRatio,
   ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
     format: presentationFormat,
-    size: presentationSize,
+    alphaMode: 'opaque'
   });
 
   const particlesBuffer = device.createBuffer({
@@ -41,6 +41,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const renderPipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: device.createShaderModule({
         code: particleWGSL,
@@ -236,12 +237,14 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   //////////////////////////////////////////////////////////////////////////////
   {
     const probabilityMapImportLevelPipeline = device.createComputePipeline({
+      layout: 'auto',
       compute: {
         module: device.createShaderModule({ code: probabilityMapWGSL }),
         entryPoint: 'import_level',
       },
     });
     const probabilityMapExportLevelPipeline = device.createComputePipeline({
+      layout: 'auto',
       compute: {
         module: device.createShaderModule({ code: probabilityMapWGSL }),
         entryPoint: 'export_level',
@@ -311,13 +314,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(probabilityMapImportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
-        passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
+        passEncoder.dispatchWorkgroups(Math.ceil(levelWidth / 64), levelHeight);
         passEncoder.end();
       } else {
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(probabilityMapExportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
-        passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
+        passEncoder.dispatchWorkgroups(Math.ceil(levelWidth / 64), levelHeight);
         passEncoder.end();
       }
     }
@@ -347,6 +350,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const computePipeline = device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: device.createShaderModule({
         code: particleWGSL,
@@ -436,7 +440,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       const passEncoder = commandEncoder.beginComputePass();
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, computeBindGroup);
-      passEncoder.dispatch(Math.ceil(numParticles / 64));
+      passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64));
       passEncoder.end();
     }
     {
@@ -465,7 +469,7 @@ const Particles: () => JSX.Element = () =>
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {

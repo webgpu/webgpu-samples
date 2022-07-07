@@ -22,18 +22,18 @@ const o = 0.5; // half x offset to shift planes so they are only partially overl
 export const geometryVertexArray = new Float32Array([
   // float4 position, float4 color
   -1 - o, -1, d, 1, 1, 0, 0, 1,
-   1 - o, -1, d, 1,  1, 0, 0, 1,
-  -1 - o, 1, d, 1,  1, 0, 0, 1,
-   1 - o, -1,  d, 1, 1, 0, 0, 1,
-   1 - o, 1,  d, 1,  1, 0, 0, 1,
-  -1 - o, 1, d, 1,  1, 0, 0, 1,
+  1 - o, -1, d, 1, 1, 0, 0, 1,
+  -1 - o, 1, d, 1, 1, 0, 0, 1,
+  1 - o, -1, d, 1, 1, 0, 0, 1,
+  1 - o, 1, d, 1, 1, 0, 0, 1,
+  -1 - o, 1, d, 1, 1, 0, 0, 1,
 
   -1 + o, -1, -d, 1, 0, 1, 0, 1,
-   1 + o, -1, -d, 1,  0, 1, 0, 1,
-  -1 + o, 1, -d, 1,  0, 1, 0, 1,
-   1 + o, -1,  -d, 1, 0, 1, 0, 1,
-   1 + o, 1,  -d, 1,  0, 1, 0, 1,
-  -1 + o, 1, -d, 1,  0, 1, 0, 1,
+  1 + o, -1, -d, 1, 0, 1, 0, 1,
+  -1 + o, 1, -d, 1, 0, 1, 0, 1,
+  1 + o, -1, -d, 1, 0, 1, 0, 1,
+  1 + o, 1, -d, 1, 0, 1, 0, 1,
+  -1 + o, 1, -d, 1, 0, 1, 0, 1,
 ]);
 
 const xCount = 1;
@@ -47,7 +47,13 @@ depthRangeRemapMatrix[10] = -1;
 depthRangeRemapMatrix[14] = 1;
 
 // https://github.com/toji/gl-matrix/commit/e906eb7bb02822a81b1d197c6b5b33563c0403c0
-function perspectiveZO(out, fovy, aspect, near, far) {
+function perspectiveZO(
+  out: mat4,
+  fovy: number,
+  aspect: number,
+  near: number,
+  far: number
+) {
   const f = 1.0 / Math.tan(fovy / 2);
   out[0] = f / aspect;
   out[1] = 0;
@@ -98,19 +104,19 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   if (canvasRef.current === null) return;
 
-  const context = canvasRef.current.getContext('webgpu');
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
     canvasRef.current.clientWidth * devicePixelRatio,
     canvasRef.current.clientHeight * devicePixelRatio,
   ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
     format: presentationFormat,
-    size: presentationSize,
+    alphaMode: 'opaque',
   });
 
   const verticesBuffer = device.createBuffer({
@@ -745,7 +751,7 @@ const ReversedZ: () => JSX.Element = () =>
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {

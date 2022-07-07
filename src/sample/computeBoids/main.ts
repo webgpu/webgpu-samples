@@ -8,22 +8,18 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const device = await adapter.requestDevice();
 
   if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu');
-
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
     format: presentationFormat,
-    size: presentationSize,
+    alphaMode: 'opaque'
   });
 
   const spriteShaderModule = device.createShaderModule({ code: spriteWGSL });
   const renderPipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: spriteShaderModule,
       entryPoint: 'vert_main',
@@ -77,6 +73,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const computePipeline = device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: device.createShaderModule({
         code: updateSpritesWGSL,
@@ -214,7 +211,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       const passEncoder = commandEncoder.beginComputePass();
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, particleBindGroups[t % 2]);
-      passEncoder.dispatch(Math.ceil(numParticles / 64));
+      passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64));
       passEncoder.end();
     }
     {
@@ -245,7 +242,7 @@ is used to draw instanced particles.',
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {

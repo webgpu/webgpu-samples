@@ -1,7 +1,7 @@
 struct Params {
-  filterDim : u32;
-  blockDim : u32;
-};
+  filterDim : u32,
+  blockDim : u32,
+}
 
 @group(0) @binding(0) var samp : sampler;
 @group(0) @binding(1) var<uniform> params : Params;
@@ -9,8 +9,8 @@ struct Params {
 @group(1) @binding(2) var outputTex : texture_storage_2d<rgba8unorm, write>;
 
 struct Flip {
-  value : u32;
-};
+  value : u32,
+}
 @group(1) @binding(3) var<uniform> flip : Flip;
 
 // This shader blurs the input texture in one direction, depending on whether
@@ -29,7 +29,7 @@ struct Flip {
 
 var<workgroup> tile : array<array<vec3<f32>, 128>, 4>;
 
-@stage(compute) @workgroup_size(32, 1, 1)
+@compute @workgroup_size(32, 1, 1)
 fn main(
   @builtin(workgroup_id) WorkGroupID : vec3<u32>,
   @builtin(local_invocation_id) LocalInvocationID : vec3<u32>
@@ -49,9 +49,12 @@ fn main(
         loadIndex = loadIndex.yx;
       }
 
-      tile[r][4u * LocalInvocationID.x + c] =
-        textureSampleLevel(inputTex, samp,
-          (vec2<f32>(loadIndex) + vec2<f32>(0.25, 0.25)) / vec2<f32>(dims), 0.0).rgb;
+      tile[r][4u * LocalInvocationID.x + c] = textureSampleLevel(
+        inputTex,
+        samp,
+        (vec2<f32>(loadIndex) + vec2<f32>(0.25, 0.25)) / vec2<f32>(dims), 
+        0.0
+      ).rgb;
     }
   }
 
