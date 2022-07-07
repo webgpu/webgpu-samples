@@ -173,9 +173,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     mappedAtCreation: true,
   });
   new Float32Array(quadVertexBuffer.getMappedRange()).set(
-    new Float32Array([
-      -1.0, -1.0, +1.0, -1.0, -1.0, +1.0, -1.0, +1.0, +1.0, -1.0, +1.0, +1.0,
-    ])
+    new Float32Array([-1.0, -1.0, +1.0, -1.0, -1.0, +1.0, -1.0, +1.0, +1.0, -1.0, +1.0, +1.0])
   );
   quadVertexBuffer.unmap();
 

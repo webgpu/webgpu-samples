@@ -167,38 +167,38 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   // depthPrePass is used to render scene to the depth texture
   // this is not needed if you just want to use reversed z to render a scene
-  const depthPrePassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor =
-    {
-      layout: depthPrePassRenderPipelineLayout,
-      vertex: {
-        module: device.createShaderModule({
-          code: vertexDepthPrePassWGSL,
-        }),
-        entryPoint: 'main',
-        buffers: [
-          {
-            arrayStride: geometryVertexSize,
-            attributes: [
-              {
-                // position
-                shaderLocation: 0,
-                offset: geometryPositionOffset,
-                format: 'float32x4',
-              },
-            ],
-          },
-        ],
-      },
-      primitive: {
-        topology: 'triangle-list',
-        cullMode: 'back',
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less',
-        format: depthBufferFormat,
-      },
-    };
+  const depthPrePassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
+    layout: depthPrePassRenderPipelineLayout,
+    vertex: {
+      module: device.createShaderModule({
+        code: vertexDepthPrePassWGSL,
+      }),
+      entryPoint: 'main',
+      buffers: [
+        {
+          arrayStride: geometryVertexSize,
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: geometryPositionOffset,
+              format: 'float32x4',
+            },
+          ],
+        },
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
+      cullMode: 'back',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      format: depthBufferFormat,
+    },
+  };
+  
   // we need the depthCompare to fit the depth buffer mode we are using.
   // this is the same for other passes
   const depthPrePassPipelines: GPURenderPipeline[] = [];
@@ -219,48 +219,48 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     bindGroupLayouts: [uniformBindGroupLayout, depthTextureBindGroupLayout],
   });
   const precisionPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor =
-    {
-      layout: precisionPassRenderPipelineLayout,
-      vertex: {
-        module: device.createShaderModule({
-          code: vertexPrecisionErrorPassWGSL,
-        }),
-        entryPoint: 'main',
-        buffers: [
-          {
-            arrayStride: geometryVertexSize,
-            attributes: [
-              {
-                // position
-                shaderLocation: 0,
-                offset: geometryPositionOffset,
-                format: 'float32x4',
-              },
-            ],
-          },
-        ],
-      },
-      fragment: {
-        module: device.createShaderModule({
-          code: fragmentPrecisionErrorPassWGSL,
-        }),
-        entryPoint: 'main',
-        targets: [
-          {
-            format: presentationFormat,
-          },
-        ],
-      },
-      primitive: {
-        topology: 'triangle-list',
-        cullMode: 'back',
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less',
-        format: depthBufferFormat,
-      },
-    };
+  {
+    layout: precisionPassRenderPipelineLayout,
+    vertex: {
+      module: device.createShaderModule({
+        code: vertexPrecisionErrorPassWGSL,
+      }),
+      entryPoint: 'main',
+      buffers: [
+        {
+          arrayStride: geometryVertexSize,
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: geometryPositionOffset,
+              format: 'float32x4',
+            },
+          ],
+        },
+      ],
+    },
+    fragment: {
+      module: device.createShaderModule({
+        code: fragmentPrecisionErrorPassWGSL,
+      }),
+      entryPoint: 'main',
+      targets: [
+        {
+          format: presentationFormat,
+        },
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
+      cullMode: 'back',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      format: depthBufferFormat,
+    },
+  };
   const precisionPassPipelines: GPURenderPipeline[] = [];
   precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
     depthCompareFuncs[DepthBufferMode.Default];
