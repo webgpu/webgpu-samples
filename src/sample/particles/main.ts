@@ -172,9 +172,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     usage: GPUBufferUsage.VERTEX,
     mappedAtCreation: true,
   });
-  new Float32Array(quadVertexBuffer.getMappedRange()).set(
-    new Float32Array([-1.0, -1.0, +1.0, -1.0, -1.0, +1.0, -1.0, +1.0, +1.0, -1.0, +1.0, +1.0])
-  );
+  // prettier-ignore
+  const vertexData = [
+    -1.0, -1.0, +1.0, -1.0, -1.0, +1.0, -1.0, +1.0, +1.0, -1.0, +1.0, +1.0,
+  ];
+  new Float32Array(quadVertexBuffer.getMappedRange()).set(vertexData);
   quadVertexBuffer.unmap();
 
   //////////////////////////////////////////////////////////////////////////////
@@ -403,11 +405,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     device.queue.writeBuffer(
       uniformBuffer,
       0,
-        new Float32Array([
+      new Float32Array([
         // modelViewProjectionMatrix
-        mvp[0],  mvp[1],  mvp[2],  mvp[3],
-        mvp[4],  mvp[5],  mvp[6],  mvp[7],
-        mvp[8],  mvp[9],  mvp[10], mvp[11],
+        mvp[0], mvp[1], mvp[2], mvp[3],
+        mvp[4], mvp[5], mvp[6], mvp[7],
+        mvp[8], mvp[9], mvp[10], mvp[11],
         mvp[12], mvp[13], mvp[14], mvp[15],
 
         view[0], view[4], view[8], // right

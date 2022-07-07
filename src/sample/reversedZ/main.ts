@@ -167,7 +167,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   // depthPrePass is used to render scene to the depth texture
   // this is not needed if you just want to use reversed z to render a scene
-  const depthPrePassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
+  const depthPrePassRenderPipelineDescriptorBase = {
     layout: depthPrePassRenderPipelineLayout,
     vertex: {
       module: device.createShaderModule({
@@ -197,8 +197,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       depthCompare: 'less',
       format: depthBufferFormat,
     },
-  };
-  
+  } as GPURenderPipelineDescriptor;
+
   // we need the depthCompare to fit the depth buffer mode we are using.
   // this is the same for other passes
   const depthPrePassPipelines: GPURenderPipeline[] = [];
@@ -218,8 +218,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const precisionPassRenderPipelineLayout = device.createPipelineLayout({
     bindGroupLayouts: [uniformBindGroupLayout, depthTextureBindGroupLayout],
   });
-  const precisionPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor =
-  {
+  const precisionPassRenderPipelineDescriptorBase = {
     layout: precisionPassRenderPipelineLayout,
     vertex: {
       module: device.createShaderModule({
@@ -260,7 +259,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       depthCompare: 'less',
       format: depthBufferFormat,
     },
-  };
+  } as GPURenderPipelineDescriptor;
   const precisionPassPipelines: GPURenderPipeline[] = [];
   precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
     depthCompareFuncs[DepthBufferMode.Default];
@@ -269,8 +268,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   );
   precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
     depthCompareFuncs[DepthBufferMode.Reversed];
-  precisionPassPipelines[DepthBufferMode.Reversed] =
-    device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
+  // prettier-ignore
+  precisionPassPipelines[DepthBufferMode.Reversed] = device.createRenderPipeline(
+    precisionPassRenderPipelineDescriptorBase
+  );
 
   // colorPass is the regular render pass to render the scene
   const colorPassRenderPiplineLayout = device.createPipelineLayout({
