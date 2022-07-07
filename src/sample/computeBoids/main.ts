@@ -9,12 +9,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
-  
+
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque'
+    alphaMode: 'opaque',
   });
 
   const spriteShaderModule = device.createShaderModule({ code: spriteWGSL });

@@ -201,7 +201,8 @@ const init: SampleInit = async ({ canvasRef }) => {
     );
 
     const swapChainTexture = context.getCurrentTexture();
-    renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
+    renderPassDescriptor.colorAttachments[0].view =
+      swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);

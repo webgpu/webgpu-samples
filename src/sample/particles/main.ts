@@ -32,7 +32,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque'
+    alphaMode: 'opaque',
   });
 
   const particlesBuffer = device.createBuffer({
@@ -174,18 +174,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
   new Float32Array(quadVertexBuffer.getMappedRange()).set(
     new Float32Array([
-      -1.0,
-      -1.0,
-      +1.0,
-      -1.0,
-      -1.0,
-      +1.0,
-      -1.0,
-      +1.0,
-      +1.0,
-      -1.0,
-      +1.0,
-      +1.0,
+      -1.0, -1.0, +1.0, -1.0, -1.0, +1.0, -1.0, +1.0, +1.0, -1.0, +1.0, +1.0,
     ])
   );
   quadVertexBuffer.unmap();
@@ -433,7 +422,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       ])
     );
     const swapChainTexture = context.getCurrentTexture();
-    renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
+    renderPassDescriptor.colorAttachments[0].view =
+      swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
     {

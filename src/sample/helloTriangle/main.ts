@@ -14,7 +14,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque'
+    alphaMode: 'opaque',
   });
 
   const pipeline = device.createRenderPipeline({
