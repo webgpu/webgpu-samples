@@ -422,8 +422,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       ])
     );
     const swapChainTexture = context.getCurrentTexture();
-    renderPassDescriptor.colorAttachments[0].view =
-      swapChainTexture.createView();
+    // prettier-ignore
+    renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
     {
