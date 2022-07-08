@@ -20,19 +20,20 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const device = await adapter.requestDevice();
 
   if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu');
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
     canvasRef.current.clientWidth * devicePixelRatio,
     canvasRef.current.clientHeight * devicePixelRatio,
   ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    format: presentationFormat,
     size: presentationSize,
+    format: presentationFormat,
+    alphaMode: 'opaque',
   });
 
   const particlesBuffer = device.createBuffer({
@@ -172,22 +173,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     usage: GPUBufferUsage.VERTEX,
     mappedAtCreation: true,
   });
-  new Float32Array(quadVertexBuffer.getMappedRange()).set(
-    new Float32Array([
-      -1.0,
-      -1.0,
-      +1.0,
-      -1.0,
-      -1.0,
-      +1.0,
-      -1.0,
-      +1.0,
-      +1.0,
-      -1.0,
-      +1.0,
-      +1.0,
-    ])
-  );
+  // prettier-ignore
+  const vertexData = [
+    -1.0, -1.0, +1.0, -1.0, -1.0, +1.0, -1.0, +1.0, +1.0, -1.0, +1.0, +1.0,
+  ];
+  new Float32Array(quadVertexBuffer.getMappedRange()).set(vertexData);
   quadVertexBuffer.unmap();
 
   //////////////////////////////////////////////////////////////////////////////
@@ -314,13 +304,13 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(probabilityMapImportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
-        passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
+        passEncoder.dispatchWorkgroups(Math.ceil(levelWidth / 64), levelHeight);
         passEncoder.end();
       } else {
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(probabilityMapExportLevelPipeline);
         passEncoder.setBindGroup(0, probabilityMapBindGroup);
-        passEncoder.dispatch(Math.ceil(levelWidth / 64), levelHeight);
+        passEncoder.dispatchWorkgroups(Math.ceil(levelWidth / 64), levelHeight);
         passEncoder.end();
       }
     }
@@ -416,11 +406,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     device.queue.writeBuffer(
       uniformBuffer,
       0,
-        new Float32Array([
+      new Float32Array([
         // modelViewProjectionMatrix
-        mvp[0],  mvp[1],  mvp[2],  mvp[3],
-        mvp[4],  mvp[5],  mvp[6],  mvp[7],
-        mvp[8],  mvp[9],  mvp[10], mvp[11],
+        mvp[0], mvp[1], mvp[2], mvp[3],
+        mvp[4], mvp[5], mvp[6], mvp[7],
+        mvp[8], mvp[9], mvp[10], mvp[11],
         mvp[12], mvp[13], mvp[14], mvp[15],
 
         view[0], view[4], view[8], // right
@@ -433,6 +423,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       ])
     );
     const swapChainTexture = context.getCurrentTexture();
+    // prettier-ignore
     renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
@@ -440,7 +431,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       const passEncoder = commandEncoder.beginComputePass();
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, computeBindGroup);
-      passEncoder.dispatch(Math.ceil(numParticles / 64));
+      passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64));
       passEncoder.end();
     }
     {
@@ -469,7 +460,7 @@ const Particles: () => JSX.Element = () =>
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {

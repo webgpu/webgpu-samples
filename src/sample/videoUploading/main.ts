@@ -17,19 +17,19 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   if (canvasRef.current === null) return;
 
-  const context = canvasRef.current.getContext('webgpu');
-
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
     canvasRef.current.clientWidth * devicePixelRatio,
     canvasRef.current.clientHeight * devicePixelRatio,
   ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    format: presentationFormat,
     size: presentationSize,
+    format: presentationFormat,
+    alphaMode: 'opaque',
   });
 
   const pipeline = device.createRenderPipeline({
@@ -114,7 +114,7 @@ const VideoUploading: () => JSX.Element = () =>
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {

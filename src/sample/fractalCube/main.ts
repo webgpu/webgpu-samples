@@ -17,23 +17,24 @@ const init: SampleInit = async ({ canvasRef }) => {
   const device = await adapter.requestDevice();
 
   if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu');
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
     canvasRef.current.clientWidth * devicePixelRatio,
     canvasRef.current.clientHeight * devicePixelRatio,
   ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
+    size: presentationSize,
     format: presentationFormat,
 
     // Specify we want both RENDER_ATTACHMENT and COPY_SRC since we
     // will copy out of the swapchain texture.
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-    size: presentationSize,
+    alphaMode: 'opaque',
   });
 
   // Create a vertex buffer from the cube data.
@@ -201,6 +202,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     );
 
     const swapChainTexture = context.getCurrentTexture();
+    // prettier-ignore
     renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
@@ -238,7 +240,7 @@ const TexturedCube: () => JSX.Element = () =>
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {
