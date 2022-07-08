@@ -12,22 +12,18 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const device = await adapter.requestDevice();
 
   if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu');
+  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
     format: presentationFormat,
-    size: presentationSize,
+    alphaMode: 'opaque',
   });
 
   const blurPipeline = device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: device.createShaderModule({
         code: blurWGSL,
@@ -37,6 +33,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const fullscreenQuadPipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: device.createShaderModule({
         code: fullscreenTexturedQuadWGSL,
@@ -245,26 +242,26 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     computePass.setBindGroup(0, computeConstants);
 
     computePass.setBindGroup(1, computeBindGroup0);
-    computePass.dispatch(
+    computePass.dispatchWorkgroups(
       Math.ceil(srcWidth / blockDim),
       Math.ceil(srcHeight / batch[1])
     );
 
     computePass.setBindGroup(1, computeBindGroup1);
-    computePass.dispatch(
+    computePass.dispatchWorkgroups(
       Math.ceil(srcHeight / blockDim),
       Math.ceil(srcWidth / batch[1])
     );
 
     for (let i = 0; i < settings.iterations - 1; ++i) {
       computePass.setBindGroup(1, computeBindGroup2);
-      computePass.dispatch(
+      computePass.dispatchWorkgroups(
         Math.ceil(srcWidth / blockDim),
         Math.ceil(srcHeight / batch[1])
       );
 
       computePass.setBindGroup(1, computeBindGroup1);
-      computePass.dispatch(
+      computePass.dispatchWorkgroups(
         Math.ceil(srcHeight / blockDim),
         Math.ceil(srcWidth / batch[1])
       );
@@ -303,7 +300,7 @@ const ImageBlur: () => JSX.Element = () =>
     init,
     sources: [
       {
-        name: __filename.substr(__dirname.length + 1),
+        name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
       {

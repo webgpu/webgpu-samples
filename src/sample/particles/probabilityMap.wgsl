@@ -1,10 +1,10 @@
 struct UBO {
-  width : u32;
-};
+  width : u32,
+}
 
 struct Buffer {
-  weights : array<f32>;
-};
+  weights : array<f32>,
+}
 
 @binding(0) @group(0) var<uniform> ubo : UBO;
 @binding(1) @group(0) var<storage, read> buf_in : Buffer;
@@ -19,7 +19,7 @@ struct Buffer {
 // Loads the alpha channel from a texel of the source image, and writes it to
 // the buf_out.weights.
 ////////////////////////////////////////////////////////////////////////////////
-@stage(compute) @workgroup_size(64)
+@compute @workgroup_size(64)
 fn import_level(@builtin(global_invocation_id) coord : vec3<u32>) {
   _ = &buf_in;
   let offset = coord.x + coord.y * ubo.width;
@@ -34,7 +34,7 @@ fn import_level(@builtin(global_invocation_id) coord : vec3<u32>) {
 // mip level of tex_out. See simulate() in particle.wgsl to understand the
 // probability logic.
 ////////////////////////////////////////////////////////////////////////////////
-@stage(compute) @workgroup_size(64)
+@compute @workgroup_size(64)
 fn export_level(@builtin(global_invocation_id) coord : vec3<u32>) {
   if (all(coord.xy < vec2<u32>(textureDimensions(tex_out)))) {
     let dst_offset = coord.x    + coord.y    * ubo.width;

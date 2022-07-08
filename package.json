@@ -1,7 +1,7 @@
 {
   "name": "webgpu-samples",
   "version": "0.1.0",
-  "description": "Samples using the Web GPU API",
+  "description": "Samples using the WebGPU API",
   "license": "BSD-3-Clause",
   "private": false,
   "repository": {
