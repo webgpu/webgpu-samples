@@ -89,7 +89,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     code: animometerWGSL,
   });
   const pipelineDesc: GPURenderPipelineDescriptor = {
-    layout: undefined,
+    layout: 'auto',
     vertex: {
       module: shaderModule,
       entryPoint: 'vert_main',

@@ -1,7 +1,7 @@
 {
   "name": "webgpu-samples",
   "version": "0.1.0",
-  "description": "Samples using the Web GPU API",
+  "description": "Samples using the WebGPU API",
   "license": "BSD-3-Clause",
   "private": false,
   "repository": {
@@ -34,7 +34,7 @@
     "@types/react-dom": "^17.0.0",
     "@typescript-eslint/eslint-plugin": "^4.12.0",
     "@typescript-eslint/parser": "^4.12.0",
-    "@webgpu/types": "^0.1.13",
+    "@webgpu/types": "^0.1.21",
     "eslint": "^7.17.0",
     "eslint-config-prettier": "^7.1.0",
     "eslint-plugin-prettier": "^3.3.1",
