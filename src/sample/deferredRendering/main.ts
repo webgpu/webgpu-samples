@@ -124,6 +124,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   };
 
   const writeGBuffersPipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: device.createShaderModule({
         code: vertexWriteGBuffers,
@@ -465,6 +466,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   );
 
   const lightUpdateComputePipeline = device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: device.createShaderModule({
         code: lightUpdate,

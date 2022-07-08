@@ -42,6 +42,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   verticesBuffer.unmap();
 
   const pipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: device.createShaderModule({
         code: instancedVertWGSL,

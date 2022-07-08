@@ -41,6 +41,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const renderPipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: device.createShaderModule({
         code: particleWGSL,
@@ -236,12 +237,14 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   //////////////////////////////////////////////////////////////////////////////
   {
     const probabilityMapImportLevelPipeline = device.createComputePipeline({
+      layout: 'auto',
       compute: {
         module: device.createShaderModule({ code: probabilityMapWGSL }),
         entryPoint: 'import_level',
       },
     });
     const probabilityMapExportLevelPipeline = device.createComputePipeline({
+      layout: 'auto',
       compute: {
         module: device.createShaderModule({ code: probabilityMapWGSL }),
         entryPoint: 'export_level',
@@ -347,6 +350,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const computePipeline = device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: device.createShaderModule({
         code: particleWGSL,

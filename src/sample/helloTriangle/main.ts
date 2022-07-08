@@ -24,6 +24,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   const pipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: device.createShaderModule({
         code: triangleVertWGSL,
