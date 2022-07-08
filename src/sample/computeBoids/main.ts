@@ -24,6 +24,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   const spriteShaderModule = device.createShaderModule({ code: spriteWGSL });
   const renderPipeline = device.createRenderPipeline({
+    layout: 'auto',
     vertex: {
       module: spriteShaderModule,
       entryPoint: 'vert_main',
@@ -77,6 +78,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const computePipeline = device.createComputePipeline({
+    layout: 'auto',
     compute: {
       module: device.createShaderModule({
         code: updateSpritesWGSL,
