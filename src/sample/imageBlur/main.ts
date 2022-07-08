@@ -13,6 +13,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   if (canvasRef.current === null) return;
   const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
     canvasRef.current.clientWidth * devicePixelRatio,
