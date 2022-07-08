@@ -22,6 +22,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   context.configure({
     device,
+    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });

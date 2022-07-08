@@ -28,6 +28,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   context.configure({
     device,
+    size: presentationSize,
     format: presentationFormat,
 
     // Specify we want both RENDER_ATTACHMENT and COPY_SRC since we

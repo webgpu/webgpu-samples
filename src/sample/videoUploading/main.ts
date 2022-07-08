@@ -18,10 +18,16 @@ const init: SampleInit = async ({ canvasRef }) => {
   if (canvasRef.current === null) return;
 
   const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const presentationSize = [
+    canvasRef.current.clientWidth * devicePixelRatio,
+    canvasRef.current.clientHeight * devicePixelRatio,
+  ];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
+    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });

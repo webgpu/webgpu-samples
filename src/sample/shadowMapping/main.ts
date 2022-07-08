@@ -26,6 +26,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
+    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
