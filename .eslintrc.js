@@ -15,9 +15,15 @@ module.exports = {
   rules: {
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
-    "@typescript-eslint/no-unused-vars": ["error", { "vars": "all", "args": "after-used", "ignoreRestSiblings": true }]
+    "@typescript-eslint/no-unused-vars": ["error", { "vars": "all", "args": "after-used", "ignoreRestSiblings": true }],
+    "prettier/prettier": ["error", { "endOfLine": "auto" }]
   },
   globals: {
     React: "writable"
   },
+  settings: {
+    react: {
+      version: "detect"
+    }
+  }
 };
