@@ -16,20 +16,17 @@ const lightExtentMax = vec3.fromValues(50, 50, 50);
 const init: SampleInit = async ({ canvasRef, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
+  const canvas = canvasRef.current;
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (canvas === null) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
-  const aspect = presentationSize[0] / presentationSize[1];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  const presentationSize = [canvas.width, canvas.height];
+  const aspect = presentationSize[0] / presentationSize[1];
+
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -589,7 +586,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!canvas) return;
 
     const cameraViewProj = getCameraViewProjMatrix();
     device.queue.writeBuffer(

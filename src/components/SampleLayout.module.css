@@ -4,6 +4,11 @@
   margin-top: 10px;
 }
 
+.canvasContainer canvas:first-of-type {
+  height: 600px;
+  width: 600px;
+}
+
 nav.sourceFileNav ul {
   list-style-type: none;
   padding: 0;

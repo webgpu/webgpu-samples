@@ -15,20 +15,16 @@ import sampleSelfWGSL from './sampleSelf.frag.wgsl';
 const init: SampleInit = async ({ canvasRef }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
+  const canvas = canvasRef.current;
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (canvas === null) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  const presentationSize = [canvas.width, canvas.height];
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
 
     // Specify we want both RENDER_ATTACHMENT and COPY_SRC since we
@@ -190,7 +186,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!canvas) return;
 
     const transformationMatrix = getTransformationMatrix();
     device.queue.writeBuffer(

@@ -5,8 +5,9 @@ import animometerWGSL from './animometer.wgsl';
 const init: SampleInit = async ({ canvasRef, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
+  const canvas = canvasRef.current;
 
-  if (canvasRef.current === null) return;
+  if (canvas === null) return;
 
   const perfDisplayContainer = document.createElement('div');
   perfDisplayContainer.style.color = 'white';
@@ -17,7 +18,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   const perfDisplay = document.createElement('pre');
   perfDisplayContainer.appendChild(perfDisplay);
-  canvasRef.current.parentNode.appendChild(perfDisplayContainer);
+  canvas.parentNode.appendChild(perfDisplayContainer);
 
   const params = new URLSearchParams(window.location.search);
   const settings = {
@@ -26,18 +27,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     dynamicOffsets: Boolean(params.get('dynamicOffsets')),
   };
 
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
@@ -295,7 +290,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     recordRenderPass(renderBundleEncoder);
     const renderBundle = renderBundleEncoder.finish();
 
-    return function doDraw(timestamp) {
+    return function doDraw(timestamp: number) {
       if (startTime === undefined) {
         startTime = timestamp;
       }
@@ -337,9 +332,9 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   let frameTimeAvg = undefined;
   let updateDisplay = true;
 
-  function frame(timestamp) {
+  function frame(timestamp: number) {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!canvas) return;
 
     let frameTime = 0;
     if (previousFrameTimestamp !== undefined) {

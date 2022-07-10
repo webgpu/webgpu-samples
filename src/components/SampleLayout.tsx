@@ -102,6 +102,15 @@ const SampleLayout: React.FunctionComponent<
     props.sources
   );
 
+  // Ref it because it is a static number,
+  // no need to be seen as a React state during virtual dom update.
+  const devicePixelRatioRef = useRef<number>(1);
+  // And we have to cache devicePixelRatio when component did mount,
+  // because `window` can not be accessed except this hook. -- NextJS
+  useEffect(() => {
+    devicePixelRatioRef.current = window.devicePixelRatio;
+  }, []);
+
   const guiParentRef = useRef<HTMLDivElement | null>(null);
   const gui: GUI | undefined = useMemo(() => {
     if (props.gui && process.browser) {
@@ -204,7 +213,11 @@ const SampleLayout: React.FunctionComponent<
           }}
           ref={guiParentRef}
         ></div>
-        <canvas ref={canvasRef} width={600} height={600}></canvas>
+        <canvas
+          ref={canvasRef}
+          width={600 * devicePixelRatioRef.current}
+          height={600 * devicePixelRatioRef.current}
+        ></canvas>
       </div>
       <div>
         <nav className={styles.sourceFileNav}>
