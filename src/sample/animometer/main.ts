@@ -32,7 +32,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
