@@ -9,7 +9,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const canvas = canvasRef.current;
-  
+
   if (canvas === null) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
