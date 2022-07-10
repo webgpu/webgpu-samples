@@ -28,11 +28,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   };
 
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
-
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
+    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
     usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,

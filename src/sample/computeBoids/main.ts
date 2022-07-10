@@ -10,7 +10,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   if (canvas === null) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
-
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
