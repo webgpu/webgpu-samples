@@ -51,18 +51,46 @@ const init: SampleInit = async ({ canvasRef }) => {
     },
   });
 
-  const renderTarget = device.createTexture({
-    size: presentationSize,
-    sampleCount,
-    format: presentationFormat,
-    usage: GPUTextureUsage.RENDER_ATTACHMENT,
-  });
+  let counter = 0;
+  const createTexture = (device: GPUDevice, size: GPUExtent3DStrict) => {
+    return device.createTexture({
+      // Add a label for debugging how many times the canvas resize
+      label: `${counter++}`,
+      size: size,
+      sampleCount,
+      format: presentationFormat,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+  };
+
+  let renderTarget: GPUTexture = createTexture(device, presentationSize);
 
   canvas.classList.add(styles.animatedCanvasSize);
 
   function frame() {
     // Sample is no longer the active page.
     if (!canvas) return;
+
+    const devicePixelRatio = window.devicePixelRatio;
+    // Make sure canvas size to be integer.
+    const currentWidth = Math.floor(canvas.clientWidth * devicePixelRatio);
+    const currentHeight = Math.floor(canvas.clientHeight * devicePixelRatio);
+    if (
+      currentWidth !== presentationSize[0] ||
+      currentHeight !== presentationSize[1]
+    ) {
+      if (renderTarget !== undefined) {
+        renderTarget.destroy();
+      }
+      // First reset texture's size, DO NOT forget multiply with dpr,
+      presentationSize[0] = currentWidth;
+      presentationSize[1] = currentHeight;
+      // then reset canvas DOM size & canvas size,
+      canvas.width = currentWidth;
+      canvas.height = currentHeight;
+      // finaly recreate renderTarget texture.
+      renderTarget = createTexture(device, presentationSize);
+    }
 
     const commandEncoder = device.createCommandEncoder();
 
