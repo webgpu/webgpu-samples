@@ -14,7 +14,6 @@ const init: SampleInit = async ({ canvasRef }) => {
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-  const presentationSize = [canvas.width, canvas.height];
 
   context.configure({
     device,
@@ -63,7 +62,8 @@ const init: SampleInit = async ({ canvasRef }) => {
     });
   };
 
-  let renderTarget: GPUTexture = createTexture(device, presentationSize);
+  let renderTarget = createTexture(device, [canvas.width, canvas.height]);
+  let lastWidthStep = Math.ceil(canvas.clientWidth / 200);
 
   canvas.classList.add(styles.animatedCanvasSize);
 
@@ -75,21 +75,18 @@ const init: SampleInit = async ({ canvasRef }) => {
     // Make sure canvas size to be integer.
     const currentWidth = Math.floor(canvas.clientWidth * devicePixelRatio);
     const currentHeight = Math.floor(canvas.clientHeight * devicePixelRatio);
-    if (
-      currentWidth !== presentationSize[0] ||
-      currentHeight !== presentationSize[1]
-    ) {
+    const currentWidthStep = Math.ceil(canvas.clientWidth / 200);
+    // Means that canvas CSS width has changed more than 200px from the last time,
+    // we should recreate the canvas backing texture.
+    if (currentWidthStep !== lastWidthStep) {
       if (renderTarget !== undefined) {
         renderTarget.destroy();
       }
-      // First reset texture's size, DO NOT forget multiply with dpr,
-      presentationSize[0] = currentWidth;
-      presentationSize[1] = currentHeight;
-      // then reset canvas DOM size & canvas size,
+      lastWidthStep = currentWidthStep; // update the step
+      // Reset canvas DOM size & canvas size
       canvas.width = currentWidth;
       canvas.height = currentHeight;
-      // finaly recreate renderTarget texture.
-      renderTarget = createTexture(device, presentationSize);
+      renderTarget = createTexture(device, [currentWidth, currentHeight]);
     }
 
     const commandEncoder = device.createCommandEncoder();
