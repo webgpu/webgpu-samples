@@ -180,6 +180,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
           format: presentationFormat,
         },
       ],
+      constants: {
+        shadowDepthTextureSize
+      }
     },
     depthStencil: {
       depthWriteEnabled: true,
