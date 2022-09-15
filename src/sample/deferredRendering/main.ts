@@ -235,7 +235,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       bindGroupLayouts: [
         gBufferTexturesBindGroupLayout,
         lightsBufferBindGroupLayout,
-        // canvasSizeUniformBindGroupLayout,
       ],
     }),
     vertex: {
