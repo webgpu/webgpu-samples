@@ -1,5 +1,4 @@
-// TODO: Use pipeline constants
-const shadowDepthTextureSize = 1024.0;
+override shadowDepthTextureSize: f32 = 1024.0;
 
 struct Scene {
   lightViewProjMatrix : mat4x4<f32>,

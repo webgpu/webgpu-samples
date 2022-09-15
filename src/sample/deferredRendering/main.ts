@@ -200,23 +200,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
   });
 
-  const canvasSizeUniformBindGroupLayout = device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.FRAGMENT,
-        buffer: {
-          type: 'uniform',
-        },
-      },
-    ],
-  });
-
   const gBuffersDebugViewPipeline = device.createRenderPipeline({
     layout: device.createPipelineLayout({
       bindGroupLayouts: [
         gBufferTexturesBindGroupLayout,
-        canvasSizeUniformBindGroupLayout,
       ],
     }),
     vertex: {
@@ -235,6 +222,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           format: presentationFormat,
         },
       ],
+      constants: {
+        'canvasSizeWidth': presentationSize[0],
+        'canvasSizeHeight': presentationSize[1],
+      },
     },
     primitive,
   });
@@ -244,7 +235,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       bindGroupLayouts: [
         gBufferTexturesBindGroupLayout,
         lightsBufferBindGroupLayout,
-        canvasSizeUniformBindGroupLayout,
+        // canvasSizeUniformBindGroupLayout,
       ],
     }),
     vertex: {
@@ -374,23 +365,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         binding: 1,
         resource: {
           buffer: cameraUniformBuffer,
-        },
-      },
-    ],
-  });
-
-  const canvasSizeUniformBuffer = device.createBuffer({
-    size: 4 * 2,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
-
-  const canvasSizeUniformBindGroup = device.createBindGroup({
-    layout: canvasSizeUniformBindGroupLayout,
-    entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: canvasSizeUniformBuffer,
         },
       },
     ],
@@ -563,15 +537,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     normalModelData.byteOffset,
     normalModelData.byteLength
   );
-  // Pass the canvas size to shader to help sample from gBuffer textures using coord
-  const canvasSizeData = new Float32Array(presentationSize);
-  device.queue.writeBuffer(
-    canvasSizeUniformBuffer,
-    0,
-    canvasSizeData.buffer,
-    canvasSizeData.byteOffset,
-    canvasSizeData.byteLength
-  );
 
   // Rotates the camera around the origin based on time.
   function getCameraViewProjMatrix() {
@@ -635,7 +600,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         );
         debugViewPass.setPipeline(gBuffersDebugViewPipeline);
         debugViewPass.setBindGroup(0, gBufferTexturesBindGroup);
-        debugViewPass.setBindGroup(1, canvasSizeUniformBindGroup);
         debugViewPass.draw(6);
         debugViewPass.end();
       } else {
@@ -649,7 +613,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         deferredRenderingPass.setPipeline(deferredRenderPipeline);
         deferredRenderingPass.setBindGroup(0, gBufferTexturesBindGroup);
         deferredRenderingPass.setBindGroup(1, lightsBufferBindGroup);
-        deferredRenderingPass.setBindGroup(2, canvasSizeUniformBindGroup);
         deferredRenderingPass.draw(6);
         deferredRenderingPass.end();
       }
