@@ -202,9 +202,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const gBuffersDebugViewPipeline = device.createRenderPipeline({
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        gBufferTexturesBindGroupLayout,
-      ],
+      bindGroupLayouts: [gBufferTexturesBindGroupLayout],
     }),
     vertex: {
       module: device.createShaderModule({
@@ -223,8 +221,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         },
       ],
       constants: {
-        'canvasSizeWidth': presentationSize[0],
-        'canvasSizeHeight': presentationSize[1],
+        canvasSizeWidth: presentationSize[0],
+        canvasSizeHeight: presentationSize[1],
       },
     },
     primitive,

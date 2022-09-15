@@ -181,8 +181,8 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         },
       ],
       constants: {
-        shadowDepthTextureSize
-      }
+        shadowDepthTextureSize,
+      },
     },
     depthStencil: {
       depthWriteEnabled: true,
