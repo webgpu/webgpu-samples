@@ -3,25 +3,28 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
 import sampleExternalTextureWGSL from '../../shaders/sampleExternalTexture.frag.wgsl';
 
-const init: SampleInit = async ({ canvasRef }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   // Set video element
   const video = document.createElement('video');
   video.loop = true;
   video.autoplay = true;
   video.muted = true;
-  video.src = require('../../../assets/video/pano.webm');
+  video.src = new URL(
+    '../../../assets/video/pano.webm',
+    import.meta.url
+  ).toString();
   await video.play();
 
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
+  if (!pageState.active) return;
 
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
   ];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -63,7 +66,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     const uniformBindGroup = device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),

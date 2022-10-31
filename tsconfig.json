@@ -22,12 +22,13 @@
     "typeRoots": [
       "./node_modules/@webgpu/types",
       "./node_modules/@types"
-    ]
+    ],
+    "incremental": true
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-    "src/**/*.d.ts",
+    "src/**/*.d.ts"
   ],
   "exclude": [
     "node_modules"

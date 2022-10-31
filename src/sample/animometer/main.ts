@@ -2,11 +2,11 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import animometerWGSL from './animometer.wgsl';
 
-const init: SampleInit = async ({ canvasRef, gui }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
+  if (!pageState.active) return;
 
   const perfDisplayContainer = document.createElement('div');
   perfDisplayContainer.style.color = 'white';
@@ -17,7 +17,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   const perfDisplay = document.createElement('pre');
   perfDisplayContainer.appendChild(perfDisplay);
-  canvasRef.current.parentNode.appendChild(perfDisplayContainer);
+  canvas.parentNode.appendChild(perfDisplayContainer);
 
   const params = new URLSearchParams(window.location.search);
   const settings = {
@@ -26,12 +26,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     dynamicOffsets: Boolean(params.get('dynamicOffsets')),
   };
 
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
   ];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -339,7 +339,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   function frame(timestamp) {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     let frameTime = 0;
     if (previousFrameTimestamp !== undefined) {

@@ -12,17 +12,17 @@ import {
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import sampleCubemapWGSL from './sampleCubemap.frag.wgsl';
 
-const init: SampleInit = async ({ canvasRef }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (!pageState.active) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
   ];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -110,12 +110,30 @@ const init: SampleInit = async ({ canvasRef }) => {
   {
     // The order of the array layers is [+X, -X, +Y, -Y, +Z, -Z]
     const imgSrcs = [
-      require(`../../../assets/img/cubemap/posx.jpg`),
-      require(`../../../assets/img/cubemap/negx.jpg`),
-      require(`../../../assets/img/cubemap/posy.jpg`),
-      require(`../../../assets/img/cubemap/negy.jpg`),
-      require(`../../../assets/img/cubemap/posz.jpg`),
-      require(`../../../assets/img/cubemap/negz.jpg`),
+      new URL(
+        `../../../assets/img/cubemap/posx.jpg`,
+        import.meta.url
+      ).toString(),
+      new URL(
+        `../../../assets/img/cubemap/negx.jpg`,
+        import.meta.url
+      ).toString(),
+      new URL(
+        `../../../assets/img/cubemap/posy.jpg`,
+        import.meta.url
+      ).toString(),
+      new URL(
+        `../../../assets/img/cubemap/negy.jpg`,
+        import.meta.url
+      ).toString(),
+      new URL(
+        `../../../assets/img/cubemap/posz.jpg`,
+        import.meta.url
+      ).toString(),
+      new URL(
+        `../../../assets/img/cubemap/negz.jpg`,
+        import.meta.url
+      ).toString(),
     ];
     const promises = imgSrcs.map((src) => {
       const img = document.createElement('img');
@@ -232,7 +250,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     updateTransformationMatrix();
     device.queue.writeBuffer(
