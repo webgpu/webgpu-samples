@@ -8,5 +8,5 @@ fn main(
 ) -> @location(0) vec4<f32> {
   let texColor = textureSample(myTexture, mySampler, fragUV * 0.8 + vec2(0.1));
   let f = select(1.0, 0.0, length(texColor.rgb - vec3(0.5)) < 0.01);
-  return f * texColor + f * fragPosition;
+  return f * texColor + (1.0 - f) * fragPosition;
 }
