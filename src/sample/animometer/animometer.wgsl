@@ -23,23 +23,23 @@ fn vert_main(
   @location(0) position : vec4<f32>,
   @location(1) color : vec4<f32>
 ) -> VertexOutput {
-  var fade : f32 = (uniforms.scalarOffset + time.value * uniforms.scalar / 10.0) % 1.0;
+  var fade = (uniforms.scalarOffset + time.value * uniforms.scalar / 10.0) % 1.0;
   if (fade < 0.5) {
     fade = fade * 2.0;
   } else {
     fade = (1.0 - fade) * 2.0;
   }
-  var xpos : f32 = position.x * uniforms.scale;
-  var ypos : f32 = position.y * uniforms.scale;
-  var angle : f32 = 3.14159 * 2.0 * fade;
-  var xrot : f32 = xpos * cos(angle) - ypos * sin(angle);
-  var yrot : f32 = xpos * sin(angle) + ypos * cos(angle);
+  var xpos = position.x * uniforms.scale;
+  var ypos = position.y * uniforms.scale;
+  var angle = 3.14159 * 2.0 * fade;
+  var xrot = xpos * cos(angle) - ypos * sin(angle);
+  var yrot = xpos * sin(angle) + ypos * cos(angle);
   xpos = xrot + uniforms.offsetX;
   ypos = yrot + uniforms.offsetY;
-  
+
   var output : VertexOutput;
-  output.v_color = vec4<f32>(fade, 1.0 - fade, 0.0, 1.0) + color;
-  output.Position = vec4<f32>(xpos, ypos, 0.0, 1.0);
+  output.v_color = vec4(fade, 1.0 - fade, 0.0, 1.0) + color;
+  output.Position = vec4(xpos, ypos, 0.0, 1.0);
   return output;
 }
 
