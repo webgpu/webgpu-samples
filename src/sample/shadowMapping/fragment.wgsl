@@ -1,5 +1,5 @@
 // TODO: Use pipeline constants
-const shadowDepthTextureSize: f32 = 1024.0;
+const shadowDepthTextureSize = 1024.0;
 
 struct Scene {
   lightViewProjMatrix : mat4x4<f32>,
@@ -17,21 +17,18 @@ struct FragmentInput {
   @location(2) fragNorm : vec3<f32>,
 }
 
-const albedo : vec3<f32> = vec3<f32>(0.9, 0.9, 0.9);
-const ambientFactor : f32 = 0.2;
+const albedo = vec3<f32>(0.9);
+const ambientFactor = 0.2;
 
 @fragment
 fn main(input : FragmentInput) -> @location(0) vec4<f32> {
   // Percentage-closer filtering. Sample texels in the region
   // to smooth the result.
-  var visibility : f32 = 0.0;
+  var visibility = 0.0;
   let oneOverShadowDepthTextureSize = 1.0 / shadowDepthTextureSize;
-  for (var y : i32 = -1 ; y <= 1 ; y = y + 1) {
-    for (var x : i32 = -1 ; x <= 1 ; x = x + 1) {
-      let offset : vec2<f32> = vec2<f32>(
-        f32(x) * oneOverShadowDepthTextureSize,
-        f32(y) * oneOverShadowDepthTextureSize
-      );
+  for (var y = -1; y <= 1; y++) {
+    for (var x = -1; x <= 1; x++) {
+      let offset = vec2<f32>(vec2(x, y)) * oneOverShadowDepthTextureSize;
 
       visibility += textureSampleCompare(
         shadowMap, shadowSampler,
@@ -41,8 +38,8 @@ fn main(input : FragmentInput) -> @location(0) vec4<f32> {
   }
   visibility /= 9.0;
 
-  let lambertFactor : f32 = max(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm), 0.0);
-  let lightingFactor : f32 = min(ambientFactor + visibility * lambertFactor, 1.0);
-  
-  return vec4<f32>(lightingFactor * albedo, 1.0);
+  let lambertFactor = max(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm), 0.0);
+  let lightingFactor = min(ambientFactor + visibility * lambertFactor, 1.0);
+
+  return vec4(lightingFactor * albedo, 1.0);
 }

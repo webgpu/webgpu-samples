@@ -100,8 +100,8 @@ fn simulate(
   if (particle.lifetime < 0.0) {
     // Use the probability map to find where the particle should be spawned.
     // Starting with the 1x1 mip level.
-    var coord = vec2<i32>(0, 0);
-    for (var level = textureNumLevels(texture) - 1; level > 0; level = level - 1) {
+    var coord : vec2<i32>;
+    for (var level = u32(textureNumLevels(texture) - 1); level > 0; level--) {
       // Load the probability value from the mip-level
       // Generate a random number and using the probabilty values, pick the
       // next texel in the next largest mip level:

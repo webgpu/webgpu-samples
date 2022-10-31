@@ -27,16 +27,16 @@ fn main(
   var output : VertexOutput;
 
   // XY is in (-1, 1) space, Z is in (0, 1) space
-  let posFromLight : vec4<f32> = scene.lightViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
+  let posFromLight = scene.lightViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
 
   // Convert XY to (0, 1)
   // Y is flipped because texture coords are Y-down.
-  output.shadowPos = vec3<f32>(
-    posFromLight.xy * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5),
+  output.shadowPos = vec3(
+    posFromLight.xy * vec2(0.5, -0.5) + vec2(0.5),
     posFromLight.z
   );
 
-  output.Position = scene.cameraViewProjMatrix * model.modelMatrix * vec4<f32>(position, 1.0);
+  output.Position = scene.cameraViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
   output.fragPos = output.Position.xyz;
   output.fragNorm = normal;
   return output;

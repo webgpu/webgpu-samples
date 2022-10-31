@@ -26,7 +26,7 @@ struct CanvasConstants {
 fn main(
   @builtin(position) coord : vec4<f32>
 ) -> @location(0) vec4<f32> {
-  var result = vec3<f32>(0.0, 0.0, 0.0);
+  var result : vec3<f32>;
 
   let position = textureLoad(
     gBufferPosition,
@@ -50,7 +50,7 @@ fn main(
     0
   ).rgb;
 
-  for (var i : u32 = 0u; i < config.numLights; i = i + 1u) {
+  for (var i = 0u; i < config.numLights; i++) {
     let L = lightsBuffer.lights[i].position.xyz - position;
     let distance = length(L);
     if (distance > lightsBuffer.lights[i].radius) {
@@ -63,7 +63,7 @@ fn main(
   }
 
   // some manual ambient
-  result = result + vec3<f32>(0.2, 0.2, 0.2);
+  result += vec3(0.2);
 
-  return vec4<f32>(result, 1.0);
+  return vec4(result, 1.0);
 }

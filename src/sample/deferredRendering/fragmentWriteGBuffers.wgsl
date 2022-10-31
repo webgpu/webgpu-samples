@@ -17,9 +17,9 @@ fn main(
   let c = 0.2 + 0.5 * ((uv.x + uv.y) - 2.0 * floor((uv.x + uv.y) / 2.0));
 
   var output : GBufferOutput;
-  output.position = vec4<f32>(fragPosition, 1.0);
-  output.normal = vec4<f32>(fragNormal, 1.0);
-  output.albedo = vec4<f32>(c, c, c, 1.0);
+  output.position = vec4(fragPosition, 1.0);
+  output.normal = vec4(fragNormal, 1.0);
+  output.albedo = vec4(c, c, c, 1.0);
 
   return output;
 }
