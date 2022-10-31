@@ -4,21 +4,17 @@ const fs = require('fs');
 const BASE_PATH = process.env.BASE_PATH || '';
 
 module.exports = {
-  target: 'serverless',
+  output: 'standalone',
   basePath: BASE_PATH,
   compress: true,
   reactStrictMode: true,
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.module.rules.push({
       test: /\.(png|jpe?g|gif|webm)$/i,
-      use: {
-        loader: 'file-loader',
-        options: {
-          esModule: false,
-          publicPath: path.join('/', BASE_PATH, '_next/static'),
-          outputPath: 'static',
-        },
-      },
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/[path][name].[hash][ext]'
+      }
     });
     config.module.rules.push({
       test: /\.wgsl$/i,
@@ -48,6 +44,10 @@ module.exports = {
         }, []),
       })
     );
+
+    if (!config.node) {
+      config.node = {};
+    }
 
     config.node.__filename = true;
     config.node.__dirname = true;

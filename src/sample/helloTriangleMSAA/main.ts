@@ -3,17 +3,17 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import triangleVertWGSL from '../../shaders/triangle.vert.wgsl';
 import redFragWGSL from '../../shaders/red.frag.wgsl';
 
-const init: SampleInit = async ({ canvasRef }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (!pageState.active) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
   ];
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -63,7 +63,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     const commandEncoder = device.createCommandEncoder();
 

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "lint": "eslint --ext .ts,.tsx src/",
-    "start": "next dev",
+    "start": "NODE_OPTIONS=--openssl-legacy-provider next dev",
     "build": "next build",
     "serve": "next start",
     "export": "next export"
@@ -20,27 +20,28 @@
     "dat.gui": "^0.7.6",
     "file-loader": "^6.2.0",
     "gl-matrix": "^3.2.1",
-    "next": "^10.0.5",
-    "react": "^17.0.1",
-    "react-dom": "^17.0.1",
+    "next": "^13.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "stanford-dragon": "^1.1.1",
     "webgpu-live-shader-module": "austinEng/webgpu-live-shader-module#fb7d6cc8"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^13.0.0",
     "@types/codemirror": "0.0.97",
     "@types/dat.gui": "^0.7.6",
-    "@types/node": "^14.14.20",
-    "@types/react": "^17.0.0",
-    "@types/react-dom": "^17.0.0",
-    "@typescript-eslint/eslint-plugin": "^4.12.0",
-    "@typescript-eslint/parser": "^4.12.0",
+    "@types/node": "^18.11.8",
+    "@types/react": "^18.0.24",
+    "@types/react-dom": "^18.0.8",
+    "@typescript-eslint/eslint-plugin": "^5.41.0",
+    "@typescript-eslint/parser": "^5.41.0",
     "@webgpu/types": "^0.1.21",
-    "eslint": "^7.17.0",
-    "eslint-config-prettier": "^7.1.0",
-    "eslint-plugin-prettier": "^3.3.1",
-    "eslint-plugin-react": "^7.22.0",
-    "prettier": "^2.2.1",
+    "eslint": "^8.26.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react": "^7.31.10",
+    "prettier": "^2.7.1",
     "raw-loader": "^4.0.2",
-    "typescript": "^3.8.3"
+    "typescript": "^4.8.4"
   }
 }

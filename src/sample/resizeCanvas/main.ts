@@ -5,19 +5,19 @@ import redFragWGSL from '../../shaders/red.frag.wgsl';
 
 import styles from './animatedCanvasSize.module.css';
 
-const init: SampleInit = async ({ canvasRef }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (!pageState.active) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
+    canvas.clientWidth * devicePixelRatio,
+    canvas.clientHeight * devicePixelRatio,
   ];
 
   context.configure({
@@ -59,21 +59,23 @@ const init: SampleInit = async ({ canvasRef }) => {
   let renderTarget: GPUTexture | undefined = undefined;
   let renderTargetView: GPUTextureView;
 
-  canvasRef.current.classList.add(styles.animatedCanvasSize);
+  canvas.classList.add(styles.animatedCanvasSize);
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
-    const currentWidth = canvasRef.current.clientWidth * devicePixelRatio;
-    const currentHeight = canvasRef.current.clientHeight * devicePixelRatio;
+    const currentWidth = canvas.clientWidth * devicePixelRatio;
+    const currentHeight = canvas.clientHeight * devicePixelRatio;
 
     // The canvas size is animating via CSS.
     // When the size changes, we need to reallocate the render target.
     // We also need to set the physical size of the canvas to match the computed CSS size.
     if (
-      currentWidth !== presentationSize[0] ||
-      currentHeight !== presentationSize[1]
+      (currentWidth !== presentationSize[0] ||
+        currentHeight !== presentationSize[1]) &&
+      currentWidth &&
+      currentHeight
     ) {
       if (renderTarget !== undefined) {
         // Destroy the previous render target
