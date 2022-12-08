@@ -37,16 +37,16 @@ fn import_level(@builtin(global_invocation_id) coord : vec3u) {
 @compute @workgroup_size(64)
 fn export_level(@builtin(global_invocation_id) coord : vec3u) {
   if (all(coord.xy < vec2u(textureDimensions(tex_out)))) {
-    let dst_offset = coord.x    + coord.y    * ubo.width;
-    let src_offset = coord.x*2u + coord.y*2u * ubo.width;
+    let dst_offset = coord.x   + coord.y   * ubo.width;
+    let src_offset = coord.x*2 + coord.y*2 * ubo.width;
 
-    let a = buf_in.weights[src_offset + 0u];
-    let b = buf_in.weights[src_offset + 1u];
-    let c = buf_in.weights[src_offset + 0u + ubo.width];
-    let d = buf_in.weights[src_offset + 1u + ubo.width];
-    let sum = dot(vec4f(a, b, c, d), vec4f(1.0));
+    let a = buf_in.weights[src_offset + 0];
+    let b = buf_in.weights[src_offset + 1];
+    let c = buf_in.weights[src_offset + 0 + ubo.width];
+    let d = buf_in.weights[src_offset + 1 + ubo.width];
+    let sum = dot(vec4f(a, b, c, d), vec4f(1));
 
-    buf_out.weights[dst_offset] = sum / 4.0;
+    buf_out.weights[dst_offset] = sum / 4;
 
     let probabilities = vec4f(a, a+b, a+b+c, sum) / max(sum, 0.0001);
     textureStore(tex_out, vec2i(coord.xy), probabilities);

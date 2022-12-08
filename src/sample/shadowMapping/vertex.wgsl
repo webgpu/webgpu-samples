@@ -27,7 +27,7 @@ fn main(
   var output : VertexOutput;
 
   // XY is in (-1, 1) space, Z is in (0, 1) space
-  let posFromLight = scene.lightViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
+  let posFromLight = scene.lightViewProjMatrix * model.modelMatrix * vec4(position, 1);
 
   // Convert XY to (0, 1)
   // Y is flipped because texture coords are Y-down.
@@ -36,7 +36,7 @@ fn main(
     posFromLight.z
   );
 
-  output.Position = scene.cameraViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
+  output.Position = scene.cameraViewProjMatrix * model.modelMatrix * vec4(position, 1);
   output.fragPos = output.Position.xyz;
   output.fragNorm = normal;
   return output;

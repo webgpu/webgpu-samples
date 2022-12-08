@@ -49,7 +49,7 @@ fn vs_main(in : VertexInput) -> VertexOutput {
 fn fs_main(in : VertexOutput) -> @location(0) vec4f {
   var color = in.color;
   // Apply a circular particle alpha mask
-  color.a = color.a * max(1.0 - length(in.quad_pos), 0.0);
+  color.a = color.a * max(1 - length(in.quad_pos), 0);
   return color;
 }
 
@@ -86,13 +86,13 @@ fn simulate(
   var particle = data.particles[idx];
 
   // Apply gravity
-  particle.velocity.z = particle.velocity.z - sim_params.deltaTime * 0.5;
+  particle.velocity.z -= sim_params.deltaTime * 0.5;
 
   // Basic velocity integration
-  particle.position = particle.position + sim_params.deltaTime * particle.velocity;
+  particle.position += sim_params.deltaTime * particle.velocity;
 
   // Age each particle. Fade out before vanishing.
-  particle.lifetime = particle.lifetime - sim_params.deltaTime;
+  particle.lifetime -= sim_params.deltaTime;
   particle.color.a = smoothstep(0.0, 0.5, particle.lifetime);
 
   // If the lifetime has gone negative, then the particle is dead and should be
@@ -112,13 +112,13 @@ fn simulate(
       //
       let probabilites = textureLoad(texture, coord, level);
       let value = vec4f(rand());
-      let mask = (value >= vec4f(0.0, probabilites.xyz)) & (value < probabilites);
+      let mask = (value >= vec4f(0, probabilites.xyz)) & (value < probabilites);
       coord = coord * 2;
       coord.x = coord.x + select(0, 1, any(mask.yw)); // x  y
       coord.y = coord.y + select(0, 1, any(mask.zw)); // z  w
     }
     let uv = vec2f(coord) / vec2f(textureDimensions(texture));
-    particle.position = vec3f((uv - 0.5) * 3.0 * vec2f(1.0, -1.0), 0.0);
+    particle.position = vec3f((uv - 0.5) * 3 * vec2f(1, -1), 0);
     particle.color = textureLoad(texture, coord, 0);
     particle.velocity.x = (rand() - 0.5) * 0.1;
     particle.velocity.y = (rand() - 0.5) * 0.1;

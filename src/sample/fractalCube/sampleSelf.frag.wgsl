@@ -7,6 +7,6 @@ fn main(
   @location(1) fragPosition: vec4f
 ) -> @location(0) vec4f {
   let texColor = textureSample(myTexture, mySampler, fragUV * 0.8 + vec2(0.1));
-  let f = select(1.0, 0.0, length(texColor.rgb - vec3(0.5)) < 0.01);
-  return f * texColor + (1.0 - f) * fragPosition;
+  let f = select(1f, 0f, length(texColor.rgb - vec3(0.5)) < 0.01);
+  return f * texColor + (1 - f) * fragPosition;
 }

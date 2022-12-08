@@ -28,27 +28,13 @@ fn main(
 ) -> @location(0) vec4f {
   var result : vec3f;
 
-  let position = textureLoad(
-    gBufferPosition,
-    vec2i(floor(coord.xy)),
-    0
-  ).xyz;
-
-  if (position.z > 10000.0) {
+  let position = textureLoad(gBufferPosition, vec2i(floor(coord.xy)), 0).xyz;
+  if (position.z > 10000) {
     discard;
   }
 
-  let normal = textureLoad(
-    gBufferNormal,
-    vec2i(floor(coord.xy)),
-    0
-  ).xyz;
-
-  let albedo = textureLoad(
-    gBufferAlbedo,
-    vec2i(floor(coord.xy)),
-    0
-  ).rgb;
+  let normal = textureLoad(gBufferNormal, vec2i(floor(coord.xy)), 0).xyz;
+  let albedo = textureLoad(gBufferAlbedo, vec2i(floor(coord.xy)), 0).rgb;
 
   for (var i = 0u; i < config.numLights; i++) {
     let L = lightsBuffer.lights[i].position.xyz - position;
@@ -56,14 +42,14 @@ fn main(
     if (distance > lightsBuffer.lights[i].radius) {
       continue;
     }
-    let lambert = max(dot(normal, normalize(L)), 0.0);
+    let lambert = max(dot(normal, normalize(L)), 0);
     result += vec3f(
-      lambert * pow(1.0 - distance / lightsBuffer.lights[i].radius, 2.0) * lightsBuffer.lights[i].color * albedo
+      lambert * pow(1 - distance / lightsBuffer.lights[i].radius, 2) * lightsBuffer.lights[i].color * albedo
     );
   }
 
   // some manual ambient
   result += vec3(0.2);
 
-  return vec4(result, 1.0);
+  return vec4(result, 1);
 }
