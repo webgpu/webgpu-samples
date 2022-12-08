@@ -1,7 +1,7 @@
 struct Scene {
   lightViewProjMatrix: mat4x4<f32>,
   cameraViewProjMatrix: mat4x4<f32>,
-  lightPos: vec3<f32>,
+  lightPos: vec3f,
 }
 
 struct Model {
@@ -13,7 +13,7 @@ struct Model {
 
 @vertex
 fn main(
-  @location(0) position: vec3<f32>
-) -> @builtin(position) vec4<f32> {
+  @location(0) position: vec3f
+) -> @builtin(position) vec4f {
   return scene.lightViewProjMatrix * model.modelMatrix * vec4(position, 1.0);
 }
