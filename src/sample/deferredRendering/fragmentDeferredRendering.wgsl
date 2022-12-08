@@ -3,8 +3,8 @@
 @group(0) @binding(2) var gBufferAlbedo: texture_2d<f32>;
 
 struct LightData {
-  position : vec4<f32>,
-  color : vec3<f32>,
+  position : vec4f,
+  color : vec3f,
   radius : f32,
 }
 struct LightsBuffer {
@@ -18,19 +18,19 @@ struct Config {
 @group(1) @binding(1) var<uniform> config: Config;
 
 struct CanvasConstants {
-  size: vec2<f32>,
+  size: vec2f,
 }
 @group(2) @binding(0) var<uniform> canvas : CanvasConstants;
 
 @fragment
 fn main(
-  @builtin(position) coord : vec4<f32>
-) -> @location(0) vec4<f32> {
-  var result : vec3<f32>;
+  @builtin(position) coord : vec4f
+) -> @location(0) vec4f {
+  var result : vec3f;
 
   let position = textureLoad(
     gBufferPosition,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   ).xyz;
 
@@ -40,13 +40,13 @@ fn main(
 
   let normal = textureLoad(
     gBufferNormal,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   ).xyz;
 
   let albedo = textureLoad(
     gBufferAlbedo,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   ).rgb;
 
@@ -57,7 +57,7 @@ fn main(
       continue;
     }
     let lambert = max(dot(normal, normalize(L)), 0.0);
-    result += vec3<f32>(
+    result += vec3f(
       lambert * pow(1.0 - distance / lightsBuffer.lights[i].radius, 2.0) * lightsBuffer.lights[i].color * albedo
     );
   }
