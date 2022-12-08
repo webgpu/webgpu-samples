@@ -34,23 +34,23 @@ fn main(
   @builtin(workgroup_id) WorkGroupID : vec3u,
   @builtin(local_invocation_id) LocalInvocationID : vec3u
 ) {
-  let filterOffset = (params.filterDim - 1) / 2;
+  let filterOffset : i32 = (params.filterDim - 1) / 2;
   let dims = vec2i(textureDimensions(inputTex, 0));
-  let baseIndex = vec2i(WorkGroupID.xy * vec2(params.blockDim, 4) +
-                            LocalInvocationID.xy * vec2(4, 1))
-                  - vec2(filterOffset, 0);
+  let baseIndex = vec2i(WorkGroupID.xy       * vec2u(params.blockDim, 4) +
+                        LocalInvocationID.xy * vec2u(4, 1))
+                  - vec2i(filterOffset, 0);
 
   for (var r = 0; r < 4; r++) {
     for (var c = 0; c < 4; c++) {
-      var loadIndex = baseIndex + vec2(c, r);
-      if (flip.value != 0u) {
+      var loadIndex = baseIndex + vec2i(c, r);
+      if (flip.value != 0) {
         loadIndex = loadIndex.yx;
       }
 
       tile[r][4 * LocalInvocationID.x + u32(c)] = textureSampleLevel(
         inputTex,
         samp,
-        (vec2f(loadIndex) + vec2f(0.25, 0.25)) / vec2f(dims),
+        (vec2f(loadIndex) + 0.25) / vec2f(dims),
         0.0
       ).rgb;
     }
@@ -69,12 +69,12 @@ fn main(
       if (center >= filterOffset &&
           center < 128 - filterOffset &&
           all(writeIndex < dims)) {
-        var acc = vec3(0.0, 0.0, 0.0);
+        var acc = vec3f();
         for (var f = 0; f < params.filterDim; f++) {
           var i = center + f - filterOffset;
-          acc = acc + (1.0 / f32(params.filterDim)) * tile[r][i];
+          acc += (1 / f32(params.filterDim)) * tile[r][i];
         }
-        textureStore(outputTex, writeIndex, vec4(acc, 1.0));
+        textureStore(outputTex, writeIndex, vec4f(acc, 1));
       }
     }
   }

@@ -11,29 +11,13 @@ struct CanvasConstants {
 fn main(
   @builtin(position) coord : vec4f
 ) -> @location(0) vec4f {
-  var result : vec4f;
   let c = coord.xy / canvas.size;
   if (c.x < 0.33333) {
-    result = textureLoad(
-      gBufferPosition,
-      vec2i(floor(coord.xy)),
-      0
-    );
-  } else if (c.x < 0.66667) {
-    result = textureLoad(
-      gBufferNormal,
-      vec2i(floor(coord.xy)),
-      0
-    );
-    result.x = (result.x + 1.0) * 0.5;
-    result.y = (result.y + 1.0) * 0.5;
-    result.z = (result.z + 1.0) * 0.5;
-  } else {
-    result = textureLoad(
-      gBufferAlbedo,
-      vec2i(floor(coord.xy)),
-      0
-    );
+    return textureLoad(gBufferPosition, vec2i(floor(coord.xy)), 0);
   }
-  return result;
+  if (c.x < 0.66667) {
+    let packed = textureLoad(gBufferNormal, vec2i(floor(coord.xy)), 0);
+    return vec4((packed.xyz + 1) * 0.5, packed.w);
+  }
+  return textureLoad(gBufferAlbedo, vec2i(floor(coord.xy)), 0);
 }

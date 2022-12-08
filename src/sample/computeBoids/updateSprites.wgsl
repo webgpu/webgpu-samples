@@ -30,16 +30,14 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
   var colVel = vec2f();
   var cMassCount = 0u;
   var cVelCount = 0u;
-  var pos = vec2f();
-  var vel = vec2f();
 
   for (var i = 0u; i < arrayLength(&particlesA.particles); i++) {
     if (i == index) {
       continue;
     }
 
-    pos = particlesA.particles[i].pos.xy;
-    vel = particlesA.particles[i].vel.xy;
+    let pos = particlesA.particles[i].pos.xy;
+    let vel = particlesA.particles[i].vel.xy;
     if (distance(pos, vPos) < params.rule1Distance) {
       cMass += pos;
       cMassCount++;
@@ -52,6 +50,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
       cVelCount++;
     }
   }
+
   if (cMassCount > 0) {
     cMass = (cMass / vec2(f32(cMassCount))) - vPos;
   }
@@ -61,22 +60,12 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
   vVel += (cMass * params.rule1Scale) + (colVel * params.rule2Scale) + (cVel * params.rule3Scale);
 
   // clamp velocity for a more pleasing simulation
-  vVel = normalize(vVel) * clamp(length(vVel), 0.0, 0.1);
+  vVel = normalize(vVel) * clamp(length(vVel), 0, 0.1);
   // kinematic update
-  vPos = vPos + (vVel * params.deltaT);
+  vPos += vVel * params.deltaT;
   // Wrap around boundary
-  if (vPos.x < -1.0) {
-    vPos.x = 1.0;
-  }
-  if (vPos.x > 1.0) {
-    vPos.x = -1.0;
-  }
-  if (vPos.y < -1.0) {
-    vPos.y = 1.0;
-  }
-  if (vPos.y > 1.0) {
-    vPos.y = -1.0;
-  }
+  vPos = select(vPos, vec2(1), vPos < vec2(-1));
+  vPos = select(vPos, vec2(-1), vPos > vec2(1));
   // Write back
   particlesB.particles[index].pos = vPos;
   particlesB.particles[index].vel = vVel;

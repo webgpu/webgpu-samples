@@ -26,7 +26,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
     return;
   }
 
-  lightsBuffer.lights[index].position.y = lightsBuffer.lights[index].position.y - 0.5 - 0.003 * (f32(index) - 64.0 * floor(f32(index) / 64.0));
+  lightsBuffer.lights[index].position.y -= 0.5 - 0.003 * (f32(index) - 64 * floor(f32(index) / 64));
 
   if (lightsBuffer.lights[index].position.y < lightExtent.min.y) {
     lightsBuffer.lights[index].position.y = lightExtent.max.y;

@@ -7,5 +7,5 @@ fn main(
 ) -> @location(0) vec4f {
   let depthValue = textureLoad(depthTexture, vec2i(floor(coord.xy)), 0);
   let v : f32 = abs(clipPos.z / clipPos.w - depthValue) * 2000000.0;
-  return vec4f(v, v, v, 1.0);
+  return vec4f(v, v, v, 1);
 }
