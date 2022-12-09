@@ -3,5 +3,5 @@
 
 @fragment
 fn main(@location(0) fragUV : vec2f) -> @location(0) vec4f {
-  return textureSampleLevel(myTexture, mySampler, fragUV);
+  return textureSampleBaseClampToEdge(myTexture, mySampler, fragUV);
 }
