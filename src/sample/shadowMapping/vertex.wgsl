@@ -1,7 +1,7 @@
 struct Scene {
   lightViewProjMatrix: mat4x4<f32>,
   cameraViewProjMatrix: mat4x4<f32>,
-  lightPos: vec3f,
+  lightPos: vec3<f32>,
 }
 
 struct Model {
@@ -12,17 +12,17 @@ struct Model {
 @group(1) @binding(0) var<uniform> model : Model;
 
 struct VertexOutput {
-  @location(0) shadowPos: vec3f,
-  @location(1) fragPos: vec3f,
-  @location(2) fragNorm: vec3f,
+  @location(0) shadowPos: vec3<f32>,
+  @location(1) fragPos: vec3<f32>,
+  @location(2) fragNorm: vec3<f32>,
 
-  @builtin(position) Position: vec4f,
+  @builtin(position) Position: vec4<f32>,
 }
 
 @vertex
 fn main(
-  @location(0) position: vec3f,
-  @location(1) normal: vec3f
+  @location(0) position: vec3<f32>,
+  @location(1) normal: vec3<f32>
 ) -> VertexOutput {
   var output : VertexOutput;
 

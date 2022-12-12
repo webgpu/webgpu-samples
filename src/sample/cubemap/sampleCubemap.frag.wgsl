@@ -3,9 +3,9 @@
 
 @fragment
 fn main(
-  @location(0) fragUV: vec2f,
-  @location(1) fragPosition: vec4f
-) -> @location(0) vec4f {
+  @location(0) fragUV: vec2<f32>,
+  @location(1) fragPosition: vec4<f32>
+) -> @location(0) vec4<f32> {
   // Our camera and the skybox cube are both centered at (0, 0, 0)
   // so we can use the cube geomtry position to get viewing vector to sample the cube texture.
   // The magnitude of the vector doesn't matter.

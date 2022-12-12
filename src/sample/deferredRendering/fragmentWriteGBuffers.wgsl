@@ -1,16 +1,16 @@
 struct GBufferOutput {
-  @location(0) position : vec4f,
-  @location(1) normal : vec4f,
+  @location(0) position : vec4<f32>,
+  @location(1) normal : vec4<f32>,
 
   // Textures: diffuse color, specular color, smoothness, emissive etc. could go here
-  @location(2) albedo : vec4f,
+  @location(2) albedo : vec4<f32>,
 }
 
 @fragment
 fn main(
-  @location(0) fragPosition: vec3f,
-  @location(1) fragNormal: vec3f,
-  @location(2) fragUV : vec2f
+  @location(0) fragPosition: vec3<f32>,
+  @location(1) fragNormal: vec3<f32>,
+  @location(2) fragUV : vec2<f32>
 ) -> GBufferOutput {
   // faking some kind of checkerboard texture
   let uv = floor(30.0 * fragUV);
