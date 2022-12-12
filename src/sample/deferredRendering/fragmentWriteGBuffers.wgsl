@@ -13,13 +13,13 @@ fn main(
   @location(2) fragUV : vec2f
 ) -> GBufferOutput {
   // faking some kind of checkerboard texture
-  let uv = floor(30 * fragUV);
-  let c = 0.2 + 0.5 * ((uv.x + uv.y) - 2 * floor((uv.x + uv.y) / 2));
+  let uv = floor(30.0 * fragUV);
+  let c = 0.2 + 0.5 * ((uv.x + uv.y) - 2.0 * floor((uv.x + uv.y) / 2.0));
 
   var output : GBufferOutput;
-  output.position = vec4(fragPosition, 1);
-  output.normal = vec4(fragNormal, 1);
-  output.albedo = vec4(vec3(c), 1);
+  output.position = vec4(fragPosition, 1.0);
+  output.normal = vec4(fragNormal, 1.0);
+  output.albedo = vec4(c, c, c, 1.0);
 
   return output;
 }

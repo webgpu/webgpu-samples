@@ -1,5 +1,5 @@
 // TODO: Use pipeline constants
-const shadowDepthTextureSize = 1024;
+const shadowDepthTextureSize = 1024.0;
 
 struct Scene {
   lightViewProjMatrix : mat4x4<f32>,
@@ -17,14 +17,14 @@ struct FragmentInput {
   @location(2) fragNorm : vec3f,
 }
 
-const albedo = vec3(0.9);
+const albedo = vec3f(0.9);
 const ambientFactor = 0.2;
 
 @fragment
 fn main(input : FragmentInput) -> @location(0) vec4f {
   // Percentage-closer filtering. Sample texels in the region
   // to smooth the result.
-  var visibility = 0f;
+  var visibility = 0.0;
   let oneOverShadowDepthTextureSize = 1.0 / shadowDepthTextureSize;
   for (var y = -1; y <= 1; y++) {
     for (var x = -1; x <= 1; x++) {
@@ -36,10 +36,10 @@ fn main(input : FragmentInput) -> @location(0) vec4f {
       );
     }
   }
-  visibility /= 9;
+  visibility /= 9.0;
 
-  let lambertFactor = max(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm), 0);
-  let lightingFactor = min(ambientFactor + visibility * lambertFactor, 1);
+  let lambertFactor = max(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm), 0.0);
+  let lightingFactor = min(ambientFactor + visibility * lambertFactor, 1.0);
 
-  return vec4(lightingFactor * albedo, 1);
+  return vec4(lightingFactor * albedo, 1.0);
 }
