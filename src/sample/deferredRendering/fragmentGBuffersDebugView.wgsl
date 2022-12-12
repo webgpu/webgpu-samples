@@ -3,26 +3,26 @@
 @group(0) @binding(2) var gBufferAlbedo: texture_2d<f32>;
 
 struct CanvasConstants {
-  size: vec2f,
+  size: vec2<f32>,
 }
 @group(1) @binding(0) var<uniform> canvas : CanvasConstants;
 
 @fragment
 fn main(
-  @builtin(position) coord : vec4f
-) -> @location(0) vec4f {
-  var result : vec4f;
+  @builtin(position) coord : vec4<f32>
+) -> @location(0) vec4<f32> {
+  var result : vec4<f32>;
   let c = coord.xy / canvas.size;
   if (c.x < 0.33333) {
     result = textureLoad(
       gBufferPosition,
-      vec2i(floor(coord.xy)),
+      vec2<i32>(floor(coord.xy)),
       0
     );
   } else if (c.x < 0.66667) {
     result = textureLoad(
       gBufferNormal,
-      vec2i(floor(coord.xy)),
+      vec2<i32>(floor(coord.xy)),
       0
     );
     result.x = (result.x + 1.0) * 0.5;
@@ -31,7 +31,7 @@ fn main(
   } else {
     result = textureLoad(
       gBufferAlbedo,
-      vec2i(floor(coord.xy)),
+      vec2<i32>(floor(coord.xy)),
       0
     );
   }

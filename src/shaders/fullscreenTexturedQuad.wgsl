@@ -2,8 +2,8 @@
 @group(0) @binding(1) var myTexture : texture_2d<f32>;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4f,
-  @location(0) fragUV : vec2f,
+  @builtin(position) Position : vec4<f32>,
+  @location(0) fragUV : vec2<f32>,
 }
 
 @vertex
@@ -33,6 +33,6 @@ fn vert_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 }
 
 @fragment
-fn frag_main(@location(0) fragUV : vec2f) -> @location(0) vec4f {
+fn frag_main(@location(0) fragUV : vec2<f32>) -> @location(0) vec4<f32> {
   return textureSample(myTexture, mySampler, fragUV);
 }

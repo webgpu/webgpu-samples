@@ -9,17 +9,17 @@ struct Camera {
 @group(0) @binding(1) var<uniform> camera : Camera;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4f,
-  @location(0) fragPosition: vec3f,  // position in world space
-  @location(1) fragNormal: vec3f,    // normal in world space
-  @location(2) fragUV: vec2f,
+  @builtin(position) Position : vec4<f32>,
+  @location(0) fragPosition: vec3<f32>,  // position in world space
+  @location(1) fragNormal: vec3<f32>,    // normal in world space
+  @location(2) fragUV: vec2<f32>,
 }
 
 @vertex
 fn main(
-  @location(0) position : vec3f,
-  @location(1) normal : vec3f,
-  @location(2) uv : vec2f
+  @location(0) position : vec3<f32>,
+  @location(1) normal : vec3<f32>,
+  @location(2) uv : vec2<f32>
 ) -> VertexOutput {
   var output : VertexOutput;
   output.fragPosition = (uniforms.modelMatrix * vec4(position, 1.0)).xyz;

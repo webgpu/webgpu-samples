@@ -70,7 +70,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         },
         {
           // quad vertex buffer
-          arrayStride: 2 * 4, // vec2f
+          arrayStride: 2 * 4, // vec2<f32>
           stepMode: 'vertex',
           attributes: [
             {
@@ -125,9 +125,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const uniformBufferSize =
     4 * 4 * 4 + // modelViewProjectionMatrix : mat4x4<f32>
-    3 * 4 + // right : vec3f
+    3 * 4 + // right : vec3<f32>
     4 + // padding
-    3 * 4 + // up : vec3f
+    3 * 4 + // up : vec3<f32>
     4 + // padding
     0;
   const uniformBuffer = device.createBuffer({
@@ -169,7 +169,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // Quad vertex buffer
   //////////////////////////////////////////////////////////////////////////////
   const quadVertexBuffer = device.createBuffer({
-    size: 6 * 2 * 4, // 6x vec2f
+    size: 6 * 2 * 4, // 6x vec2<f32>
     usage: GPUBufferUsage.VERTEX,
     mappedAtCreation: true,
   });

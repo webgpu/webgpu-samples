@@ -9,15 +9,15 @@ struct Camera {
 @binding(1) @group(0) var<uniform> camera : Camera;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4f,
-  @location(0) fragColor : vec4f,
+  @builtin(position) Position : vec4<f32>,
+  @location(0) fragColor : vec4<f32>,
 }
 
 @vertex
 fn main(
   @builtin(instance_index) instanceIdx : u32,
-  @location(0) position : vec4f,
-  @location(1) color : vec4f
+  @location(0) position : vec4<f32>,
+  @location(1) color : vec4<f32>
 ) -> VertexOutput {
   var output : VertexOutput;
   output.Position = camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;

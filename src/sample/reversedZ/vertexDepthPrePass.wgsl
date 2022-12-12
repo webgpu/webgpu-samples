@@ -11,7 +11,7 @@ struct Camera {
 @vertex
 fn main(
   @builtin(instance_index) instanceIdx : u32,
-  @location(0) position : vec4f
-) -> @builtin(position) vec4f {
+  @location(0) position : vec4<f32>
+) -> @builtin(position) vec4<f32> {
   return camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
 }
