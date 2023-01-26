@@ -4,6 +4,12 @@
   margin-top: 10px;
 }
 
+.canvasContainer>canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 600px;
+}
+
 nav.sourceFileNav ul {
   list-style-type: none;
   padding: 0;

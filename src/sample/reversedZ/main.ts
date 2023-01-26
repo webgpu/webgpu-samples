@@ -107,15 +107,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvas.clientWidth * devicePixelRatio,
-    canvas.clientHeight * devicePixelRatio,
-  ];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -369,14 +366,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: depthBufferFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
   });
   const depthTextureView = depthTexture.createView();
 
   const defaultDepthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: depthBufferFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -555,7 +552,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const viewMatrix = mat4.create();
   mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -12));
 
-  const aspect = (0.5 * presentationSize[0]) / presentationSize[1];
+  const aspect = (0.5 * canvas.width) / canvas.height;
   const projectionMatrix = mat4.create();
   perspectiveZO(projectionMatrix, (2 * Math.PI) / 5, aspect, 5, Infinity);
 
@@ -633,10 +630,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         colorPass.setBindGroup(0, uniformBindGroups[m]);
         colorPass.setVertexBuffer(0, verticesBuffer);
         colorPass.setViewport(
-          (presentationSize[0] * m) / 2,
+          (canvas.width * m) / 2,
           0,
-          presentationSize[0] / 2,
-          presentationSize[1],
+          canvas.width / 2,
+          canvas.height,
           0,
           1
         );
@@ -655,10 +652,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );
@@ -677,10 +674,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           precisionErrorPass.setBindGroup(1, depthTextureBindGroup);
           precisionErrorPass.setVertexBuffer(0, verticesBuffer);
           precisionErrorPass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );
@@ -701,10 +698,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );
@@ -719,10 +716,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           depthTextureQuadPass.setPipeline(textureQuadPassPipline);
           depthTextureQuadPass.setBindGroup(0, depthTextureBindGroup);
           depthTextureQuadPass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );
