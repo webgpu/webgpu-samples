@@ -41,9 +41,12 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         <nav className={`${styles.panel} ${styles.container}`}>
           <h1>
             <Link href="/">{title}</Link>
-            <div className={`${styles.expand}`} onClick={() => {
-              document.querySelector('nav').classList.toggle('expanded');
-            }}></div>
+            <div
+              className={`${styles.expand}`}
+              onClick={() => {
+                document.querySelector('nav').classList.toggle('expanded');
+              }}
+            ></div>
           </h1>
           <a href="https://github.com/austinEng/webgpu-samples">Github</a>
           <hr />
@@ -62,9 +65,16 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     pages[slug].render.preload();
                   }}
                 >
-                  <Link href={`/samples/${slug}`} onClick={() => {
-                    document.querySelector('nav').classList.remove('expanded');
-                  }}>{slug}</Link>
+                  <Link
+                    href={`/samples/${slug}`}
+                    onClick={() => {
+                      document
+                        .querySelector('nav')
+                        .classList.remove('expanded');
+                    }}
+                  >
+                    {slug}
+                  </Link>
                 </li>
               );
             })}
