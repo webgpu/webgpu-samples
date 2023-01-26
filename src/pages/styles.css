@@ -34,13 +34,3 @@ main {
   padding-left: 15px;
   padding-right: 15px;
 }
-
-@media only screen and (max-width: 768px) {
-  nav ul, nav>a, nav hr {
-    display: none;
-  }
-
-  nav.expanded ul, nav.expanded>a, nav.expanded hr {
-    display: block;
-  }
-}

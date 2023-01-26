@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useState } from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
@@ -16,6 +17,8 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
 }) => {
   const router = useRouter();
   const samplesNames = Object.keys(pages);
+
+  const [listExpanded, setListExpanded] = useState<boolean>(false);
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
   if (oldPathSyntaxMatch) {
@@ -38,47 +41,50 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         />
       </Head>
       <div className={styles.wrapper}>
-        <nav className={`${styles.panel} ${styles.container}`}>
+        <nav
+          className={`${styles.panel} ${styles.container}`}
+          data-expanded={listExpanded}
+        >
           <h1>
             <Link href="/">{title}</Link>
             <div
-              className={`${styles.expand}`}
+              className={styles.expand}
               onClick={() => {
-                document.querySelector('nav').classList.toggle('expanded');
+                setListExpanded(!listExpanded);
               }}
             ></div>
           </h1>
-          <a href="https://github.com/austinEng/webgpu-samples">Github</a>
-          <hr />
-          <ul className={styles.exampleList}>
-            {samplesNames.map((slug) => {
-              const className =
-                router.pathname === `/samples/[slug]` &&
-                router.query['slug'] === slug
-                  ? styles.selected
-                  : undefined;
-              return (
-                <li
-                  key={slug}
-                  className={className}
-                  onMouseOver={() => {
-                    pages[slug].render.preload();
-                  }}
-                >
-                  <Link
-                    href={`/samples/${slug}`}
-                    onClick={() => {
-                      document
-                        .querySelector('nav')
-                        .classList.remove('expanded');
+          <div className={styles.panelContents}>
+            <a href="https://github.com/austinEng/webgpu-samples">Github</a>
+            <hr />
+            <ul className={styles.exampleList}>
+              {samplesNames.map((slug) => {
+                const className =
+                  router.pathname === `/samples/[slug]` &&
+                  router.query['slug'] === slug
+                    ? styles.selected
+                    : undefined;
+                return (
+                  <li
+                    key={slug}
+                    className={className}
+                    onMouseOver={() => {
+                      pages[slug].render.preload();
                     }}
                   >
-                    {slug}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                    <Link
+                      href={`/samples/${slug}`}
+                      onClick={() => {
+                        setListExpanded(false);
+                      }}
+                    >
+                      {slug}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </nav>
         <Component {...pageProps} />
       </div>
