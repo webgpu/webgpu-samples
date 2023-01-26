@@ -21,15 +21,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvas.clientWidth * devicePixelRatio,
-    canvas.clientHeight * devicePixelRatio,
-  ];
-  const aspect = presentationSize[0] / presentationSize[1];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  const aspect = canvas.width / canvas.height;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -70,12 +67,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   // GBuffer texture render targets
   const gBufferTexture2DFloat = device.createTexture({
-    size: [...presentationSize, 2],
+    size: [canvas.width, canvas.height, 2],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'rgba32float',
   });
   const gBufferTextureAlbedo = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'bgra8unorm',
   });
@@ -221,8 +218,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         },
       ],
       constants: {
-        canvasSizeWidth: presentationSize[0],
-        canvasSizeHeight: presentationSize[1],
+        canvasSizeWidth: canvas.width,
+        canvasSizeHeight: canvas.height,
       },
     },
     primitive,
@@ -256,7 +253,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });

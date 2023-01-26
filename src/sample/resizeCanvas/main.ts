@@ -15,14 +15,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvas.clientWidth * devicePixelRatio,
-    canvas.clientHeight * devicePixelRatio,
-  ];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -72,8 +69,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     // When the size changes, we need to reallocate the render target.
     // We also need to set the physical size of the canvas to match the computed CSS size.
     if (
-      (currentWidth !== presentationSize[0] ||
-        currentHeight !== presentationSize[1]) &&
+      (currentWidth !== canvas.width || currentHeight !== canvas.height) &&
       currentWidth &&
       currentHeight
     ) {
@@ -82,18 +78,14 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         renderTarget.destroy();
       }
 
-      presentationSize[0] = currentWidth;
-      presentationSize[1] = currentHeight;
+      // Setting the canvas width and height will automatically resize the textures returned
+      // when calling getCurrentTexture() on the context.
+      canvas.width = currentWidth;
+      canvas.height = currentHeight;
 
-      // Reconfigure the canvas size.
-      context.configure({
-        device,
-        format: presentationFormat,
-        size: presentationSize,
-      });
-
+      // Resize the multisampled render target to match the new canvas size.
       renderTarget = device.createTexture({
-        size: presentationSize,
+        size: [canvas.width, canvas.height],
         sampleCount,
         format: presentationFormat,
         usage: GPUTextureUsage.RENDER_ATTACHMENT,

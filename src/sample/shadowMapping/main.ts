@@ -18,15 +18,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvas.clientWidth * devicePixelRatio,
-    canvas.clientHeight * devicePixelRatio,
-  ];
-  const aspect = presentationSize[0] / presentationSize[1];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  const aspect = canvas.width / canvas.height;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -193,7 +190,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: 'depth24plus-stencil8',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -230,7 +227,8 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     // Two 4x4 viewProj matrices,
     // one for the camera and one for the light.
     // Then a vec3 for the light position.
-    size: 2 * 4 * 16 + 3 * 4,
+    // Rounded to the nearest multiple of 16.
+    size: 2 * 4 * 16 + 4 * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 

@@ -214,7 +214,7 @@ const SampleLayout: React.FunctionComponent<
           }}
           ref={guiParentRef}
         ></div>
-        <canvas ref={canvasRef} width={600} height={600}></canvas>
+        <canvas ref={canvasRef}></canvas>
       </div>
       <div>
         <nav className={styles.sourceFileNav}>

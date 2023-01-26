@@ -23,15 +23,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvas.clientWidth * devicePixelRatio,
-    canvas.clientHeight * devicePixelRatio,
-  ];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -118,7 +115,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -375,7 +372,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
   });
 
-  const aspect = presentationSize[0] / presentationSize[1];
+  const aspect = canvas.width / canvas.height;
   const projection = mat4.create();
   const view = mat4.create();
   const mvp = mat4.create();

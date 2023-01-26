@@ -20,15 +20,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvas.clientWidth * devicePixelRatio,
-    canvas.clientHeight * devicePixelRatio,
-  ];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
 
     // Specify we want both RENDER_ATTACHMENT and COPY_SRC since we
@@ -103,7 +100,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -117,7 +114,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   // We will copy the frame's rendering results into this texture and
   // sample it on the next frame.
   const cubeTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: presentationFormat,
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
   });
@@ -167,7 +164,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     },
   };
 
-  const aspect = presentationSize[0] / presentationSize[1];
+  const aspect = canvas.width / canvas.height;
   const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
@@ -221,7 +218,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
       {
         texture: cubeTexture,
       },
-      presentationSize
+      [canvas.width, canvas.height]
     );
 
     device.queue.submit([commandEncoder.finish()]);
