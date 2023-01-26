@@ -55,6 +55,14 @@
     height: auto;
   }
 
+  .panel[data-expanded=false] .panelContents {
+    display: none;
+  }
+
+  .panel[data-expanded=true] .panelContents {
+    display: block;
+  }
+
   .expand {
     display: inline-block;
   }
