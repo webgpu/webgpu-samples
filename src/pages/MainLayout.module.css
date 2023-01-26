@@ -30,10 +30,33 @@
   color: #ff0000;
 }
 
+.expand {
+  display: none;
+  float: right;
+  width: 36px;
+  height: 36px;
+  margin-top: -0.25em;
+  background-image: url(../../public/menu.svg);
+  background-size: cover;
+}
+
 @media only screen and (max-width: 768px) {
   /* More padding on mobile for easier touch screen use */
   .exampleLink {
     padding: 0.5em 0;
+  }
+
+  .wrapper {
+    flex-direction: column;
+  }
+
+  .panel {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .expand {
+    display: inline-block;
   }
 }
 
