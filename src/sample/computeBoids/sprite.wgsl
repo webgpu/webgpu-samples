@@ -25,10 +25,6 @@ fn vert_main(
   return output;
 }
 
-struct FragmentInput {
-  @location(4) color : vec3<f32>,
-}
-
 @fragment
 fn frag_main(@location(4) color : vec4<f32>) -> @location(0) vec4<f32> {
   return color;
