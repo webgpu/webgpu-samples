@@ -2,6 +2,8 @@
 @binding(1) @group(0) var<storage, read> current: array<u32>;
 @binding(2) @group(0) var<storage, read_write> next: array<u32>;
 
+override blockSize = 8;
+
 fn getIndex(x: u32, y: u32) -> u32 {
   let h = size.y;
   let w = size.x;
@@ -19,7 +21,7 @@ fn countNeighbors(x: u32, y: u32) -> u32 {
          getCell(x - 1, y + 1) + getCell(x, y + 1) + getCell(x + 1, y + 1);
 }
 
-@compute @workgroup_size(16, 16)
+@compute @workgroup_size(blockSize, blockSize)
 fn main(@builtin(global_invocation_id) grid: vec3<u32>) {
   let x = grid.x;
   let y = grid.y;
