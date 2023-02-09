@@ -279,7 +279,7 @@ const GameOfLife: () => JSX.Element = () =>
   makeSample({
     name: "Conway's Game of Life",
     description:
-      "This example shows how to make Conway's game of life by using compute pipeline and render pipeline.",
+      "This example shows how to make Conway's game of life. First, use compute shader to calculate how cells grow or die. Then use render pipeline to draw cells by using instance mesh.",
     gui: true,
     init,
     sources: [
