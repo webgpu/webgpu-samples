@@ -3,17 +3,16 @@ import computeWGSL from './compute.wgsl';
 import vertWGSL from './vert.wgsl';
 import fragWGSL from './frag.wgsl';
 
-const init: SampleInit = async ({ canvasRef, gui }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-
-  if (canvasRef.current === null) return;
-
-  const pixelRatio = window.devicePixelRatio || 1;
-  canvasRef.current.width = canvasRef.current.clientWidth * pixelRatio;
-  canvasRef.current.height = canvasRef.current.clientHeight * pixelRatio;
+  if (!pageState.active) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+
   context.configure({
     device,
     format: presentationFormat,
@@ -23,7 +22,8 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const GameOptions = {
     width: 128,
     height: 128,
-    speed: 4,
+    timestep: 4,
+    workgroupSize: 8
   };
 
   const computeShader = device.createShaderModule({ code: computeWGSL });
@@ -51,17 +51,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         },
       },
     ],
-  });
-
-  // compute pipeline
-  const computePipeline = device.createComputePipeline({
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayoutCompute],
-    }),
-    compute: {
-      module: computeShader,
-      entryPoint: 'main',
-    },
   });
 
   const squareVertices = new Uint32Array([0, 0, 0, 1, 1, 0, 1, 1]);
@@ -114,9 +103,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   };
 
   function addGUI() {
-    gui.add(GameOptions, 'speed', 0, 60, 1);
+    gui.add(GameOptions, 'timestep', 1, 60, 1);
     gui.add(GameOptions, 'width', 16, 1024, 16).onFinishChange(resetGameData);
     gui.add(GameOptions, 'height', 16, 1024, 16).onFinishChange(resetGameData);
+    gui.add(GameOptions, 'workgroupSize', [4, 8, 16]).onFinishChange(resetGameData);
   }
 
   let wholeTime = 0,
@@ -125,6 +115,19 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     buffer1: GPUBuffer;
   let render: () => void;
   function resetGameData() {
+    // compute pipeline
+    const computePipeline = device.createComputePipeline({
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [bindGroupLayoutCompute],
+      }),
+      compute: {
+        module: computeShader,
+        entryPoint: 'main',
+        constants: {
+          blockSize: GameOptions.workgroupSize
+        }
+      },
+    });
     const sizeBuffer = device.createBuffer({
       size: 2 * Uint32Array.BYTES_PER_ELEMENT,
       usage:
@@ -232,11 +235,11 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoderCompute.setPipeline(computePipeline);
       passEncoderCompute.setBindGroup(
         0,
-        loopTimes % 2 === 0 ? bindGroup0 : bindGroup1
+        loopTimes ? bindGroup1 : bindGroup0
       );
       passEncoderCompute.dispatchWorkgroups(
-        GameOptions.width >> 4,
-        GameOptions.height >> 4
+        GameOptions.width / GameOptions.workgroupSize,
+        GameOptions.height / GameOptions.workgroupSize
       );
       passEncoderCompute.end();
       // render
@@ -244,7 +247,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       passEncoderRender.setPipeline(renderPipeline);
       passEncoderRender.setVertexBuffer(
         0,
-        loopTimes % 2 === 0 ? buffer1 : buffer0
+        loopTimes ? buffer1 : buffer0
       );
       passEncoderRender.setVertexBuffer(1, squareBuffer);
       passEncoderRender.setBindGroup(0, uniformBindGroup);
@@ -259,12 +262,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   resetGameData();
 
   (function loop() {
-    if (GameOptions.speed) {
+    if (GameOptions.timestep) {
       wholeTime++;
-      if (wholeTime >= GameOptions.speed) {
+      if (wholeTime >= GameOptions.timestep) {
         render();
-        wholeTime -= GameOptions.speed;
-        loopTimes++;
+        wholeTime -= GameOptions.timestep;
+        loopTimes = 1 - loopTimes;
       }
     }
 
