@@ -23,7 +23,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     width: 128,
     height: 128,
     timestep: 4,
-    workgroupSize: 8
+    workgroupSize: 8,
   };
 
   const computeShader = device.createShaderModule({ code: computeWGSL });
@@ -106,7 +106,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     gui.add(GameOptions, 'timestep', 1, 60, 1);
     gui.add(GameOptions, 'width', 16, 1024, 16).onFinishChange(resetGameData);
     gui.add(GameOptions, 'height', 16, 1024, 16).onFinishChange(resetGameData);
-    gui.add(GameOptions, 'workgroupSize', [4, 8, 16]).onFinishChange(resetGameData);
+    gui
+      .add(GameOptions, 'workgroupSize', [4, 8, 16])
+      .onFinishChange(resetGameData);
   }
 
   let wholeTime = 0,
@@ -124,8 +126,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         module: computeShader,
         entryPoint: 'main',
         constants: {
-          blockSize: GameOptions.workgroupSize
-        }
+          blockSize: GameOptions.workgroupSize,
+        },
       },
     });
     const sizeBuffer = device.createBuffer({
@@ -233,10 +235,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       // compute
       const passEncoderCompute = commandEncoder.beginComputePass();
       passEncoderCompute.setPipeline(computePipeline);
-      passEncoderCompute.setBindGroup(
-        0,
-        loopTimes ? bindGroup1 : bindGroup0
-      );
+      passEncoderCompute.setBindGroup(0, loopTimes ? bindGroup1 : bindGroup0);
       passEncoderCompute.dispatchWorkgroups(
         GameOptions.width / GameOptions.workgroupSize,
         GameOptions.height / GameOptions.workgroupSize
@@ -245,10 +244,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       // render
       const passEncoderRender = commandEncoder.beginRenderPass(renderPass);
       passEncoderRender.setPipeline(renderPipeline);
-      passEncoderRender.setVertexBuffer(
-        0,
-        loopTimes ? buffer1 : buffer0
-      );
+      passEncoderRender.setVertexBuffer(0, loopTimes ? buffer1 : buffer0);
       passEncoderRender.setVertexBuffer(1, squareBuffer);
       passEncoderRender.setBindGroup(0, uniformBindGroup);
       passEncoderRender.draw(4, length);
