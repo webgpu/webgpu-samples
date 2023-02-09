@@ -22,6 +22,6 @@ declare namespace NodeJS {
 }
 
 declare module '*.wgsl' {
-  const shader: 'string';
+  const shader: string;
   export default shader;
 }

@@ -98,24 +98,21 @@ const depthClearValues = {
   [DepthBufferMode.Reversed]: 0.0,
 };
 
-const init: SampleInit = async ({ canvasRef, gui }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
+  if (!pageState.active) return;
 
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -369,14 +366,14 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: depthBufferFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
   });
   const depthTextureView = depthTexture.createView();
 
   const defaultDepthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: depthBufferFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -555,7 +552,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   const viewMatrix = mat4.create();
   mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -12));
 
-  const aspect = (0.5 * presentationSize[0]) / presentationSize[1];
+  const aspect = (0.5 * canvas.width) / canvas.height;
   const projectionMatrix = mat4.create();
   perspectiveZO(projectionMatrix, (2 * Math.PI) / 5, aspect, 5, Infinity);
 
@@ -608,7 +605,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     updateTransformationMatrix();
     device.queue.writeBuffer(
@@ -633,10 +630,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         colorPass.setBindGroup(0, uniformBindGroups[m]);
         colorPass.setVertexBuffer(0, verticesBuffer);
         colorPass.setViewport(
-          (presentationSize[0] * m) / 2,
+          (canvas.width * m) / 2,
           0,
-          presentationSize[0] / 2,
-          presentationSize[1],
+          canvas.width / 2,
+          canvas.height,
           0,
           1
         );
@@ -655,10 +652,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
           depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );
@@ -677,10 +674,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
           precisionErrorPass.setBindGroup(1, depthTextureBindGroup);
           precisionErrorPass.setVertexBuffer(0, verticesBuffer);
           precisionErrorPass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );
@@ -701,10 +698,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
           depthPrePass.setBindGroup(0, uniformBindGroups[m]);
           depthPrePass.setVertexBuffer(0, verticesBuffer);
           depthPrePass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );
@@ -719,10 +716,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
           depthTextureQuadPass.setPipeline(textureQuadPassPipline);
           depthTextureQuadPass.setBindGroup(0, depthTextureBindGroup);
           depthTextureQuadPass.setViewport(
-            (presentationSize[0] * m) / 2,
+            (canvas.width * m) / 2,
             0,
-            presentationSize[0] / 2,
-            presentationSize[1],
+            canvas.width / 2,
+            canvas.height,
             0,
             1
           );

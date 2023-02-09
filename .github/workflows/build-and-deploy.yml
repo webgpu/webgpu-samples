@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v2-beta
         with:
-          node-version: "15.x"
+          node-version: "18.x"
 
       - uses: actions/cache@v2
         with:

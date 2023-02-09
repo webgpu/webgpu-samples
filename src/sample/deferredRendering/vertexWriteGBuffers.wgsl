@@ -22,9 +22,9 @@ fn main(
   @location(2) uv : vec2<f32>
 ) -> VertexOutput {
   var output : VertexOutput;
-  output.fragPosition = (uniforms.modelMatrix * vec4<f32>(position, 1.0)).xyz;
-  output.Position = camera.viewProjectionMatrix * vec4<f32>(output.fragPosition, 1.0);
-  output.fragNormal = normalize((uniforms.normalModelMatrix * vec4<f32>(normal, 1.0)).xyz);
+  output.fragPosition = (uniforms.modelMatrix * vec4(position, 1.0)).xyz;
+  output.Position = camera.viewProjectionMatrix * vec4(output.fragPosition, 1.0);
+  output.fragNormal = normalize((uniforms.normalModelMatrix * vec4(normal, 1.0)).xyz);
   output.fragUV = uv;
   return output;
 }

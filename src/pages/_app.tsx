@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useState } from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
@@ -16,6 +17,8 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
 }) => {
   const router = useRouter();
   const samplesNames = Object.keys(pages);
+
+  const [listExpanded, setListExpanded] = useState<boolean>(false);
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
   if (oldPathSyntaxMatch) {
@@ -36,50 +39,52 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
-        <link
-          href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css"
-          rel="stylesheet"
-        />
-        <link
-          href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/theme/monokai.min.css"
-          rel="stylesheet"
-        />
-        <meta
-          httpEquiv="origin-trial"
-          content="Ak1q2mlPP/liPtT5bWxAgE12zre448Gqx42aQRq4EsL8vfLPsELqk3xXKBV4iCyK9xKYc7DejNfngi6jyaW/wAwAAABOeyJvcmlnaW4iOiJodHRwczovL2F1c3Rpbi1lbmcuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJHUFUiLCJleHBpcnkiOjE2NjM3MTgzOTl9"
-        />
       </Head>
       <div className={styles.wrapper}>
-        <nav className={`${styles.panel} ${styles.container}`}>
+        <nav
+          className={`${styles.panel} ${styles.container}`}
+          data-expanded={listExpanded}
+        >
           <h1>
             <Link href="/">{title}</Link>
+            <div
+              className={styles.expand}
+              onClick={() => {
+                setListExpanded(!listExpanded);
+              }}
+            ></div>
           </h1>
-          <a href="https://github.com/austinEng/webgpu-samples">Github</a>
-          <hr />
-          <ul className={styles.exampleList}>
-            {samplesNames.map((slug) => {
-              const className =
-                router.pathname === `/samples/[slug]` &&
-                router.query['slug'] === slug
-                  ? styles.selected
-                  : undefined;
-              return (
-                <li
-                  key={slug}
-                  className={className}
-                  onMouseOver={() => {
-                    pages[slug].render.preload();
-                  }}
-                >
-                  <Link href={`/samples/${slug}`}>{slug}</Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className={styles.panelContents}>
+            <a href="https://github.com/austinEng/webgpu-samples">Github</a>
+            <hr />
+            <ul className={styles.exampleList}>
+              {samplesNames.map((slug) => {
+                const className =
+                  router.pathname === `/samples/[slug]` &&
+                  router.query['slug'] === slug
+                    ? styles.selected
+                    : undefined;
+                return (
+                  <li
+                    key={slug}
+                    className={className}
+                    onMouseOver={() => {
+                      pages[slug].render.preload();
+                    }}
+                  >
+                    <Link
+                      href={`/samples/${slug}`}
+                      onClick={() => {
+                        setListExpanded(false);
+                      }}
+                    >
+                      {slug}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </nav>
         <Component {...pageProps} />
       </div>

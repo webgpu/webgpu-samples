@@ -17,7 +17,8 @@ type SourceFileInfo = {
 };
 
 export type SampleInit = (params: {
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvas: HTMLCanvasElement;
+  pageState: { active: boolean };
   gui?: GUI;
 }) => void | Promise<void>;
 
@@ -129,9 +130,17 @@ const SampleLayout: React.FunctionComponent<
       guiParentRef.current.appendChild(gui.domElement);
     }
 
+    const pageState = {
+      active: true,
+    };
+    const cleanup = () => {
+      pageState.active = false;
+    };
     try {
+      const canvas = canvasRef.current;
       const p = props.init({
-        canvasRef,
+        canvas,
+        pageState,
         gui,
       });
 
@@ -145,6 +154,7 @@ const SampleLayout: React.FunctionComponent<
       console.error(err);
       setError(err);
     }
+    return cleanup;
   }, []);
 
   useEffect(() => {
@@ -204,7 +214,7 @@ const SampleLayout: React.FunctionComponent<
           }}
           ref={guiParentRef}
         ></div>
-        <canvas ref={canvasRef} width={600} height={600}></canvas>
+        <canvas ref={canvasRef}></canvas>
       </div>
       <div>
         <nav className={styles.sourceFileNav}>

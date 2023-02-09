@@ -7,23 +7,20 @@ import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgs
 const tileDim = 128;
 const batch = [4, 4];
 
-const init: SampleInit = async ({ canvasRef, gui }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (!pageState.active) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -68,7 +65,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const img = document.createElement('img');
-  img.src = require('../../../assets/img/Di-3d.png');
+  img.src = new URL(
+    '../../../assets/img/Di-3d.png',
+    import.meta.url
+  ).toString();
   await img.decode();
   const imageBitmap = await createImageBitmap(img);
 
@@ -239,7 +239,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     const commandEncoder = device.createCommandEncoder();
 

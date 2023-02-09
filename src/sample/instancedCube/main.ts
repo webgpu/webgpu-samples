@@ -12,23 +12,20 @@ import {
 import instancedVertWGSL from './instanced.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
 
-const init: SampleInit = async ({ canvasRef }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (!pageState.active) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -99,7 +96,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -130,7 +127,7 @@ const init: SampleInit = async ({ canvasRef }) => {
     ],
   });
 
-  const aspect = presentationSize[0] / presentationSize[1];
+  const aspect = canvas.width / canvas.height;
   const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
@@ -213,7 +210,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     // Update the matrix data.
     updateTransformationMatrix();

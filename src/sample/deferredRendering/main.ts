@@ -13,23 +13,20 @@ const kMaxNumLights = 1024;
 const lightExtentMin = vec3.fromValues(-50, -30, -50);
 const lightExtentMax = vec3.fromValues(50, 50, 50);
 
-const init: SampleInit = async ({ canvasRef, gui }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  if (!pageState.active) return;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
-  const aspect = presentationSize[0] / presentationSize[1];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  const aspect = canvas.width / canvas.height;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -70,12 +67,12 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   // GBuffer texture render targets
   const gBufferTexture2DFloat = device.createTexture({
-    size: [...presentationSize, 2],
+    size: [canvas.width, canvas.height, 2],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'rgba32float',
   });
   const gBufferTextureAlbedo = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'bgra8unorm',
   });
@@ -200,24 +197,9 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     ],
   });
 
-  const canvasSizeUniformBindGroupLayout = device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.FRAGMENT,
-        buffer: {
-          type: 'uniform',
-        },
-      },
-    ],
-  });
-
   const gBuffersDebugViewPipeline = device.createRenderPipeline({
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        gBufferTexturesBindGroupLayout,
-        canvasSizeUniformBindGroupLayout,
-      ],
+      bindGroupLayouts: [gBufferTexturesBindGroupLayout],
     }),
     vertex: {
       module: device.createShaderModule({
@@ -235,6 +217,10 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
           format: presentationFormat,
         },
       ],
+      constants: {
+        canvasSizeWidth: canvas.width,
+        canvasSizeHeight: canvas.height,
+      },
     },
     primitive,
   });
@@ -244,7 +230,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
       bindGroupLayouts: [
         gBufferTexturesBindGroupLayout,
         lightsBufferBindGroupLayout,
-        canvasSizeUniformBindGroupLayout,
       ],
     }),
     vertex: {
@@ -268,7 +253,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -374,23 +359,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         binding: 1,
         resource: {
           buffer: cameraUniformBuffer,
-        },
-      },
-    ],
-  });
-
-  const canvasSizeUniformBuffer = device.createBuffer({
-    size: 4 * 2,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
-
-  const canvasSizeUniformBindGroup = device.createBindGroup({
-    layout: canvasSizeUniformBindGroupLayout,
-    entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: canvasSizeUniformBuffer,
         },
       },
     ],
@@ -563,15 +531,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
     normalModelData.byteOffset,
     normalModelData.byteLength
   );
-  // Pass the canvas size to shader to help sample from gBuffer textures using coord
-  const canvasSizeData = new Float32Array(presentationSize);
-  device.queue.writeBuffer(
-    canvasSizeUniformBuffer,
-    0,
-    canvasSizeData.buffer,
-    canvasSizeData.byteOffset,
-    canvasSizeData.byteLength
-  );
 
   // Rotates the camera around the origin based on time.
   function getCameraViewProjMatrix() {
@@ -589,7 +548,7 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     const cameraViewProj = getCameraViewProjMatrix();
     device.queue.writeBuffer(
@@ -635,7 +594,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         );
         debugViewPass.setPipeline(gBuffersDebugViewPipeline);
         debugViewPass.setBindGroup(0, gBufferTexturesBindGroup);
-        debugViewPass.setBindGroup(1, canvasSizeUniformBindGroup);
         debugViewPass.draw(6);
         debugViewPass.end();
       } else {
@@ -649,7 +607,6 @@ const init: SampleInit = async ({ canvasRef, gui }) => {
         deferredRenderingPass.setPipeline(deferredRenderPipeline);
         deferredRenderingPass.setBindGroup(0, gBufferTexturesBindGroup);
         deferredRenderingPass.setBindGroup(1, lightsBufferBindGroup);
-        deferredRenderingPass.setBindGroup(2, canvasSizeUniformBindGroup);
         deferredRenderingPass.draw(6);
         deferredRenderingPass.end();
       }

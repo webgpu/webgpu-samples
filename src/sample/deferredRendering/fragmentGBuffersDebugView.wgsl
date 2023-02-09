@@ -2,17 +2,15 @@
 @group(0) @binding(1) var gBufferNormal: texture_2d<f32>;
 @group(0) @binding(2) var gBufferAlbedo: texture_2d<f32>;
 
-struct CanvasConstants {
-  size: vec2<f32>,
-}
-@group(1) @binding(0) var<uniform> canvas : CanvasConstants;
+override canvasSizeWidth: f32;
+override canvasSizeHeight: f32;
 
 @fragment
 fn main(
   @builtin(position) coord : vec4<f32>
 ) -> @location(0) vec4<f32> {
   var result : vec4<f32>;
-  let c = coord.xy / canvas.size;
+  let c = coord.xy / vec2<f32>(canvasSizeWidth, canvasSizeHeight);
   if (c.x < 0.33333) {
     result = textureLoad(
       gBufferPosition,

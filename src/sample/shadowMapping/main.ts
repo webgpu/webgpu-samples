@@ -9,24 +9,21 @@ import fragmentWGSL from './fragment.wgsl';
 
 const shadowDepthTextureSize = 1024;
 
-const init: SampleInit = async ({ canvasRef }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
-  if (canvasRef.current === null) return;
+  if (!pageState.active) return;
 
-  const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
+  const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
-  const presentationSize = [
-    canvasRef.current.clientWidth * devicePixelRatio,
-    canvasRef.current.clientHeight * devicePixelRatio,
-  ];
-  const aspect = presentationSize[0] / presentationSize[1];
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  const aspect = canvas.width / canvas.height;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
-    size: presentationSize,
     format: presentationFormat,
     alphaMode: 'opaque',
   });
@@ -180,6 +177,9 @@ const init: SampleInit = async ({ canvasRef }) => {
           format: presentationFormat,
         },
       ],
+      constants: {
+        shadowDepthTextureSize,
+      },
     },
     depthStencil: {
       depthWriteEnabled: true,
@@ -190,7 +190,7 @@ const init: SampleInit = async ({ canvasRef }) => {
   });
 
   const depthTexture = device.createTexture({
-    size: presentationSize,
+    size: [canvas.width, canvas.height],
     format: 'depth24plus-stencil8',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
@@ -227,7 +227,8 @@ const init: SampleInit = async ({ canvasRef }) => {
     // Two 4x4 viewProj matrices,
     // one for the camera and one for the light.
     // Then a vec3 for the light position.
-    size: 2 * 4 * 16 + 3 * 4,
+    // Rounded to the nearest multiple of 16.
+    size: 2 * 4 * 16 + 4 * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -378,7 +379,7 @@ const init: SampleInit = async ({ canvasRef }) => {
 
   function frame() {
     // Sample is no longer the active page.
-    if (!canvasRef.current) return;
+    if (!pageState.active) return;
 
     const cameraViewProj = getCameraViewProjMatrix();
     device.queue.writeBuffer(
