@@ -22,51 +22,30 @@ export type SampleInit = (params: {
   gui?: GUI;
 }) => void | Promise<void>;
 
-const setShaderRegisteredCallback =
-  process.browser &&
-  typeof GPUDevice !== 'undefined' &&
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  require('webgpu-live-shader-module').setShaderRegisteredCallback;
-
 if (process.browser) {
   require('codemirror/mode/javascript/javascript');
 }
 
-function makeCodeMirrorEditor(source: string, editable: boolean) {
+function makeCodeMirrorEditor(source: string) {
   const configuration: EditorConfiguration = {
     lineNumbers: true,
     lineWrapping: true,
     theme: 'monokai',
-    readOnly: !editable,
+    readOnly: true,
   };
 
   let el: HTMLDivElement | null = null;
   let editor: CodeMirrorEditor;
 
-  const updateCallbacks: ((source: string) => void)[] = [];
-
   if (process.browser) {
     el = document.createElement('div');
     const CodeMirror = process.browser && require('codemirror');
     editor = CodeMirror(el, configuration);
-    editor.updatedSource = function (source) {
-      updateCallbacks.forEach((cb) => cb(source));
-    };
   }
 
   function Container(props: React.ComponentProps<'div'>) {
     return (
       <div {...props}>
-        {editable ? (
-          <button
-            className={styles.updateSourceBtn}
-            onClick={() => {
-              editor.updatedSource(editor.getValue());
-            }}
-          >
-            Update
-          </button>
-        ) : null}
         <div
           ref={(div) => {
             if (el && div) {
@@ -79,7 +58,6 @@ function makeCodeMirrorEditor(source: string, editable: boolean) {
     );
   }
   return {
-    updateCallbacks,
     Container,
   };
 }
@@ -97,8 +75,8 @@ const SampleLayout: React.FunctionComponent<
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sources = useMemo(
     () =>
-      props.sources.map(({ name, contents, editable }) => {
-        return { name, ...makeCodeMirrorEditor(contents, editable) };
+      props.sources.map(({ name, contents }) => {
+        return { name, ...makeCodeMirrorEditor(contents) };
       }),
     props.sources
   );
@@ -156,17 +134,6 @@ const SampleLayout: React.FunctionComponent<
     }
     return cleanup;
   }, []);
-
-  useEffect(() => {
-    if (setShaderRegisteredCallback) {
-      setShaderRegisteredCallback((source: string, updatedSource) => {
-        const index = props.sources.findIndex(
-          ({ contents }) => contents == source
-        );
-        sources[index].updateCallbacks.push(updatedSource);
-      });
-    }
-  }, [sources]);
 
   return (
     <main>

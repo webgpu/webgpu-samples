@@ -40,27 +40,10 @@ nav.sourceFileNav li a[data-active=true] {
   height: 0;
 }
 
-.sourceFileContainer > .updateSourceBtn {
-  display: none;
-}
-
 .sourceFileContainer[data-active=true] {
   height: auto;
 }
 
-.sourceFileContainer[data-active=true] > .updateSourceBtn {
-  display: block;
-}
-
 .sourceFileContainer :global(.CodeMirror) {
   margin-top: 0;
-}
-
-.updateSourceBtn {
-  position: absolute;
-  margin-right: 30px;
-  margin-top: 5px;
-  cursor: pointer;
-  right: 0;
-  z-index: 100;
 }

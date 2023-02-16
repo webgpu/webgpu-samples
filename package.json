@@ -23,8 +23,7 @@
     "next": "^13.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "stanford-dragon": "^1.1.1",
-    "webgpu-live-shader-module": "austinEng/webgpu-live-shader-module#fb7d6cc8"
+    "stanford-dragon": "^1.1.1"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^13.0.0",
