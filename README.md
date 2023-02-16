@@ -1,14 +1,9 @@
 # WebGPU Samples
 
-The [WebGPU Samples](//austineng.github.io/webgpu-samples/) are a set of WGSL
-and SPIR-V compatible samples demonstrating the use of the
-[WebGPU API](//webgpu.dev). Please see the current implementation status at
-[webgpu.io](//webgpu.io). SPIR-V compatible samples will be removed when WGSL
-is fully implemented.
-
-These samples run in Chrome Canary behind the flag `--enable-unsafe-webgpu`. If
-something isn't working, please file an issue
-[here](https://github.com/austinEng/webgpu-samples/issues).
+The [WebGPU Samples](//austineng.github.io/webgpu-samples/) are a set of samples
+demonstrating the use of the [WebGPU API](//webgpu.dev). Please see the current
+implementation status and how to run WebGPU in your browser at
+[webgpu.io](//webgpu.io).
 
 ## Building
 `webgpu-samples` is built with [Typescript](https://www.typescriptlang.org/)
