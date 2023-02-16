@@ -20,6 +20,11 @@ const Document: React.FunctionComponent = () => {
           httpEquiv="origin-trial"
           content="As2GyKl2RoDVd+xr1KVeqGjbcUMUPClbP9TvrWOUZbCQv6AJK/Km38sx3qrqKukLVt+KTgVeDl/YcsjxHsLEdwAAAABOeyJvcmlnaW4iOiJodHRwczovL2F1c3Rpbi1lbmcuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJHUFUiLCJleHBpcnkiOjE2NzUyMDk1OTl9"
         />
+        <link
+          rel="icon"
+          type="image/x-icon"
+          href={`${process.env.BASE_PATH || ''}/favicon.ico`}
+        />
       </Head>
       <body>
         <Main />
