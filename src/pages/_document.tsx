@@ -18,7 +18,7 @@ const Document: React.FunctionComponent = () => {
         />
         <meta
           httpEquiv="origin-trial"
-          content="As2GyKl2RoDVd+xr1KVeqGjbcUMUPClbP9TvrWOUZbCQv6AJK/Km38sx3qrqKukLVt+KTgVeDl/YcsjxHsLEdwAAAABOeyJvcmlnaW4iOiJodHRwczovL2F1c3Rpbi1lbmcuY29tOjQ0MyIsImZlYXR1cmUiOiJXZWJHUFUiLCJleHBpcnkiOjE2NzUyMDk1OTl9"
+          content="Ajk6hJ+H2On45QTvVPJLRgjt+S01bdGuXXSu9Oci5oOcypHiuDPM6hW5Wp1GRegFTOU77li5tYRZrhp+RN2ZYgAAAABQeyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVSIsImV4cGlyeSI6MTY5MTcxMTk5OX0="
         />
         <link
           rel="icon"
