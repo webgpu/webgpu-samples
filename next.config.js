@@ -54,4 +54,7 @@ module.exports = {
 
     return config;
   },
+  env: {
+    REPOSITORY_NAME: process.env.REPOSITORY_NAME,
+  },
 }
