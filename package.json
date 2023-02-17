@@ -10,7 +10,7 @@
   },
   "scripts": {
     "lint": "eslint --ext .ts,.tsx src/",
-    "start": "NODE_OPTIONS=--openssl-legacy-provider next dev",
+    "start": "next dev",
     "build": "next build",
     "serve": "next start",
     "export": "next export"
