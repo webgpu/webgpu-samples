@@ -1,6 +1,6 @@
 # WebGPU Samples
 
-The [WebGPU Samples](//austineng.github.io/webgpu-samples/) are a set of samples
+The [WebGPU Samples](//webgpu.github.io/webgpu-samples/) are a set of samples
 demonstrating the use of the [WebGPU API](//webgpu.dev). Please see the current
 implementation status and how to run WebGPU in your browser at
 [webgpu.io](//webgpu.io).
