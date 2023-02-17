@@ -28,6 +28,7 @@ jobs:
 
       - name: Install and Build 🔧
         run: |
+          export REPOSITORY_NAME=${{ github.repository }}
           npm ci
           npm run-script lint
           npm run-script build

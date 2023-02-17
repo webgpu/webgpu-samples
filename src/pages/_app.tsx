@@ -55,7 +55,9 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             ></div>
           </h1>
           <div className={styles.panelContents}>
-            <a href="https://github.com/austinEng/webgpu-samples">Github</a>
+            <a href={`https://github.com/${process.env.REPOSITORY_NAME}`}>
+              Github
+            </a>
             <hr />
             <ul className={styles.exampleList}>
               {samplesNames.map((slug) => {
