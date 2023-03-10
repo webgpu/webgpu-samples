@@ -4,7 +4,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import particleWGSL from './particle.wgsl';
 import probabilityMapWGSL from './probabilityMap.wgsl';
 
-const numParticles = 1000000;
+const numParticles = 50000;
 const particlePositionOffset = 0;
 const particleColorOffset = 4 * 4;
 const particleInstanceByteSize =
