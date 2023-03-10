@@ -3,6 +3,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 var<private> rand_seed : vec2<f32>;
 
+fn init_rand(invocation_id : u32, seed : vec4<f32>) {
+  rand_seed = seed.xz;
+  rand_seed = fract(rand_seed * cos(35.456+f32(invocation_id) * seed.yw));
+  rand_seed = fract(rand_seed * cos(41.235+f32(invocation_id) * seed.xw));
+}
+
 fn rand() -> f32 {
   rand_seed.x = fract(cos(dot(rand_seed, vec2<f32>(23.14077926, 232.61690225))) * 136.8168);
   rand_seed.y = fract(cos(dot(rand_seed, vec2<f32>(54.47856553, 345.84153136))) * 534.7645);
@@ -77,12 +83,11 @@ struct Particles {
 @binding(2) @group(0) var texture : texture_2d<f32>;
 
 @compute @workgroup_size(64)
-fn simulate(
-  @builtin(global_invocation_id) GlobalInvocationID : vec3<u32>
-) {
-  rand_seed = (sim_params.seed.xy + vec2<f32>(GlobalInvocationID.xy)) * sim_params.seed.zw;
+fn simulate(@builtin(global_invocation_id) global_invocation_id : vec3<u32>) {
+  let idx = global_invocation_id.x;
 
-  let idx = GlobalInvocationID.x;
+  init_rand(idx, sim_params.seed);
+
   var particle = data.particles[idx];
 
   // Apply gravity
@@ -123,7 +128,7 @@ fn simulate(
     particle.velocity.x = (rand() - 0.5) * 0.1;
     particle.velocity.y = (rand() - 0.5) * 0.1;
     particle.velocity.z = rand() * 0.3;
-    particle.lifetime = 0.5 + rand() * 2.0;
+    particle.lifetime = 0.5 + rand() * 3.0;
   }
 
   // Store the new particle value
