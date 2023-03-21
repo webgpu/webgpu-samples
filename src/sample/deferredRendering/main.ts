@@ -66,10 +66,15 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   }
 
   // GBuffer texture render targets
-  const gBufferTexture2DFloat = device.createTexture({
-    size: [canvas.width, canvas.height, 2],
+  const gBufferTexture2DFloat32 = device.createTexture({
+    size: [canvas.width, canvas.height],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'rgba32float',
+  });
+  const gBufferTexture2DFloat16 = device.createTexture({
+    size: [canvas.width, canvas.height],
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    format: 'rgba16float',
   });
   const gBufferTextureAlbedo = device.createTexture({
     size: [canvas.width, canvas.height],
@@ -77,16 +82,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     format: 'bgra8unorm',
   });
   const gBufferTextureViews = [
-    gBufferTexture2DFloat.createView({
-      dimension: '2d',
-      baseArrayLayer: 0,
-      arrayLayerCount: 1,
-    }),
-    gBufferTexture2DFloat.createView({
-      dimension: '2d',
-      baseArrayLayer: 1,
-      arrayLayerCount: 1,
-    }),
+    gBufferTexture2DFloat32.createView(),
+    gBufferTexture2DFloat16.createView(),
     gBufferTextureAlbedo.createView(),
   ];
 
@@ -139,7 +136,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         // position
         { format: 'rgba32float' },
         // normal
-        { format: 'rgba32float' },
+        { format: 'rgba16float' },
         // albedo
         { format: 'bgra8unorm' },
       ],
