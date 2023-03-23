@@ -101,10 +101,19 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     passEncoder.draw(6, 1, 0, 0);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
+  
+    if ('requestVideoFrameCallback' in video) {
+      video.requestVideoFrameCallback(frame);
+    } else {
+      requestAnimationFrame(frame);
+    }
+  }
 
+  if ('requestVideoFrameCallback' in video) {
+    video.requestVideoFrameCallback(frame);
+  } else {
     requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
 };
 
 const VideoUploading: () => JSX.Element = () =>
