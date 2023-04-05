@@ -21,7 +21,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque',
+    alphaMode: 'premultiplied',
   });
 
   const sampleCount = 4;
