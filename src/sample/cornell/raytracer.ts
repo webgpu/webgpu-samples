@@ -7,6 +7,11 @@ import Radiosity from './radiosity';
  * Raytracer renders the scene using a software ray-tracing compute pipeline.
  */
 export default class Raytracer {
+  static sourceInfo = {
+    name: __filename.substring(__dirname.length + 1),
+    contents: __SOURCE__,
+  };
+
   private readonly common: Common;
   private readonly framebuffer: GPUTexture;
   private readonly pipeline: GPUComputePipeline;

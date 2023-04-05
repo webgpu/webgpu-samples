@@ -7,6 +7,11 @@ import Scene from './scene';
  * the scene.
  */
 export default class Radiosity {
+  static sourceInfo = {
+    name: __filename.substring(__dirname.length + 1),
+    contents: __SOURCE__,
+  };
+
   // The output lightmap format and dimensions
   static readonly lightmapFormat = 'rgba16float';
   static readonly lightmapWidth = 256;

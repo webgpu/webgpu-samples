@@ -6,6 +6,11 @@ import tonemapperWGSL from './tonemapper.wgsl';
  * a gamma-correct, tonemapped framebuffer used for presentation.
  */
 export default class Tonemapper {
+  static sourceInfo = {
+    name: __filename.substring(__dirname.length + 1),
+    contents: __SOURCE__,
+  };
+
   private readonly bindGroup: GPUBindGroup;
   private readonly pipeline: GPUComputePipeline;
   private readonly width: number;
