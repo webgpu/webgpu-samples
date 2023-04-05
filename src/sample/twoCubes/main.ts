@@ -27,7 +27,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque',
+    alphaMode: 'premultiplied',
   });
 
   // Create a vertex buffer from the cube data.

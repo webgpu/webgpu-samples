@@ -10,11 +10,15 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque',
+    alphaMode: 'premultiplied',
   });
 
   const pipeline = device.createRenderPipeline({

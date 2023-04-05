@@ -17,7 +17,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque',
+    alphaMode: 'premultiplied',
   });
 
   const spriteShaderModule = device.createShaderModule({ code: spriteWGSL });

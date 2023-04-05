@@ -30,7 +30,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'opaque',
+    alphaMode: 'premultiplied',
   });
 
   const particlesBuffer = device.createBuffer({
