@@ -5,6 +5,11 @@ import commonWGSL from './common.wgsl';
  * Common holds the shared WGSL between the shaders, including the common uniform buffer.
  */
 export default class Common {
+  static sourceInfo = {
+    name: __filename.substring(__dirname.length + 1),
+    contents: __SOURCE__,
+  };
+
   /** The WGSL of the common shader */
   readonly wgsl = commonWGSL;
   /** The common uniform buffer bind group and layout */

@@ -126,6 +126,12 @@ const CornellBox: () => JSX.Element = () =>
         name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
+      Common.sourceInfo,
+      Scene.sourceInfo,
+      Radiosity.sourceInfo,
+      Rasterizer.sourceInfo,
+      Raytracer.sourceInfo,
+      Tonemapper.sourceInfo,
       {
         name: './radiosity.wgsl',
         contents: radiosityWGSL,

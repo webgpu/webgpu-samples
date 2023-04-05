@@ -8,6 +8,11 @@ import Scene from './scene';
  * Rasterizer renders the scene using a regular raserization graphics pipeline.
  */
 export default class Rasterizer {
+  static sourceInfo = {
+    name: __filename.substring(__dirname.length + 1),
+    contents: __SOURCE__,
+  };
+
   private readonly common: Common;
   private readonly scene: Scene;
   private readonly renderPassDescriptor: GPURenderPassDescriptor;

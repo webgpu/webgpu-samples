@@ -144,6 +144,11 @@ const light: Quad = {
  * Scene holds the cornell-box scene information.
  */
 export default class Scene {
+  static sourceInfo = {
+    name: __filename.substring(__dirname.length + 1),
+    contents: __SOURCE__,
+  };
+
   readonly vertexCount: number;
   readonly indexCount: number;
   readonly vertices: GPUBuffer;
