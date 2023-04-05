@@ -7,7 +7,10 @@
 // The output framebuffer
 @group(1) @binding(2) var framebuffer : texture_storage_2d<rgba16float, write>;
 
-@compute @workgroup_size(16, 16)
+override WorkgroupSizeX : u32;
+override WorkgroupSizeY : u32;
+
+@compute @workgroup_size(WorkgroupSizeX, WorkgroupSizeY)
 fn main(@builtin(global_invocation_id) invocation_id : vec3u) {
   // Calculate the fragment's NDC coordinates for the intersection of the near
   // clip plane and far clip plane

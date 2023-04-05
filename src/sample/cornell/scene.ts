@@ -187,6 +187,9 @@ export default class Scene {
     }),
     light,
   ];
+  readonly lightCenter = light.center;
+  readonly lightWidth = vec3.len(light.right);
+  readonly lightHeight = vec3.len(light.up);
 
   constructor(device: GPUDevice) {
     const quadStride = 16 * 4;
@@ -308,7 +311,7 @@ export default class Scene {
       usage: GPUBufferUsage.INDEX,
       mappedAtCreation: true,
     });
-    new Uint32Array(indices.getMappedRange()).set(indexData);
+    new Uint16Array(indices.getMappedRange()).set(indexData);
     indices.unmap();
 
     const vertexBufferLayout: GPUVertexBufferLayout[] = [

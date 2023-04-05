@@ -6,11 +6,12 @@ import tonemapperWGSL from './tonemapper.wgsl';
  * a gamma-correct, tonemapped framebuffer used for presentation.
  */
 export default class Tonemapper {
-  private readonly device: GPUDevice;
   private readonly bindGroup: GPUBindGroup;
   private readonly pipeline: GPUComputePipeline;
   private readonly width: number;
   private readonly height: number;
+  private readonly kWorkgroupSizeX = 16;
+  private readonly kWorkgroupSizeY = 16;
 
   constructor(
     device: GPUDevice,
@@ -18,7 +19,6 @@ export default class Tonemapper {
     input: GPUTexture,
     output: GPUTexture
   ) {
-    this.device = device;
     this.width = input.width;
     this.height = input.height;
     const bindGroupLayout = device.createBindGroupLayout({
@@ -76,6 +76,10 @@ export default class Tonemapper {
       compute: {
         module: mod,
         entryPoint: 'main',
+        constants: {
+          WorkgroupSizeX: this.kWorkgroupSizeX,
+          WorkgroupSizeY: this.kWorkgroupSizeY,
+        },
       },
     });
   }
@@ -85,8 +89,8 @@ export default class Tonemapper {
     passEncoder.setBindGroup(0, this.bindGroup);
     passEncoder.setPipeline(this.pipeline);
     passEncoder.dispatchWorkgroups(
-      Math.ceil(this.width / 16),
-      Math.ceil(this.height / 16)
+      Math.ceil(this.width / this.kWorkgroupSizeX),
+      Math.ceil(this.height / this.kWorkgroupSizeY)
     );
     passEncoder.end();
   }

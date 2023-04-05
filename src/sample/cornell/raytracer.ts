@@ -12,6 +12,9 @@ export default class Raytracer {
   private readonly pipeline: GPUComputePipeline;
   private readonly bindGroup: GPUBindGroup;
 
+  private readonly kWorkgroupSizeX = 16;
+  private readonly kWorkgroupSizeY = 16;
+
   constructor(
     device: GPUDevice,
     common: Common,
@@ -83,6 +86,10 @@ export default class Raytracer {
           code: raytracerWGSL + common.wgsl,
         }),
         entryPoint: 'main',
+        constants: {
+          WorkgroupSizeX: this.kWorkgroupSizeX,
+          WorkgroupSizeY: this.kWorkgroupSizeY,
+        },
       },
     });
   }
@@ -93,8 +100,8 @@ export default class Raytracer {
     passEncoder.setBindGroup(0, this.common.uniforms.bindGroup);
     passEncoder.setBindGroup(1, this.bindGroup);
     passEncoder.dispatchWorkgroups(
-      this.framebuffer.width / 16,
-      this.framebuffer.height / 16
+      this.framebuffer.width / this.kWorkgroupSizeX,
+      this.framebuffer.height / this.kWorkgroupSizeY
     );
     passEncoder.end();
   }

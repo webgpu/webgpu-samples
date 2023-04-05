@@ -28,11 +28,15 @@ export default class Radiosity {
   // The total number of lightmap texels for all quads.
   private readonly kTotalLightmapTexels;
 
+  private readonly kAccumulationToLightmapWorkgroupSizeX = 16;
+  private readonly kAccumulationToLightmapWorkgroupSizeY = 16;
+
   private readonly device: GPUDevice;
+  private readonly common: Common;
+  private readonly scene: Scene;
   private readonly radiosityPipeline: GPUComputePipeline;
   private readonly accumulationToLightmapPipeline: GPUComputePipeline;
   private readonly bindGroup: GPUBindGroup;
-  private readonly common: Common;
   private readonly accumulationBuffer: GPUBuffer;
   private readonly uniformBuffer: GPUBuffer;
 
@@ -46,6 +50,7 @@ export default class Radiosity {
   constructor(device: GPUDevice, common: Common, scene: Scene) {
     this.device = device;
     this.common = common;
+    this.scene = scene;
     this.lightmap = device.createTexture({
       label: 'Radiosity.lightmap',
       size: {
@@ -69,7 +74,7 @@ export default class Radiosity {
       Radiosity.lightmapWidth * Radiosity.lightmapHeight * scene.quads.length;
     this.uniformBuffer = device.createBuffer({
       label: 'Radiosity.uniformBuffer',
-      size: 2 * 4, // 2 x f32
+      size: 8 * 4, // 8 x f32
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     const bindGroupLayout = device.createBindGroupLayout({
@@ -128,10 +133,7 @@ export default class Radiosity {
     });
 
     const mod = device.createShaderModule({
-      code:
-        radiosityWGSL
-          .replace('$PHOTONS_PER_WORKGROUP', `${this.kPhotonsPerWorkgroup}`)
-          .replace('$PHOTON_ENERGY', `${this.kPhotonEnergy}`) + common.wgsl,
+      code: radiosityWGSL + common.wgsl,
     });
     const pipelineLayout = device.createPipelineLayout({
       label: 'Radiosity.accumulatePipelineLayout',
@@ -144,6 +146,10 @@ export default class Radiosity {
       compute: {
         module: mod,
         entryPoint: 'radiosity',
+        constants: {
+          PhotonsPerWorkgroup: this.kPhotonsPerWorkgroup,
+          PhotonEnergy: this.kPhotonEnergy,
+        },
       },
     });
 
@@ -153,6 +159,12 @@ export default class Radiosity {
       compute: {
         module: mod,
         entryPoint: 'accumulation_to_lightmap',
+        constants: {
+          AccumulationToLightmapWorkgroupSizeX:
+            this.kAccumulationToLightmapWorkgroupSizeX,
+          AccumulationToLightmapWorkgroupSizeY:
+            this.kAccumulationToLightmapWorkgroupSizeY,
+        },
       },
     });
   }
@@ -171,9 +183,14 @@ export default class Radiosity {
     this.accumulationMean *= accumulationBufferScale;
 
     // Update the radiosity uniform buffer data.
-    const uniformDataF32 = new Float32Array(2);
+    const uniformDataF32 = new Float32Array(this.uniformBuffer.size / 4);
     uniformDataF32[0] = accumulationToLightmapScale;
     uniformDataF32[1] = accumulationBufferScale;
+    uniformDataF32[2] = this.scene.lightWidth;
+    uniformDataF32[3] = this.scene.lightHeight;
+    uniformDataF32[4] = this.scene.lightCenter[0];
+    uniformDataF32[5] = this.scene.lightCenter[1];
+    uniformDataF32[6] = this.scene.lightCenter[2];
     this.device.queue.writeBuffer(
       this.uniformBuffer,
       0,
@@ -192,8 +209,12 @@ export default class Radiosity {
     // Then copy the 'accumulation' data to 'lightmap'
     passEncoder.setPipeline(this.accumulationToLightmapPipeline);
     passEncoder.dispatchWorkgroups(
-      Math.ceil(Radiosity.lightmapWidth / 16),
-      Math.ceil(Radiosity.lightmapHeight / 16),
+      Math.ceil(
+        Radiosity.lightmapWidth / this.kAccumulationToLightmapWorkgroupSizeX
+      ),
+      Math.ceil(
+        Radiosity.lightmapHeight / this.kAccumulationToLightmapWorkgroupSizeY
+      ),
       this.lightmap.depthOrArrayLayers
     );
     passEncoder.end();

@@ -127,7 +127,7 @@ export default class Rasterizer {
     );
     passEncoder.setPipeline(this.pipeline);
     passEncoder.setVertexBuffer(0, this.scene.vertices);
-    passEncoder.setIndexBuffer(this.scene.indices, 'uint32');
+    passEncoder.setIndexBuffer(this.scene.indices, 'uint16');
     passEncoder.setBindGroup(0, this.common.uniforms.bindGroup);
     passEncoder.setBindGroup(1, this.bindGroup);
     passEncoder.drawIndexed(this.scene.indexCount);

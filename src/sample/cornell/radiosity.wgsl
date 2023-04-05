@@ -14,16 +14,22 @@ struct Uniforms {
   accumulation_to_lightmap_scale : f32,
   // Accumulation buffer rescaling value
   accumulation_buffer_scale : f32,
+  // The width of the light
+  light_width : f32,
+  // The height of the light
+  light_height : f32,
+  // The center of the light
+  light_center : vec3f,
 }
 
 // accumulation_to_lightmap uniforms binding point
 @group(1) @binding(2) var<uniform> uniforms : Uniforms;
 
 // Number of photons emitted per workgroup
-const PhotonsPerWorkgroup = $PHOTONS_PER_WORKGROUP;
+override PhotonsPerWorkgroup : u32;
 
 // Maximum value that can be added to the accumulation buffer from a single photon
-const PhotonEnergy = $PHOTON_ENERGY;
+override PhotonEnergy : f32;
 
 // Number of bounces of each photon
 const PhotonBounces = 4;
@@ -55,7 +61,7 @@ fn photon() {
     let quad = quads[hit.quad];
 
     // Bounce the ray.
-    ray.start = hit.pos + quad.plane.xyz * 0.01;
+    ray.start = hit.pos + quad.plane.xyz * 1e-5;
     ray.dir = normalize(reflect(ray.dir, quad.plane.xyz) + rand_unit_sphere() * 0.75);
 
     // Photon color is multiplied by the quad's color.
@@ -89,15 +95,20 @@ fn accumulation_base_index(coord : vec2u, quad : u32) -> u32 {
 // Returns a new Ray at a random point on the light, in a random downwards
 // direction.
 fn new_light_ray() -> Ray {
-  const center = vec3(0, 10, 0);
-  let pos = center + vec3f(rand() - 0.5, 0, rand() - 0.5);
+  let center = uniforms.light_center;
+  let pos = center + vec3f(uniforms.light_width * (rand() - 0.5),
+                           0,
+                           uniforms.light_height * (rand() - 0.5));
   let dir = normalize(vec3f(0, -1, 0) + rand_unit_sphere());
   return Ray(pos, dir);
 }
 
+override AccumulationToLightmapWorkgroupSizeX : u32;
+override AccumulationToLightmapWorkgroupSizeY : u32;
+
 // Compute shader used to copy the atomic<u32> data in 'accumulation' to
 // 'lightmap'. 'accumulation' might also be scaled to reduce integer overflow.
-@compute @workgroup_size(16, 16)
+@compute @workgroup_size(AccumulationToLightmapWorkgroupSizeX, AccumulationToLightmapWorkgroupSizeY)
 fn accumulation_to_lightmap(@builtin(global_invocation_id) invocation_id : vec3u,
                             @builtin(workgroup_id)         workgroup_id  : vec3u) {
   let dims = textureDimensions(lightmap);

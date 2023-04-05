@@ -14,11 +14,17 @@ import Raytracer from './raytracer';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  const requiredFeatures: GPUFeatureName[] =
+    presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice({
-    requiredFeatures:
-      presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [],
-  });
+  for (const feature of requiredFeatures) {
+    if (!adapter.features.has(feature)) {
+      throw new Error(
+        `sample requires ${feature}, but is not supported by the adapter`
+      );
+    }
+  }
+  const device = await adapter.requestDevice({ requiredFeatures });
 
   if (!pageState.active) return;
 
@@ -42,7 +48,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     device,
     format: presentationFormat,
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.STORAGE_BINDING,
-    alphaMode: 'opaque',
+    alphaMode: 'premultiplied',
   });
 
   const framebuffer = device.createTexture({
@@ -108,7 +114,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   requestAnimationFrame(frame);
 };
 
-const HelloTriangle: () => JSX.Element = () =>
+const CornellBox: () => JSX.Element = () =>
   makeSample({
     name: 'Cornell box',
     description:
@@ -149,4 +155,4 @@ const HelloTriangle: () => JSX.Element = () =>
     filename: __filename,
   });
 
-export default HelloTriangle;
+export default CornellBox;

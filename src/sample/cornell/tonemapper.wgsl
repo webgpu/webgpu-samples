@@ -8,7 +8,10 @@ const TonemapExposure = 0.5;
 
 const Gamma = 2.2;
 
-@compute @workgroup_size(16, 16)
+override WorkgroupSizeX : u32;
+override WorkgroupSizeY : u32;
+
+@compute @workgroup_size(WorkgroupSizeX, WorkgroupSizeY)
 fn main(@builtin(global_invocation_id) invocation_id : vec3u) {
   let color = textureLoad(input, invocation_id.xy, 0).rgb;
   let tonemapped = reinhard_tonemap(color);
