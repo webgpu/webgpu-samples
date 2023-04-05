@@ -31,6 +31,7 @@ export const pages = {
     () => import('../../sample/deferredRendering/main')
   ),
   particles: dynamic(() => import('../../sample/particles/main')),
+  cornell: dynamic(() => import('../../sample/cornell/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
 };
 
