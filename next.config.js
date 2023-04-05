@@ -24,22 +24,7 @@ module.exports = {
         __SOURCE__: webpack.DefinePlugin.runtimeValue((v) => {
           // Load the source file and set it as a global definition.
           // This is useful for easily embedding a file's source into the page.
-          let filePath = v.module.rawRequest;
-          filePath = filePath.replace(
-            'private-next-pages',
-            path.join(__dirname, 'src/pages')
-          );
-
-          if (!path.isAbsolute(filePath)) {
-            // Path is relative to some path in src/pages/samples.
-            filePath = path.resolve(
-              path.join(__dirname, 'src', 'pages', 'samples'),
-              filePath
-            );
-            filePath = `${filePath}.ts`;
-          }
-
-          const source = fs.readFileSync(filePath, 'utf-8');
+          const source = fs.readFileSync(v.module.userRequest, 'utf-8');
           return JSON.stringify(source); // Strings need to be wrapped in quotes
         }, []),
       })
