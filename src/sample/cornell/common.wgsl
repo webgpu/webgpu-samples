@@ -107,8 +107,8 @@ fn rand() -> f32 {
                  11279  * 2539 * 23,
                  7919   * 631  * 5 * 3);
 
-  rnd = (rnd * C) ^ (rnd.yzx >> vec3(2u));
-  return f32(rnd.x) / f32(0xffffffff);
+  rnd = (rnd * C) ^ (rnd.yzx >> vec3(4u));
+  return f32(rnd.x ^ rnd.y) / f32(0xffffffff);
 }
 
 // Returns a random point within a unit sphere centered at (0,0,0).

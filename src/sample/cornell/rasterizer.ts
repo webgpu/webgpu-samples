@@ -112,7 +112,7 @@ export default class Rasterizer {
       fragment: {
         module: mod,
         entryPoint: 'fs_main',
-        targets: [{ format: 'rgba16float' }],
+        targets: [{ format: framebuffer.format }],
       },
       primitive: {
         topology: 'triangle-list',

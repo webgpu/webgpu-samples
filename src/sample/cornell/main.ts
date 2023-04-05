@@ -84,6 +84,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     common.update({
       rotateCamera: params.rotateCamera,
+      aspect: canvas.width / canvas.height,
     });
     radiosity.run(commandEncoder);
 
