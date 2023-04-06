@@ -82,16 +82,21 @@ export default class Common {
   }
 
   /** Updates the uniform buffer data */
-  update(args: { rotateCamera: boolean }) {
+  update(params: { rotateCamera: boolean; aspect: number }) {
     const viewMatrix = mat4.create();
     const mvp = mat4.create();
     const invMVP = mat4.create();
 
-    const aspect = 1; // canvas.width / canvas.height;
     const projectionMatrix = mat4.create();
-    mat4.perspective(projectionMatrix, (2 * Math.PI) / 8, aspect, 0.5, 100);
+    mat4.perspective(
+      projectionMatrix,
+      (2 * Math.PI) / 8,
+      params.aspect,
+      0.5,
+      100
+    );
 
-    const viewRotation = args.rotateCamera ? this.frame / 1000 : 0;
+    const viewRotation = params.rotateCamera ? this.frame / 1000 : 0;
 
     mat4.lookAt(
       viewMatrix,

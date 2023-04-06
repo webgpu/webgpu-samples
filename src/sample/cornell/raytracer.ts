@@ -49,7 +49,7 @@ export default class Raytracer {
           visibility: GPUShaderStage.COMPUTE,
           storageTexture: {
             access: 'write-only',
-            format: 'rgba16float',
+            format: framebuffer.format,
             viewDimension: '2d',
           },
         },
