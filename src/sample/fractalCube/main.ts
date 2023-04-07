@@ -228,9 +228,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   requestAnimationFrame(frame);
 };
 
-const TexturedCube: () => JSX.Element = () =>
+const FractalCube: () => JSX.Element = () =>
   makeSample({
-    name: 'Textured Cube',
+    name: 'Fractal Cube',
     description:
       "This example uses the previous frame's rendering result \
        as the source texture for the next frame.",
@@ -259,4 +259,4 @@ const TexturedCube: () => JSX.Element = () =>
     filename: __filename,
   });
 
-export default TexturedCube;
+export default FractalCube;
