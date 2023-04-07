@@ -24,6 +24,7 @@ export const pages = {
   computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
   animometer: dynamic(() => import('../../sample/animometer/main')),
   videoUploading: dynamic(() => import('../../sample/videoUploading/main')),
+  videoUploadingWebCodecs: dynamic(() => import('../../sample/videoUploadingWebCodecs/main')),
   imageBlur: dynamic(() => import('../../sample/imageBlur/main')),
   shadowMapping: dynamic(() => import('../../sample/shadowMapping/main')),
   reversedZ: dynamic(() => import('../../sample/reversedZ/main')),
