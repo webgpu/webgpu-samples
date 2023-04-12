@@ -7,10 +7,6 @@ declare module '*.module.css' {
 interface HTMLCanvasElement extends HTMLElement {
   getContext(contextId: 'webgpu'): GPUPresentationContext | null;
 }
-interface GPUExternalTextureDescriptor extends GPUObjectDescriptorBase {
-  source: HTMLVideoElement | VideoFrame;
-  colorSpace?: PredefinedColorSpace;
-}
 
 declare const __SOURCE__: string;
 

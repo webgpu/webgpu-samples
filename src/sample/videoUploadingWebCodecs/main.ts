@@ -101,7 +101,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         {
           binding: 2,
           resource: device.importExternalTexture({
-            source: videoFrame as HTMLVideoElement,
+            source: videoFrame as any, // eslint-disable-line @typescript-eslint/no-explicit-any
           }),
         },
       ],
@@ -145,7 +145,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 const VideoUploading: () => JSX.Element = () =>
   makeSample({
     name: 'Video Uploading with WebCodecs',
-    description: 'This example shows how to upload video frame from WebCodecs to WebGPU.',
+    description: 'This example shows how to upload VideoFrame to WebGPU.',
     init,
     sources: [
       {
