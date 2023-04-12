@@ -142,9 +142,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   }
 };
 
-const VideoUploading: () => JSX.Element = () =>
+const VideoUploadingWebCodecs: () => JSX.Element = () =>
   makeSample({
-    name: 'Video Uploading with WebCodecs',
+    name: 'Video Uploading with WebCodecs (Experimental)',
     description: 'This example shows how to upload VideoFrame to WebGPU.',
     init,
     sources: [
@@ -166,4 +166,4 @@ const VideoUploading: () => JSX.Element = () =>
     filename: __filename,
   });
 
-export default VideoUploading;
+export default VideoUploadingWebCodecs;
