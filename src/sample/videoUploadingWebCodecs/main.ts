@@ -145,7 +145,14 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 const VideoUploadingWebCodecs: () => JSX.Element = () =>
   makeSample({
     name: 'Video Uploading with WebCodecs (Experimental)',
-    description: 'This example shows how to upload VideoFrame to WebGPU.',
+    description: `This example shows how to upload a WebCodecs VideoFrame to WebGPU.
+      Support for using a VideoFrame as the source for a GPUExternalTexture requires
+      running Chrome with the "WebGPU Developer Features" flag or the WebGPU WebCodecs
+      integration origin trial.
+      See https://developer.chrome.com/origintrials/#/view_trial/1705738358866575361
+    `,
+    originTrial:
+      'Auo9JMDbdn/Jg1pd8liB9Ofp1OLzi9mecxjBBfjv/3f8O8775CXgcTobX4t6KYxMC1wnO4Z7MWArPSptGtkD2woAAABZeyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVVdlYkNvZGVjcyIsImV4cGlyeSI6MTcwMTk5MzU5OX0=',
     init,
     sources: [
       {

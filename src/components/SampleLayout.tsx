@@ -66,6 +66,7 @@ const SampleLayout: React.FunctionComponent<
   React.PropsWithChildren<{
     name: string;
     description: string;
+    originTrial?: string;
     filename: string;
     gui?: boolean;
     init: SampleInit;
@@ -155,6 +156,7 @@ const SampleLayout: React.FunctionComponent<
         />
         <title>{`${props.name} - WebGPU Samples`}</title>
         <meta name="description" content={props.description} />
+        <meta httpEquiv="origin-trial" content={props.originTrial} />
       </Head>
       <div>
         <h1>{props.name}</h1>
