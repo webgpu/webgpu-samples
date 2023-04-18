@@ -61,35 +61,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     minFilter: 'linear',
   });
 
-  function getVideoFrameFromVideoElement(video) {
-    return new Promise((resolve) => {
-      const videoTrack = video.captureStream().getVideoTracks()[0];
-      const trackProcessor = new MediaStreamTrackProcessor({
-        track: videoTrack,
-      });
-      const transformer = new TransformStream({
-        transform(videoFrame) {
-          videoTrack.stop();
-          resolve(videoFrame);
-        },
-        flush(controller) {
-          controller.terminate();
-        },
-      });
-      const trackGenerator = new MediaStreamTrackGenerator({
-        kind: 'video',
-      });
-      trackProcessor.readable
-        .pipeThrough(transformer)
-        .pipeTo(trackGenerator.writable);
-    });
-  }
-
-  async function frame() {
+  function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 
-    const videoFrame = await getVideoFrameFromVideoElement(video);
+    const videoFrame = new VideoFrame(video);
 
     const uniformBindGroup = device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
