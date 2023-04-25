@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 import commonWGSL from './common.wgsl';
 
 /**
@@ -83,13 +83,7 @@ export default class Common {
 
   /** Updates the uniform buffer data */
   update(params: { rotateCamera: boolean; aspect: number }) {
-    const viewMatrix = mat4.create();
-    const mvp = mat4.create();
-    const invMVP = mat4.create();
-
-    const projectionMatrix = mat4.create();
-    mat4.perspective(
-      projectionMatrix,
+    const projectionMatrix = mat4.perspective(
       (2 * Math.PI) / 8,
       params.aspect,
       0.5,
@@ -98,8 +92,7 @@ export default class Common {
 
     const viewRotation = params.rotateCamera ? this.frame / 1000 : 0;
 
-    mat4.lookAt(
-      viewMatrix,
+    const viewMatrix = mat4.lookAt(
       vec3.fromValues(
         Math.sin(viewRotation) * 15,
         5,
@@ -108,8 +101,9 @@ export default class Common {
       vec3.fromValues(0, 5, 0),
       vec3.fromValues(0, 1, 0)
     );
-    mat4.multiply(mvp, projectionMatrix, viewMatrix);
-    mat4.invert(invMVP, mvp);
+    mat4.inverse(viewMatrix, viewMatrix);
+    const mvp = mat4.multiply(projectionMatrix, viewMatrix);
+    const invMVP = mat4.invert(mvp);
 
     const uniformDataF32 = new Float32Array(this.uniformBuffer.size / 4);
     const uniformDataU32 = new Uint32Array(uniformDataF32.buffer);

@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import {
@@ -128,10 +128,15 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   });
 
   const aspect = canvas.width / canvas.height;
-  const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
+  const projectionMatrix = mat4.perspective(
+    (2 * Math.PI) / 5,
+    aspect,
+    1,
+    100.0
+  );
 
-  const modelMatrices = new Array(numInstances);
+  type Mat4 = mat4.default;
+  const modelMatrices = new Array<Mat4>(numInstances);
   const mvpMatricesData = new Float32Array(matrixFloatCount * numInstances);
 
   const step = 4.0;
@@ -140,10 +145,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   let m = 0;
   for (let x = 0; x < xCount; x++) {
     for (let y = 0; y < yCount; y++) {
-      modelMatrices[m] = mat4.create();
-      mat4.translate(
-        modelMatrices[m],
-        modelMatrices[m],
+      modelMatrices[m] = mat4.translation(
         vec3.fromValues(
           step * (x - xCount / 2 + 0.5),
           step * (y - yCount / 2 + 0.5),
@@ -154,8 +156,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     }
   }
 
-  const viewMatrix = mat4.create();
-  mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -12));
+  const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -12));
 
   const tmpMat4 = mat4.create();
 
@@ -168,18 +169,18 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     for (let x = 0; x < xCount; x++) {
       for (let y = 0; y < yCount; y++) {
         mat4.rotate(
-          tmpMat4,
           modelMatrices[i],
-          1,
           vec3.fromValues(
             Math.sin((x + 0.5) * now),
             Math.cos((y + 0.5) * now),
             0
-          )
+          ),
+          1,
+          tmpMat4
         );
 
-        mat4.multiply(tmpMat4, viewMatrix, tmpMat4);
-        mat4.multiply(tmpMat4, projectionMatrix, tmpMat4);
+        mat4.multiply(viewMatrix, tmpMat4, tmpMat4);
+        mat4.multiply(projectionMatrix, tmpMat4, tmpMat4);
 
         mvpMatricesData.set(tmpMat4, m);
 

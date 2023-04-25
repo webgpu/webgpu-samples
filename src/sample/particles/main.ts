@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import particleWGSL from './particle.wgsl';
@@ -373,10 +373,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   const aspect = canvas.width / canvas.height;
-  const projection = mat4.create();
+  const projection = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
   const view = mat4.create();
   const mvp = mat4.create();
-  mat4.perspective(projection, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
   function frame() {
     // Sample is no longer the active page.
@@ -398,9 +397,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
 
     mat4.identity(view);
-    mat4.translate(view, view, vec3.fromValues(0, 0, -3));
-    mat4.rotateX(view, view, Math.PI * -0.2);
-    mat4.multiply(mvp, projection, view);
+    mat4.translate(view, vec3.fromValues(0, 0, -3), view);
+    mat4.rotateX(view, Math.PI * -0.2, view);
+    mat4.multiply(projection, view, mvp);
 
     // prettier-ignore
     device.queue.writeBuffer(

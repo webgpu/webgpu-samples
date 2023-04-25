@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import {
@@ -158,17 +158,18 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   };
 
   const aspect = canvas.width / canvas.height;
-  const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
+  const projectionMatrix = mat4.perspective(
+    (2 * Math.PI) / 5,
+    aspect,
+    1,
+    100.0
+  );
 
-  const modelMatrix1 = mat4.create();
-  mat4.translate(modelMatrix1, modelMatrix1, vec3.fromValues(-2, 0, 0));
-  const modelMatrix2 = mat4.create();
-  mat4.translate(modelMatrix2, modelMatrix2, vec3.fromValues(2, 0, 0));
+  const modelMatrix1 = mat4.translation(vec3.create(-2, 0, 0));
+  const modelMatrix2 = mat4.translation(vec3.create(2, 0, 0));
   const modelViewProjectionMatrix1 = mat4.create() as Float32Array;
   const modelViewProjectionMatrix2 = mat4.create() as Float32Array;
-  const viewMatrix = mat4.create();
-  mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -7));
+  const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -7));
 
   const tmpMat41 = mat4.create();
   const tmpMat42 = mat4.create();
@@ -177,28 +178,28 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     const now = Date.now() / 1000;
 
     mat4.rotate(
-      tmpMat41,
       modelMatrix1,
+      vec3.fromValues(Math.sin(now), Math.cos(now), 0),
       1,
-      vec3.fromValues(Math.sin(now), Math.cos(now), 0)
+      tmpMat41
     );
     mat4.rotate(
-      tmpMat42,
       modelMatrix2,
+      vec3.fromValues(Math.cos(now), Math.sin(now), 0),
       1,
-      vec3.fromValues(Math.cos(now), Math.sin(now), 0)
+      tmpMat42
     );
 
-    mat4.multiply(modelViewProjectionMatrix1, viewMatrix, tmpMat41);
+    mat4.multiply(viewMatrix, tmpMat41, modelViewProjectionMatrix1);
     mat4.multiply(
-      modelViewProjectionMatrix1,
       projectionMatrix,
+      modelViewProjectionMatrix1,
       modelViewProjectionMatrix1
     );
-    mat4.multiply(modelViewProjectionMatrix2, viewMatrix, tmpMat42);
+    mat4.multiply(viewMatrix, tmpMat42, modelViewProjectionMatrix2);
     mat4.multiply(
-      modelViewProjectionMatrix2,
       projectionMatrix,
+      modelViewProjectionMatrix2,
       modelViewProjectionMatrix2
     );
   }
