@@ -1,5 +1,5 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { mat4, vec3, vec4 } from 'gl-matrix';
+import { mat4, vec3, vec4 } from 'wgpu-matrix';
 import { mesh } from '../../meshes/stanfordDragon';
 
 import lightUpdate from './lightUpdate.wgsl';
@@ -381,8 +381,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   // Lights data are uploaded in a storage buffer
   // which could be updated/culled/etc. with a compute shader
-  const extent = vec3.create();
-  vec3.sub(extent, lightExtentMax, lightExtentMin);
+  const extent = vec3.sub(lightExtentMax, lightExtentMin);
   const lightDataStride = 8;
   const bufferSizeInByte =
     Float32Array.BYTES_PER_ELEMENT * lightDataStride * kMaxNumLights;
@@ -487,19 +486,19 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const upVector = vec3.fromValues(0, 1, 0);
   const origin = vec3.fromValues(0, 0, 0);
 
-  const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 2000.0);
+  const projectionMatrix = mat4.perspective(
+    (2 * Math.PI) / 5,
+    aspect,
+    1,
+    2000.0
+  );
 
-  const viewMatrix = mat4.create();
-  mat4.lookAt(viewMatrix, eyePosition, origin, upVector);
+  const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
 
-  const viewProjMatrix = mat4.create();
-  mat4.multiply(viewProjMatrix, projectionMatrix, viewMatrix);
+  const viewProjMatrix = mat4.multiply(projectionMatrix, viewMatrix);
 
   // Move the model so it's centered.
-  const modelMatrix = mat4.create();
-  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, -5, 0));
-  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, -40, 0));
+  const modelMatrix = mat4.translation([0, -45, 0]);
 
   const cameraMatrixData = viewProjMatrix as Float32Array;
   device.queue.writeBuffer(
@@ -517,8 +516,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     modelData.byteOffset,
     modelData.byteLength
   );
-  const invertTransposeModelMatrix = mat4.create();
-  mat4.invert(invertTransposeModelMatrix, modelMatrix);
+  const invertTransposeModelMatrix = mat4.invert(modelMatrix);
   mat4.transpose(invertTransposeModelMatrix, invertTransposeModelMatrix);
   const normalModelData = invertTransposeModelMatrix as Float32Array;
   device.queue.writeBuffer(
@@ -534,12 +532,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const eyePosition = vec3.fromValues(0, 50, -100);
 
     const rad = Math.PI * (Date.now() / 5000);
-    vec3.rotateY(eyePosition, eyePosition, origin, rad);
+    const rotation = mat4.rotateY(mat4.translation(origin), rad);
+    vec3.transformMat4(eyePosition, rotation, eyePosition);
 
-    const viewMatrix = mat4.create();
-    mat4.lookAt(viewMatrix, eyePosition, origin, upVector);
+    const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
 
-    mat4.multiply(viewProjMatrix, projectionMatrix, viewMatrix);
+    mat4.multiply(projectionMatrix, viewMatrix, viewProjMatrix);
     return viewProjMatrix as Float32Array;
   }
 

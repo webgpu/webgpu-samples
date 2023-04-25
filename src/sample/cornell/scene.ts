@@ -1,39 +1,16 @@
-import { vec3 } from 'gl-matrix';
+import { vec3 } from 'wgpu-matrix';
+type Vec3 = vec3.default;
 
-function cross(a: vec3, b: vec3) {
-  return vec3.cross(vec3.create(), a, b);
-}
-
-function normalize(v: vec3) {
-  return vec3.normalize(vec3.create(), v);
-}
-
-function neg(v: vec3) {
-  return vec3.negate(vec3.create(), v);
-}
-
-function add(a: vec3, b: vec3) {
-  return vec3.add(vec3.create(), a, b);
-}
-
-function sub(a: vec3, b: vec3) {
-  return vec3.sub(vec3.create(), a, b);
-}
-
-function mul(a: vec3, b: vec3) {
-  return vec3.mul(vec3.create(), a, b);
-}
-
-function reciprocal(v: vec3) {
-  const s = 1 / vec3.sqrLen(v);
-  return mul(vec3.fromValues(s, s, s), v);
+function reciprocal(v: Vec3) {
+  const s = 1 / vec3.lenSq(v);
+  return vec3.mul(vec3.fromValues(s, s, s), v);
 }
 
 interface Quad {
-  center: vec3;
-  right: vec3;
-  up: vec3;
-  color: vec3;
+  center: Vec3;
+  right: Vec3;
+  up: Vec3;
+  color: Vec3;
   emissive?: number;
 }
 
@@ -53,12 +30,12 @@ enum CubeFace {
   NegativeZ,
 }
 function box(params: {
-  center: vec3;
+  center: Vec3;
   width: number;
   height: number;
   depth: number;
   rotation: number;
-  color: vec3 | vec3[];
+  color: Vec3 | Vec3[];
   type: 'convex' | 'concave';
 }): Quad[] {
   //      ─────────┐
@@ -83,49 +60,49 @@ function box(params: {
     params.color instanceof Array
       ? params.color
       : new Array(6).fill(params.color);
-  const sign = (v) => {
-    return params.type === 'concave' ? v : neg(v);
+  const sign = (v: Vec3) => {
+    return params.type === 'concave' ? v : vec3.negate(v);
   };
   return [
     {
       // PositiveX
-      center: add(params.center, x),
-      right: sign(neg(z)),
+      center: vec3.add(params.center, x),
+      right: sign(vec3.negate(z)),
       up: y,
       color: colors[CubeFace.PositiveX],
     },
     {
       // PositiveY
-      center: add(params.center, y),
+      center: vec3.add(params.center, y),
       right: sign(x),
-      up: neg(z),
+      up: vec3.negate(z),
       color: colors[CubeFace.PositiveY],
     },
     {
       // PositiveZ
-      center: add(params.center, z),
+      center: vec3.add(params.center, z),
       right: sign(x),
       up: y,
       color: colors[CubeFace.PositiveZ],
     },
     {
       // NegativeX
-      center: sub(params.center, x),
+      center: vec3.sub(params.center, x),
       right: sign(z),
       up: y,
       color: colors[CubeFace.NegativeX],
     },
     {
       // NegativeY
-      center: sub(params.center, y),
+      center: vec3.sub(params.center, y),
       right: sign(x),
       up: z,
       color: colors[CubeFace.NegativeY],
     },
     {
       // NegativeZ
-      center: sub(params.center, z),
-      right: sign(neg(x)),
+      center: vec3.sub(params.center, z),
+      right: sign(vec3.negate(x)),
       up: y,
       color: colors[CubeFace.NegativeZ],
     },
@@ -214,7 +191,7 @@ export default class Scene {
     let indexDataOffset = 0;
     for (let quadIdx = 0; quadIdx < this.quads.length; quadIdx++) {
       const quad = this.quads[quadIdx];
-      const normal = normalize(cross(quad.right, quad.up));
+      const normal = vec3.normalize(vec3.cross(quad.right, quad.up));
       quadData[quadDataOffset++] = normal[0];
       quadData[quadDataOffset++] = normal[1];
       quadData[quadDataOffset++] = normal[2];
@@ -242,10 +219,10 @@ export default class Scene {
       // |   m   |
       // |       |
       // c ----- d
-      const a = add(sub(quad.center, quad.right), quad.up);
-      const b = add(add(quad.center, quad.right), quad.up);
-      const c = sub(sub(quad.center, quad.right), quad.up);
-      const d = sub(add(quad.center, quad.right), quad.up);
+      const a = vec3.add(vec3.sub(quad.center, quad.right), quad.up);
+      const b = vec3.add(vec3.add(quad.center, quad.right), quad.up);
+      const c = vec3.sub(vec3.sub(quad.center, quad.right), quad.up);
+      const d = vec3.sub(vec3.add(quad.center, quad.right), quad.up);
 
       vertexData[vertexDataOffset++] = a[0];
       vertexData[vertexDataOffset++] = a[1];

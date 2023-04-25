@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import { mesh } from '../../meshes/stanfordDragon';
@@ -282,15 +282,19 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const upVector = vec3.fromValues(0, 1, 0);
   const origin = vec3.fromValues(0, 0, 0);
 
-  const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 2000.0);
+  const projectionMatrix = mat4.perspective(
+    (2 * Math.PI) / 5,
+    aspect,
+    1,
+    2000.0
+  );
 
-  const viewMatrix = mat4.create();
-  mat4.lookAt(viewMatrix, eyePosition, origin, upVector);
+  const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
 
   const lightPosition = vec3.fromValues(50, 100, -100);
-  const lightViewMatrix = mat4.create();
-  mat4.lookAt(lightViewMatrix, lightPosition, origin, upVector);
+  const lightViewMatrix = mat4.inverse(
+    mat4.lookAt(lightPosition, origin, upVector)
+  );
 
   const lightProjectionMatrix = mat4.create();
   {
@@ -300,19 +304,18 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     const top = 80;
     const near = -200;
     const far = 300;
-    mat4.ortho(lightProjectionMatrix, left, right, bottom, top, near, far);
+    mat4.ortho(left, right, bottom, top, near, far, lightProjectionMatrix);
   }
 
-  const lightViewProjMatrix = mat4.create();
-  mat4.multiply(lightViewProjMatrix, lightProjectionMatrix, lightViewMatrix);
+  const lightViewProjMatrix = mat4.multiply(
+    lightProjectionMatrix,
+    lightViewMatrix
+  );
 
-  const viewProjMatrix = mat4.create();
-  mat4.multiply(viewProjMatrix, projectionMatrix, viewMatrix);
+  const viewProjMatrix = mat4.multiply(projectionMatrix, viewMatrix);
 
   // Move the model so it's centered.
-  const modelMatrix = mat4.create();
-  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, -5, 0));
-  mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, -40, 0));
+  const modelMatrix = mat4.translation([0, -45, 0]);
 
   // The camera/light aren't moving, so write them into buffers now.
   {
@@ -358,12 +361,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     const eyePosition = vec3.fromValues(0, 50, -100);
 
     const rad = Math.PI * (Date.now() / 2000);
-    vec3.rotateY(eyePosition, eyePosition, origin, rad);
+    const rotation = mat4.rotateY(mat4.translation(origin), rad);
+    vec3.transformMat4(eyePosition, rotation, eyePosition);
 
-    const viewMatrix = mat4.create();
-    mat4.lookAt(viewMatrix, eyePosition, origin, upVector);
+    const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
 
-    mat4.multiply(viewProjMatrix, projectionMatrix, viewMatrix);
+    mat4.multiply(projectionMatrix, viewMatrix, viewProjMatrix);
     return viewProjMatrix as Float32Array;
   }
 

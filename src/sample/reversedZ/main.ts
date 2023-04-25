@@ -1,5 +1,5 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 
 import vertexWGSL from './vertex.wgsl';
 import fragmentWGSL from './fragment.wgsl';
@@ -42,43 +42,9 @@ const numInstances = xCount * yCount;
 const matrixFloatCount = 16; // 4x4 matrix
 const matrixStride = 4 * matrixFloatCount; // 64;
 
-const depthRangeRemapMatrix = mat4.create();
+const depthRangeRemapMatrix = mat4.identity();
 depthRangeRemapMatrix[10] = -1;
 depthRangeRemapMatrix[14] = 1;
-
-// https://github.com/toji/gl-matrix/commit/e906eb7bb02822a81b1d197c6b5b33563c0403c0
-function perspectiveZO(
-  out: mat4,
-  fovy: number,
-  aspect: number,
-  near: number,
-  far: number
-) {
-  const f = 1.0 / Math.tan(fovy / 2);
-  out[0] = f / aspect;
-  out[1] = 0;
-  out[2] = 0;
-  out[3] = 0;
-  out[4] = 0;
-  out[5] = f;
-  out[6] = 0;
-  out[7] = 0;
-  out[8] = 0;
-  out[9] = 0;
-  out[11] = -1;
-  out[12] = 0;
-  out[13] = 0;
-  out[15] = 0;
-  if (far != null && far !== Infinity) {
-    const nf = 1 / (near - far);
-    out[10] = far * nf;
-    out[14] = far * near * nf;
-  } else {
-    out[10] = -1;
-    out[14] = -near;
-  }
-  return out;
-}
 
 enum DepthBufferMode {
   Default = 0,
@@ -523,7 +489,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }),
   ];
 
-  const modelMatrices = new Array(numInstances);
+  type Mat4 = mat4.default;
+  const modelMatrices = new Array<Mat4>(numInstances);
   const mvpMatricesData = new Float32Array(matrixFloatCount * numInstances);
 
   let m = 0;
@@ -532,36 +499,29 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       const z = -800 * m;
       const s = 1 + 50 * m;
 
-      modelMatrices[m] = mat4.create();
-
-      mat4.translate(
-        modelMatrices[m],
-        modelMatrices[m],
+      modelMatrices[m] = mat4.translation(
         vec3.fromValues(
           x - xCount / 2 + 0.5,
           (4.0 - 0.2 * z) * (y - yCount / 2 + 1.0),
           z
         )
       );
-      mat4.scale(modelMatrices[m], modelMatrices[m], vec3.fromValues(s, s, s));
+      mat4.scale(modelMatrices[m], vec3.fromValues(s, s, s), modelMatrices[m]);
 
       m++;
     }
   }
 
-  const viewMatrix = mat4.create();
-  mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(0, 0, -12));
+  const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -12));
 
   const aspect = (0.5 * canvas.width) / canvas.height;
-  const projectionMatrix = mat4.create();
-  perspectiveZO(projectionMatrix, (2 * Math.PI) / 5, aspect, 5, Infinity);
+  // wgpu-matrix perspective doesn't handle zFar === Infinity now.
+  // https://github.com/greggman/wgpu-matrix/issues/9
+  const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 5, 9999);
 
-  const viewProjectionMatrix = mat4.create();
-  mat4.multiply(viewProjectionMatrix, projectionMatrix, viewMatrix);
-  const reversedRangeViewProjectionMatrix = mat4.create();
+  const viewProjectionMatrix = mat4.multiply(projectionMatrix, viewMatrix);
   // to use 1/z we just multiple depthRangeRemapMatrix to our default camera view projection matrix
-  mat4.multiply(
-    reversedRangeViewProjectionMatrix,
+  const reversedRangeViewProjectionMatrix = mat4.multiply(
     depthRangeRemapMatrix,
     viewProjectionMatrix
   );
@@ -589,10 +549,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     for (let i = 0, m = 0; i < numInstances; i++, m += matrixFloatCount) {
       mat4.rotate(
-        tmpMat4,
         modelMatrices[i],
+        vec3.fromValues(Math.sin(now), Math.cos(now), 0),
         (Math.PI / 180) * 30,
-        vec3.fromValues(Math.sin(now), Math.cos(now), 0)
+        tmpMat4
       );
       mvpMatricesData.set(tmpMat4, m);
     }

@@ -1,4 +1,4 @@
-import { vec3 } from 'gl-matrix';
+import { vec3 } from 'wgpu-matrix';
 
 export function computeSurfaceNormals(
   positions: [number, number, number][],
@@ -13,17 +13,17 @@ export function computeSurfaceNormals(
     const p1 = positions[i1];
     const p2 = positions[i2];
 
-    const v0 = vec3.subtract(vec3.create(), p1, p0);
-    const v1 = vec3.subtract(vec3.create(), p2, p0);
+    const v0 = vec3.subtract(p1, p0);
+    const v1 = vec3.subtract(p2, p0);
 
     vec3.normalize(v0, v0);
     vec3.normalize(v1, v1);
-    const norm = vec3.cross(vec3.create(), v0, v1);
+    const norm = vec3.cross(v0, v1);
 
     // Accumulate the normals.
-    vec3.add(normals[i0], normals[i0], norm);
-    vec3.add(normals[i1], normals[i1], norm);
-    vec3.add(normals[i2], normals[i2], norm);
+    vec3.add(normals[i0], norm, normals[i0]);
+    vec3.add(normals[i1], norm, normals[i1]);
+    vec3.add(normals[i2], norm, normals[i2]);
   });
   normals.forEach((n) => {
     // Normalize accumulated normals.

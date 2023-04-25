@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import {
@@ -214,13 +214,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   };
 
   const aspect = canvas.width / canvas.height;
-  const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 3000);
+  const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 3000);
 
-  const modelMatrix = mat4.create();
-  mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(1000, 1000, 1000));
+  const modelMatrix = mat4.scaling(vec3.fromValues(1000, 1000, 1000));
   const modelViewProjectionMatrix = mat4.create() as Float32Array;
-  const viewMatrix = mat4.create();
+  const viewMatrix = mat4.identity();
 
   const tmpMat4 = mat4.create();
 
@@ -230,17 +228,17 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     const now = Date.now() / 800;
 
     mat4.rotate(
-      tmpMat4,
       viewMatrix,
+      vec3.fromValues(1, 0, 0),
       (Math.PI / 10) * Math.sin(now),
-      vec3.fromValues(1, 0, 0)
+      tmpMat4
     );
-    mat4.rotate(tmpMat4, tmpMat4, now * 0.2, vec3.fromValues(0, 1, 0));
+    mat4.rotate(tmpMat4, vec3.fromValues(0, 1, 0), now * 0.2, tmpMat4);
 
-    mat4.multiply(modelViewProjectionMatrix, tmpMat4, modelMatrix);
+    mat4.multiply(tmpMat4, modelMatrix, modelViewProjectionMatrix);
     mat4.multiply(
-      modelViewProjectionMatrix,
       projectionMatrix,
+      modelViewProjectionMatrix,
       modelViewProjectionMatrix
     );
   }
