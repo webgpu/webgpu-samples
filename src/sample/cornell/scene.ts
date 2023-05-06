@@ -170,8 +170,8 @@ export default class Scene {
     light,
   ];
   readonly lightCenter = light.center;
-  readonly lightWidth = vec3.len(light.right);
-  readonly lightHeight = vec3.len(light.up);
+  readonly lightWidth = vec3.len(light.right) * 2;
+  readonly lightHeight = vec3.len(light.up) * 2;
 
   constructor(device: GPUDevice) {
     const quadStride = 16 * 4;
