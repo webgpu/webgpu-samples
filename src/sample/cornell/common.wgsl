@@ -127,3 +127,29 @@ fn rand_unit_sphere() -> vec3f {
     var z = r * cos_phi;
     return vec3f(x, y, z);
 }
+
+fn rand_concentric_disk() -> vec2f {
+    let u = vec2f(rand(), rand());
+    let uOffset = 2.f * u - vec2f(1, 1);
+
+    if (uOffset.x == 0 && uOffset.y == 0){
+        return vec2f(0, 0);
+    }
+
+    var theta = 0.0;
+    var r = 0.0;
+    if (abs(uOffset.x) > abs(uOffset.y)) {
+        r = uOffset.x;
+        theta = (pi / 4) * (uOffset.y / uOffset.x);
+    } else {
+        r = uOffset.y;
+        theta = (pi / 2) - (pi / 4) * (uOffset.x / uOffset.y);
+    }
+    return r * vec2f(cos(theta), sin(theta));
+}
+
+fn rand_cosine_weighted_hemisphere() -> vec3f {
+    let d = rand_concentric_disk();
+    let z = sqrt(max(0.0, 1.0 - d.x * d.x - d.y * d.y));
+    return vec3f(d.x, d.y, z);
+}
