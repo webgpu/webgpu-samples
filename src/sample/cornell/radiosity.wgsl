@@ -99,7 +99,8 @@ fn new_light_ray() -> Ray {
   let pos = center + vec3f(uniforms.light_width * (rand() - 0.5),
                            0,
                            uniforms.light_height * (rand() - 0.5));
-  let dir = normalize(vec3f(0, -1, 0) + rand_unit_sphere());
+  var dir = rand_cosine_weighted_hemisphere().xzy;
+  dir.y = -dir.y;
   return Ray(pos, dir);
 }
 
