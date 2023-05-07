@@ -1,10 +1,9 @@
 import { vec3 } from 'wgpu-matrix';
-import { random } from 'wgpu-matrix/dist/1.x/vec2-impl';
 
 export interface SphereMesh {
-  vertices: Float32Array,
-  indices: Uint16Array,
-};
+  vertices: Float32Array;
+  indices: Uint16Array;
+}
 
 export const SphereLayout = {
   vertexStride: 8 * 4,
@@ -14,7 +13,12 @@ export const SphereLayout = {
 };
 
 // Borrowed and simplified from https://github.com/mrdoob/three.js/blob/master/src/geometries/SphereGeometry.js
-export function createSphereMesh(radius: number, widthSegments: number = 32, heightSegments: number = 16, randomness: number = 0): SphereMesh {
+export function createSphereMesh(
+  radius: number,
+  widthSegments = 32,
+  heightSegments = 16,
+  randomness = 0
+): SphereMesh {
   const vertices = [];
   const indices = [];
 
@@ -29,7 +33,7 @@ export function createSphereMesh(radius: number, widthSegments: number = 32, hei
   const grid = [];
 
   // generate vertices, normals and uvs
-  for(let iy = 0; iy <= heightSegments; iy++) {
+  for (let iy = 0; iy <= heightSegments; iy++) {
     const verticesRow = [];
     const v = iy / heightSegments;
 
@@ -38,7 +42,7 @@ export function createSphereMesh(radius: number, widthSegments: number = 32, hei
     if (iy === 0) {
       uOffset = 0.5 / widthSegments;
     } else if (iy === heightSegments) {
-      uOffset = - 0.5 / widthSegments;
+      uOffset = -0.5 / widthSegments;
     }
 
     for (let ix = 0; ix <= widthSegments; ix++) {
@@ -48,12 +52,12 @@ export function createSphereMesh(radius: number, widthSegments: number = 32, hei
       if (ix == widthSegments) {
         vec3.copy(firstVertex, vertex);
       } else if (ix == 0 || (iy != 0 && iy !== heightSegments)) {
-        const rr = radius + ((Math.random() - 0.5) * 2 * randomness * radius);
+        const rr = radius + (Math.random() - 0.5) * 2 * randomness * radius;
 
         // vertex
-        vertex[0] = -rr * Math.cos(u * Math.PI*2) * Math.sin(v * Math.PI);
+        vertex[0] = -rr * Math.cos(u * Math.PI * 2) * Math.sin(v * Math.PI);
         vertex[1] = rr * Math.cos(v * Math.PI);
-        vertex[2] = rr * Math.sin(u * Math.PI*2) * Math.sin(v * Math.PI);
+        vertex[2] = rr * Math.sin(u * Math.PI * 2) * Math.sin(v * Math.PI);
 
         if (ix == 0) {
           vec3.copy(vertex, firstVertex);
@@ -63,7 +67,7 @@ export function createSphereMesh(radius: number, widthSegments: number = 32, hei
       vertices.push(...vertex);
 
       // normal
-      vec3.copy(vertex, normal)
+      vec3.copy(vertex, normal);
       vec3.normalize(normal, normal);
       vertices.push(...normal);
 
@@ -76,9 +80,8 @@ export function createSphereMesh(radius: number, widthSegments: number = 32, hei
   }
 
   // indices
-  for ( let iy = 0; iy < heightSegments; iy ++ ) {
-    for ( let ix = 0; ix < widthSegments; ix ++ ) {
-
+  for (let iy = 0; iy < heightSegments; iy++) {
+    for (let ix = 0; ix < widthSegments; ix++) {
       const a = grid[iy][ix + 1];
       const b = grid[iy][ix];
       const c = grid[iy + 1][ix];

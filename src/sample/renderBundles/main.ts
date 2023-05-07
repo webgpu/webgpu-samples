@@ -9,7 +9,7 @@ interface Renderable {
   indices: GPUBuffer;
   indexCount: number;
   bindGroup?: GPUBindGroup;
-};
+}
 
 const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   const settings = {
@@ -35,14 +35,14 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     alphaMode: 'premultiplied',
   });
 
-  const module = device.createShaderModule({
+  const shaderModule = device.createShaderModule({
     code: meshWGSL,
   });
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
     vertex: {
-      module,
+      module: shaderModule,
       entryPoint: 'vertexMain',
       buffers: [
         {
@@ -71,7 +71,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
       ],
     },
     fragment: {
-      module,
+      module: shaderModule,
       entryPoint: 'fragmentMain',
       targets: [
         {
@@ -166,8 +166,18 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   });
 
   // Helper functions to create the required meshes and bind groups for each sphere.
-  function createSphereRenderable(radius: number, widthSegments: number = 32, heightSegments: number = 16, randomness: number = 0): Renderable {
-    const sphereMesh = createSphereMesh(radius, widthSegments, heightSegments, randomness);
+  function createSphereRenderable(
+    radius: number,
+    widthSegments = 32,
+    heightSegments = 16,
+    randomness = 0
+  ): Renderable {
+    const sphereMesh = createSphereMesh(
+      radius,
+      widthSegments,
+      heightSegments,
+      randomness
+    );
 
     // Create a vertex buffer from the sphere data.
     const vertices = device.createBuffer({
@@ -193,7 +203,10 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     };
   }
 
-  function createSphereBindGroup(texture: GPUTexture, transform: Float32Array): GPUBindGroup {
+  function createSphereBindGroup(
+    texture: GPUTexture,
+    transform: Float32Array
+  ): GPUBindGroup {
     const uniformBufferSize = 4 * 16; // 4x4 matrix
     const uniformBuffer = device.createBuffer({
       size: uniformBufferSize,
@@ -241,15 +254,15 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     createSphereRenderable(0.035, 16, 8, 0.15),
   ];
 
-  const renderables = [ planet ];
+  const renderables = [planet];
 
   for (let i = 0; i < ASTEROID_COUNT; ++i) {
     // Place copies of the asteroid in a ring.
-    let radius = Math.random() * 1.2 + 1.5;
-    let angle = Math.random() * Math.PI * 2;
-    let x = Math.sin(angle) * radius;
-    let y = (Math.random() - 0.5) * 0.01;
-    let z = Math.cos(angle) * radius;
+    const radius = Math.random() * 1.2 + 1.5;
+    const angle = Math.random() * Math.PI * 2;
+    const x = Math.sin(angle) * radius;
+    const y = (Math.random() - 0.5) * 0.01;
+    const z = Math.cos(angle) * radius;
 
     mat4.identity(transform);
     mat4.translate(transform, [x, y, z], transform);
@@ -297,7 +310,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
         resource: {
           buffer: uniformBuffer,
         },
-      }
+      },
     ],
   });
 
@@ -306,22 +319,10 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
     const now = Date.now() / 1000;
     // Tilt the view matrix so the planet looks like it's off-axis.
-    mat4.rotateZ(
-      viewMatrix,
-      Math.PI * 0.1,
-      viewMatrix
-    );
-    mat4.rotateX(
-      viewMatrix,
-      Math.PI * 0.1,
-      viewMatrix
-    );
+    mat4.rotateZ(viewMatrix, Math.PI * 0.1, viewMatrix);
+    mat4.rotateX(viewMatrix, Math.PI * 0.1, viewMatrix);
     // Rotate the view matrix slowly so the planet appears to spin.
-    mat4.rotateY(
-      viewMatrix,
-      now * 0.05,
-      viewMatrix
-    );
+    mat4.rotateY(viewMatrix, now * 0.05, viewMatrix);
 
     mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
 
@@ -330,10 +331,12 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
 
   // Render bundles function as partial, limited render passes, so we can use the
   // same code both to render the scene normally and to build the render bundle.
-  function renderScene(passEncoder: GPURenderPassEncoder | GPURenderBundleEncoder) {
+  function renderScene(
+    passEncoder: GPURenderPassEncoder | GPURenderBundleEncoder
+  ) {
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, frameBindGroup);
-    
+
     // Loop through every renderable object and draw them individually.
     // (Because many of these meshes are repeated, with only the transforms
     // differing, instancing would be highly effective here. This sample
@@ -386,7 +389,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-    
+
     if (settings.useRenderBundles) {
       // Executing a bundle is equivalent to calling all of the commands encoded
       // in the render bundle as part of the current render pass.

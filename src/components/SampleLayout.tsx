@@ -124,8 +124,8 @@ const SampleLayout: React.FunctionComponent<
 
     if (stats && statsParentRef.current) {
       stats.dom.style.position = 'absolute';
-      stats.showPanel( 1 ); // 0: fps, 1: ms, 2: mb, 3+: custom
-      statsParentRef.current.appendChild( stats.dom );
+      stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
+      statsParentRef.current.appendChild(stats.dom);
     }
 
     const pageState = {
