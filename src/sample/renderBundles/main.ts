@@ -14,9 +14,20 @@ interface Renderable {
 const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   const settings = {
     useRenderBundles: true,
+    asteroidCount: 5000
   };
 
+  // TODO: Should not be necessary!
+  while (gui.__controllers.length) {
+    gui.remove(gui.__controllers[0]);
+  }
+
   gui.add(settings, 'useRenderBundles');
+  gui.add(settings, 'asteroidCount', 1000, 10000, 1000).onChange((value) => {
+    // If the content of the scene changes the render bundle must be recreated.
+    ensureEnoughAsteroids();
+    updateRenderBundle();
+  });
 
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
@@ -243,36 +254,39 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   mat4.identity(transform);
 
   // Create one large central planet surrounded by a large ring of asteroids
-  const planet = createSphereRenderable(1.2);
+  const planet = createSphereRenderable(1.0);
   planet.bindGroup = createSphereBindGroup(planetTexture, transform);
 
-  const ASTEROID_COUNT = 5000;
   const asteroids = [
     createSphereRenderable(0.01, 8, 6, 0.15),
-    createSphereRenderable(0.015, 8, 6, 0.15),
+    createSphereRenderable(0.013, 8, 6, 0.15),
+    createSphereRenderable(0.017, 8, 6, 0.15),
     createSphereRenderable(0.02, 8, 6, 0.15),
-    createSphereRenderable(0.035, 16, 8, 0.15),
+    createSphereRenderable(0.03, 16, 8, 0.15),
   ];
 
   const renderables = [planet];
 
-  for (let i = 0; i < ASTEROID_COUNT; ++i) {
-    // Place copies of the asteroid in a ring.
-    const radius = Math.random() * 1.2 + 1.5;
-    const angle = Math.random() * Math.PI * 2;
-    const x = Math.sin(angle) * radius;
-    const y = (Math.random() - 0.5) * 0.01;
-    const z = Math.cos(angle) * radius;
+  function ensureEnoughAsteroids() {
+    for (let i = renderables.length; i <= settings.asteroidCount; ++i) {
+      // Place copies of the asteroid in a ring.
+      const radius = Math.random() * 1.7 + 1.25;
+      const angle = Math.random() * Math.PI * 2;
+      const x = Math.sin(angle) * radius;
+      const y = (Math.random() - 0.5) * 0.015;
+      const z = Math.cos(angle) * radius;
 
-    mat4.identity(transform);
-    mat4.translate(transform, [x, y, z], transform);
-    mat4.rotateX(transform, Math.random() * Math.PI, transform);
-    mat4.rotateY(transform, Math.random() * Math.PI, transform);
-    renderables.push({
-      ...asteroids[i % asteroids.length],
-      bindGroup: createSphereBindGroup(moonTexture, transform),
-    });
+      mat4.identity(transform);
+      mat4.translate(transform, [x, y, z], transform);
+      mat4.rotateX(transform, Math.random() * Math.PI, transform);
+      mat4.rotateY(transform, Math.random() * Math.PI, transform);
+      renderables.push({
+        ...asteroids[i % asteroids.length],
+        bindGroup: createSphereBindGroup(moonTexture, transform),
+      });
+    }
   }
+  ensureEnoughAsteroids();
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
@@ -343,11 +357,16 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     // intentionally avoids using instancing in order to emulate a more complex
     // scene, which helps demonstrate the potential time savings a render bundle
     // can provide.)
+    let count = 0;
     for (const renderable of renderables) {
       passEncoder.setBindGroup(1, renderable.bindGroup);
       passEncoder.setVertexBuffer(0, renderable.vertices);
       passEncoder.setIndexBuffer(renderable.indices, 'uint16');
       passEncoder.drawIndexed(renderable.indexCount);
+
+      if (++count > settings.asteroidCount) {
+        break;
+      }
     }
   }
 
@@ -362,12 +381,16 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   // textures used. Cases where the executed commands differ from frame-to-frame,
   // such as when using frustrum or occlusion culling, will not benefit from
   // using render bundles as much.
-  const renderBundleEncoder = device.createRenderBundleEncoder({
-    colorFormats: [presentationFormat],
-    depthStencilFormat: 'depth24plus',
-  });
-  renderScene(renderBundleEncoder);
-  const renderBundle = renderBundleEncoder.finish();
+  let renderBundle;
+  function updateRenderBundle() {
+    const renderBundleEncoder = device.createRenderBundleEncoder({
+      colorFormats: [presentationFormat],
+      depthStencilFormat: 'depth24plus',
+    });
+    renderScene(renderBundleEncoder);
+    renderBundle = renderBundleEncoder.finish();
+  }
+  updateRenderBundle();
 
   function frame() {
     // Sample is no longer the active page.
