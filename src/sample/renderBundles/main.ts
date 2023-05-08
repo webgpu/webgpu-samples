@@ -14,7 +14,7 @@ interface Renderable {
 const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   const settings = {
     useRenderBundles: true,
-    asteroidCount: 5000
+    asteroidCount: 5000,
   };
 
   // TODO: Should not be necessary!
@@ -23,7 +23,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   }
 
   gui.add(settings, 'useRenderBundles');
-  gui.add(settings, 'asteroidCount', 1000, 10000, 1000).onChange((value) => {
+  gui.add(settings, 'asteroidCount', 1000, 10000, 1000).onChange(() => {
     // If the content of the scene changes the render bundle must be recreated.
     ensureEnoughAsteroids();
     updateRenderBundle();
