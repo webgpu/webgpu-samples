@@ -105,8 +105,8 @@ export default class Raytracer {
     passEncoder.setBindGroup(0, this.common.uniforms.bindGroup);
     passEncoder.setBindGroup(1, this.bindGroup);
     passEncoder.dispatchWorkgroups(
-      this.framebuffer.width / this.kWorkgroupSizeX,
-      this.framebuffer.height / this.kWorkgroupSizeY
+      Math.ceil(this.framebuffer.width / this.kWorkgroupSizeX),
+      Math.ceil(this.framebuffer.height / this.kWorkgroupSizeY)
     );
     passEncoder.end();
   }
