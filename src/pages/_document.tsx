@@ -20,6 +20,10 @@ const Document: React.FunctionComponent = () => {
           httpEquiv="origin-trial"
           content="Ajk6hJ+H2On45QTvVPJLRgjt+S01bdGuXXSu9Oci5oOcypHiuDPM6hW5Wp1GRegFTOU77li5tYRZrhp+RN2ZYgAAAABQeyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVSIsImV4cGlyeSI6MTY5MTcxMTk5OX0="
         />
+        <meta
+          httpEquiv="origin-trial"
+          content="Auo9JMDbdn/Jg1pd8liB9Ofp1OLzi9mecxjBBfjv/3f8O8775CXgcTobX4t6KYxMC1wnO4Z7MWArPSptGtkD2woAAABZeyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVVdlYkNvZGVjcyIsImV4cGlyeSI6MTcwMTk5MzU5OX0="
+        />
         <link
           rel="icon"
           type="image/x-icon"
