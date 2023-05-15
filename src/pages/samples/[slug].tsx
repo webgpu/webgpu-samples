@@ -36,6 +36,7 @@ export const pages = {
   particles: dynamic(() => import('../../sample/particles/main')),
   cornell: dynamic(() => import('../../sample/cornell/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
+  renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
 };
 
 function Page({ slug }: Props): JSX.Element {

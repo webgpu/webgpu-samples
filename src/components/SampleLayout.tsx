@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { GUI } from 'dat.gui';
+import type { Stats } from 'stats-js';
 import type { Editor, EditorConfiguration } from 'codemirror';
 interface CodeMirrorEditor extends Editor {
   updatedSource: (source: string) => void;
@@ -20,6 +21,7 @@ export type SampleInit = (params: {
   canvas: HTMLCanvasElement;
   pageState: { active: boolean };
   gui?: GUI;
+  stats?: Stats;
 }) => void | Promise<void>;
 
 if (process.browser) {
@@ -69,6 +71,7 @@ const SampleLayout: React.FunctionComponent<
     originTrial?: string;
     filename: string;
     gui?: boolean;
+    stats?: boolean;
     init: SampleInit;
     sources: SourceFileInfo[];
   }>
@@ -92,6 +95,16 @@ const SampleLayout: React.FunctionComponent<
     return undefined;
   }, []);
 
+  const statsParentRef = useRef<HTMLDivElement | null>(null);
+  const stats: Stats | undefined = useMemo(() => {
+    if (props.stats && process.browser) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Stats = require('stats-js');
+      return new Stats();
+    }
+    return undefined;
+  }, []);
+
   const router = useRouter();
   const currentHash = router.asPath.match(/#([a-zA-Z0-9\.\/]+)/);
 
@@ -109,6 +122,12 @@ const SampleLayout: React.FunctionComponent<
       guiParentRef.current.appendChild(gui.domElement);
     }
 
+    if (stats && statsParentRef.current) {
+      stats.dom.style.position = 'absolute';
+      stats.showPanel(1); // 0: fps, 1: ms, 2: mb, 3+: custom
+      statsParentRef.current.appendChild(stats.dom);
+    }
+
     const pageState = {
       active: true,
     };
@@ -121,6 +140,7 @@ const SampleLayout: React.FunctionComponent<
         canvas,
         pageState,
         gui,
+        stats,
       });
 
       if (p instanceof Promise) {
@@ -176,6 +196,13 @@ const SampleLayout: React.FunctionComponent<
         ) : null}
       </div>
       <div className={styles.canvasContainer}>
+        <div
+          style={{
+            position: 'absolute',
+            left: 10,
+          }}
+          ref={statsParentRef}
+        ></div>
         <div
           style={{
             position: 'absolute',
