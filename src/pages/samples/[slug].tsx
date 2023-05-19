@@ -27,6 +27,9 @@ export const pages = {
   videoUploadingWebCodecs: dynamic(
     () => import('../../sample/videoUploadingWebCodecs/main')
   ),
+  samplerParameters: dynamic(
+    () => import('../../sample/samplerParameters/main')
+  ),
   imageBlur: dynamic(() => import('../../sample/imageBlur/main')),
   shadowMapping: dynamic(() => import('../../sample/shadowMapping/main')),
   reversedZ: dynamic(() => import('../../sample/reversedZ/main')),
