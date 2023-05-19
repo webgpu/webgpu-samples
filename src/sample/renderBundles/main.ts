@@ -12,16 +12,15 @@ interface Renderable {
 }
 
 const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
+  const adapter = await navigator.gpu.requestAdapter();
+  const device = await adapter.requestDevice();
+
+  if (!pageState.active) return;
+
   const settings = {
     useRenderBundles: true,
     asteroidCount: 5000,
   };
-
-  // TODO: Should not be necessary!
-  while (gui.__controllers.length) {
-    gui.remove(gui.__controllers[0]);
-  }
-
   gui.add(settings, 'useRenderBundles');
   gui.add(settings, 'asteroidCount', 1000, 10000, 1000).onChange(() => {
     // If the content of the scene changes the render bundle must be recreated.
@@ -29,10 +28,6 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     updateRenderBundle();
   });
 
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
-
-  if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
   const devicePixelRatio = window.devicePixelRatio || 1;
