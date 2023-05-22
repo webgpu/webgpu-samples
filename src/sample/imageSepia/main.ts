@@ -2,7 +2,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import sepiaWGSL from './sepia.wgsl';
 
-const init: SampleInit = async ({ canvas, pageState, gui }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
 
   if (!adapter) {
