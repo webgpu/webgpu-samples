@@ -37,6 +37,7 @@ export const pages = {
   cornell: dynamic(() => import('../../sample/cornell/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
+  imageSepia: dynamic(() => import('../../sample/imageSepia/main')),
 };
 
 function Page({ slug }: Props): JSX.Element {
