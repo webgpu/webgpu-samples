@@ -72,7 +72,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         Object.assign(samplerDescriptor, kInitSamplerDescriptor);
         gui.updateDisplay();
       },
-      'checkered floor'() {
+      checkerboard() {
         Object.assign(config, { flangeLogSize: 10 });
         Object.assign(samplerDescriptor, {
           addressModeU: 'repeat',
@@ -80,11 +80,29 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         });
         gui.updateDisplay();
       },
+      smooth() {
+        Object.assign(samplerDescriptor, {
+          magFilter: 'linear',
+          minFilter: 'linear',
+          mipmapFilter: 'linear',
+        });
+        gui.updateDisplay();
+      },
+      crunchy() {
+        Object.assign(samplerDescriptor, {
+          magFilter: 'nearest',
+          minFilter: 'nearest',
+          mipmapFilter: 'nearest',
+        });
+        gui.updateDisplay();
+      },
     };
     const presets = gui.addFolder('Presets');
     presets.open();
-    presets.add(buttons, 'initial');
-    presets.add(buttons, 'checkered floor');
+    presets.add(buttons, 'initial').name('reset to initial');
+    presets.add(buttons, 'checkerboard').name('checkered floor');
+    presets.add(buttons, 'smooth').name('smooth (linear)');
+    presets.add(buttons, 'crunchy').name('crunchy (nearest)');
 
     const flangeFold = gui.addFolder('Plane settings');
     flangeFold.open();
@@ -92,6 +110,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     flangeFold.add(config, 'highlightFlange');
     flangeFold.add(config, 'animation', 0, 0.5);
 
+    gui.width = 280;
     {
       const folder = gui.addFolder('GPUSamplerDescriptor');
       folder.open();
