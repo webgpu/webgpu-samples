@@ -36,7 +36,24 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // GUI controls
   //
 
-  const samplerDescriptor: GPUSamplerDescriptor = {
+  const kInitConfig = {
+    flangeLogSize: 1.0,
+    highlightFlange: false,
+    animation: 0.1,
+  } as const;
+  const config = { ...kInitConfig };
+  const updateConfigBuffer = () => {
+    const t = (performance.now() / 1000) * 0.5;
+    const data = new Float32Array([
+      Math.cos(t) * config.animation,
+      Math.sin(t) * config.animation,
+      (2 ** config.flangeLogSize - 1) / 2,
+      Number(config.highlightFlange),
+    ]);
+    device.queue.writeBuffer(bufConfig, 64, data);
+  };
+
+  const kInitSamplerDescriptor = {
     addressModeU: 'clamp-to-edge',
     addressModeV: 'clamp-to-edge',
     magFilter: 'linear',
@@ -45,26 +62,35 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     lodMinClamp: 0,
     lodMaxClamp: 4,
     maxAnisotropy: 1,
-  };
-
-  const config = {
-    flangeLogSize: 0.5,
-    highlightFlange: false,
-  };
-  const updateConfigBuffer = () => {
-    const data = new Float32Array([
-      2 ** config.flangeLogSize - 1,
-      Number(config.highlightFlange),
-    ]);
-    device.queue.writeBuffer(bufConfig, 64, data);
-  };
+  } as const;
+  const samplerDescriptor: GPUSamplerDescriptor = { ...kInitSamplerDescriptor };
 
   {
-    gui
-      .add(config, 'flangeLogSize', 0, 10.0, 0.05)
-      .name('flangeSize=2**')
-      .onChange(updateConfigBuffer);
-    gui.add(config, 'highlightFlange').onChange(updateConfigBuffer);
+    const buttons = {
+      initial() {
+        Object.assign(config, kInitConfig);
+        Object.assign(samplerDescriptor, kInitSamplerDescriptor);
+        gui.updateDisplay();
+      },
+      'checkered floor'() {
+        Object.assign(config, { flangeLogSize: 10 });
+        Object.assign(samplerDescriptor, {
+          addressModeU: 'repeat',
+          addressModeV: 'repeat',
+        });
+        gui.updateDisplay();
+      },
+    };
+    const presets = gui.addFolder('Presets');
+    presets.open();
+    presets.add(buttons, 'initial');
+    presets.add(buttons, 'checkered floor');
+
+    const flangeFold = gui.addFolder('Plane settings');
+    flangeFold.open();
+    flangeFold.add(config, 'flangeLogSize', 0, 10.0, 0.1).name('size = 2**');
+    flangeFold.add(config, 'highlightFlange');
+    flangeFold.add(config, 'animation', 0, 0.5);
 
     {
       const folder = gui.addFolder('GPUSamplerDescriptor');
@@ -99,6 +125,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       }
     }
   }
+
+  //
+  // Canvas setup
+  //
 
   // Low-res, pixelated render target so it's easier to see fine details.
   const kCanvasSize = 200;
@@ -231,7 +261,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     [0, 0, -kCameraDist]
   );
   device.queue.writeBuffer(bufConfig, 0, viewProj);
-  updateConfigBuffer();
 
   const bufMatrices = device.createBuffer({
     usage: GPUBufferUsage.STORAGE,
@@ -244,6 +273,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
+
+    updateConfigBuffer();
 
     const sampler = device.createSampler({
       ...samplerDescriptor,

@@ -1,5 +1,6 @@
 struct Config {
   viewProj: mat4x4f,
+  animationOffset: vec2f,
   flangeSize: f32,
   highlightFlange: f32,
 };
@@ -34,7 +35,7 @@ fn vmain(
   );
 
   let modelMatrix = matrices[instance_index];
-  let pos = config.viewProj * modelMatrix * vec4f(positions[vertex_index], 0, 1);
+  let pos = config.viewProj * modelMatrix * vec4f(positions[vertex_index] + config.animationOffset, 0, 1);
   return Varying(pos, uvs[vertex_index]);
 }
 
