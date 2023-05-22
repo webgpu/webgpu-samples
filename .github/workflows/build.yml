@@ -29,11 +29,7 @@ jobs:
     - name: Install and Build 🔧
       run: |
         export REPOSITORY_NAME=${{ github.repository }}
-        # npm ci
-        # npm run-script lint
-        # npm run-script build
-        # npm run-script export
-        yarn install --frozen-lockfile
-        yarn lint
-        yarn build
-        yarn export
+        npm ci
+        npm run-script lint
+        npm run-script build
+        npm run-script export
