@@ -181,8 +181,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // Initialize test texture
   //
 
-  // Set up a texture with 4 mip levels, each containing a checkerboard with 1x1
-  // pixels (such that the checkerboards do NOT line up).
+  // Set up a texture with 4 mip levels, each containing a differently
+  // checkerboard with 1x1 pixels (so when rendered the checkerboards are
+  // different sizes). This is different from a normal mipmap where each level
+  // would look like a lower-resolution version of the previous one.
   // Level 0 is 16x16 white/black
   // Level 1 is 8x8 blue/black
   // Level 2 is 4x4 yellow/black
@@ -199,9 +201,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const kColorForLevel = [
     [255, 255, 255, 255],
-    [30, 136, 229, 255],
-    [255, 193, 7, 255],
-    [216, 27, 96, 255],
+    [30, 136, 229, 255], // blue
+    [255, 193, 7, 255], // yellow
+    [216, 27, 96, 255], // pink
   ];
   for (let mipLevel = 0; mipLevel < kTextureMipLevels; ++mipLevel) {
     const size = 2 ** (kTextureMipLevels - mipLevel); // 16, 8, 4, 2
@@ -361,7 +363,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   requestAnimationFrame(frame);
 };
 
-const HelloTriangle: () => JSX.Element = () =>
+export default () =>
   makeSample({
     name: 'Sampler Parameters',
     description:
@@ -386,5 +388,3 @@ const HelloTriangle: () => JSX.Element = () =>
     ],
     filename: __filename,
   });
-
-export default HelloTriangle;
