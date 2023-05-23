@@ -64,13 +64,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     minFilter: 'linear',
   });
 
-  const img = document.createElement('img');
-  img.src = new URL(
-    '../../../assets/img/Di-3d.png',
-    import.meta.url
-  ).toString();
-  await img.decode();
-  const imageBitmap = await createImageBitmap(img);
+  const response = await fetch(
+    new URL('../../../assets/img/Di-3d.png', import.meta.url).toString()
+  );
+  const imageBitmap = await createImageBitmap(await response.blob());
 
   const [srcWidth, srcHeight] = [imageBitmap.width, imageBitmap.height];
   const cubeTexture = device.createTexture({
