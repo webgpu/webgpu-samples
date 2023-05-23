@@ -1,8 +1,8 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
-import sepiaWGSL from './sepia.wgsl';
+import blackAndWhiteWGSL from './blackAndWhite.wgsl';
 
-const init: SampleInit = async ({ canvas, pageState }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
 
   if (!adapter) {
@@ -14,15 +14,20 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+
   const devicePixelRatio = window.devicePixelRatio || 1;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
-  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
     device,
     format: presentationFormat,
     alphaMode: 'premultiplied',
+  });
+
+  const shaderModule = device.createShaderModule({
+    code: blackAndWhiteWGSL,
   });
 
   const vertices = new Float32Array([
@@ -50,6 +55,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     width: img.width,
     height: img.height,
   };
+
   const imageTexture = device.createTexture({
     size: textureSize,
     dimension: '2d',
@@ -71,38 +77,31 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     textureSize
   );
 
-  const shaderModule = device.createShaderModule({
-    code: sepiaWGSL,
-  });
-
-  const filterImage = document.createElement('img');
-  filterImage.src = new URL(
-    '../../../assets/img/Di-3d.png',
-    import.meta.url
-  ).toString();
-  const filterImageSize = {
-    width: filterImage.width,
-    height: filterImage.height,
+  const settings = {
+    filterStrength: 0.5,
   };
-  const filterImageTexture = device.createTexture({
-    size: filterImageSize,
-    dimension: '2d',
-    format: 'rgba8unorm',
-    usage:
-      GPUTextureUsage.COPY_DST |
-      GPUTextureUsage.RENDER_ATTACHMENT |
-      GPUTextureUsage.TEXTURE_BINDING,
+
+  const filterStrengthBuffer = device.createBuffer({
+    size: 4,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    mappedAtCreation: true,
   });
-  device.queue.copyExternalImageToTexture(
-    {
-      source: await createImageBitmap(filterImage),
-    },
-    {
-      texture: filterImageTexture,
-      mipLevel: 0,
-    },
-    filterImageSize
-  );
+  new Float32Array(filterStrengthBuffer.getMappedRange()).set([
+    settings.filterStrength,
+  ]);
+  filterStrengthBuffer.unmap();
+
+  function updateSettings() {
+    device.queue.writeBuffer(
+      filterStrengthBuffer,
+      0,
+      new Float32Array([settings.filterStrength])
+    );
+  }
+
+  gui.add(settings, 'filterStrength', 0, 1).onChange(updateSettings);
+
+  updateSettings();
 
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
@@ -119,7 +118,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
       {
         binding: 2,
         visibility: GPUShaderStage.FRAGMENT,
-        texture: {},
+        buffer: { type: 'uniform' },
       },
     ],
   });
@@ -144,7 +143,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
       },
       {
         binding: 2,
-        resource: filterImageTexture.createView(),
+        resource: {
+          buffer: filterStrengthBuffer,
+        },
       },
     ],
   });
@@ -179,7 +180,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const vertexBuffers: Iterable<GPUVertexBufferLayout> = [vertexBufferLayout];
 
   const colorTargetState: GPUColorTargetState = {
-    format: 'bgra8unorm',
+    format: presentationFormat,
   };
 
   const renderPipeline = device.createRenderPipeline({
@@ -201,30 +202,37 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     },
   });
 
-  const commandEncoder = device.createCommandEncoder();
+  function frame() {
+    if (!pageState.active) return;
 
-  const renderPassColorAttachment: GPURenderPassColorAttachment = {
-    storeOp: 'store',
-    view: context.getCurrentTexture().createView(),
-    loadOp: 'clear',
-    clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
-  };
+    const commandEncoder = device.createCommandEncoder();
 
-  const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [renderPassColorAttachment],
-  };
+    const passEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: context.getCurrentTexture().createView(),
+          clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+          storeOp: 'store',
+          loadOp: 'clear',
+        },
+      ],
+    });
 
-  const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  passEncoder.setPipeline(renderPipeline);
-  passEncoder.setVertexBuffer(0, verticesBuffer);
-  passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.draw(6, 2, 0, 0);
-  passEncoder.end();
+    passEncoder.setPipeline(renderPipeline);
+    passEncoder.setVertexBuffer(0, verticesBuffer);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.draw(6, 2, 0, 0);
+    passEncoder.end();
 
-  device.queue.submit([commandEncoder.finish()]);
+    device.queue.submit([commandEncoder.finish()]);
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
 };
 
-const ImageSepia: () => JSX.Element = () =>
+const ImageBlackAndWhite: () => JSX.Element = () =>
   makeSample({
     name: 'Image Sepia',
     description:
@@ -238,11 +246,11 @@ const ImageSepia: () => JSX.Element = () =>
       },
       {
         name: './sepia.wgsl',
-        contents: sepiaWGSL,
+        contents: blackAndWhiteWGSL,
         editable: true,
       },
     ],
     filename: __filename,
   });
 
-export default ImageSepia;
+export default ImageBlackAndWhite;
