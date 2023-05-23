@@ -1,6 +1,6 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
-import blackAndWhiteWGSL from './blackAndWhite.wgsl';
+import colorWGSL from './color.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
@@ -27,7 +27,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   const shaderModule = device.createShaderModule({
-    code: blackAndWhiteWGSL,
+    code: colorWGSL,
   });
 
   const vertices = new Float32Array([
@@ -78,28 +78,42 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   );
 
   const settings = {
-    filterStrength: 0.5,
+    temp: 0,
+    tint: 0,
+    vibrance: 0,
+    saturation: 0,
   };
 
-  const filterStrengthBuffer = device.createBuffer({
-    size: 4,
+  const colorBuffer = device.createBuffer({
+    size: 16,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     mappedAtCreation: true,
   });
-  new Float32Array(filterStrengthBuffer.getMappedRange()).set([
-    settings.filterStrength,
+  new Float32Array(colorBuffer.getMappedRange()).set([
+    settings.temp,
+    settings.tint,
+    settings.vibrance,
+    settings.saturation,
   ]);
-  filterStrengthBuffer.unmap();
+  colorBuffer.unmap();
 
   function updateSettings() {
     device.queue.writeBuffer(
-      filterStrengthBuffer,
+      colorBuffer,
       0,
-      new Float32Array([settings.filterStrength])
+      new Float32Array([
+        settings.temp,
+        settings.tint,
+        settings.vibrance,
+        settings.saturation,
+      ])
     );
   }
 
-  gui.add(settings, 'filterStrength', 0, 1).onChange(updateSettings);
+  gui.add(settings, 'temp', -100, 100).onChange(updateSettings);
+  gui.add(settings, 'tint', -100, 100).onChange(updateSettings);
+  gui.add(settings, 'vibrance', -100, 100).onChange(updateSettings);
+  gui.add(settings, 'saturation', -100, 100).onChange(updateSettings);
 
   updateSettings();
 
@@ -144,7 +158,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       {
         binding: 2,
         resource: {
-          buffer: filterStrengthBuffer,
+          buffer: colorBuffer,
         },
       },
     ],
@@ -232,11 +246,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   requestAnimationFrame(frame);
 };
 
-const ImageBlackAndWhite: () => JSX.Element = () =>
+const ImageColorAdjustment: () => JSX.Element = () =>
   makeSample({
-    name: 'Image Black and White',
+    name: 'Image Color Adjustment',
     description:
-      'This example shows how to apply a black and white filter on an image using a WebGPU compute shader.',
+      'This example shows how to apply a color adjustor on an image using a WebGPU compute shader.',
     gui: true,
     init,
     sources: [
@@ -245,12 +259,12 @@ const ImageBlackAndWhite: () => JSX.Element = () =>
         contents: __SOURCE__,
       },
       {
-        name: './blackAndWhite.wgsl',
-        contents: blackAndWhiteWGSL,
+        name: './color.wgsl',
+        contents: colorWGSL,
         editable: true,
       },
     ],
     filename: __filename,
   });
 
-export default ImageBlackAndWhite;
+export default ImageColorAdjustment;

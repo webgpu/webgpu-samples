@@ -40,6 +40,9 @@ export const pages = {
   imageBlackAndWhite: dynamic(
     () => import('../../sample/imageBlackAndWhite/main')
   ),
+  imageColorAdjustment: dynamic(
+    () => import('../../sample/imageColorAdjustment/main')
+  ),
 };
 
 function Page({ slug }: Props): JSX.Element {
