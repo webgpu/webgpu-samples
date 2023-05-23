@@ -118,13 +118,10 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   // Fetch the images and upload them into a GPUTexture.
   let planetTexture: GPUTexture;
   {
-    const img = document.createElement('img');
-    img.src = new URL(
-      '../../../assets/img/saturn.jpg',
-      import.meta.url
-    ).toString();
-    await img.decode();
-    const imageBitmap = await createImageBitmap(img);
+    const response = await fetch(
+      new URL('../../../assets/img/saturn.jpg', import.meta.url).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
 
     planetTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
@@ -143,13 +140,10 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
 
   let moonTexture: GPUTexture;
   {
-    const img = document.createElement('img');
-    img.src = new URL(
-      '../../../assets/img/moon.jpg',
-      import.meta.url
-    ).toString();
-    await img.decode();
-    const imageBitmap = await createImageBitmap(img);
+    const response = await fetch(
+      new URL('../../../assets/img/moon.jpg', import.meta.url).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
 
     moonTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],

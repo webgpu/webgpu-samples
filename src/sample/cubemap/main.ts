@@ -132,10 +132,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         import.meta.url
       ).toString(),
     ];
-    const promises = imgSrcs.map((src) => {
-      const img = document.createElement('img');
-      img.src = src;
-      return img.decode().then(() => createImageBitmap(img));
+    const promises = imgSrcs.map(async (src) => {
+      const response = await fetch(src);
+      return createImageBitmap(await response.blob());
     });
     const imageBitmaps = await Promise.all(promises);
 
