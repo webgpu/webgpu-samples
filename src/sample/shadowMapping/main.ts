@@ -289,7 +289,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     2000.0
   );
 
-  const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
+  const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
   const lightPosition = vec3.fromValues(50, 100, -100);
   const lightViewMatrix = mat4.lookAt(lightPosition, origin, upVector);
