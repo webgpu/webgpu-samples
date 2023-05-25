@@ -289,12 +289,10 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     2000.0
   );
 
-  const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
+  const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
   const lightPosition = vec3.fromValues(50, 100, -100);
-  const lightViewMatrix = mat4.inverse(
-    mat4.lookAt(lightPosition, origin, upVector)
-  );
+  const lightViewMatrix = mat4.lookAt(lightPosition, origin, upVector);
 
   const lightProjectionMatrix = mat4.create();
   {
@@ -364,7 +362,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     const rotation = mat4.rotateY(mat4.translation(origin), rad);
     vec3.transformMat4(eyePosition, rotation, eyePosition);
 
-    const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
+    const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
     mat4.multiply(projectionMatrix, viewMatrix, viewProjMatrix);
     return viewProjMatrix as Float32Array;

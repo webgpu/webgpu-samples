@@ -101,7 +101,6 @@ export default class Common {
       vec3.fromValues(0, 5, 0),
       vec3.fromValues(0, 1, 0)
     );
-    mat4.inverse(viewMatrix, viewMatrix);
     const mvp = mat4.multiply(projectionMatrix, viewMatrix);
     const invMVP = mat4.invert(mvp);
 

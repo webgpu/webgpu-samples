@@ -493,7 +493,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     2000.0
   );
 
-  const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
+  const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
   const viewProjMatrix = mat4.multiply(projectionMatrix, viewMatrix);
 
@@ -535,7 +535,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const rotation = mat4.rotateY(mat4.translation(origin), rad);
     vec3.transformMat4(eyePosition, rotation, eyePosition);
 
-    const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
+    const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
     mat4.multiply(projectionMatrix, viewMatrix, viewProjMatrix);
     return viewProjMatrix as Float32Array;
