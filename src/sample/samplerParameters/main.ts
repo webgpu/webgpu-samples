@@ -181,7 +181,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // Initialize test texture
   //
 
-  // Set up a texture with 4 mip levels, each containing a differently
+  // Set up a texture with 4 mip levels, each containing a differently-colored
   // checkerboard with 1x1 pixels (so when rendered the checkerboards are
   // different sizes). This is different from a normal mipmap where each level
   // would look like a lower-resolution version of the previous one.
@@ -335,11 +335,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const pass = commandEncoder.beginRenderPass(renderPassDescriptor);
     // Draw test squares
     pass.setPipeline(texturedSquarePipeline);
+    pass.setBindGroup(0, bindGroup);
     for (let i = 0; i < kViewportGridSize ** 2 - 1; ++i) {
       const vpX = kViewportGridStride * (i % kViewportGridSize) + 1;
       const vpY = kViewportGridStride * Math.floor(i / kViewportGridSize) + 1;
       pass.setViewport(vpX, vpY, kViewportSize, kViewportSize, 0, 1);
-      pass.setBindGroup(0, bindGroup);
       pass.draw(6, 1, 0, i);
     }
     // Show texture contents
