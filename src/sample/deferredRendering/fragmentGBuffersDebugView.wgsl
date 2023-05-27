@@ -18,7 +18,7 @@ fn main(
       vec2<i32>(floor(coord.xy)),
       0
     );
-    // remap depth into something a bit more palatable
+    // remap depth into something a bit more visible
     let depth = (1.0 - rawDepth) * 50.0;
     result = vec4(depth);
   } else if (c.x < 0.66667) {
