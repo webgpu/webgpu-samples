@@ -40,17 +40,6 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     label: 'depthTextureView',
   });
 
-  // A render pass requires at least one target or depth texture so create one
-  // as a placeholder.
-  const fakeTarget = device.createTexture({
-    size: [canvas.width, canvas.height],
-    format: 'r8uint',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    label: 'fakeTarget',
-  });
-
-  const fakeTargetView = fakeTarget.createView({ label: 'fakeTargetView' });
-
   // Create the model vertex buffer
   const vertexBuffer = device.createBuffer({
     size: 3 * mesh.positions.length * Float32Array.BYTES_PER_ELEMENT,
@@ -248,7 +237,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
       entryPoint: 'main_fs',
       targets: [
         {
-          format: fakeTarget.format,
+          format: presentationFormat,
           writeMask: 0x0,
         },
       ],
@@ -263,8 +252,8 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     colorAttachments: [
       {
         loadOp: 'load',
-        storeOp: 'discard',
-        view: fakeTargetView,
+        storeOp: 'store',
+        view: undefined,
       },
     ],
     label: 'translucentPassDescriptor',
@@ -441,6 +430,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     opaquePassEncoder.end();
 
     // Draw the translucent objects
+    translucentPassDescriptor.colorAttachments[0].view = textureView;
     const translucentPassEncoder = commandEncoder.beginRenderPass(
       translucentPassDescriptor
     );
