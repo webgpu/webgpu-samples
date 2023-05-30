@@ -98,7 +98,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   }
 
   // Determines how much memory is allocated to store linked-list elements
-  const averageLayersPerFragment = 8;
+  const averageLayersPerFragment = 4;
 
   // Each element stores
   // * color : vec4<f32>
