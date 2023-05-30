@@ -25,6 +25,7 @@
     "react-dom": "^18.2.0",
     "stanford-dragon": "^1.1.1",
     "stats-js": "^1.0.1",
+    "teapot": "^1.0.0",
     "wgpu-matrix": "^1.1.0"
   },
   "devDependencies": {
