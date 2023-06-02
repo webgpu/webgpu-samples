@@ -68,3 +68,55 @@ export function computeProjectedPlaneUVs(
   });
   return uvs;
 }
+
+type Vector3D = {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+};
+
+type Vertex3D = {
+  x: number;
+  y: number;
+  z: number;
+};
+
+type VertexTriangle = {
+  p: [Vertex3D, Vertex3D, Vertex3D];
+};
+
+export function computerVectorCrossProduct(
+  v1: Vector3D,
+  v2: Vector3D
+): Vector3D {
+  const v: Vector3D = {
+    x: 0.0,
+    y: 0.0,
+    z: 0.0,
+    w: 1.0,
+  };
+  v.x = v1.y * v2.z - v1.z * v2.y;
+  v.y = v1.z * v2.x - v1.x * v2.z;
+  v.z = v1.x * v2.y - v1.y * v2.x;
+  return v;
+}
+
+export function computeTriangleNormal(tri: VertexTriangle): Vector3D {
+  const A: Vector3D = {
+    x: tri.p[1].x - tri.p[0].x,
+    y: tri.p[1].y - tri.p[0].y,
+    z: tri.p[1].z - tri.p[0].z,
+    w: 1.0,
+  };
+
+  const B: Vector3D = {
+    x: tri.p[2].x - tri.p[0].x,
+    y: tri.p[2].y - tri.p[0].y,
+    z: tri.p[2].z - tri.p[0].z,
+    w: 1.0,
+  };
+
+  const normal = computerVectorCrossProduct(A, B);
+  return normal;
+}
