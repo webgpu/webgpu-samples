@@ -101,6 +101,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
+  //Create a uniform buffer
   const uniformBufferSize = 4 * 16; // 4x4 matrix
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,

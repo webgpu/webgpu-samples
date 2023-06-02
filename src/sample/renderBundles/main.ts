@@ -3,7 +3,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { createSphereMesh } from '../../meshes/sphere';
 import { createBoxMesh } from '../../meshes/box';
 
-import meshWGSL from './mesh.wgsl';
+import meshWGSL from '../../shaders/mesh.wgsl';
 import {
   MeshVertexBufferLayout,
   createMeshRenderable,
@@ -183,11 +183,11 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   planet.bindGroup = createSphereBindGroup(planetTexture, transform);
 
   const asteroids = [
-    createMeshRenderable(device, createSphereMesh(0.01, 8, 6, 0.15)),
-    createMeshRenderable(device, createSphereMesh(0.013, 8, 6, 0.15)),
-    createMeshRenderable(device, createSphereMesh(0.017, 8, 6, 0.15)),
-    createMeshRenderable(device, createSphereMesh(0.02, 8, 6, 0.15)),
-    createMeshRenderable(device, createSphereMesh(0.03, 16, 8, 0.15)),
+    createMeshRenderable(device, createSphereMesh(0.01, 8, 6, 0)),
+    createMeshRenderable(device, createSphereMesh(0.013, 8, 6)),
+    createMeshRenderable(device, createSphereMesh(0.017, 8, 6)),
+    createMeshRenderable(device, createSphereMesh(0.02, 8, 6)),
+    createMeshRenderable(device, createSphereMesh(0.03, 16, 8)),
   ];
 
   const renderables = [planet];
@@ -380,9 +380,9 @@ const RenderBundles: () => JSX.Element = () =>
         editable: true,
       },
       {
-        name: '../../meshes/sphere.ts',
+        name: '../../meshes/box.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        contents: require('!!raw-loader!../../meshes/sphere.ts').default,
+        contents: require('!!raw-loader!../../meshes/box.ts').default,
       },
       {
         name: '../../meshes/mesh.ts',

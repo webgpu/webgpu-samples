@@ -1,16 +1,12 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
+import meshWGSL from '../../shaders/mesh.wgsl';
 import {
-  cubeVertexArray,
-  cubeVertexSize,
-  cubeUVOffset,
-  cubePositionOffset,
-  cubeVertexCount,
-} from '../../meshes/cube';
-
-import basicVertWGSL from '../../shaders/basic.vert.wgsl';
-import sampleTextureWGSL from '../../shaders/sampleTexture.frag.wgsl';
+  MeshVertexBufferLayout,
+  createMeshRenderable,
+} from '../../meshes/mesh';
+import { createBoxMesh } from '../../meshes/box';
 
 const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
@@ -30,130 +26,20 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     alphaMode: 'premultiplied',
   });
 
-  // Create a vertex buffer from the cube data.
-  const verticesBuffer = device.createBuffer({
-    size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX,
-    mappedAtCreation: true,
-  });
-  new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
-  verticesBuffer.unmap();
-
-  const uniformBindGroupLayout = device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.VERTEX,
-        buffer: {
-          type: 'uniform',
-        },
-      },
-      {
-        binding: 1,
-        visibility: GPUShaderStage.FRAGMENT,
-        sampler: {
-          type: 'filtering',
-        },
-      },
-      {
-        binding: 2,
-        visibility: GPUShaderStage.FRAGMENT,
-        texture: {
-          sampleType: 'float',
-        },
-      },
-    ],
-  });
-
-
-  const lightModule = device.createShaderModule({
-    //BindGroup 0 with layout bindGroupLayoutOne
-    //Binding 1: The entry within our bindgroup, a storage buffer
-    code: `
-      struct LightInfo {
-        //4 bytes padding between each vec3<f32>
-        position: vec3<f32>,
-        color: vec3<f32>
-      }
-  
-      @group(0) @binding(0)
-      var<storage, read> input: array<Ball>;
-  
-      @group(0) @binding(1)
-      var<storage, read_write> output: array<Ball>;
-  
-      @group(0) @binding(2)
-      var<uniform> uniforms: UniformData;
-
-      @group(1) @binding(0)
-      var<uniform> light_info: LightInfo
-  
-      const TIME_STEP: f32 = 0.016;
-  
-      @compute @workgroup_size(64)
-      fn main( 
-        @builtin(global_invocation_id) global_id: vec3<u32>,
-      ) {
-        let num_balls = arrayLength(&output);
-        if (global_id.x >= arrayLength(&output)) {
-          return;
-        }
-        let src_ball = input[global_id.x];
-        let dst_ball = &output[global_id.x];
-  
-        (*dst_ball) = src_ball;
-        (*dst_ball).position = (*dst_ball).position + (*dst_ball).velocity * TIME_STEP;
-        if ( 
-          (*dst_ball).position[0] >= f32(uniforms.canvasWidth) ||
-          (*dst_ball).position[0] <= 0.0
-        ) {
-          (*dst_ball).velocity[0] = src_ball.velocity[0] * -1;
-        }
-  
-        if ( 
-          (*dst_ball).position[1] >= f32(uniforms.canvasHeight) ||
-          (*dst_ball).position[1] <= 0.0
-        ) {
-          (*dst_ball).velocity[1] = src_ball.velocity[1] * -1;
-        }
-      }
-    `,
-  });
-
   const pipeline = device.createRenderPipeline({
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: [uniformBindGroupLayout],
-    }),
+    layout: 'auto',
     vertex: {
       module: device.createShaderModule({
-        code: basicVertWGSL,
+        code: meshWGSL,
       }),
-      entryPoint: 'main',
-      buffers: [
-        {
-          arrayStride: cubeVertexSize,
-          attributes: [
-            {
-              // position
-              shaderLocation: 0,
-              offset: cubePositionOffset,
-              format: 'float32x4',
-            },
-            {
-              // uv
-              shaderLocation: 1,
-              offset: cubeUVOffset,
-              format: 'float32x2',
-            },
-          ],
-        },
-      ],
+      entryPoint: 'vertexMain',
+      buffers: MeshVertexBufferLayout,
     },
     fragment: {
       module: device.createShaderModule({
-        code: sampleTextureWGSL,
+        code: meshWGSL,
       }),
-      entryPoint: 'main',
+      entryPoint: 'fragmentMain',
       targets: [
         {
           format: presentationFormat,
@@ -191,7 +77,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   });
 
   // Fetch the image and upload it into a GPUTexture.
-  let cubeTexture: GPUTexture;
+  let woodTexture: GPUTexture;
   {
     const response = await fetch(
       new URL(
@@ -201,7 +87,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     );
     const imageBitmap = await createImageBitmap(await response.blob());
 
-    cubeTexture = device.createTexture({
+    woodTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
       format: 'rgba8unorm',
       usage:
@@ -213,12 +99,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     });
     device.queue.copyExternalImageToTexture(
       { source: imageBitmap },
-      { texture: cubeTexture },
+      { texture: woodTexture },
       [imageBitmap.width, imageBitmap.height]
     );
   }
 
-  let normalTexture: GPUTexture;
+  let woodNormalTexture: GPUTexture;
   {
     const response = await fetch(
       new URL(
@@ -228,7 +114,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     );
     const imageBitmap = await createImageBitmap(await response.blob());
 
-    cubeTexture = device.createTexture({
+    woodNormalTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
       format: 'rgba8unorm',
       usage:
@@ -240,12 +126,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     });
     device.queue.copyExternalImageToTexture(
       { source: imageBitmap },
-      { texture: cubeTexture },
+      { texture: woodNormalTexture },
       [imageBitmap.width, imageBitmap.height]
     );
   }
 
-  let diffuseTexture: GPUTexture;
+  let woodDiffuseTexture: GPUTexture;
   {
     const response = await fetch(
       new URL(
@@ -255,7 +141,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     );
     const imageBitmap = await createImageBitmap(await response.blob());
 
-    cubeTexture = device.createTexture({
+    woodDiffuseTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
       format: 'rgba8unorm',
       usage:
@@ -267,7 +153,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     });
     device.queue.copyExternalImageToTexture(
       { source: imageBitmap },
-      { texture: cubeTexture },
+      { texture: woodDiffuseTexture },
       [imageBitmap.width, imageBitmap.height]
     );
   }
@@ -278,32 +164,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     minFilter: 'linear',
   });
 
-  const uniformBindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: sampler,
-      },
-      {
-        binding: 2,
-        resource: cubeTexture.createView(),
-      },
-    ],
-  });
-
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
         view: undefined, // Assigned later
 
-        clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         loadOp: 'clear',
         storeOp: 'store',
       },
@@ -317,6 +183,59 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     },
   };
 
+  const createToyboxBindGroup = (
+    texture: GPUTexture,
+    transform: Float32Array
+  ): GPUBindGroup => {
+    const uniformBufferSize = 4 * 16; // 4x4 matrix
+    const uniformBuffer = device.createBuffer({
+      size: uniformBufferSize,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
+    });
+    new Float32Array(uniformBuffer.getMappedRange()).set(transform);
+    uniformBuffer.unmap();
+
+    const bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(1),
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: uniformBuffer,
+          },
+        },
+        {
+          binding: 1,
+          resource: sampler,
+        },
+        {
+          binding: 2,
+          resource: texture.createView(),
+        },
+      ],
+    });
+    return bindGroup;
+  };
+
+  const transform = mat4.create();
+  mat4.identity(transform);
+
+  const frameBindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+        },
+      },
+    ],
+  });
+
+  const toybox = createMeshRenderable(device, createBoxMesh(1.0, 1.0, 1.0));
+  const toyboxBindGroup = createToyboxBindGroup(woodTexture, transform);
+
   const aspect = canvas.width / canvas.height;
   const projectionMatrix = mat4.perspective(
     (2 * Math.PI) / 5,
@@ -328,14 +247,10 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 
   function getTransformationMatrix() {
     const viewMatrix = mat4.identity();
-    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -2), viewMatrix);
     const now = Date.now() / 1000;
-    mat4.rotate(
-      viewMatrix,
-      vec3.fromValues(Math.sin(now), Math.cos(now), 0),
-      1,
-      viewMatrix
-    );
+    mat4.rotateX(viewMatrix, 0.5 * now, viewMatrix);
+    mat4.rotateY(viewMatrix, 1 * now, viewMatrix);
 
     mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
 
@@ -361,9 +276,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
-    passEncoder.setBindGroup(0, uniformBindGroup);
-    passEncoder.setVertexBuffer(0, verticesBuffer);
-    passEncoder.draw(cubeVertexCount, 1, 0, 0);
+    passEncoder.setBindGroup(0, frameBindGroup);
+    passEncoder.setBindGroup(1, toyboxBindGroup);
+    passEncoder.setVertexBuffer(0, toybox.vertexBuffer);
+    passEncoder.setIndexBuffer(toybox.indexBuffer, 'uint16');
+    passEncoder.drawIndexed(toybox.indexCount);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
@@ -375,7 +292,8 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 const NormalMapping: () => JSX.Element = () =>
   makeSample({
     name: 'Normal Mapping',
-    description: 'This example shows how to apply normal maps to a textured mesh.',
+    description:
+      'This example shows how to apply normal maps to a textured mesh.',
     init,
     sources: [
       {
@@ -383,13 +301,8 @@ const NormalMapping: () => JSX.Element = () =>
         contents: __SOURCE__,
       },
       {
-        name: '../../shaders/basic.vert.wgsl',
-        contents: basicVertWGSL,
-        editable: true,
-      },
-      {
-        name: './sampleTexture.frag.wgsl',
-        contents: sampleTextureWGSL,
+        name: '../../shaders/mesh.wgsl',
+        contents: meshWGSL,
         editable: true,
       },
       {
