@@ -2,13 +2,19 @@ import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import meshWGSL from '../../shaders/mesh.wgsl';
+import normalMapWGSL from './normalMap.wgsl';
 import {
   MeshVertexBufferLayout,
   createMeshRenderable,
 } from '../../meshes/mesh';
 import { createBoxMesh } from '../../meshes/box';
+import { BumpModeType } from './enum';
 
-const init: SampleInit = async ({ canvas, pageState }) => {
+// Inspired by the following articles
+// https://apoorvaj.io/exploring-bump-mapping-with-webgl/
+// https://learnopengl.com/Advanced-Lighting/Parallax-Mapping
+// https://toji.dev/webgpu-best-practices/bind-groups.html
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
@@ -26,18 +32,39 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     alphaMode: 'premultiplied',
   });
 
+  type GUISettings = {
+    'Bump Mode': 'None' | 'Normal' | 'Parallax' | 'Steep Parallax' |'Parallax Occlusion'
+    'Parallax Scale': number,
+    'Depth Layers': number,
+  }
+
+  const settings: GUISettings = {
+    'Bump Mode': 'None',
+    'Parallax Scale': 0,
+    'Depth Layers': 32,
+  };
+  gui.add(settings, 'Bump Mode', [
+    'None',
+    'Normal',
+    'Parallax',
+    'Steep Parallax',
+    'Parallax Occlusion',
+  ]);
+  gui.add(settings, 'Parallax Scale', 0, 0.1, 0.01);
+  gui.add(settings, 'Depth Layers', 1, 32, 1);
+
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
     vertex: {
       module: device.createShaderModule({
-        code: meshWGSL,
+        code: normalMapWGSL,
       }),
       entryPoint: 'vertexMain',
       buffers: MeshVertexBufferLayout,
     },
     fragment: {
       module: device.createShaderModule({
-        code: meshWGSL,
+        code: normalMapWGSL,
       }),
       entryPoint: 'fragmentMain',
       targets: [
@@ -73,6 +100,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const uniformBufferSize = 4 * 16; // 4x4 matrix
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const mapMethodBufferSize = 8; // u32
+  const mapMethodBuffer = device.createBuffer({
+    size: mapMethodBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -135,7 +168,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   {
     const response = await fetch(
       new URL(
-        '../../../assets/img/toy_box_diffuse.png',
+        '../../../assets/img/toy_box_disp.png',
         import.meta.url
       ).toString()
     );
@@ -184,7 +217,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   };
 
   const createToyboxBindGroup = (
-    texture: GPUTexture,
+    meshTexture: GPUTexture,
+    normalTexture: GPUTexture,
+    diffuseTexture: GPUTexture,
     transform: Float32Array
   ): GPUBindGroup => {
     const uniformBufferSize = 4 * 16; // 4x4 matrix
@@ -197,6 +232,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     uniformBuffer.unmap();
 
     const bindGroup = device.createBindGroup({
+      //NOTE: Pipeline.getBindGroupLayout will only work if
+      // 1. All the bindings are defined
+      // 2. All the resources passed in through the bindGroup are used
       layout: pipeline.getBindGroupLayout(1),
       entries: [
         {
@@ -211,7 +249,15 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         },
         {
           binding: 2,
-          resource: texture.createView(),
+          resource: meshTexture.createView(),
+        },
+        {
+          binding: 3,
+          resource: normalTexture.createView(),
+        },
+        {
+          binding: 4,
+          resource: diffuseTexture.createView(),
         },
       ],
     });
@@ -230,11 +276,22 @@ const init: SampleInit = async ({ canvas, pageState }) => {
           buffer: uniformBuffer,
         },
       },
+      {
+        binding: 1,
+        resource: {
+          buffer: mapMethodBuffer,
+        }
+      }
     ],
   });
 
   const toybox = createMeshRenderable(device, createBoxMesh(1.0, 1.0, 1.0));
-  const toyboxBindGroup = createToyboxBindGroup(woodTexture, transform);
+  const toyboxBindGroup = createToyboxBindGroup(
+    woodTexture,
+    woodNormalTexture,
+    woodDiffuseTexture,
+    transform
+  );
 
   const aspect = canvas.width / canvas.height;
   const projectionMatrix = mat4.perspective(
@@ -257,6 +314,28 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     return modelViewProjectionMatrix as Float32Array;
   }
 
+  const getMappingType = (arr: Uint32Array) => {
+    switch (settings['Bump Mode']) {
+      case 'None':
+        arr[0] = 0;
+        break;
+      case 'Normal':
+        arr[0] = 1;
+        break;
+      case 'Parallax':
+        arr[0] = 2;
+        break;
+      case 'Steep Parallax':
+        arr[0] = 3;
+        break;
+      case 'Parallax Occlusion':
+        arr[0] = 4;
+        break;
+    }
+  };
+
+  const mappingType: Uint32Array = new Uint32Array([0]);
+
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -269,6 +348,18 @@ const init: SampleInit = async ({ canvas, pageState }) => {
       transformationMatrix.byteOffset,
       transformationMatrix.byteLength
     );
+
+    getMappingType(mappingType);
+    console.log(mappingType[0]);
+
+    device.queue.writeBuffer(
+      mapMethodBuffer,
+      0,
+      mappingType.buffer,
+      mappingType.byteOffset,
+      mappingType.byteLength
+    );
+
     renderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
@@ -294,6 +385,7 @@ const NormalMapping: () => JSX.Element = () =>
     name: 'Normal Mapping',
     description:
       'This example shows how to apply normal maps to a textured mesh.',
+    gui: true,
     init,
     sources: [
       {
