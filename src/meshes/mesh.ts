@@ -12,12 +12,30 @@ export interface Mesh {
   indices: Uint16Array;
 }
 
+type MeshLayoutType = {
+  vertexStride: number;
+  positionsOffset: number;
+  normalOffset: number;
+  uvOffset: number;
+  tangentOffset?: number;
+  bitangentOffset?: number;
+};
+
 // All numbers represent byte offsets
-const MeshLayout = {
+const MeshLayout: MeshLayoutType = {
   vertexStride: 8 * 4, //32 byte vertex
-  positionsOffset: 0,
-  normalOffset: 3 * 4, //normal at byte 12
-  uvOffset: 6 * 4, //uv at byte 24
+  positionsOffset: 0, // pos at byte 0, 12 byte vec3
+  normalOffset: 3 * 4, //normal at byte 12, 12 byte vec 3
+  uvOffset: 6 * 4, //uv at byte 24, 8 byte vec2
+};
+
+const TangentMeshLayout: MeshLayoutType = {
+  vertexStride: 14 * 4, //56 byte vertex
+  positionsOffset: 0, // pos at byte 0, 12 byte vec3
+  normalOffset: 3 * 4, //normal at byte 12, 12 byte vec 3
+  uvOffset: 6 * 4, //uv at byte 24, 8 byte vec2
+  tangentOffset: 8 * 4, //tangent at byte 32, 12 byte vec3
+  bitangentOffset: 11 * 4, //bitangent at byte 44, 12 byte vec3
 };
 
 export const createMeshRenderable = (
@@ -74,6 +92,99 @@ export const MeshVertexBufferLayout: Iterable<GPUVertexBufferLayout> = [
     ],
   },
 ];
+
+enum MESH_VERTEX {
+  TANGENT = 1,
+  BITANGENT = 2,
+}
+
+interface CreateMeshVertexBufferLayoutFeatures {
+  features: number;
+}
+
+export const createMeshVertexBufferLayout = (
+  config: CreateMeshVertexBufferLayoutFeatures = { features: 0 }
+): Iterable<GPUVertexBufferLayout> => {
+  const { features } = config;
+  let vertexStride = MeshLayout.vertexStride;
+
+  const attributeBase: GPUVertexAttribute[] = [
+    {
+      // position
+      shaderLocation: 0,
+      offset: MeshLayout.positionsOffset,
+      format: 'float32x3',
+    },
+    {
+      // normal
+      shaderLocation: 1,
+      offset: MeshLayout.normalOffset,
+      format: 'float32x3',
+    },
+    {
+      // uv
+      shaderLocation: 2,
+      offset: MeshLayout.uvOffset,
+      format: 'float32x2',
+    },
+  ];
+
+  if (features & MESH_VERTEX.TANGENT) {
+    attributeBase.push({
+      //tangent
+      shaderLocation: attributeBase.length,
+      offset: vertexStride,
+      format: 'float32x3',
+    });
+
+    vertexStride += Float32Array.BYTES_PER_ELEMENT * 3;
+  }
+
+  if (features & MESH_VERTEX.BITANGENT) {
+    attributeBase.push({
+      //bitangent,
+      shaderLocation: attributeBase.length,
+      offset: vertexStride,
+      format: 'float32x3',
+    });
+
+    vertexStride += Float32Array.BYTES_PER_ELEMENT * 3;
+  }
+
+  //NOTE: Change this in instance where we need different kinds of vertex buffers
+  //for different types of meshes
+  const layout: Iterable<GPUVertexBufferLayout> = [
+    {
+      arrayStride: vertexStride,
+      attributes: [
+        {
+          // position
+          shaderLocation: 0,
+          offset: MeshLayout.positionsOffset,
+          format: 'float32x3',
+        },
+        {
+          // normal
+          shaderLocation: 1,
+          offset: MeshLayout.normalOffset,
+          format: 'float32x3',
+        },
+        {
+          // uv
+          shaderLocation: 2,
+          offset: MeshLayout.uvOffset,
+          format: 'float32x2',
+        },
+      ],
+    },
+  ];
+
+  return layout;
+};
+
+createMeshVertexBufferLayout({
+  features: MESH_VERTEX.TANGENT | MESH_VERTEX.BITANGENT,
+});
 
 //Remeber that float32array asks for a byte offset then an element length
 export const getMeshPosAtIndex = (mesh: Mesh, index: number) => {

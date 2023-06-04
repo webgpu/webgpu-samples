@@ -170,6 +170,7 @@ export const createBoxMesh = (
     heightSegments
   );
 
+  console.log(`Number of vertices: ${numVertices}`)
   console.log(`Number of indices: ${indices.length}`);
 
   return {

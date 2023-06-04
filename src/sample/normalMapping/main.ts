@@ -300,6 +300,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const toyboxMesh = createBoxMesh(1.0, 1.0, 1.0);
 
+  let tangents = [];
+  let bitangents = [];
+
   for (let i = 0; i < toyboxMesh.indices.length; i += 3) {
     let [idx1, idx2, idx3] = [
       toyboxMesh.indices[i],
@@ -342,6 +345,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       constantVal * (-deltaUV2[0] * edge1[1] + deltaUV1[0] * edge2[1]),
       constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2]),
     );
+
+    tangents.push([tangent, tangent, tangent]);
+    bitangents.push(bitangent);
 
   }
 
