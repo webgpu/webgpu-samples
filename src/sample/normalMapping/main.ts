@@ -4,6 +4,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import meshWGSL from '../../shaders/mesh.wgsl';
 import normalMapWGSL from './normalMap.wgsl';
 import {
+  MeshLayout,
   MeshVertexBufferLayout,
   createMeshRenderable,
 } from '../../meshes/mesh';
@@ -33,25 +34,35 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   type GUISettings = {
-    'Bump Mode': 'None' | 'Normal' | 'Parallax' | 'Steep Parallax' |'Parallax Occlusion'
-    'Parallax Scale': number,
-    'Depth Layers': number,
-  }
+    'Bump Mode':
+      | 'None'
+      | 'Normal w/o Tangent'
+      | 'Normal with Tangent'
+      | 'Parallax'
+      | 'Steep Parallax'
+      | 'Parallax Occlusion';
+    'Parallax Scale': number;
+    'Depth Layers': number;
+    'Pre-Compute Tangents': boolean;
+  };
 
   const settings: GUISettings = {
     'Bump Mode': 'None',
     'Parallax Scale': 0,
     'Depth Layers': 32,
+    'Pre-Compute Tangents': false,
   };
   gui.add(settings, 'Bump Mode', [
     'None',
-    'Normal',
+    'Normal w/o Tangent',
+    'Normal with Tangent',
     'Parallax',
     'Steep Parallax',
     'Parallax Occlusion',
   ]);
   gui.add(settings, 'Parallax Scale', 0, 0.1, 0.01);
   gui.add(settings, 'Depth Layers', 1, 32, 1);
+  gui.add(settings, 'Pre-Compute Tangents');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
@@ -280,8 +291,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         binding: 1,
         resource: {
           buffer: mapMethodBuffer,
-        }
-      }
+        },
+      },
     ],
   });
 
@@ -319,17 +330,19 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       case 'None':
         arr[0] = 0;
         break;
-      case 'Normal':
+      case 'Normal w/o Tangent':
         arr[0] = 1;
         break;
+      case 'Normal with Tangent':
+        arr[1] = 2;
       case 'Parallax':
-        arr[0] = 2;
-        break;
-      case 'Steep Parallax':
         arr[0] = 3;
         break;
-      case 'Parallax Occlusion':
+      case 'Steep Parallax':
         arr[0] = 4;
+        break;
+      case 'Parallax Occlusion':
+        arr[0] = 5;
         break;
     }
   };
@@ -350,7 +363,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
 
     getMappingType(mappingType);
-    console.log(mappingType[0]);
 
     device.queue.writeBuffer(
       mapMethodBuffer,

@@ -169,6 +169,8 @@ export const createBoxMesh = (
     heightSegments
   );
 
+  console.log(`Number of indices: ${indices.length}`);
+
   return {
     vertices: new Float32Array(vertNormalUVBuffer),
     indices: new Uint16Array(indices),

@@ -34,7 +34,7 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 @group(1) @binding(4) var diffuseTexture: texture_2d<f32>;
 
 // Static directional lighting
-const lightDir = vec3f(0.5, 1, 1);
+const lightDir = vec3f(0.9, 1, 1);
 const dirColor = vec3(1);
 const ambientColor = vec3f(0.05);
 
@@ -44,14 +44,14 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   let normalColor = textureSample(normalTexture, meshSampler, input.uv);
   let diffuseColor = textureSample(diffuseTexture, meshSampler, input.uv);
 
-
   //Need to finish normal mapping code but bind groups are all correct
   if (mappingType > 0) {
-    var norm: vec3<f32> = normalize(normalColor.rgb * 2.0 - vec3<f32>(1.0, 1.0, 1.0));
+    var norm: vec3<f32> = normalize(normalColor.rgb * 2.0 - 1.0);
+    let lightColor = saturate(ambientColor + max(dot(norm, lightDir), 0.0) * dirColor);
+    return vec4f(textureColor.rgb * lightColor, textureColor.a);
+  } else {
+    // Very simplified lighting algorithm.
+    let lightColor = saturate(ambientColor + max(dot(input.normal, lightDir), 0.0) * dirColor);
+    return vec4f(textureColor.rgb * lightColor, textureColor.a);
   }
-
-  // Very simplified lighting algorithm.
-  let lightColor = saturate(ambientColor + max(dot(input.normal, lightDir), 0.0) * dirColor);
-
-  return vec4f(textureColor.rgb * lightColor, textureColor.a);
 }

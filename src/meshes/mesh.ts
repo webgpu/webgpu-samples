@@ -10,11 +10,12 @@ export interface Mesh {
   indices: Uint16Array;
 }
 
+// All numbers represent byte offsets
 const MeshLayout = {
-  vertexStride: 8 * 4,
+  vertexStride: 8 * 4, //32 byte vertex
   positionsOffset: 0,
-  normalOffset: 3 * 4,
-  uvOffset: 6 * 4,
+  normalOffset: 3 * 4, //normal at byte 12
+  uvOffset: 6 * 4, //uv at byte 24
 };
 
 export const createMeshRenderable = (
