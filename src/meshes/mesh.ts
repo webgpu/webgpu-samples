@@ -1,3 +1,5 @@
+import { vec3, vec2 } from 'wgpu-matrix';
+
 export interface Renderable {
   vertexBuffer: GPUBuffer;
   indexBuffer: GPUBuffer;
@@ -72,3 +74,31 @@ export const MeshVertexBufferLayout: Iterable<GPUVertexBufferLayout> = [
     ],
   },
 ];
+
+//Remeber that float32array asks for a byte offset then an element length
+export const getMeshPosAtIndex = (mesh: Mesh, index: number) => {
+  const arr = new Float32Array(
+    mesh.vertices.buffer,
+    index * MeshLayout.vertexStride + MeshLayout.positionsOffset,
+    3
+  );
+  return vec3.fromValues(arr[0], arr[1], arr[2]);
+};
+
+export const getMeshNormalAtIndex = (mesh: Mesh, index: number) => {
+  const arr = new Float32Array(
+    mesh.vertices.buffer,
+    index * MeshLayout.vertexStride + MeshLayout.normalOffset,
+    3
+  );
+  return vec3.fromValues(arr[0], arr[1], arr[2]);
+};
+
+export const getMeshUVAtIndex = (mesh: Mesh, index: number) => {
+  const arr = new Float32Array(
+    mesh.vertices.buffer,
+    index * MeshLayout.vertexStride + MeshLayout.uvOffset,
+    2
+  );
+  return vec2.fromValues(arr[0], arr[1]);
+};

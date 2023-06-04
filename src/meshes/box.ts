@@ -93,7 +93,8 @@ export const createBoxMesh = (
         const c = numVertices + (ix + 1) + gridX1 * (iy + 1);
         const d = numVertices + (ix + 1) + gridX1 * iy;
 
-        //Calculate face indices
+        //Push vertex indices
+        //6 indices for each face
         indices.push(a, b, d);
         indices.push(b, c, d);
 
