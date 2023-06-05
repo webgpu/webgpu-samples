@@ -10,7 +10,7 @@ import {
   getMeshPosAtIndex,
   getMeshUVAtIndex,
 } from '../../meshes/mesh';
-import { createBoxMesh, createBoxMeshWithTangents } from '../../meshes/box';
+import { createBoxMesh } from '../../meshes/box';
 
 // Inspired by the following articles
 // https://apoorvaj.io/exploring-bump-mapping-with-webgl/
@@ -296,60 +296,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       },
     ],
   });
-
-  const toyboxMesh = createBoxMesh(1.0, 1.0, 1.0);
-
-  let tangents = [];
-  let bitangents = [];
-
-  for (let i = 0; i < toyboxMesh.indices.length; i += 3) {
-    let [idx1, idx2, idx3] = [
-      toyboxMesh.indices[i],
-      toyboxMesh.indices[i + 1],
-      toyboxMesh.indices[i + 2],
-    ];
-
-    let [pos1, pos2, pos3] = [
-      getMeshPosAtIndex(toyboxMesh, idx1),
-      getMeshPosAtIndex(toyboxMesh, idx2),
-      getMeshPosAtIndex(toyboxMesh, idx3),
-    ];
-
-    let [uv1, uv2, uv3] = [
-      getMeshUVAtIndex(toyboxMesh, idx1),
-      getMeshUVAtIndex(toyboxMesh, idx2),
-      getMeshUVAtIndex(toyboxMesh, idx3),
-    ];
-
-    let edge1 = vec3.sub(pos2, pos1);
-    let edge2 = vec3.sub(pos3, pos1);
-    let deltaUV1 = vec3.sub(uv2, uv1);
-    let deltaUV2 = vec3.sub(uv3, uv1);
-
-    //Edge of a triangle moves in both u and v direction (2d)
-    //deltaU * tangent vector + deltav * bitangent
-    //Manipulating the data into matrices, we get an equation
-
-    let constantVal =
-      1.0 / (deltaUV1[0] * deltaUV2[1] - deltaUV1[1] * deltaUV2[0]);
-
-    const tangent = vec3.fromValues(
-      constantVal * (deltaUV2[1] * edge1[0] - deltaUV1[1] * edge2[0]),
-      constantVal * (deltaUV2[1] * edge1[1] - deltaUV1[1] * edge2[1]),
-      constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2]),
-    );
-
-    const bitangent = vec3.fromValues(
-      constantVal * (-deltaUV2[0] * edge1[0] + deltaUV1[0] * edge2[0]),
-      constantVal * (-deltaUV2[0] * edge1[1] + deltaUV1[0] * edge2[1]),
-      constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2]),
-    );
-
-    tangents.push([tangent, tangent, tangent]);
-    bitangents.push(bitangent);
-  }
-
-  const weirdbox = createBoxMeshWithTangents(1.0, 1.0, 1.0)
 
   const toybox = createMeshRenderable(device, createBoxMesh(1.0, 1.0, 1.0));
   const toyboxBindGroup = createToyboxBindGroup(
