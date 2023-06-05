@@ -1,5 +1,6 @@
+/* eslint-disable prettier/prettier */
 import { vec3 } from 'wgpu-matrix';
-import { Mesh } from './mesh';
+import { getMeshPosAtIndex, getMeshUVAtIndex, Mesh, MESH_VERTEX_FEATURE } from './mesh';
 
 export interface BoxMesh extends Mesh {
   vertices: Float32Array;
@@ -15,14 +16,14 @@ export const BoxLayout = {
 
 //// Borrowed and simplified from https://github.com/mrdoob/three.js/blob/master/src/geometries/BoxGeometry.js
 //// Presumes vertex buffer alignment of verts, normals, and uvs
-export const createBoxMesh = (
+const createBoxGeometry = (
   width = 1.0,
   height = 1.0,
   depth = 1.0,
   widthSegments = 1.0,
   heightSegments = 1.0,
   depthSegments = 1.0
-): BoxMesh => {
+) => {
   widthSegments = Math.floor(widthSegments);
   heightSegments = Math.floor(heightSegments);
   depthSegments = Math.floor(depthSegments);
@@ -79,8 +80,6 @@ export const createBoxMesh = (
         //Calculate uvs
         vertNormalUVBuffer.push(ix / xSections);
         vertNormalUVBuffer.push(1 - iy / ySections);
-
-        // counters
 
         vertexCounter += 1;
       }
@@ -170,11 +169,137 @@ export const createBoxMesh = (
     heightSegments
   );
 
-  console.log(`Number of vertices: ${numVertices}`)
+  console.log(`Number of vertices: ${numVertices}`);
   console.log(`Number of indices: ${indices.length}`);
 
   return {
-    vertices: new Float32Array(vertNormalUVBuffer),
+    vertices: vertNormalUVBuffer,
+    indices: indices,
+  };
+};
+
+//Possibly used later
+export const createBoxMesh = (
+  width = 1.0,
+  height = 1.0,
+  depth = 1.0,
+  widthSegments = 1.0,
+  heightSegments = 1.0,
+  depthSegments = 1.0
+) => {
+  const { vertices, indices } = createBoxGeometry(
+    width,
+    height,
+    depth,
+    widthSegments,
+    heightSegments,
+    depthSegments
+  );
+
+  return {
+    vertices: new Float32Array(vertices),
     indices: new Uint16Array(indices),
+  };
+};
+
+export const createBoxMeshWithTangents = (
+  width = 1.0,
+  height = 1.0,
+  depth = 1.0,
+  widthSegments = 1.0,
+  heightSegments = 1.0,
+  depthSegments = 1.0
+) => {
+  const mesh = createBoxMesh(
+    width,
+    height,
+    depth,
+    widthSegments,
+    heightSegments,
+    depthSegments
+  );
+
+  const originalStrideElements = BoxLayout.vertexStride / Float32Array.BYTES_PER_ELEMENT;
+
+  const vertexCount = mesh.vertices.length / originalStrideElements;
+  console.log(`Vertex Count: ${vertexCount}`);
+
+  let tangents = new Array(vertexCount);
+  tangents.fill(vec3.create(0.0, 0.0, 0.0));
+  let bitangents = new Array(vertexCount);
+  bitangents.fill(vec3.create(0.0, 0.0, 0.0));
+
+  for (let i = 0; i < mesh.indices.length; i += 3) {
+    let [idx1, idx2, idx3] = [
+      mesh.indices[i],
+      mesh.indices[i + 1],
+      mesh.indices[i + 2],
+    ];
+
+    let [pos1, pos2, pos3] = [
+      getMeshPosAtIndex(mesh, idx1),
+      getMeshPosAtIndex(mesh, idx2),
+      getMeshPosAtIndex(mesh, idx3),
+    ];
+
+    let [uv1, uv2, uv3] = [
+      getMeshUVAtIndex(mesh, idx1),
+      getMeshUVAtIndex(mesh, idx2),
+      getMeshUVAtIndex(mesh, idx3),
+    ];
+
+    const edge1 = vec3.sub(pos2, pos1);
+    const edge2 = vec3.sub(pos3, pos1);
+    const deltaUV1 = vec3.sub(uv2, uv1);
+    const deltaUV2 = vec3.sub(uv3, uv1);
+
+    //Edge of a triangle moves in both u and v direction (2d)
+    //deltaU * tangent vector + deltav * bitangent
+    //Manipulating the data into matrices, we get an equation
+
+    const constantVal =
+      1.0 / (deltaUV1[0] * deltaUV2[1] - deltaUV1[1] * deltaUV2[0]);
+
+    const tangent = vec3.fromValues(
+      constantVal * (deltaUV2[1] * edge1[0] - deltaUV1[1] * edge2[0]),
+      constantVal * (deltaUV2[1] * edge1[1] - deltaUV1[1] * edge2[1]),
+      constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2]),
+    );
+
+    const bitangent = vec3.fromValues(
+      constantVal * (-deltaUV2[0] * edge1[0] + deltaUV1[0] * edge2[0]),
+      constantVal * (-deltaUV2[0] * edge1[1] + deltaUV1[0] * edge2[1]),
+      constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2]),
+    );
+
+
+    //Accumulate tangents and bitangents
+    tangents[idx1] = vec3.add(tangents[idx1], tangent);
+    bitangents[idx1] = vec3.add(bitangents[idx1], bitangent);
+    tangents[idx2] = vec3.add(tangents[idx2], tangent);
+    bitangents[idx2] = vec3.add(bitangents[idx2], bitangent);
+    tangents[idx3] = vec3.add(tangents[idx3], tangent);
+    bitangents[idx3] = vec3.add(bitangents[idx3], bitangent);
+  }
+  
+  const newStrideElements = 14;
+  const newStrideBytes = 14 * Float32Array.BYTES_PER_ELEMENT;
+  const wTangentArray = new Float32Array(vertexCount * newStrideElements);
+
+  for (let i = 0; i < vertexCount; i++) {
+    wTangentArray.set(
+      //Get the original vertex [8 bytes]
+      mesh.vertices.subarray(i * originalStrideElements, (i + 1) * originalStrideElements),
+      //And put it at the proper location in the new array [14 bytes = 8 og + 6 empty]
+      i * newStrideElements
+    )
+  }
+
+  console.log(tempTangents);
+  console.log(tempBitangents);
+
+  return {
+    vertices: new Float32Array(mesh.vertices),
+    indices: new Uint16Array(mesh.indices),
   };
 };

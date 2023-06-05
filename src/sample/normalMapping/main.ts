@@ -4,14 +4,13 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import meshWGSL from '../../shaders/mesh.wgsl';
 import normalMapWGSL from './normalMap.wgsl';
 import {
-  MeshLayout,
-  MeshVertexBufferLayout,
+  MESH_VERTEX_FEATURE,
   createMeshRenderable,
+  createMeshVertexBufferLayout,
   getMeshPosAtIndex,
   getMeshUVAtIndex,
 } from '../../meshes/mesh';
-import { createBoxMesh } from '../../meshes/box';
-import { BumpModeType } from './enum';
+import { createBoxMesh, createBoxMeshWithTangents } from '../../meshes/box';
 
 // Inspired by the following articles
 // https://apoorvaj.io/exploring-bump-mapping-with-webgl/
@@ -73,7 +72,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         code: normalMapWGSL,
       }),
       entryPoint: 'vertexMain',
-      buffers: MeshVertexBufferLayout,
+      buffers: createMeshVertexBufferLayout(),
     },
     fragment: {
       module: device.createShaderModule({
@@ -348,8 +347,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     tangents.push([tangent, tangent, tangent]);
     bitangents.push(bitangent);
-
   }
+
+  const weirdbox = createBoxMeshWithTangents(1.0, 1.0, 1.0)
 
   const toybox = createMeshRenderable(device, createBoxMesh(1.0, 1.0, 1.0));
   const toyboxBindGroup = createToyboxBindGroup(
