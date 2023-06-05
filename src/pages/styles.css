@@ -1,0 +1,36 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inconsolata', monospace;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:link,
+a:visited {
+  color: #045b88;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+main {
+  position: relative;
+  flex: 1;
+  height: 100vh;
+  overflow: auto;
+  background: black;
+  color: #ddd;
+  padding-left: 15px;
+  padding-right: 15px;
+}

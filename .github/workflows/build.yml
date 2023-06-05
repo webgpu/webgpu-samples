@@ -1,0 +1,35 @@
+name: Build
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - nextjs # Testing the workflow on this branch.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /webgpu-samples
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: "18.x"
+
+      - uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install and Build 🔧
+        run: |
+          export REPOSITORY_NAME=${{ github.repository }}
+          npm ci
+          npm run-script lint
+          npm run-script build
+          npm run-script export

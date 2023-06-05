@@ -1,0 +1,21 @@
+@keyframes animated-size {
+  0% {
+    width: 10px;
+    height: 600px;
+  }
+  50% {
+    width: 100%;
+    height: 600px;
+  }
+  100% {
+    width: 10px;
+    height: 600px;
+  }
+}
+
+.animatedCanvasSize {
+  animation-duration: 3s;
+  animation-iteration-count: infinite;
+  animation-name: animated-size;
+  animation-timing-function: ease;
+}

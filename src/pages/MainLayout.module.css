@@ -1,0 +1,70 @@
+.container {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.wrapper {
+  display: flex;
+}
+
+.panel {
+  position: relative;
+  left: 0px;
+  flex: 1;
+  max-width: 300px;
+  height: 100vh;
+  overflow: auto;
+  background: #fafafa;
+}
+
+.exampleList {
+  padding: 0
+}
+
+.exampleList li {
+  list-style: none;
+  padding: 0.3em 0;
+}
+
+.exampleList li.selected a {
+  color: #ff0000;
+}
+
+.expand {
+  display: none;
+  float: right;
+  width: 36px;
+  height: 36px;
+  margin-top: -0.25em;
+  background-image: url(../../public/menu.svg);
+  background-size: cover;
+}
+
+@media only screen and (max-width: 768px) {
+  /* More padding on mobile for easier touch screen use */
+  .exampleLink {
+    padding: 0.5em 0;
+  }
+
+  .wrapper {
+    flex-direction: column;
+  }
+
+  .panel {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .panel[data-expanded=false] .panelContents {
+    display: none;
+  }
+
+  .panel[data-expanded=true] .panelContents {
+    display: block;
+  }
+
+  .expand {
+    display: inline-block;
+  }
+}
+

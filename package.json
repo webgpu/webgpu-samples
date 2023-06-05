@@ -1,0 +1,49 @@
+{
+  "name": "webgpu-samples",
+  "version": "0.1.0",
+  "description": "Samples using the WebGPU API",
+  "license": "BSD-3-Clause",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/austinEng/webgpu-samples.git"
+  },
+  "scripts": {
+    "lint": "eslint --ext .ts,.tsx src/",
+    "start": "next dev",
+    "build": "next build",
+    "serve": "next start",
+    "export": "next export"
+  },
+  "dependencies": {
+    "@types/dom-mediacapture-transform": "^0.1.5",
+    "codemirror": "^5.58.2",
+    "dat.gui": "^0.7.6",
+    "file-loader": "^6.2.0",
+    "next": "^13.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "stanford-dragon": "^1.1.1",
+    "stats-js": "^1.0.1",
+    "wgpu-matrix": "^1.1.0"
+  },
+  "devDependencies": {
+    "@next/eslint-plugin-next": "^13.0.0",
+    "@types/codemirror": "0.0.97",
+    "@types/dat.gui": "^0.7.6",
+    "@types/node": "^18.11.8",
+    "@types/react": "^18.0.24",
+    "@types/react-dom": "^18.0.8",
+    "@types/stats.js": "^0.17.0",
+    "@typescript-eslint/eslint-plugin": "^5.41.0",
+    "@typescript-eslint/parser": "^5.41.0",
+    "@webgpu/types": "^0.1.21",
+    "eslint": "^8.26.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react": "^7.31.10",
+    "prettier": "^2.7.1",
+    "raw-loader": "^4.0.2",
+    "typescript": "^4.8.4"
+  }
+}
