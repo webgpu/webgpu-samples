@@ -7,7 +7,7 @@ import {
   createMeshRenderable,
   createMeshVertexBufferLayout,
 } from '../../meshes/mesh';
-import { createBoxMesh } from '../../meshes/box';
+import { createBoxMesh, createBoxMeshWithTangents } from '../../meshes/box';
 
 const MAT4X4_BYTES = 64;
 
@@ -299,7 +299,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
   });
 
-  const toybox = createMeshRenderable(device, createBoxMesh(1.0, 1.0, 1.0));
+  const toybox = createMeshRenderable(
+    device,
+    createBoxMeshWithTangents(1.0, 1.0, 1.0)
+  );
   const toyboxBindGroup = createToyboxBindGroup(
     woodTexture,
     woodNormalTexture,

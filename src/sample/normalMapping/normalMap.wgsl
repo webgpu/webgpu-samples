@@ -18,6 +18,9 @@ struct VertexOutput {
   @builtin(position) position : vec4f,
   @location(0) normal: vec3f,
   @location(1) uv : vec2f,
+  @location(2) tangentSpaceLightPos: vec3f,
+  @location(3) tangentSpaceViewPos: vec3f,
+  @location(4) tangentSpaceFragPos: vec3f,
 }
 
 /* UTILITY FUNCTIONS */
@@ -49,9 +52,19 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   var n: vec3f = normalize(normMat3x3 * input.normal);
   var tbn: mat3x3f = transpose3x3(mat3x3f(t, b, n));
   
+  //Regular stuff
   output.position = uniforms.projMatrix * uniforms.viewMatrix * modelMatrix * input.position;
   output.normal = normalize((modelMatrix * vec4(input.normal, 0)).xyz);
   output.uv = input.uv;
+
+  //Tangent Space stuff
+  var temp: vec4f = modelMatrix * input.position;
+  output.tangentSpaceFragPos = tbn * temp.xyz;
+  //Translated Position of camera we defined in code
+  output.tangentSpaceViewPos = tbn * vec3f(0.0, 0.0, -2.0);
+  //Redundant light definition
+  output.tangentSpaceLightPos = tbn * vec3f(0.5, 1, 1);
+
   return output;
 }
 
@@ -64,12 +77,15 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 @group(1) @binding(4) var diffuseTexture: texture_2d<f32>;
 
 // Static directional lighting
-const lightDir = vec3f(0.9, 1, 1);
+const lightDir = vec3f(0.5, 1, 1);
 const dirColor = vec3(1);
 const ambientColor = vec3f(0.05);
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+  let newLightDir: vec3f = normalize(input.tangentSpaceLightPos - input.tangentSpaceFragPos);
+  let newViewDir: vec3f = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);
+
   let textureColor = textureSample(meshTexture, meshSampler, input.uv);
   let normalColor = textureSample(normalTexture, meshSampler, input.uv);
   let diffuseColor = textureSample(diffuseTexture, meshSampler, input.uv);
@@ -77,7 +93,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   //Need to finish normal mapping code but bind groups are all correct
   if (mappingType > 0) {
     var norm: vec3<f32> = normalize(normalColor.rgb * 2.0 - 1.0);
-    let lightColor = saturate(ambientColor + max(dot(norm, lightDir), 0.0) * dirColor);
+    let lightColor = max(dot(norm, newLightDir), 0.0); //saturate(ambientColor + max(dot(norm, newLightDir), 0.0) * dirColor);
     return vec4f(textureColor.rgb * lightColor, textureColor.a);
   } else {
     // Very simplified lighting algorithm.
