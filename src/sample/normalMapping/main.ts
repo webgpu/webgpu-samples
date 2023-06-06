@@ -7,7 +7,7 @@ import {
   createMeshRenderable,
   createMeshVertexBufferLayout,
 } from '../../meshes/mesh';
-import { createBoxMesh, createBoxMeshWithTangents } from '../../meshes/box';
+import { createBoxMeshWithTangents } from '../../meshes/box';
 
 const MAT4X4_BYTES = 64;
 
@@ -110,8 +110,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
-  //3 4x4 mats, proj, view, normal
-  const uniformBufferSize = MAT4X4_BYTES * 3;
+  //4 4x4 mats, proj, view, normal, model
+  const uniformBufferSize = MAT4X4_BYTES * 4;
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -233,18 +233,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const createToyboxBindGroup = (
     meshTexture: GPUTexture,
     normalTexture: GPUTexture,
-    diffuseTexture: GPUTexture,
-    transform: Float32Array
+    diffuseTexture: GPUTexture
   ): GPUBindGroup => {
-    const uniformBufferSize = 4 * 16; // 4x4 matrix
-    const uniformBuffer = device.createBuffer({
-      size: uniformBufferSize,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      mappedAtCreation: true,
-    });
-    new Float32Array(uniformBuffer.getMappedRange()).set(transform);
-    uniformBuffer.unmap();
-
     const bindGroup = device.createBindGroup({
       //NOTE: Pipeline.getBindGroupLayout will only work if
       // 1. All the bindings are defined
@@ -253,33 +243,24 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       entries: [
         {
           binding: 0,
-          resource: {
-            buffer: uniformBuffer,
-          },
-        },
-        {
-          binding: 1,
           resource: sampler,
         },
         {
-          binding: 2,
+          binding: 1,
           resource: meshTexture.createView(),
         },
         {
-          binding: 3,
+          binding: 2,
           resource: normalTexture.createView(),
         },
         {
-          binding: 4,
+          binding: 3,
           resource: diffuseTexture.createView(),
         },
       ],
     });
     return bindGroup;
   };
-
-  const transform = mat4.create();
-  mat4.identity(transform);
 
   const frameBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
@@ -307,7 +288,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     woodTexture,
     woodNormalTexture,
     woodDiffuseTexture,
-    transform
   );
 
   const aspect = canvas.width / canvas.height;
@@ -324,7 +304,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const now = Date.now() / 1000;
     mat4.rotateX(viewMatrix, 0.5 * now, viewMatrix);
     mat4.rotateY(viewMatrix, 1 * now, viewMatrix);
-    return viewMatrix as Float32Array;
+    return viewMatrix;
+  }
+
+  function getModelMatrix() {
+    const modelMatrix = mat4.create();
+    mat4.identity(modelMatrix);
+    mat4.rotateX(modelMatrix, 10, modelMatrix);
+    const now = Date.now() / 1000;
+    mat4.rotateY(modelMatrix, now * -0.5, modelMatrix);
+    return modelMatrix;
   }
 
   const getMappingType = (arr: Uint32Array) => {
@@ -336,7 +325,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         arr[0] = 1;
         break;
       case 'Normal with Tangent':
-        arr[1] = 2;
+        arr[0] = 2;
       case 'Parallax':
         arr[0] = 3;
         break;
@@ -349,20 +338,27 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }
   };
 
+  const getParallaxScale = (arr: Uint32Array) => {
+    arr[0] = settings['Parallax Scale'];
+  };
+
   const mappingType: Uint32Array = new Uint32Array([0]);
+  const parallaxScale: Float32Array = new Float32Array([0]);
+
+  const viewMatrix = mat4.translate(
+    mat4.identity(),
+    vec3.fromValues(0, 0, -2)
+  ) as Float32Array;
 
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
-
-    const viewMatrix = getViewMatrix();
-
     //I really wish all these different APIS
     //were consistent when they talk about bytes and elements
 
     device.queue.writeBuffer(
       uniformBuffer,
-      0,
+      MAT4X4_BYTES * 0,
       projectionMatrix.buffer,
       projectionMatrix.byteOffset,
       projectionMatrix.byteLength
@@ -370,23 +366,37 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     device.queue.writeBuffer(
       uniformBuffer,
-      64,
+      MAT4X4_BYTES * 1,
       viewMatrix.buffer,
       viewMatrix.byteOffset,
       viewMatrix.byteLength
     );
 
-    const normalMatrix = mat4.transpose(mat4.invert(transform)) as Float32Array;
+    const modelMatrixTemp = getModelMatrix();
+    const normalMatrix = mat4.transpose(
+      mat4.invert(modelMatrixTemp)
+    ) as Float32Array;
+    const modelMatrix = modelMatrixTemp as Float32Array;
 
     device.queue.writeBuffer(
       uniformBuffer,
-      128,
+      MAT4X4_BYTES * 2,
       normalMatrix.buffer,
       normalMatrix.byteOffset,
       normalMatrix.byteLength
     );
 
+    device.queue.writeBuffer(
+      uniformBuffer,
+      MAT4X4_BYTES * 3,
+      modelMatrix.buffer,
+      modelMatrix.byteOffset,
+      modelMatrix.byteLength
+    );
+
     getMappingType(mappingType);
+    getParallaxScale(parallaxScale);
+    console.log(parallaxScale[0]);
 
     device.queue.writeBuffer(
       mapMethodBuffer,
@@ -394,6 +404,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       mappingType.buffer,
       mappingType.byteOffset,
       mappingType.byteLength
+    );
+
+    device.queue.writeBuffer(
+      mapMethodBuffer,
+      4,
+      parallaxScale.buffer,
+      parallaxScale.byteOffset,
+      parallaxScale.byteLength
     );
 
     renderPassDescriptor.colorAttachments[0].view = context

@@ -3,6 +3,12 @@ struct Uniforms {
   projMatrix: mat4x4f,
   viewMatrix: mat4x4f,
   normalMatrix: mat4x4f,
+  modelMatrix: mat4x4f,
+}
+
+struct Uniforms_MapInfo {
+  mappingType: u32,
+  parallax_scale: f32,
 }
 
 struct VertexInput {
@@ -33,10 +39,19 @@ fn transpose3x3(mat: mat3x3f) -> mat3x3f  {
   );
 }
 
+fn parallax_uv(
+  uv: vec2f, 
+  view_dir: vec3f, 
+  map_type: u32,
+  depth_value: f32,
+  depth_scale: f32
+) -> vec2f {
+  var p: vec2f = view_dir.xy * (depth_value * depth_scale) / view_dir.z;
+  return uv - p;
+}
+
 /* VERTEX SHADER */
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
-
-@group(1) @binding(0) var<uniform> modelMatrix : mat4x4f;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -53,12 +68,12 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   var tbn: mat3x3f = transpose3x3(mat3x3f(t, b, n));
   
   //Regular stuff
-  output.position = uniforms.projMatrix * uniforms.viewMatrix * modelMatrix * input.position;
-  output.normal = normalize((modelMatrix * vec4(input.normal, 0)).xyz);
+  output.position = uniforms.projMatrix * uniforms.viewMatrix * uniforms.modelMatrix * input.position;
+  output.normal = normalize((uniforms.modelMatrix * vec4(input.normal, 0)).xyz);
   output.uv = input.uv;
 
   //Tangent Space stuff
-  var temp: vec4f = modelMatrix * input.position;
+  var temp: vec4f = uniforms.modelMatrix * input.position;
   output.tangentSpaceFragPos = tbn * temp.xyz;
   //Translated Position of camera we defined in code
   output.tangentSpaceViewPos = tbn * vec3f(0.0, 0.0, -2.0);
@@ -69,12 +84,12 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 }
 
 /* FRAGMENT SHADER */
-@group(0) @binding(1) var<uniform> mappingType: u32;
+@group(0) @binding(1) var<uniform> mapInfo: Uniforms_MapInfo;
 
-@group(1) @binding(1) var meshSampler: sampler;
-@group(1) @binding(2) var meshTexture: texture_2d<f32>;
-@group(1) @binding(3) var normalTexture: texture_2d<f32>;
-@group(1) @binding(4) var diffuseTexture: texture_2d<f32>;
+@group(1) @binding(0) var meshSampler: sampler;
+@group(1) @binding(1) var meshTexture: texture_2d<f32>;
+@group(1) @binding(2) var normalTexture: texture_2d<f32>;
+@group(1) @binding(3) var diffuseTexture: texture_2d<f32>;
 
 // Static directional lighting
 const lightDir = vec3f(0.5, 1, 1);
@@ -85,13 +100,23 @@ const ambientColor = vec3f(0.05);
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   let newLightDir: vec3f = normalize(input.tangentSpaceLightPos - input.tangentSpaceFragPos);
   let newViewDir: vec3f = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);
+  
 
-  let textureColor = textureSample(meshTexture, meshSampler, input.uv);
-  let normalColor = textureSample(normalTexture, meshSampler, input.uv);
-  let diffuseColor = textureSample(diffuseTexture, meshSampler, input.uv);
+  let newUV = select(parallax_uv(
+    input.uv, 
+    newViewDir,
+    mapInfo.mappingType,
+    textureSample(diffuseTexture, meshSampler, input.uv).x,
+    mapInfo.parallax_scale,
+  ), input.uv, mapInfo.mappingType < 2);
+
+  let textureColor = textureSample(meshTexture, meshSampler, newUV); //input.uv);
+  let normalColor = textureSample(normalTexture, meshSampler, newUV); //input.uv);
+  let diffuseColor = textureSample(diffuseTexture, meshSampler, newUV); //input.uv);
+
 
   //Need to finish normal mapping code but bind groups are all correct
-  if (mappingType > 0) {
+  if (mapInfo.mappingType > 0) {
     var norm: vec3<f32> = normalize(normalColor.rgb * 2.0 - 1.0);
     let lightColor = max(dot(norm, newLightDir), 0.0); //saturate(ambientColor + max(dot(norm, newLightDir), 0.0) * dirColor);
     return vec4f(textureColor.rgb * lightColor, textureColor.a);
