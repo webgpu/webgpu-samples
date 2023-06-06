@@ -3,6 +3,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 
 import normalMapWGSL from './normalMap.wgsl';
 import {
+  MESH_VERTEX_FEATURE,
   createMeshRenderable,
   createMeshVertexBufferLayout,
 } from '../../meshes/mesh';
@@ -70,7 +71,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         code: normalMapWGSL,
       }),
       entryPoint: 'vertexMain',
-      buffers: createMeshVertexBufferLayout(),
+      buffers: createMeshVertexBufferLayout({
+        features: MESH_VERTEX_FEATURE.TANGENT | MESH_VERTEX_FEATURE.BITANGENT,
+      }),
     },
     fragment: {
       module: device.createShaderModule({

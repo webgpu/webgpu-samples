@@ -113,6 +113,7 @@ export const createMeshVertexBufferLayout = (
       offset: vertexStride,
       format: 'float32x3',
     });
+    console.log(`Tangents added to vertex buffer at offset ${vertexStride}`);
 
     vertexStride += Float32Array.BYTES_PER_ELEMENT * 3;
   }
@@ -125,34 +126,19 @@ export const createMeshVertexBufferLayout = (
       format: 'float32x3',
     });
 
+    console.log(`Bitangents added to vertex buffer at offset ${vertexStride}`);
+
     vertexStride += Float32Array.BYTES_PER_ELEMENT * 3;
   }
+
+  const vertexAttributes: Iterable<GPUVertexAttribute> = [...attributeBase];
 
   //NOTE: Change this in instance where we need different kinds of vertex buffers
   //for different types of meshes
   const layout: Iterable<GPUVertexBufferLayout> = [
     {
       arrayStride: vertexStride,
-      attributes: [
-        {
-          // position
-          shaderLocation: 0,
-          offset: MeshLayout.positionsOffset,
-          format: 'float32x3',
-        },
-        {
-          // normal
-          shaderLocation: 1,
-          offset: MeshLayout.normalOffset,
-          format: 'float32x3',
-        },
-        {
-          // uv
-          shaderLocation: 2,
-          offset: MeshLayout.uvOffset,
-          format: 'float32x2',
-        },
-      ],
+      attributes: vertexAttributes,
     },
   ];
 

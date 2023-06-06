@@ -10,8 +10,8 @@ struct VertexInput {
   @location(0) position : vec4f,
   @location(1) normal : vec3f,
   @location(2) uv : vec2f,
-  //@location(3) vert_tan: vec3f,
-  //@location(4) vert_bitan: vec3f,
+  @location(3) vert_tan: vec3f,
+  @location(4) vert_bitan: vec3f,
 }
 
 struct VertexOutput {
@@ -24,11 +24,10 @@ struct VertexOutput {
 
 fn transpose3x3(mat: mat3x3f) -> mat3x3f  {
   return mat3x3f(
-    m[0][0], m[1][0], m[2][0],
-    m[0][1], m[1][1], m[2][1],
-    m[0][2], m[1][2], m[2][2],
-    m[0][3], m[1][3], m[2][3],
-  )
+    mat[0][0], mat[1][0], mat[2][0],
+    mat[0][1], mat[1][1], mat[2][1],
+    mat[0][2], mat[1][2], mat[2][2],
+  );
 }
 
 /* VERTEX SHADER */
@@ -46,9 +45,9 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   );
 
   var t: vec3f = normalize(normMat3x3 * input.vert_tan);
-  var t: vec3f = normalize(normMat3x3 * input.vert_bitan);
-  var t: vec3f = normalize(normMat3x3 * input.normal);
-  tbn: mat3x3f = transpose3x3(mat3x3f(t, b, n));
+  var b: vec3f = normalize(normMat3x3 * input.vert_bitan);
+  var n: vec3f = normalize(normMat3x3 * input.normal);
+  var tbn: mat3x3f = transpose3x3(mat3x3f(t, b, n));
   
   output.position = uniforms.projMatrix * uniforms.viewMatrix * modelMatrix * input.position;
   output.normal = normalize((modelMatrix * vec4(input.normal, 0)).xyz);
