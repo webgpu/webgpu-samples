@@ -1,16 +1,14 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 
-import meshWGSL from '../../shaders/mesh.wgsl';
 import normalMapWGSL from './normalMap.wgsl';
 import {
-  MESH_VERTEX_FEATURE,
   createMeshRenderable,
   createMeshVertexBufferLayout,
-  getMeshPosAtIndex,
-  getMeshUVAtIndex,
 } from '../../meshes/mesh';
 import { createBoxMesh } from '../../meshes/box';
+
+const MAT4X4_BYTES = 64;
 
 // Inspired by the following articles
 // https://apoorvaj.io/exploring-bump-mapping-with-webgl/
@@ -109,7 +107,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
-  const uniformBufferSize = 4 * 16; // 4x4 matrix
+  //3 4x4 mats, proj, view, normal
+  const uniformBufferSize = MAT4X4_BYTES * 3;
   const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -311,19 +310,15 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     aspect,
     1,
     100.0
-  );
-  const modelViewProjectionMatrix = mat4.create();
+  ) as Float32Array;
 
-  function getTransformationMatrix() {
+  function getViewMatrix() {
     const viewMatrix = mat4.identity();
     mat4.translate(viewMatrix, vec3.fromValues(0, 0, -2), viewMatrix);
     const now = Date.now() / 1000;
     mat4.rotateX(viewMatrix, 0.5 * now, viewMatrix);
     mat4.rotateY(viewMatrix, 1 * now, viewMatrix);
-
-    mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
-
-    return modelViewProjectionMatrix as Float32Array;
+    return viewMatrix as Float32Array;
   }
 
   const getMappingType = (arr: Uint32Array) => {
@@ -354,13 +349,35 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 
-    const transformationMatrix = getTransformationMatrix();
+    const viewMatrix = getViewMatrix();
+
+    //I really wish all these different APIS
+    //were consistent when they talk about bytes and elements
+
     device.queue.writeBuffer(
       uniformBuffer,
       0,
-      transformationMatrix.buffer,
-      transformationMatrix.byteOffset,
-      transformationMatrix.byteLength
+      projectionMatrix.buffer,
+      projectionMatrix.byteOffset,
+      projectionMatrix.byteLength
+    );
+
+    device.queue.writeBuffer(
+      uniformBuffer,
+      64,
+      viewMatrix.buffer,
+      viewMatrix.byteOffset,
+      viewMatrix.byteLength
+    );
+
+    const normalMatrix = mat4.transpose(mat4.invert(transform)) as Float32Array;
+
+    device.queue.writeBuffer(
+      uniformBuffer,
+      128,
+      normalMatrix.buffer,
+      normalMatrix.byteOffset,
+      normalMatrix.byteLength
     );
 
     getMappingType(mappingType);
@@ -406,8 +423,8 @@ const NormalMapping: () => JSX.Element = () =>
         contents: __SOURCE__,
       },
       {
-        name: '../../shaders/mesh.wgsl',
-        contents: meshWGSL,
+        name: './normalMap.wgsl',
+        contents: normalMapWGSL,
         editable: true,
       },
       {
