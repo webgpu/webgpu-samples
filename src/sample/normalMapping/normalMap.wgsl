@@ -27,6 +27,7 @@ struct VertexOutput {
   @location(2) tangentSpaceLightPos: vec3f,
   @location(3) tangentSpaceViewPos: vec3f,
   @location(4) tangentSpaceFragPos: vec3f,
+  @location(5) frag_pos: vec3f,
 }
 
 /* UTILITY FUNCTIONS */
@@ -50,6 +51,15 @@ fn parallax_uv(
   return uv - p;
 }
 
+fn when_greater(v1: f32, v2: f32) -> f32 {
+  return max(sign(v1 - v2), 0.0);
+}
+
+/* CONST VALUES */
+const lightPos = vec3f(0.0, 2.0, 3.0);
+const dirColor = vec3(1);
+const ambientColor = vec3f(0.05);
+
 /* VERTEX SHADER */
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
 
@@ -71,14 +81,15 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   output.position = uniforms.projMatrix * uniforms.viewMatrix * uniforms.modelMatrix * input.position;
   output.normal = normalize((uniforms.modelMatrix * vec4(input.normal, 0)).xyz);
   output.uv = input.uv;
+  output.frag_pos = (uniforms.modelMatrix * vec4f(input.position.xyz, 1.0)).xyz;
 
-  //Tangent Space stuff
-  var temp: vec4f = uniforms.modelMatrix * input.position;
-  output.tangentSpaceFragPos = tbn * temp.xyz;
-  //Translated Position of camera we defined in code
-  output.tangentSpaceViewPos = tbn * vec3f(0.0, 0.0, -2.0);
-  //Redundant light definition
-  output.tangentSpaceLightPos = tbn * vec3f(0.5, 1, 1);
+  //Tangent space light position
+  output.tangentSpaceLightPos = tbn * lightPos;
+  //Tangent space camera position
+  output.tangentSpaceViewPos = tbn * vec3f(2.0, 2.0, 0.0);
+  //Tangents space fragment position
+  output.tangentSpaceFragPos = tbn * output.frag_pos;
+  
 
   return output;
 }
@@ -86,43 +97,89 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 /* FRAGMENT SHADER */
 @group(0) @binding(1) var<uniform> mapInfo: Uniforms_MapInfo;
 
-@group(1) @binding(0) var meshSampler: sampler;
-@group(1) @binding(1) var meshTexture: texture_2d<f32>;
+@group(1) @binding(0) var textureSampler: sampler;
+@group(1) @binding(1) var diffuseTexture: texture_2d<f32>;
 @group(1) @binding(2) var normalTexture: texture_2d<f32>;
-@group(1) @binding(3) var diffuseTexture: texture_2d<f32>;
+@group(1) @binding(3) var depthTexture: texture_2d<f32>;
 
-// Static directional lighting
-const lightDir = vec3f(0.5, 1, 1);
-const dirColor = vec3(1);
-const ambientColor = vec3f(0.05);
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  let newLightDir: vec3f = normalize(input.tangentSpaceLightPos - input.tangentSpaceFragPos);
+  let diffuseMap = textureSample(diffuseTexture, textureSampler, input.uv); //input.uv);
+  let normalMap = textureSample(normalTexture, textureSampler, input.uv); //input.uv);
+  let depthMap = textureSample(depthTexture, textureSampler, input.uv); //input.uv);
+
+  //Obtain the normal of the fragment in tangent space
+  var fragmentNormal = (normalMap.rgb * 2.0 - 1.0);
+  //DIFFUSE
+  var diffuseColor = diffuseMap.rgb;
+  //light direction: How alligned is the position of the light in tangent space
+  var lightDir: vec3f = input.tangentSpaceLightPos - input.tangentSpaceFragPos;
+  //How alligned is the direction of the tangent space 
+  var diffuseLight = max(dot(lightDir, fragmentNormal), 0.0) * diffuseColor;
+  //AMBIENT
+  var ambientLight = 0.1 * diffuseColor;
+  //SPECULAR
+  var viewDir = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);
+  var reflectDir = reflect(-lightDir, fragmentNormal);
+  var halfwayDir = normalize(lightDir + viewDir);  
+  //16 is shininess of the surface, 0.2 intensity of highlight
+  var specular: f32 = pow(max(dot(fragmentNormal, halfwayDir), 0.0), 32.0);
+  var specularLight = specular * when_greater(specular, 0.0);
+  
+  //specularLight = specularLight * when_greater(specularLight, 0.0)
+  if (mapInfo.mappingType >= 0) {
+    return vec4f(ambientLight + diffuseLight + specularLight, 1.0);
+  }
+  return vec4f(ambientLight + diffuseLight, 1.0);
+
+
+
+
+
+  /*let newLightDir: vec3f = normalize(input.tangentSpaceLightPos - input.tangentSpaceFragPos);
   let newViewDir: vec3f = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);
   
+  var lightDir: vec3f = normalize(lightPos - input.frag_pos);
+  var halfwayDir: vec3f = normalize(lightDir + newViewDir);
+
 
   let newUV = select(parallax_uv(
     input.uv, 
     newViewDir,
     mapInfo.mappingType,
-    textureSample(diffuseTexture, meshSampler, input.uv).x,
+    textureSample(depthTexture, textureSampler, input.uv).x,
     mapInfo.parallax_scale,
-  ), input.uv, mapInfo.mappingType < 2);
+  ), input.uv, mapInfo.mappingType < 2); //100 means we effectively ignore this for now
 
-  let textureColor = textureSample(meshTexture, meshSampler, newUV); //input.uv);
-  let normalColor = textureSample(normalTexture, meshSampler, newUV); //input.uv);
-  let diffuseColor = textureSample(diffuseTexture, meshSampler, newUV); //input.uv);
+  let diffuseMap = textureSample(diffuseTexture, textureSampler, newUV); //input.uv);
+  let normalMap = textureSample(normalTexture, textureSampler, newUV); //input.uv);
+  let depthMap = textureSample(depthTexture, textureSampler, newUV); //input.uv);
+  
+  //Just going to do blinn-phong for now
 
+  //ambient
+  let ambient: vec3f = 0.1 * diffuseMap.rgb;
+  //diffuse
+  //lightDir
+  var diffuse: vec3f = diffuseMap.rgb; 
+  
 
   //Need to finish normal mapping code but bind groups are all correct
   if (mapInfo.mappingType > 0) {
-    var norm: vec3<f32> = normalize(normalColor.rgb * 2.0 - 1.0);
-    let lightColor = max(dot(norm, newLightDir), 0.0); //saturate(ambientColor + max(dot(norm, newLightDir), 0.0) * dirColor);
-    return vec4f(textureColor.rgb * lightColor, textureColor.a);
+    //Normal vector of the fragment on our normalMap
+    var norm: vec3<f32> = normalize(normalMap.rgb * 2.0 - 1.0);
+    //How much are the light and the normal vector aligned?
+    // Aligned: 1, unalligned: <= 0
+    diffuse = diffuse * max(dot(newLightDir, norm), 0.0); 
+    //NOTE: Maybe saturate
+    //let lightColor = max(dot(norm, newLightDir), 0.0); //saturate(ambientColor + max(dot(norm, newLightDir), 0.0) * dirColor);
+    return vec4f(ambient + diffuse, diffuseMap.a);
+    //return vec4f(diffuseMap.rgb * lightColor, diffuseMap.a);
   } else {
     // Very simplified lighting algorithm.
-    let lightColor = saturate(ambientColor + max(dot(input.normal, lightDir), 0.0) * dirColor);
-    return vec4f(textureColor.rgb * lightColor, textureColor.a);
-  }
+    diffuse = diffuse * max(dot(lightDir, input.normal), 0.0);
+    // saturate Clamps values between 0.0 and 1.0
+    return vec4f(ambient + diffuse, diffuseMap.a);
+  } */
 }

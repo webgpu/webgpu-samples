@@ -17,6 +17,18 @@ const MAT4X4_BYTES = 64;
 // https://toji.dev/webgpu-best-practices/bind-groups.html
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  console.log(`Max Bind Groups: ${adapter.limits.maxBindGroups}`);
+  console.log(`Max Vertex Attributes: ${adapter.limits.maxVertexAttributes}`);
+  console.log(`Max Vertex Buffers ${adapter.limits.maxVertexBuffers}`);
+  console.log(
+    `Max Vertex Buffer Array Stride ${adapter.limits.maxVertexBufferArrayStride}`
+  );
+  console.log(
+    `Max UniformBuffer Size ${adapter.limits.maxUniformBufferBindingSize}`
+  );
+  console.log(
+    `Max Uniform Buffers per Shader Stage ${adapter.limits.maxUniformBuffersPerShaderStage}`
+  );
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -123,6 +135,24 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
+  const copyImageToTexture = (
+    imageBitmap: ImageBitmap,
+    format: GPUTextureFormat,
+    usage: number
+  ): GPUTexture => {
+    const texture = device.createTexture({
+      size: [imageBitmap.width, imageBitmap.height, 1],
+      format: format,
+      usage: usage,
+    });
+    device.queue.copyExternalImageToTexture(
+      { source: imageBitmap },
+      { texture: texture },
+      [imageBitmap.width, imageBitmap.height]
+    );
+    return texture;
+  };
+
   // Fetch the image and upload it into a GPUTexture.
   let woodTexture: GPUTexture;
   {
@@ -133,21 +163,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       ).toString()
     );
     const imageBitmap = await createImageBitmap(await response.blob());
-
-    woodTexture = device.createTexture({
-      size: [imageBitmap.width, imageBitmap.height, 1],
-      format: 'rgba8unorm',
-      usage:
-        //Going to be bound as a texture within a shader
-        GPUTextureUsage.TEXTURE_BINDING |
-        //Going to copy image data from CPU to GPU
+    woodTexture = copyImageToTexture(
+      imageBitmap,
+      'rgba8unorm',
+      GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
-      { texture: woodTexture },
-      [imageBitmap.width, imageBitmap.height]
+        GPUTextureUsage.RENDER_ATTACHMENT
     );
   }
 
@@ -161,20 +182,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
     const imageBitmap = await createImageBitmap(await response.blob());
 
-    woodNormalTexture = device.createTexture({
-      size: [imageBitmap.width, imageBitmap.height, 1],
-      format: 'rgba8unorm',
-      usage:
-        //Going to be bound as a texture within a shader
-        GPUTextureUsage.TEXTURE_BINDING |
-        //Going to copy image data from CPU to GPU
+    woodNormalTexture = copyImageToTexture(
+      imageBitmap,
+      'rgba8unorm',
+      GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
-      { texture: woodNormalTexture },
-      [imageBitmap.width, imageBitmap.height]
+        GPUTextureUsage.RENDER_ATTACHMENT
     );
   }
 
@@ -188,20 +201,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
     const imageBitmap = await createImageBitmap(await response.blob());
 
-    woodDiffuseTexture = device.createTexture({
-      size: [imageBitmap.width, imageBitmap.height, 1],
-      format: 'rgba8unorm',
-      usage:
-        //Going to be bound as a texture within a shader
-        GPUTextureUsage.TEXTURE_BINDING |
-        //Going to copy image data from CPU to GPU
+    woodDiffuseTexture = copyImageToTexture(
+      imageBitmap,
+      'rgba8unorm',
+      GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
-      { texture: woodDiffuseTexture },
-      [imageBitmap.width, imageBitmap.height]
+        GPUTextureUsage.RENDER_ATTACHMENT
     );
   }
 
@@ -287,7 +292,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const toyboxBindGroup = createToyboxBindGroup(
     woodTexture,
     woodNormalTexture,
-    woodDiffuseTexture,
+    woodDiffuseTexture
   );
 
   const aspect = canvas.width / canvas.height;
@@ -301,9 +306,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   function getViewMatrix() {
     const viewMatrix = mat4.identity();
     mat4.translate(viewMatrix, vec3.fromValues(0, 0, -2), viewMatrix);
-    const now = Date.now() / 1000;
-    mat4.rotateX(viewMatrix, 0.5 * now, viewMatrix);
-    mat4.rotateY(viewMatrix, 1 * now, viewMatrix);
     return viewMatrix;
   }
 
@@ -338,17 +340,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }
   };
 
-  const getParallaxScale = (arr: Uint32Array) => {
+  const getParallaxScale = (arr: Float32Array) => {
     arr[0] = settings['Parallax Scale'];
   };
 
   const mappingType: Uint32Array = new Uint32Array([0]);
   const parallaxScale: Float32Array = new Float32Array([0]);
 
-  const viewMatrix = mat4.translate(
-    mat4.identity(),
-    vec3.fromValues(0, 0, -2)
-  ) as Float32Array;
+  const viewMatrix = getViewMatrix() as Float32Array;
 
   function frame() {
     // Sample is no longer the active page.
@@ -396,7 +395,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     getMappingType(mappingType);
     getParallaxScale(parallaxScale);
-    console.log(parallaxScale[0]);
 
     device.queue.writeBuffer(
       mapMethodBuffer,
