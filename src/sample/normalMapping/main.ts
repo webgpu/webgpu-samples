@@ -347,7 +347,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const mappingType: Uint32Array = new Uint32Array([0]);
   const parallaxScale: Float32Array = new Float32Array([0]);
 
-  const viewMatrix = getViewMatrix() as Float32Array;
+  const viewMatrixTemp = getViewMatrix();
+  const viewMatrix = viewMatrixTemp as Float32Array;
 
   function frame() {
     // Sample is no longer the active page.
@@ -373,7 +374,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     const modelMatrixTemp = getModelMatrix();
     const normalMatrix = mat4.transpose(
-      mat4.invert(modelMatrixTemp)
+      mat4.invert(mat4.multiply(modelMatrixTemp, viewMatrixTemp))
     ) as Float32Array;
     const modelMatrix = modelMatrixTemp as Float32Array;
 
