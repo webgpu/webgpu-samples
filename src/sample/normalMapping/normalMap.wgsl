@@ -56,7 +56,7 @@ fn when_greater(v1: f32, v2: f32) -> f32 {
 
 /* CONST VALUES */
 const lightPos = vec3f(0.0, 0.0, 2.0);
-const viewPos = vec3f(0.0, -1.0, -2.0);
+const viewPos = vec3f(0.0, 0.0, -2.0);
 
 /* VERTEX SHADER */
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;

@@ -48,8 +48,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   type GUISettings = {
     'Bump Mode':
       | 'None'
-      | 'Normal w/o Tangent'
-      | 'Normal with Tangent'
+      | 'Normal'
       | 'Parallax'
       | 'Steep Parallax'
       | 'Parallax Occlusion';
@@ -66,8 +65,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   };
   gui.add(settings, 'Bump Mode', [
     'None',
-    'Normal w/o Tangent',
-    'Normal with Tangent',
+    'Normal',
     'Parallax',
     'Steep Parallax',
     'Parallax Occlusion',
@@ -323,11 +321,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       case 'None':
         arr[0] = 0;
         break;
-      case 'Normal w/o Tangent':
+      case 'Normal':
         arr[0] = 1;
         break;
-      case 'Normal with Tangent':
-        arr[0] = 2;
       case 'Parallax':
         arr[0] = 3;
         break;

@@ -1,13 +1,15 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { createSphereMesh } from '../../meshes/sphere';
-import { createBoxMesh } from '../../meshes/box';
+import { createSphereMesh, SphereLayout } from '../../meshes/sphere';
 
-import meshWGSL from '../../shaders/mesh.wgsl';
-import {
-  createMeshVertexBufferLayout,
-  createMeshRenderable,
-} from '../../meshes/mesh';
+import meshWGSL from './mesh.wgsl';
+
+interface Renderable {
+  vertices: GPUBuffer;
+  indices: GPUBuffer;
+  indexCount: number;
+  bindGroup?: GPUBindGroup;
+}
 
 const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   const adapter = await navigator.gpu.requestAdapter();
@@ -48,7 +50,31 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     vertex: {
       module: shaderModule,
       entryPoint: 'vertexMain',
-      buffers: createMeshVertexBufferLayout(),
+      buffers: [
+        {
+          arrayStride: SphereLayout.vertexStride,
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: SphereLayout.positionsOffset,
+              format: 'float32x3',
+            },
+            {
+              // normal
+              shaderLocation: 1,
+              offset: SphereLayout.normalOffset,
+              format: 'float32x3',
+            },
+            {
+              // uv
+              shaderLocation: 2,
+              offset: SphereLayout.uvOffset,
+              format: 'float32x2',
+            },
+          ],
+        },
+      ],
     },
     fragment: {
       module: shaderModule,
@@ -139,6 +165,44 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     minFilter: 'linear',
   });
 
+  // Helper functions to create the required meshes and bind groups for each sphere.
+  function createSphereRenderable(
+    radius: number,
+    widthSegments = 32,
+    heightSegments = 16,
+    randomness = 0
+  ): Renderable {
+    const sphereMesh = createSphereMesh(
+      radius,
+      widthSegments,
+      heightSegments,
+      randomness
+    );
+
+    // Create a vertex buffer from the sphere data.
+    const vertices = device.createBuffer({
+      size: sphereMesh.vertices.byteLength,
+      usage: GPUBufferUsage.VERTEX,
+      mappedAtCreation: true,
+    });
+    new Float32Array(vertices.getMappedRange()).set(sphereMesh.vertices);
+    vertices.unmap();
+
+    const indices = device.createBuffer({
+      size: sphereMesh.indices.byteLength,
+      usage: GPUBufferUsage.INDEX,
+      mappedAtCreation: true,
+    });
+    new Uint16Array(indices.getMappedRange()).set(sphereMesh.indices);
+    indices.unmap();
+
+    return {
+      vertices,
+      indices,
+      indexCount: sphereMesh.indices.length,
+    };
+  }
+
   function createSphereBindGroup(
     texture: GPUTexture,
     transform: Float32Array
@@ -179,15 +243,15 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   mat4.identity(transform);
 
   // Create one large central planet surrounded by a large ring of asteroids
-  const planet = createMeshRenderable(device, createBoxMesh(3.0, 1.0, 2.0));
+  const planet = createSphereRenderable(1.0);
   planet.bindGroup = createSphereBindGroup(planetTexture, transform);
 
   const asteroids = [
-    createMeshRenderable(device, createSphereMesh(0.01, 8, 6, 0)),
-    createMeshRenderable(device, createSphereMesh(0.013, 8, 6)),
-    createMeshRenderable(device, createSphereMesh(0.017, 8, 6)),
-    createMeshRenderable(device, createSphereMesh(0.02, 8, 6)),
-    createMeshRenderable(device, createSphereMesh(0.03, 16, 8)),
+    createSphereRenderable(0.01, 8, 6, 0.15),
+    createSphereRenderable(0.013, 8, 6, 0.15),
+    createSphereRenderable(0.017, 8, 6, 0.15),
+    createSphereRenderable(0.02, 8, 6, 0.15),
+    createSphereRenderable(0.03, 16, 8, 0.15),
   ];
 
   const renderables = [planet];
@@ -285,8 +349,8 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     let count = 0;
     for (const renderable of renderables) {
       passEncoder.setBindGroup(1, renderable.bindGroup);
-      passEncoder.setVertexBuffer(0, renderable.vertexBuffer);
-      passEncoder.setIndexBuffer(renderable.indexBuffer, 'uint16');
+      passEncoder.setVertexBuffer(0, renderable.vertices);
+      passEncoder.setIndexBuffer(renderable.indices, 'uint16');
       passEncoder.drawIndexed(renderable.indexCount);
 
       if (++count > settings.asteroidCount) {
@@ -380,14 +444,9 @@ const RenderBundles: () => JSX.Element = () =>
         editable: true,
       },
       {
-        name: '../../meshes/box.ts',
+        name: '../../meshes/sphere.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        contents: require('!!raw-loader!../../meshes/box.ts').default,
-      },
-      {
-        name: '../../meshes/mesh.ts',
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        contents: require('!!raw-loader!../../meshes/mesh.ts').default,
+        contents: require('!!raw-loader!../../meshes/sphere.ts').default,
       },
     ],
     filename: __filename,
