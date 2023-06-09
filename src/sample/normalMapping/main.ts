@@ -72,7 +72,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     'Steep Parallax',
     'Parallax Occlusion',
   ]);
-  gui.add(settings, 'Parallax Scale', 0, 0.1, 0.01);
+  gui.add(settings, 'Parallax Scale', -0.1, 0.1, 0.01);
   gui.add(settings, 'Depth Layers', 1, 32, 1);
   gui.add(settings, 'Pre-Compute Tangents');
 

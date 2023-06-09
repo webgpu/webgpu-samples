@@ -322,6 +322,8 @@ export const createBoxMeshWithTangents = (
     wTangentArray.set(bitangents[i], i * newStrideElements + originalStrideElements + 3)
   }
 
+  console.log(wTangentArray)
+
   return {
     vertices: wTangentArray,
     indices: mesh.indices,

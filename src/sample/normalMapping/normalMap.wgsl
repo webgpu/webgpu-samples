@@ -43,11 +43,10 @@ fn transpose3x3(mat: mat3x3f) -> mat3x3f  {
 fn parallax_uv(
   uv: vec2f, 
   view_dir: vec3f, 
-  map_type: u32,
   depth_value: f32,
   depth_scale: f32
 ) -> vec2f {
-  var p: vec2f = view_dir.xy * (depth_value * depth_scale) / view_dir.z;
+  var p: vec2f = view_dir.xy / view_dir.z * (depth_value * depth_scale);
   return uv - p;
 }
 
@@ -113,16 +112,15 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   let uv = select(parallax_uv(
     input.uv, 
     viewDir,
-    mapInfo.mappingType,
-    textureSample(depthTexture, textureSampler, input.uv).x,
+    textureSample(depthTexture, textureSampler, input.uv).b,
     mapInfo.parallax_scale,
   ), input.uv, mapInfo.mappingType < 2);
 
 
 
-  let diffuseMap = textureSample(diffuseTexture, textureSampler, uv); //input.uv);
-  let normalMap = textureSample(normalTexture, textureSampler, uv); //input.uv);
-  let depthMap = textureSample(depthTexture, textureSampler, uv); //input.uv);
+  let diffuseMap = textureSample(diffuseTexture, textureSampler, uv);
+  let normalMap = textureSample(normalTexture, textureSampler, uv);
+  let depthMap = textureSample(depthTexture, textureSampler, uv); 
   //Obtain the normal of the fragment in [-1, 1] range
   var fragmentNormal = (normalMap.rgb * 2.0 - 1.0);
   //DIFFUSE
@@ -137,50 +135,4 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   var ambientLight = 0.1 * diffuseColor;
 
   return vec4f(ambientLight + diffuseLight, 1.0);
-
-  /*let newLightDir: vec3f = normalize(input.tangentSpaceLightPos - input.tangentSpaceFragPos);
-  let newViewDir: vec3f = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);
-  
-  var lightDir: vec3f = normalize(lightPos - input.frag_pos);
-  var halfwayDir: vec3f = normalize(lightDir + newViewDir);
-
-
-  let newUV = select(parallax_uv(
-    input.uv, 
-    newViewDir,
-    mapInfo.mappingType,
-    textureSample(depthTexture, textureSampler, input.uv).x,
-    mapInfo.parallax_scale,
-  ), input.uv, mapInfo.mappingType < 2); //100 means we effectively ignore this for now
-
-  let diffuseMap = textureSample(diffuseTexture, textureSampler, newUV); //input.uv);
-  let normalMap = textureSample(normalTexture, textureSampler, newUV); //input.uv);
-  let depthMap = textureSample(depthTexture, textureSampler, newUV); //input.uv);
-  
-  //Just going to do blinn-phong for now
-
-  //ambient
-  let ambient: vec3f = 0.1 * diffuseMap.rgb;
-  //diffuse
-  //lightDir
-  var diffuse: vec3f = diffuseMap.rgb; 
-  
-
-  //Need to finish normal mapping code but bind groups are all correct
-  if (mapInfo.mappingType > 0) {
-    //Normal vector of the fragment on our normalMap
-    var norm: vec3<f32> = normalize(normalMap.rgb * 2.0 - 1.0);
-    //How much are the light and the normal vector aligned?
-    // Aligned: 1, unalligned: <= 0
-    diffuse = diffuse * max(dot(newLightDir, norm), 0.0); 
-    //NOTE: Maybe saturate
-    //let lightColor = max(dot(norm, newLightDir), 0.0); //saturate(ambientColor + max(dot(norm, newLightDir), 0.0) * dirColor);
-    return vec4f(ambient + diffuse, diffuseMap.a);
-    //return vec4f(diffuseMap.rgb * lightColor, diffuseMap.a);
-  } else {
-    // Very simplified lighting algorithm.
-    diffuse = diffuse * max(dot(lightDir, input.normal), 0.0);
-    // saturate Clamps values between 0.0 and 1.0
-    return vec4f(ambient + diffuse, diffuseMap.a);
-  } */
 }
