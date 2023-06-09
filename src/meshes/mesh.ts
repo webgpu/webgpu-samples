@@ -10,6 +10,7 @@ export interface Renderable {
 export interface Mesh {
   vertices: Float32Array;
   indices: Uint16Array;
+  vertexStride: number;
 }
 
 type MeshLayoutType = {
@@ -146,10 +147,11 @@ export const createMeshVertexBufferLayout = (
 };
 
 //Remeber that float32array asks for a byte offset then an element length
+//NOTE: This code won't work for tangents and bitangents
 export const getMeshPosAtIndex = (mesh: Mesh, index: number) => {
   const arr = new Float32Array(
     mesh.vertices.buffer,
-    index * MeshLayout.vertexStride + MeshLayout.positionsOffset,
+    index * mesh.vertexStride + MeshLayout.positionsOffset,
     3
   );
   return vec3.fromValues(arr[0], arr[1], arr[2]);
@@ -158,7 +160,7 @@ export const getMeshPosAtIndex = (mesh: Mesh, index: number) => {
 export const getMeshNormalAtIndex = (mesh: Mesh, index: number) => {
   const arr = new Float32Array(
     mesh.vertices.buffer,
-    index * MeshLayout.vertexStride + MeshLayout.normalOffset,
+    index * mesh.vertexStride + MeshLayout.normalOffset,
     3
   );
   return vec3.fromValues(arr[0], arr[1], arr[2]);
@@ -167,7 +169,7 @@ export const getMeshNormalAtIndex = (mesh: Mesh, index: number) => {
 export const getMeshUVAtIndex = (mesh: Mesh, index: number) => {
   const arr = new Float32Array(
     mesh.vertices.buffer,
-    index * MeshLayout.vertexStride + MeshLayout.uvOffset,
+    index * mesh.vertexStride + MeshLayout.uvOffset,
     2
   );
   return vec2.fromValues(arr[0], arr[1]);

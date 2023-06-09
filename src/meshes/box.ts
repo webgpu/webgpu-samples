@@ -5,6 +5,7 @@ import { getMeshPosAtIndex, getMeshUVAtIndex, Mesh } from './mesh';
 export interface BoxMesh extends Mesh {
   vertices: Float32Array;
   indices: Uint16Array;
+  vertexStride: number;
 }
 
 export const BoxLayout = {
@@ -74,7 +75,7 @@ const createBoxGeometry = (
         //Caclulate normal
         normal[u] = 0;
         normal[v] = 0;
-        normal[w] = depth > 0 ? 1.0 : -1.0;
+        normal[w] = planeDepth > 0 ? 1.0 : -1.0;
         vertNormalUVBuffer.push(...normal);
 
         //Calculate uvs
@@ -103,9 +104,9 @@ const createBoxGeometry = (
   };
 
   buildPlane(
-    2,
-    1,
-    0,
+    2, //z
+    1, //y
+    0, //x
     -1,
     -1,
     depth,
@@ -116,9 +117,9 @@ const createBoxGeometry = (
   );
 
   buildPlane(
-    2,
-    1,
-    0,
+    2, //z
+    1, //y
+    0, //x
     1,
     -1,
     depth,
@@ -128,12 +129,23 @@ const createBoxGeometry = (
     heightSegments
   );
 
-  buildPlane(0, 2, 1, 1, 1, width, depth, height, widthSegments, depthSegments);
+  buildPlane(
+    0, //x
+    2, //z
+    1, //y
+    1, 
+    1, 
+    width, 
+    depth, 
+    height, 
+    widthSegments, 
+    depthSegments
+  );
 
   buildPlane(
-    0,
-    2,
-    1,
+    0, //x
+    2, //z
+    1, //y
     1,
     -1,
     width,
@@ -144,9 +156,9 @@ const createBoxGeometry = (
   );
 
   buildPlane(
-    0,
-    1,
-    2,
+    0, //x
+    1, //y
+    2, //z
     1,
     -1,
     width,
@@ -157,9 +169,9 @@ const createBoxGeometry = (
   );
 
   buildPlane(
-    0,
-    1,
-    2,
+    0, //x
+    1, //y
+    2, //z
     -1,
     -1,
     width,
@@ -168,9 +180,6 @@ const createBoxGeometry = (
     widthSegments,
     heightSegments
   );
-
-  console.log(`Number of vertices: ${numVertices}`);
-  console.log(`Number of indices: ${indices.length}`);
 
   return {
     vertices: vertNormalUVBuffer,
@@ -186,7 +195,7 @@ export const createBoxMesh = (
   widthSegments = 1.0,
   heightSegments = 1.0,
   depthSegments = 1.0
-) => {
+): Mesh => {
   const { vertices, indices } = createBoxGeometry(
     width,
     height,
@@ -199,6 +208,7 @@ export const createBoxMesh = (
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint16Array(indices),
+    vertexStride: BoxLayout.vertexStride,
   };
 };
 
@@ -209,7 +219,7 @@ export const createBoxMeshWithTangents = (
   widthSegments = 1.0,
   heightSegments = 1.0,
   depthSegments = 1.0
-) => {
+): Mesh => {
   const mesh = createBoxMesh(
     width,
     height,
@@ -219,10 +229,11 @@ export const createBoxMeshWithTangents = (
     depthSegments
   );
 
+  console.log(mesh.vertices);
+
   const originalStrideElements = BoxLayout.vertexStride / Float32Array.BYTES_PER_ELEMENT;
 
   const vertexCount = mesh.vertices.length / originalStrideElements;
-  console.log(`Vertex Count: ${vertexCount}`);
 
   const tangents = new Array(vertexCount);
   tangents.fill(vec3.create(0.0, 0.0, 0.0));
@@ -314,5 +325,6 @@ export const createBoxMeshWithTangents = (
   return {
     vertices: wTangentArray,
     indices: mesh.indices,
+    vertexStride: mesh.vertexStride + (Float32Array.BYTES_PER_ELEMENT * 3 * 2),
   };
 };

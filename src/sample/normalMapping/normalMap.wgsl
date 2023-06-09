@@ -25,9 +25,9 @@ struct VertexOutput {
   @location(0) normal: vec3f,
   @location(1) uv : vec2f,
   @location(2) frag_pos: vec3f,
-  @location(3) t: vec3f,
-  @location(4) b: vec3f,
-  @location(5) n: vec3f,
+  @location(3) tangentSpaceViewPos: vec3f,
+  @location(4) tangentSpaceLightPos: vec3f,
+  @location(5) tangentSpaceFragPos: vec3f,
 }
 
 /* UTILITY FUNCTIONS */
@@ -56,8 +56,8 @@ fn when_greater(v1: f32, v2: f32) -> f32 {
 }
 
 /* CONST VALUES */
-const lightPos = vec3f(0.0, 2.0, 3.0);
-const viewPos = vec3f(0.0, 0.0, -2.0);
+const lightPos = vec3f(0.0, 0.0, 2.0);
+const viewPos = vec3f(0.0, -1.0, -2.0);
 
 /* VERTEX SHADER */
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
@@ -65,27 +65,33 @@ const viewPos = vec3f(0.0, 0.0, -2.0);
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output : VertexOutput;
-  var normMat3x3: mat3x3f = mat3x3f(
+
+  //Get Regular Parameters out of the way
+  output.position = uniforms.projMatrix * uniforms.viewMatrix * uniforms.modelMatrix * input.position;
+  output.uv = input.uv;
+  output.normal = input.normal;
+  //Multiply pos by modelMatrix to get frag pos in world space
+  output.frag_pos = vec3f((uniforms.modelMatrix * input.position).xyz);
+
+  //Normal Matrix
+  var normalMatrix: mat3x3f = mat3x3f(
     uniforms.normalMatrix[0].xyz, 
     uniforms.normalMatrix[1].xyz,
     uniforms.normalMatrix[2].xyz
   );
 
-  output.t = normalize(normMat3x3 * input.vert_tan);
-  output.b = normalize(normMat3x3 * input.vert_bitan);
-  output.n = normalize(normMat3x3 * input.normal);
+  //Tangent Space (TBN) Matrix
+  let t = normalize(normalMatrix * input.vert_tan);
+  let b = normalize(normalMatrix * input.vert_bitan);
+  let n = normalize(normalMatrix * input.normal);
 
-  let tbn = let tangent_matrix = transpose(mat3x3f(
-    world_tangent,
-    world_bitangent,
-    world_normal,
-  ));
-  
-  //Regular stuff
-  output.position = uniforms.projMatrix * uniforms.viewMatrix * uniforms.modelMatrix * input.position;
-  output.normal = normalize((uniforms.modelMatrix * vec4(input.normal, 0)).xyz);
-  output.uv = input.uv;
-  output.frag_pos = (uniforms.modelMatrix * uniforms.viewMatrix * vec4f(input.position.xyz, 1.0)).xyz;
+  let tbn = mat3x3f(t, b, n);
+
+  //Get light, camera, and frag positions in tangent space
+  output.tangentSpaceLightPos = tbn * lightPos;
+  output.tangentSpaceViewPos = tbn * viewPos;
+  output.tangentSpaceFragPos = tbn * output.frag_pos;
+
   return output;
 }
 
@@ -100,39 +106,37 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  var tbn: mat3x3f = mat3x3f(input.t, input.b, input.n);
+  //Calculate light and view directions in tangent space for each fragment
+  var lightDir = normalize(input.tangentSpaceLightPos - input.tangentSpaceFragPos);
+  var viewDir = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);
 
-  let diffuseMap = textureSample(diffuseTexture, textureSampler, input.uv); //input.uv);
-  let normalMap = textureSample(normalTexture, textureSampler, input.uv); //input.uv);
-  let depthMap = textureSample(depthTexture, textureSampler, input.uv); //input.uv);
+  let uv = select(parallax_uv(
+    input.uv, 
+    viewDir,
+    mapInfo.mappingType,
+    textureSample(depthTexture, textureSampler, input.uv).x,
+    mapInfo.parallax_scale,
+  ), input.uv, mapInfo.mappingType < 2);
 
-  //Obtain the normal of the fragment in tangent space
+
+
+  let diffuseMap = textureSample(diffuseTexture, textureSampler, uv); //input.uv);
+  let normalMap = textureSample(normalTexture, textureSampler, uv); //input.uv);
+  let depthMap = textureSample(depthTexture, textureSampler, uv); //input.uv);
+  //Obtain the normal of the fragment in [-1, 1] range
   var fragmentNormal = (normalMap.rgb * 2.0 - 1.0);
-  var worldNormal = normalize(tbn * fragmentNormal);
-  var lightDir = normalize(tbn * (lightPos - input.frag_pos));
-  var viewDir = normalize(tbn * (viewPos - input.frag_pos));
   //DIFFUSE
   var diffuseColor = diffuseMap.rgb;
-  var diffuseLight = max(dot(lightDir, fragmentNormal), 0.0) * diffuseColor;
+  var diffuseLight = max(
+    dot(
+      lightDir, 
+      select(fragmentNormal, input.frag_pos, mapInfo.mappingType <= 0)
+    ), 0.0
+  ) * diffuseColor;
   //AMBIENT
   var ambientLight = 0.1 * diffuseColor;
-  //SPECULAR
-  //var viewDir = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);
-  var reflectDir = reflect(-lightDir, fragmentNormal);
-  var halfwayDir = normalize(lightDir + viewDir);  
-  //16 is shininess of the surface, 0.2 intensity of highlight
-  var specular: f32 = pow(max(dot(fragmentNormal, halfwayDir), 0.0), 32.0);
-  var specularLight = specular * when_greater(specular, 0.0);
-  
-  //specularLight = specularLight * when_greater(specularLight, 0.0)
-  if (mapInfo.mappingType >= 0) {
-    return vec4f(worldNormal.rgb, 1.0);
-  }
+
   return vec4f(ambientLight + diffuseLight, 1.0);
-
-
-
-
 
   /*let newLightDir: vec3f = normalize(input.tangentSpaceLightPos - input.tangentSpaceFragPos);
   let newViewDir: vec3f = normalize(input.tangentSpaceViewPos - input.tangentSpaceFragPos);

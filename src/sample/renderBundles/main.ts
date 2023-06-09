@@ -5,7 +5,7 @@ import { createBoxMesh } from '../../meshes/box';
 
 import meshWGSL from '../../shaders/mesh.wgsl';
 import {
-  MeshVertexBufferLayout,
+  createMeshVertexBufferLayout,
   createMeshRenderable,
 } from '../../meshes/mesh';
 
@@ -48,7 +48,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     vertex: {
       module: shaderModule,
       entryPoint: 'vertexMain',
-      buffers: MeshVertexBufferLayout,
+      buffers: createMeshVertexBufferLayout(),
     },
     fragment: {
       module: shaderModule,

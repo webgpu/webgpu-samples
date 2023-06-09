@@ -1,8 +1,10 @@
 import { vec3 } from 'wgpu-matrix';
+import { Mesh } from './mesh';
 
-export interface SphereMesh {
+export interface SphereMesh extends Mesh {
   vertices: Float32Array;
   indices: Uint16Array;
+  vertexStride: number;
 }
 
 export const SphereLayout = {
@@ -95,5 +97,6 @@ export function createSphereMesh(
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint16Array(indices),
+    vertexStride: 32,
   };
 }
