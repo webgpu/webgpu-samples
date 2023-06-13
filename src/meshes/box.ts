@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { vec3 } from 'wgpu-matrix';
 import { getMeshPosAtIndex, getMeshUVAtIndex, Mesh } from './mesh';
 
@@ -133,12 +132,12 @@ const createBoxGeometry = (
     0, //x
     2, //z
     1, //y
-    1, 
-    1, 
-    width, 
-    depth, 
-    height, 
-    widthSegments, 
+    1,
+    1,
+    width,
+    depth,
+    height,
+    widthSegments,
     depthSegments
   );
 
@@ -231,7 +230,8 @@ export const createBoxMeshWithTangents = (
 
   console.log(mesh.vertices);
 
-  const originalStrideElements = BoxLayout.vertexStride / Float32Array.BYTES_PER_ELEMENT;
+  const originalStrideElements =
+    BoxLayout.vertexStride / Float32Array.BYTES_PER_ELEMENT;
 
   const vertexCount = mesh.vertices.length / originalStrideElements;
 
@@ -239,7 +239,7 @@ export const createBoxMeshWithTangents = (
   tangents.fill(vec3.create(0.0, 0.0, 0.0));
   const bitangents = new Array(vertexCount);
   bitangents.fill(vec3.create(0.0, 0.0, 0.0));
-  const counts = new Array(vertexCount)
+  const counts = new Array(vertexCount);
   counts.fill(0);
 
   for (let i = 0; i < mesh.indices.length; i += 3) {
@@ -276,15 +276,14 @@ export const createBoxMeshWithTangents = (
     const tangent = vec3.fromValues(
       constantVal * (deltaUV2[1] * edge1[0] - deltaUV1[1] * edge2[0]),
       constantVal * (deltaUV2[1] * edge1[1] - deltaUV1[1] * edge2[1]),
-      constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2]),
+      constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2])
     );
 
     const bitangent = vec3.fromValues(
       constantVal * (-deltaUV2[0] * edge1[0] + deltaUV1[0] * edge2[0]),
       constantVal * (-deltaUV2[0] * edge1[1] + deltaUV1[0] * edge2[1]),
-      constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2]),
+      constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2])
     );
-
 
     //Accumulate tangents and bitangents
     tangents[idx1] = vec3.add(tangents[idx1], tangent);
@@ -295,16 +294,16 @@ export const createBoxMeshWithTangents = (
     bitangents[idx3] = vec3.add(bitangents[idx3], bitangent);
 
     //Increment index count
-    counts[idx1]++
-    counts[idx2]++
+    counts[idx1]++;
+    counts[idx2]++;
     counts[idx3]++;
   }
 
   for (let i = 0; i < tangents.length; i++) {
-    tangents[i] = vec3.divScalar(tangents[i], counts[i])
+    tangents[i] = vec3.divScalar(tangents[i], counts[i]);
     bitangents[i] = vec3.divScalar(bitangents[i], counts[i]);
   }
-  
+
   const newStrideElements = 14;
   const wTangentArray = new Float32Array(vertexCount * newStrideElements);
 
@@ -312,21 +311,30 @@ export const createBoxMeshWithTangents = (
     //Copy original vertex data (pos, normal uv)
     wTangentArray.set(
       //Get the original vertex [8 elements] (3 ele pos, 3 ele normal, 2 ele uv)
-      mesh.vertices.subarray(i * originalStrideElements, (i + 1) * originalStrideElements),
+      mesh.vertices.subarray(
+        i * originalStrideElements,
+        (i + 1) * originalStrideElements
+      ),
       //And put it at the proper location in the new array [14 bytes = 8 og + 6 empty]
       i * newStrideElements
-    )
+    );
     //For each vertex, place tangent after originalStride
-    wTangentArray.set(tangents[i], i * newStrideElements + originalStrideElements);
+    wTangentArray.set(
+      tangents[i],
+      i * newStrideElements + originalStrideElements
+    );
     //Place bitangent after 3 elements of tangent
-    wTangentArray.set(bitangents[i], i * newStrideElements + originalStrideElements + 3)
+    wTangentArray.set(
+      bitangents[i],
+      i * newStrideElements + originalStrideElements + 3
+    );
   }
 
-  console.log(wTangentArray)
+  console.log(wTangentArray);
 
   return {
     vertices: wTangentArray,
     indices: mesh.indices,
-    vertexStride: mesh.vertexStride + (Float32Array.BYTES_PER_ELEMENT * 3 * 2),
+    vertexStride: mesh.vertexStride + Float32Array.BYTES_PER_ELEMENT * 3 * 2,
   };
 };

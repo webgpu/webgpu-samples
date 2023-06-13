@@ -17,18 +17,6 @@ const MAT4X4_BYTES = 64;
 // https://toji.dev/webgpu-best-practices/bind-groups.html
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
-  console.log(`Max Bind Groups: ${adapter.limits.maxBindGroups}`);
-  console.log(`Max Vertex Attributes: ${adapter.limits.maxVertexAttributes}`);
-  console.log(`Max Vertex Buffers ${adapter.limits.maxVertexBuffers}`);
-  console.log(
-    `Max Vertex Buffer Array Stride ${adapter.limits.maxVertexBufferArrayStride}`
-  );
-  console.log(
-    `Max UniformBuffer Size ${adapter.limits.maxUniformBufferBindingSize}`
-  );
-  console.log(
-    `Max Uniform Buffers per Shader Stage ${adapter.limits.maxUniformBuffersPerShaderStage}`
-  );
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -46,33 +34,31 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   type GUISettings = {
-    'Bump Mode':
-      | 'None'
-      | 'Normal'
-      | 'Parallax'
-      | 'Steep Parallax'
-      | 'Parallax Occlusion';
-    'Parallax Scale': number;
-    'Depth Layers': number;
-    'Pre-Compute Tangents': boolean;
+    'Bump Mode': 'None' | 'Normal';
+    //| 'Parallax'
+    //| 'Steep Parallax'
+    //| 'Parallax Occlusion';
+    //'Parallax Scale': number;
+    //'Depth Layers': number;
+    //'Pre-Compute Tangents': boolean;
   };
 
   const settings: GUISettings = {
-    'Bump Mode': 'None',
-    'Parallax Scale': 0,
-    'Depth Layers': 32,
-    'Pre-Compute Tangents': false,
+    'Bump Mode': 'Normal',
+    //'Parallax Scale': 0,
+    //'Depth Layers': 32,
+    //'Pre-Compute Tangents': false,
   };
   gui.add(settings, 'Bump Mode', [
     'None',
     'Normal',
-    'Parallax',
-    'Steep Parallax',
-    'Parallax Occlusion',
+    //'Parallax',
+    //'Steep Parallax',
+    //'Parallax Occlusion',
   ]);
-  gui.add(settings, 'Parallax Scale', -0.1, 0.1, 0.01);
-  gui.add(settings, 'Depth Layers', 1, 32, 1);
-  gui.add(settings, 'Pre-Compute Tangents');
+  //gui.add(settings, 'Parallax Scale', -0.1, 0.1, 0.01);
+  //gui.add(settings, 'Depth Layers', 1, 32, 1);
+  //gui.add(settings, 'Pre-Compute Tangents');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
@@ -324,7 +310,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       case 'Normal':
         arr[0] = 1;
         break;
-      case 'Parallax':
+      /*case 'Parallax':
         arr[0] = 3;
         break;
       case 'Steep Parallax':
@@ -332,7 +318,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         break;
       case 'Parallax Occlusion':
         arr[0] = 5;
-        break;
+        break; */
     }
   };
 
