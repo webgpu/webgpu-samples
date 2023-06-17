@@ -4,6 +4,12 @@ import animometerWGSL from './animometer.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) {
+    console.error(
+      'WebGPU is not supported. Make sure you are running the latest version of a compatible browser (like Chrome Canary) with the correct flags enabled.'
+    );
+    return;
+  }
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -17,7 +23,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const perfDisplay = document.createElement('pre');
   perfDisplayContainer.appendChild(perfDisplay);
-  canvas.parentNode.appendChild(perfDisplayContainer);
+  if (canvas.parentNode) {
+    canvas.parentNode.appendChild(perfDisplayContainer);
+  } else {
+    console.error('canvas.parentNode is null');
+  }
 
   const params = new URLSearchParams(window.location.search);
   const settings = {
@@ -272,13 +282,13 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       }
     }
 
-    let startTime = undefined;
+    let startTime: number | undefined = undefined;
     const uniformTime = new Float32Array([0]);
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          view: undefined, // Assigned later
+          view: undefined as any, // Assigned later
           clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
           loadOp: 'clear',
           storeOp: 'store',
@@ -292,16 +302,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     recordRenderPass(renderBundleEncoder);
     const renderBundle = renderBundleEncoder.finish();
 
-    return function doDraw(timestamp) {
+    return function doDraw(timestamp: number) {
       if (startTime === undefined) {
         startTime = timestamp;
       }
       uniformTime[0] = (timestamp - startTime) / 1000;
       device.queue.writeBuffer(uniformBuffer, timeOffset, uniformTime.buffer);
 
-      renderPassDescriptor.colorAttachments[0].view = context
-        .getCurrentTexture()
-        .createView();
+      (
+        renderPassDescriptor.colorAttachments as GPURenderPassColorAttachment[]
+      )[0].view = context.getCurrentTexture().createView();
 
       const commandEncoder = device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -322,19 +332,23 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const updateSettings = () => {
     doDraw = configure();
   };
-  gui
-    .add(settings, 'numTriangles', 0, 200000)
-    .step(1)
-    .onFinishChange(updateSettings);
-  gui.add(settings, 'renderBundles');
-  gui.add(settings, 'dynamicOffsets');
+  if (gui === undefined) {
+    console.error('GUI not initialized');
+  } else {
+    gui
+      .add(settings, 'numTriangles', 0, 200000)
+      .step(1)
+      .onFinishChange(updateSettings);
+    gui.add(settings, 'renderBundles');
+    gui.add(settings, 'dynamicOffsets');
+  }
 
-  let previousFrameTimestamp = undefined;
-  let jsTimeAvg = undefined;
-  let frameTimeAvg = undefined;
+  let previousFrameTimestamp: number | undefined = undefined;
+  let jsTimeAvg: number | undefined = undefined;
+  let frameTimeAvg: number | undefined = undefined;
   let updateDisplay = true;
 
-  function frame(timestamp) {
+  function frame(timestamp: number) {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 

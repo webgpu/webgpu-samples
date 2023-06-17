@@ -5,6 +5,12 @@ import updateSpritesWGSL from './updateSprites.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) {
+    console.error(
+      'WebGPU is not supported. Make sure you are running the latest version of a compatible browser (like Chrome Canary) with the correct flags enabled.'
+    );
+    return;
+  }
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -88,7 +94,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: undefined, // Assigned later
+        view: undefined as any, // Assigned later
         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         loadOp: 'clear',
         storeOp: 'store',
@@ -144,7 +150,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   updateSimParams();
   Object.keys(simParams).forEach((k) => {
-    gui.add(simParams, k).onFinishChange(updateSimParams);
+    const key = k as keyof typeof simParams;
+    if (gui === undefined) {
+      console.error('GUI not initialized');
+    } else {
+      gui.add(simParams, key).onFinishChange(updateSimParams);
+    }
   });
 
   const numParticles = 1500;
@@ -205,9 +216,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 
-    renderPassDescriptor.colorAttachments[0].view = context
-      .getCurrentTexture()
-      .createView();
+    (
+      renderPassDescriptor.colorAttachments as GPURenderPassColorAttachment[]
+    )[0].view = context.getCurrentTexture().createView();
 
     const commandEncoder = device.createCommandEncoder();
     {

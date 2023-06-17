@@ -7,6 +7,12 @@ import styles from './animatedCanvasSize.module.css';
 
 const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) {
+    console.error(
+      'WebGPU is not supported. Make sure you are running the latest version of a compatible browser (like Chrome Canary) with the correct flags enabled.'
+    );
+    return;
+  }
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;

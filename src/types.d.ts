@@ -25,3 +25,6 @@ declare module '*.wgsl' {
   const shader: string;
   export default shader;
 }
+
+declare module 'stats-js';
+declare module 'stanford-dragon/4';

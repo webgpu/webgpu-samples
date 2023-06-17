@@ -136,6 +136,9 @@ const SampleLayout: React.FunctionComponent<
     };
     try {
       const canvas = canvasRef.current;
+      if (!canvas) {
+        throw new Error('The canvas is not available');
+      }
       const p = props.init({
         canvas,
         pageState,
