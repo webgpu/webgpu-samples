@@ -66,11 +66,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   }
 
   // GBuffer texture render targets
-  const gBufferTexture2DFloat32 = device.createTexture({
-    size: [canvas.width, canvas.height],
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-    format: 'rgba32float',
-  });
   const gBufferTexture2DFloat16 = device.createTexture({
     size: [canvas.width, canvas.height],
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
@@ -81,10 +76,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     format: 'bgra8unorm',
   });
+  const depthTexture = device.createTexture({
+    size: [canvas.width, canvas.height],
+    format: 'depth24plus',
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+  });
+
   const gBufferTextureViews = [
-    gBufferTexture2DFloat32.createView(),
     gBufferTexture2DFloat16.createView(),
     gBufferTextureAlbedo.createView(),
+    depthTexture.createView(),
   ];
 
   const vertexBuffers: Iterable<GPUVertexBufferLayout> = [
@@ -133,8 +134,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       }),
       entryPoint: 'main',
       targets: [
-        // position
-        { format: 'rgba32float' },
         // normal
         { format: 'rgba16float' },
         // albedo
@@ -169,7 +168,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         binding: 2,
         visibility: GPUShaderStage.FRAGMENT,
         texture: {
-          sampleType: 'unfilterable-float',
+          sampleType: 'depth',
         },
       },
     ],
@@ -187,6 +186,13 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       {
         binding: 1,
         visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
         buffer: {
           type: 'uniform',
         },
@@ -249,35 +255,17 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     primitive,
   });
 
-  const depthTexture = device.createTexture({
-    size: [canvas.width, canvas.height],
-    format: 'depth24plus',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT,
-  });
-
   const writeGBufferPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
         view: gBufferTextureViews[0],
-
-        clearValue: {
-          r: Number.MAX_VALUE,
-          g: Number.MAX_VALUE,
-          b: Number.MAX_VALUE,
-          a: 1.0,
-        },
-        loadOp: 'clear',
-        storeOp: 'store',
-      },
-      {
-        view: gBufferTextureViews[1],
 
         clearValue: { r: 0.0, g: 0.0, b: 1.0, a: 1.0 },
         loadOp: 'clear',
         storeOp: 'store',
       },
       {
-        view: gBufferTextureViews[2],
+        view: gBufferTextureViews[1],
 
         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         loadOp: 'clear',
@@ -339,7 +327,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
 
   const cameraUniformBuffer = device.createBuffer({
-    size: 4 * 16, // 4x4 matrix
+    size: 4 * 16 * 2, // two 4x4 matrix
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -454,6 +442,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           buffer: configUniformBuffer,
         },
       },
+      {
+        binding: 2,
+        resource: {
+          buffer: cameraUniformBuffer,
+        },
+      },
     ],
   });
   const lightsBufferComputeBindGroup = device.createBindGroup({
@@ -500,14 +494,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // Move the model so it's centered.
   const modelMatrix = mat4.translation([0, -45, 0]);
 
-  const cameraMatrixData = viewProjMatrix as Float32Array;
-  device.queue.writeBuffer(
-    cameraUniformBuffer,
-    0,
-    cameraMatrixData.buffer,
-    cameraMatrixData.byteOffset,
-    cameraMatrixData.byteLength
-  );
   const modelData = modelMatrix as Float32Array;
   device.queue.writeBuffer(
     modelUniformBuffer,
@@ -553,6 +539,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       cameraViewProj.byteOffset,
       cameraViewProj.byteLength
     );
+    const cameraInvViewProj = mat4.invert(cameraViewProj) as Float32Array;
+    device.queue.writeBuffer(
+      cameraUniformBuffer,
+      64,
+      cameraInvViewProj.buffer,
+      cameraInvViewProj.byteOffset,
+      cameraInvViewProj.byteLength
+    );
 
     const commandEncoder = device.createCommandEncoder();
     {
@@ -578,7 +572,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     {
       if (settings.mode === 'gBuffers view') {
         // GBuffers debug view
-        // Left: position
+        // Left: depth
         // Middle: normal
         // Right: albedo (use uv to mimic a checkerboard texture)
         textureQuadPassDescriptor.colorAttachments[0].view = context
@@ -618,9 +612,13 @@ const DeferredRendering: () => JSX.Element = () =>
     name: 'Deferred Rendering',
     description: `This example shows how to do deferred rendering with webgpu.
       Render geometry info to multiple targets in the gBuffers in the first pass.
-      In this sample we have 3 gBuffers for positions, normals, and albedo.
+      In this sample we have 2 gBuffers for normals and albedo, along with a depth texture.
       And then do the lighting in a second pass with per fragment data read from gBuffers so it's independent of scene complexity.
-      We also update light position in a compute shader, where further operations like tile/cluster culling could happen.`,
+      World-space positions are reconstructed from the depth texture and camera matrix.
+      We also update light position in a compute shader, where further operations like tile/cluster culling could happen.
+      The debug view shows the depth buffer on the left (flipped and scaled a bit to make it more visible), the normal G buffer
+      in the middle, and the albedo G-buffer on the right side of the screen.
+      `,
     gui: true,
     init,
     sources: [
