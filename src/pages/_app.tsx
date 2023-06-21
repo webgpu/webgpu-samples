@@ -86,6 +86,11 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                 );
               })}
             </ul>
+            <hr />
+            <h3>Other Pages</h3>
+            <ul className={styles.exampleList}>
+              <li><a target="_blank" href="workload-simulator.html">Workload Simulator ↗️</a></li>
+            </ul>
           </div>
         </nav>
         <Component {...pageProps} />
