@@ -193,7 +193,9 @@ const SampleLayout: React.FunctionComponent<
         <p>{props.description}</p>
         {error ? (
           <>
-            <p>Is WebGPU Enabled?</p>
+            <p>
+              Something went wrong. Do your browser and device support WebGPU?
+            </p>
             <p>{`${error}`}</p>
           </>
         ) : null}
@@ -256,3 +258,9 @@ export const makeSample: (
 ) => JSX.Element = (props) => {
   return <SampleLayout {...props} />;
 };
+
+export function assert(condition: unknown, msg?: string): asserts condition {
+  if (!condition) {
+    throw new Error(msg);
+  }
+}

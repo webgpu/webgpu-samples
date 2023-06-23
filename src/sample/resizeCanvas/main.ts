@@ -1,4 +1,4 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import triangleVertWGSL from '../../shaders/triangle.vert.wgsl';
 import redFragWGSL from '../../shaders/red.frag.wgsl';
@@ -7,12 +7,7 @@ import styles from './animatedCanvasSize.module.css';
 
 const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    console.error(
-      'WebGPU is not supported. Make sure you are running the latest version of a compatible browser (like Chrome Canary) with the correct flags enabled.'
-    );
-    return;
-  }
+  assert(adapter, 'requestAdapter returned null');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;

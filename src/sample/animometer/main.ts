@@ -1,15 +1,10 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import animometerWGSL from './animometer.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    console.error(
-      'WebGPU is not supported. Make sure you are running the latest version of a compatible browser (like Chrome Canary) with the correct flags enabled.'
-    );
-    return;
-  }
+  assert(adapter, 'requestAdapter returned null');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -285,13 +280,13 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     let startTime: number | undefined = undefined;
     const uniformTime = new Float32Array([0]);
 
-    const renderPassDescriptor: GPURenderPassDescriptor = {
+    const renderPassDescriptor = {
       colorAttachments: [
         {
           view: undefined as any, // Assigned later
           clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-          loadOp: 'clear',
-          storeOp: 'store',
+          loadOp: 'clear' as const,
+          storeOp: 'store' as const,
         },
       ],
     };
@@ -309,9 +304,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       uniformTime[0] = (timestamp - startTime) / 1000;
       device.queue.writeBuffer(uniformBuffer, timeOffset, uniformTime.buffer);
 
-      (
-        renderPassDescriptor.colorAttachments as GPURenderPassColorAttachment[]
-      )[0].view = context.getCurrentTexture().createView();
+      renderPassDescriptor.colorAttachments[0].view = context
+        .getCurrentTexture()
+        .createView();
 
       const commandEncoder = device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
