@@ -77,7 +77,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         {
           binding: 2,
           resource: device.importExternalTexture({
-            source: videoFrame,
+            source: videoFrame as any, // eslint-disable-line @typescript-eslint/no-explicit-any
           }),
         },
       ],
