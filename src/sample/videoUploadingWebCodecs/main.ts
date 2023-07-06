@@ -104,26 +104,16 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
-    if ('requestVideoFrameCallback' in video) {
-      video.requestVideoFrameCallback(frame);
-    } else {
-      requestAnimationFrame(frame);
-    }
-  }
-
-  if ('requestVideoFrameCallback' in video) {
-    video.requestVideoFrameCallback(frame);
-  } else {
     requestAnimationFrame(frame);
   }
+
+  requestAnimationFrame(frame);
 };
 
 const VideoUploadingWebCodecs: () => JSX.Element = () =>
   makeSample({
     name: 'Video Uploading with WebCodecs',
     description: `This example shows how to upload a WebCodecs VideoFrame to WebGPU.`,
-    originTrial:
-      'Auo9JMDbdn/Jg1pd8liB9Ofp1OLzi9mecxjBBfjv/3f8O8775CXgcTobX4t6KYxMC1wnO4Z7MWArPSptGtkD2woAAABZeyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVVdlYkNvZGVjcyIsImV4cGlyeSI6MTcwMTk5MzU5OX0=',
     init,
     sources: [
       {
