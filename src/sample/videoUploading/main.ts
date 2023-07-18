@@ -3,7 +3,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
 import sampleExternalTextureWGSL from '../../shaders/sampleExternalTexture.frag.wgsl';
 
-const init: SampleInit = async ({ canvas, pageState, gui }) => {
+const init: SampleInit = async ({ canvas, pageState }) => {
   // Set video element
   const video = document.createElement('video');
   video.loop = true;
@@ -61,15 +61,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     minFilter: 'linear',
   });
 
-  const settings = {
-    requestFrame: 'requestAnimationFrame',
-  };
-
-  gui.add(settings, 'requestFrame', [
-    'requestAnimationFrame',
-    'requestVideoFrameCallback',
-  ]);
-
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -111,14 +102,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
-    if (settings.requestFrame == 'requestVideoFrameCallback') {
+    if ('requestVideoFrameCallback' in video) {
       video.requestVideoFrameCallback(frame);
     } else {
       requestAnimationFrame(frame);
     }
   }
 
-  if (settings.requestFrame == 'requestVideoFrameCallback') {
+  if ('requestVideoFrameCallback' in video) {
     video.requestVideoFrameCallback(frame);
   } else {
     requestAnimationFrame(frame);
@@ -129,7 +120,6 @@ const VideoUploading: () => JSX.Element = () =>
   makeSample({
     name: 'Video Uploading',
     description: 'This example shows how to upload video frame to WebGPU.',
-    gui: true,
     init,
     sources: [
       {
