@@ -136,6 +136,9 @@ const SampleLayout: React.FunctionComponent<
     };
     try {
       const canvas = canvasRef.current;
+      if (!canvas) {
+        throw new Error('The canvas is not available');
+      }
       const p = props.init({
         canvas,
         pageState,
@@ -190,7 +193,9 @@ const SampleLayout: React.FunctionComponent<
         <p>{props.description}</p>
         {error ? (
           <>
-            <p>Is WebGPU Enabled?</p>
+            <p>
+              Something went wrong. Do your browser and device support WebGPU?
+            </p>
             <p>{`${error}`}</p>
           </>
         ) : null}
@@ -253,3 +258,9 @@ export const makeSample: (
 ) => JSX.Element = (props) => {
   return <SampleLayout {...props} />;
 };
+
+export function assert(condition: unknown, msg?: string): asserts condition {
+  if (!condition) {
+    throw new Error(msg);
+  }
+}

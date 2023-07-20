@@ -11,6 +11,10 @@ import { pages } from './samples/[slug]';
 
 const title = 'WebGPU Samples';
 
+type PageType = {
+  [key: string]: React.ComponentType & { render: { preload: () => void } };
+};
+
 const MainLayout: React.FunctionComponent<AppProps> = ({
   Component,
   pageProps,
@@ -71,7 +75,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     key={slug}
                     className={className}
                     onMouseOver={() => {
-                      pages[slug].render.preload();
+                      (pages as PageType)[slug].render.preload();
                     }}
                   >
                     <Link

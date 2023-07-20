@@ -1,10 +1,11 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import spriteWGSL from './sprite.wgsl';
 import updateSpritesWGSL from './updateSprites.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'requestAdapter returned null');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -85,13 +86,13 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
   });
 
-  const renderPassDescriptor: GPURenderPassDescriptor = {
+  const renderPassDescriptor = {
     colorAttachments: [
       {
-        view: undefined, // Assigned later
+        view: undefined as any, // Assigned later
         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-        loadOp: 'clear',
-        storeOp: 'store',
+        loadOp: 'clear' as const,
+        storeOp: 'store' as const,
       },
     ],
   };
@@ -144,7 +145,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   updateSimParams();
   Object.keys(simParams).forEach((k) => {
-    gui.add(simParams, k).onFinishChange(updateSimParams);
+    const key = k as keyof typeof simParams;
+    if (gui === undefined) {
+      console.error('GUI not initialized');
+    } else {
+      gui.add(simParams, key).onFinishChange(updateSimParams);
+    }
   });
 
   const numParticles = 1500;
