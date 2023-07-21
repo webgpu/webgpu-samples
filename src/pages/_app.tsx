@@ -94,7 +94,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             <h3>Other Pages</h3>
             <ul className={styles.exampleList}>
               <li>
-                <a target="_blank" href="workload-simulator.html">
+                <a target="_blank" href="/workload-simulator.html">
                   Workload Simulator ↗️
                 </a>
               </li>
