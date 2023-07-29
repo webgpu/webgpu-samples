@@ -1,4 +1,4 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import blurWGSL from './blur.wgsl';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
@@ -9,6 +9,7 @@ const batch = [4, 4];
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -229,6 +230,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       new Uint32Array([settings.filterSize, blockDim])
     );
   };
+  assert(gui, 'gui is null');
   gui.add(settings, 'filterSize', 1, 33).step(2).onChange(updateSettings);
   gui.add(settings, 'iterations', 1, 10).step(1);
 

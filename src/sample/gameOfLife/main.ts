@@ -1,10 +1,11 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 import computeWGSL from './compute.wgsl';
 import vertWGSL from './vert.wgsl';
 import fragWGSL from './frag.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
   const device = await adapter.requestDevice();
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -103,6 +104,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   };
 
   function addGUI() {
+    assert(gui, 'gui is null');
     gui.add(GameOptions, 'timestep', 1, 60, 1);
     gui.add(GameOptions, 'width', 16, 1024, 16).onFinishChange(resetGameData);
     gui.add(GameOptions, 'height', 16, 1024, 16).onFinishChange(resetGameData);
@@ -115,7 +117,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     loopTimes = 0,
     buffer0: GPUBuffer,
     buffer1: GPUBuffer;
-  let render: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  let render: () => void = () => {};
   function resetGameData() {
     // compute pipeline
     const computePipeline = device.createComputePipeline({

@@ -1,5 +1,5 @@
 import { mat4, vec3 } from 'wgpu-matrix';
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 import { createSphereMesh, SphereLayout } from '../../meshes/sphere';
 
 import meshWGSL from './mesh.wgsl';
@@ -13,6 +13,8 @@ interface Renderable {
 
 const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
+  assert(gui, 'gui is null');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -280,7 +282,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: undefined, // Assigned later
+        view: undefined as any, // Assigned later
 
         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         loadOp: 'clear',
@@ -348,7 +350,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     // can provide.)
     let count = 0;
     for (const renderable of renderables) {
-      passEncoder.setBindGroup(1, renderable.bindGroup);
+      passEncoder.setBindGroup(1, renderable.bindGroup || null);
       passEncoder.setVertexBuffer(0, renderable.vertices);
       passEncoder.setIndexBuffer(renderable.indices, 'uint16');
       passEncoder.drawIndexed(renderable.indexCount);
@@ -370,7 +372,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
   // textures used. Cases where the executed commands differ from frame-to-frame,
   // such as when using frustrum or occlusion culling, will not benefit from
   // using render bundles as much.
-  let renderBundle;
+  let renderBundle: any;
   function updateRenderBundle() {
     const renderBundleEncoder = device.createRenderBundleEncoder({
       colorFormats: [presentationFormat],
@@ -385,7 +387,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 
-    stats.begin();
+    stats?.begin();
 
     const transformationMatrix = getTransformationMatrix();
     device.queue.writeBuffer(
@@ -395,9 +397,17 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
       transformationMatrix.byteOffset,
       transformationMatrix.byteLength
     );
-    renderPassDescriptor.colorAttachments[0].view = context
-      .getCurrentTexture()
-      .createView();
+
+    type GPURenderPassColorAttachmentArray =
+      (GPURenderPassColorAttachment | null)[];
+
+    const attachment = (
+      renderPassDescriptor.colorAttachments as GPURenderPassColorAttachmentArray
+    )[0];
+
+    assert(attachment, 'attachment is null');
+
+    attachment.view = context.getCurrentTexture().createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -416,7 +426,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
-    stats.end();
+    stats?.end();
 
     requestAnimationFrame(frame);
   }

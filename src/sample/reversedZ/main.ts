@@ -1,4 +1,4 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 import { mat4, vec3 } from 'wgpu-matrix';
 
 import vertexWGSL from './vertex.wgsl';
@@ -66,6 +66,7 @@ const depthClearValues = {
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter!');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -383,7 +384,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     colorAttachments: [
       {
         // attachment is acquired and set in render loop.
-        view: undefined,
+        view: undefined as any,
 
         loadOp: 'load',
         storeOp: 'store',

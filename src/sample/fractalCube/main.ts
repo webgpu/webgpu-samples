@@ -1,5 +1,5 @@
 import { mat4, vec3 } from 'wgpu-matrix';
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import {
   cubeVertexArray,
@@ -14,6 +14,7 @@ import sampleSelfWGSL from './sampleSelf.frag.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -148,7 +149,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: undefined, // Assigned later
+        view: undefined as any, // Assigned later
 
         clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
         loadOp: 'clear',
@@ -203,8 +204,13 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     );
 
     const swapChainTexture = context.getCurrentTexture();
-    // prettier-ignore
-    renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
+    type GPURenderPassColorAttachmentArray =
+      (GPURenderPassColorAttachment | null)[];
+    const renderPassAttachment = (
+      renderPassDescriptor.colorAttachments as GPURenderPassColorAttachmentArray
+    )[0];
+    assert(renderPassAttachment, 'renderPassAttachment is null');
+    renderPassAttachment.view = swapChainTexture.createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
