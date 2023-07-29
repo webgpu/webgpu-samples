@@ -11,6 +11,7 @@ import Radiosity from './radiosity';
 import Rasterizer from './rasterizer';
 import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
+import { assert } from '../../components/SampleLayout';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -18,13 +19,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
   const adapter = await navigator.gpu.requestAdapter();
   for (const feature of requiredFeatures) {
-    if (!adapter.features.has(feature)) {
+    if (!adapter?.features.has(feature)) {
       throw new Error(
         `sample requires ${feature}, but is not supported by the adapter`
       );
     }
   }
-  const device = await adapter.requestDevice({ requiredFeatures });
+  const device = await adapter?.requestDevice({ requiredFeatures });
+  assert(device, 'device is null');
 
   if (!pageState.active) return;
 
@@ -36,8 +38,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     rotateCamera: true,
   };
 
-  gui.add(params, 'renderer', ['rasterizer', 'raytracer']);
-  gui.add(params, 'rotateCamera', true);
+  gui?.add(params, 'renderer', ['rasterizer', 'raytracer']);
+  gui?.add(params, 'rotateCamera', true);
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -80,7 +82,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }
 
     const canvasTexture = context.getCurrentTexture();
-    const commandEncoder = device.createCommandEncoder();
+    const commandEncoder = device?.createCommandEncoder();
+    assert(commandEncoder, 'commandEncoder is null');
+    assert(device, 'device is null');
 
     common.update({
       rotateCamera: params.rotateCamera,
