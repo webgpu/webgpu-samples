@@ -350,7 +350,9 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     // can provide.)
     let count = 0;
     for (const renderable of renderables) {
-      passEncoder.setBindGroup(1, renderable.bindGroup || null);
+      if (renderable.bindGroup) {
+        passEncoder.setBindGroup(1, renderable.bindGroup);
+      }
       passEncoder.setVertexBuffer(0, renderable.vertices);
       passEncoder.setIndexBuffer(renderable.indices, 'uint16');
       passEncoder.drawIndexed(renderable.indexCount);
