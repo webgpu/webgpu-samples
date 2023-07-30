@@ -1,5 +1,5 @@
 import { mat4 } from 'wgpu-matrix';
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import texturedSquareWGSL from './texturedSquare.wgsl';
 import showTextureWGSL from './showTexture.wgsl';
@@ -28,6 +28,7 @@ const kMatrices: Readonly<Float32Array> = new Float32Array([
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -64,6 +65,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     maxAnisotropy: 1,
   } as const;
   const samplerDescriptor: GPUSamplerDescriptor = { ...kInitSamplerDescriptor };
+
+  assert(gui, 'gui is null');
 
   {
     const buttons = {
@@ -128,10 +131,21 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       const ctlMin = folder.add(samplerDescriptor, 'lodMinClamp', 0, 4, 0.1);
       const ctlMax = folder.add(samplerDescriptor, 'lodMaxClamp', 0, 4, 0.1);
       ctlMin.onChange((value: number) => {
-        if (samplerDescriptor.lodMaxClamp < value) ctlMax.setValue(value);
+        if (
+          samplerDescriptor.lodMaxClamp !== undefined &&
+          samplerDescriptor.lodMaxClamp < value
+        ) {
+          ctlMax.setValue(value);
+        }
       });
+
       ctlMax.onChange((value: number) => {
-        if (samplerDescriptor.lodMinClamp > value) ctlMin.setValue(value);
+        if (
+          samplerDescriptor.lodMinClamp !== undefined &&
+          samplerDescriptor.lodMinClamp > value
+        ) {
+          ctlMin.setValue(value);
+        }
       });
 
       {
