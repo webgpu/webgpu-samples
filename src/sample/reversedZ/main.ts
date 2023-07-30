@@ -647,7 +647,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
               colorAttachments[0].view = attachment;
             }
             if (descriptor.depthStencilAttachment) {
-              descriptor.depthStencilAttachment.depthClearValue = depthClearValues[m];
+              descriptor.depthStencilAttachment.depthClearValue =
+                depthClearValues[m];
             }
           }
           const precisionErrorPass = commandEncoder.beginRenderPass(
