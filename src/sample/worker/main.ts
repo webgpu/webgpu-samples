@@ -55,7 +55,7 @@ const WebGPUWorker: () => JSX.Element = () =>
     name: 'WebGPU in a Worker',
     description: `This example shows one method of using WebGPU in a web worker and presenting to
       the main thread. It uses canvas.transferControlToOffscreen() to produce an offscreen canvas
-      which is them transferred to the worker where all the WebGPU calls are made.`,
+      which is then transferred to the worker where all the WebGPU calls are made.`,
     init,
     sources: [
       {
