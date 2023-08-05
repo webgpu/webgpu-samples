@@ -16,19 +16,19 @@ import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl
 // main thread that will contain an OffscreenCanvas transferred from the page, and use that as the
 // signal to begin WebGPU initialization.
 self.addEventListener('message', (ev) => {
-    switch(ev.data.type) {
-      case 'init': {
-        try {
-          init(ev.data.offscreenCanvas);
-        } catch (err) {
-          self.postMessage({
-            type: 'log',
-            message: `Error while initializing WebGPU in worker process: ${err.message}`
-          });
-        }
-        break;
+  switch (ev.data.type) {
+    case 'init': {
+      try {
+        init(ev.data.offscreenCanvas);
+      } catch (err) {
+        self.postMessage({
+          type: 'log',
+          message: `Error while initializing WebGPU in worker process: ${err.message}`,
+        });
       }
+      break;
     }
+  }
 });
 
 // Once we receive the OffscreenCanvas this init() function is called, which functions similarly
@@ -212,4 +212,4 @@ async function init(canvas) {
   requestAnimationFrame(frame);
 }
 
-export {}
+export {};
