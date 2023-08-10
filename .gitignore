@@ -4,3 +4,5 @@ out/
 id_rsa_deploy_key
 id_rsa_deploy_key.pub
 github_token
+pnpm-lock.yaml
+.DS_Store

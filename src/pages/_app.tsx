@@ -11,6 +11,10 @@ import { pages } from './samples/[slug]';
 
 const title = 'WebGPU Samples';
 
+type PageType = {
+  [key: string]: React.ComponentType & { render: { preload: () => void } };
+};
+
 const MainLayout: React.FunctionComponent<AppProps> = ({
   Component,
   pageProps,
@@ -71,7 +75,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     key={slug}
                     className={className}
                     onMouseOver={() => {
-                      pages[slug].render.preload();
+                      (pages as PageType)[slug].render.preload();
                     }}
                   >
                     <Link
@@ -85,6 +89,21 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                   </li>
                 );
               })}
+            </ul>
+            <hr />
+            <h3>Other Pages</h3>
+            <ul className={styles.exampleList}>
+              <li>
+                <a
+                  rel="noreferrer"
+                  target="_blank"
+                  href={`${
+                    process.env.BASE_PATH || ''
+                  }/workload-simulator.html`}
+                >
+                  Workload Simulator ↗️
+                </a>
+              </li>
             </ul>
           </div>
         </nav>

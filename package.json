@@ -10,6 +10,7 @@
   },
   "scripts": {
     "lint": "eslint --ext .ts,.tsx src/",
+    "fix": "eslint --fix --ext .ts,.tsx src/",
     "start": "next dev",
     "build": "next build",
     "serve": "next start",
@@ -45,6 +46,6 @@
     "eslint-plugin-react": "^7.31.10",
     "prettier": "^2.7.1",
     "raw-loader": "^4.0.2",
-    "typescript": "^4.8.4"
+    "typescript": "^4.9.5"
   }
 }

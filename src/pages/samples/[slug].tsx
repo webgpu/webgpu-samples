@@ -9,7 +9,11 @@ type Props = {
   slug: string;
 };
 
-export const pages = {
+type PageComponentType = {
+  [key: string]: React.ComponentType;
+};
+
+export const pages: PageComponentType = {
   helloTriangle: dynamic(() => import('../../sample/helloTriangle/main')),
   helloTriangleMSAA: dynamic(
     () => import('../../sample/helloTriangleMSAA/main')
@@ -40,6 +44,7 @@ export const pages = {
   cornell: dynamic(() => import('../../sample/cornell/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
+  worker: dynamic(() => import('../../sample/worker/main')),
   'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
 };
 
@@ -60,9 +65,13 @@ export const getStaticPaths: GetStaticPaths<PathParams> = async () => {
 export const getStaticProps: GetStaticProps<Props, PathParams> = async ({
   params,
 }) => {
+  if (!params) {
+    return { notFound: true };
+  }
+
   return {
     props: {
-      ...params,
+      slug: params.slug,
     },
   };
 };
