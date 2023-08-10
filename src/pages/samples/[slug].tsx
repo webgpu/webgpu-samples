@@ -44,6 +44,7 @@ export const pages: PageComponentType = {
   cornell: dynamic(() => import('../../sample/cornell/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
+  worker: dynamic(() => import('../../sample/worker/main')),
 };
 
 function Page({ slug }: Props): JSX.Element {
