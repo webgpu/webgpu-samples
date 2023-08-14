@@ -1,6 +1,8 @@
 # WebGPU Samples
 
-The [WebGPU Samples](//webgpu.github.io/webgpu-samples/) are a set of samples
+**Please visit the [WebGPU Samples website](//webgpu.github.io/webgpu-samples/) to run the samples!**
+
+The WebGPU Samples are a set of samples and demos
 demonstrating the use of the [WebGPU API](//webgpu.dev). Please see the current
 implementation status and how to run WebGPU in your browser at
 [webgpu.io](//webgpu.io).
