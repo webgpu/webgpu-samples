@@ -1,5 +1,5 @@
 import { mat4, vec3 } from 'wgpu-matrix';
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import {
   cubeVertexArray,
@@ -14,7 +14,8 @@ import sampleCubemapWGSL from './sampleCubemap.frag.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
+  const device = await adapter?.requestDevice();
+  assert(device, 'device is null');
 
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -198,7 +199,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: undefined, // Assigned later
+        view: undefined as any, // Assigned later
         loadOp: 'clear',
         storeOp: 'store',
       },
@@ -245,6 +246,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
+    assert(device, 'device is null');
 
     updateTransformationMatrix();
     device.queue.writeBuffer(
@@ -255,9 +257,16 @@ const init: SampleInit = async ({ canvas, pageState }) => {
       modelViewProjectionMatrix.byteLength
     );
 
-    renderPassDescriptor.colorAttachments[0].view = context
-      .getCurrentTexture()
-      .createView();
+    type GPURenderPassColorAttachmentArray =
+      (GPURenderPassColorAttachment | null)[];
+
+    const attachment = (
+      renderPassDescriptor.colorAttachments as GPURenderPassColorAttachmentArray
+    )[0];
+
+    assert(attachment, 'attachment is null');
+
+    attachment.view = context.getCurrentTexture().createView();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);

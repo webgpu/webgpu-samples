@@ -1,4 +1,4 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 import { mat4, vec3 } from 'wgpu-matrix';
 
 import vertexWGSL from './vertex.wgsl';
@@ -66,6 +66,7 @@ const depthClearValues = {
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter!');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -166,16 +167,19 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // we need the depthCompare to fit the depth buffer mode we are using.
   // this is the same for other passes
   const depthPrePassPipelines: GPURenderPipeline[] = [];
-  depthPrePassRenderPipelineDescriptorBase.depthStencil.depthCompare =
-    depthCompareFuncs[DepthBufferMode.Default];
-  depthPrePassPipelines[DepthBufferMode.Default] = device.createRenderPipeline(
-    depthPrePassRenderPipelineDescriptorBase
-  );
-  depthPrePassRenderPipelineDescriptorBase.depthStencil.depthCompare =
-    depthCompareFuncs[DepthBufferMode.Reversed];
-  depthPrePassPipelines[DepthBufferMode.Reversed] = device.createRenderPipeline(
-    depthPrePassRenderPipelineDescriptorBase
-  );
+  if (depthPrePassRenderPipelineDescriptorBase.depthStencil) {
+    depthPrePassRenderPipelineDescriptorBase.depthStencil.depthCompare =
+      depthCompareFuncs[DepthBufferMode.Default];
+    depthPrePassPipelines[DepthBufferMode.Default] =
+      device.createRenderPipeline(depthPrePassRenderPipelineDescriptorBase);
+  }
+
+  if (depthPrePassRenderPipelineDescriptorBase.depthStencil) {
+    depthPrePassRenderPipelineDescriptorBase.depthStencil.depthCompare =
+      depthCompareFuncs[DepthBufferMode.Reversed];
+    depthPrePassPipelines[DepthBufferMode.Reversed] =
+      device.createRenderPipeline(depthPrePassRenderPipelineDescriptorBase);
+  }
 
   // precisionPass is to draw precision error as color of depth value stored in depth buffer
   // compared to that directly calcualated in the shader
@@ -225,17 +229,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
   } as GPURenderPipelineDescriptor;
   const precisionPassPipelines: GPURenderPipeline[] = [];
-  precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
-    depthCompareFuncs[DepthBufferMode.Default];
-  precisionPassPipelines[DepthBufferMode.Default] = device.createRenderPipeline(
-    precisionPassRenderPipelineDescriptorBase
-  );
-  precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
-    depthCompareFuncs[DepthBufferMode.Reversed];
-  // prettier-ignore
-  precisionPassPipelines[DepthBufferMode.Reversed] = device.createRenderPipeline(
-    precisionPassRenderPipelineDescriptorBase
-  );
+  if (precisionPassRenderPipelineDescriptorBase.depthStencil) {
+    precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
+      depthCompareFuncs[DepthBufferMode.Default];
+    precisionPassPipelines[DepthBufferMode.Default] =
+      device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
+    precisionPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
+      depthCompareFuncs[DepthBufferMode.Reversed];
+    precisionPassPipelines[DepthBufferMode.Reversed] =
+      device.createRenderPipeline(precisionPassRenderPipelineDescriptorBase);
+  }
 
   // colorPass is the regular render pass to render the scene
   const colorPassRenderPiplineLayout = device.createPipelineLayout({
@@ -290,16 +293,18 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
   };
   const colorPassPipelines: GPURenderPipeline[] = [];
-  colorPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
-    depthCompareFuncs[DepthBufferMode.Default];
-  colorPassPipelines[DepthBufferMode.Default] = device.createRenderPipeline(
-    colorPassRenderPipelineDescriptorBase
-  );
-  colorPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
-    depthCompareFuncs[DepthBufferMode.Reversed];
-  colorPassPipelines[DepthBufferMode.Reversed] = device.createRenderPipeline(
-    colorPassRenderPipelineDescriptorBase
-  );
+  if (colorPassRenderPipelineDescriptorBase.depthStencil) {
+    colorPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
+      depthCompareFuncs[DepthBufferMode.Default];
+    colorPassPipelines[DepthBufferMode.Default] = device.createRenderPipeline(
+      colorPassRenderPipelineDescriptorBase
+    );
+    colorPassRenderPipelineDescriptorBase.depthStencil.depthCompare =
+      depthCompareFuncs[DepthBufferMode.Reversed];
+    colorPassPipelines[DepthBufferMode.Reversed] = device.createRenderPipeline(
+      colorPassRenderPipelineDescriptorBase
+    );
+  }
 
   // textureQuadPass is draw a full screen quad of depth texture
   // to see the difference of depth value using reversed z compared to default depth buffer usage
@@ -364,7 +369,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     colorAttachments: [
       {
         // view is acquired and set in render loop.
-        view: undefined,
+        view: undefined as any,
 
         clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
         loadOp: 'clear',
@@ -383,7 +388,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     colorAttachments: [
       {
         // attachment is acquired and set in render loop.
-        view: undefined,
+        view: undefined as any,
 
         loadOp: 'load',
         storeOp: 'store',
@@ -403,7 +408,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     colorAttachments: [
       {
         // view is acquired and set in render loop.
-        view: undefined,
+        view: undefined as any,
 
         clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
         loadOp: 'clear',
@@ -415,7 +420,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     colorAttachments: [
       {
         // view is acquired and set in render loop.
-        view: undefined,
+        view: undefined as any,
 
         loadOp: 'load',
         storeOp: 'store',
@@ -561,6 +566,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const settings = {
     mode: 'color',
   };
+  assert(gui, 'gui is null');
   gui.add(settings, 'mode', ['color', 'precision-error', 'depth-texture']);
 
   function frame() {
@@ -580,38 +586,23 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const commandEncoder = device.createCommandEncoder();
     if (settings.mode === 'color') {
       for (const m of depthBufferModes) {
-        drawPassDescriptors[m].colorAttachments[0].view = attachment;
-        drawPassDescriptors[m].depthStencilAttachment.depthClearValue =
-          depthClearValues[m];
-        const colorPass = commandEncoder.beginRenderPass(
-          drawPassDescriptors[m]
-        );
-        colorPass.setPipeline(colorPassPipelines[m]);
-        colorPass.setBindGroup(0, uniformBindGroups[m]);
-        colorPass.setVertexBuffer(0, verticesBuffer);
-        colorPass.setViewport(
-          (canvas.width * m) / 2,
-          0,
-          canvas.width / 2,
-          canvas.height,
-          0,
-          1
-        );
-        colorPass.draw(geometryDrawCount, numInstances, 0, 0);
-        colorPass.end();
-      }
-    } else if (settings.mode === 'precision-error') {
-      for (const m of depthBufferModes) {
-        {
-          depthPrePassDescriptor.depthStencilAttachment.depthClearValue =
-            depthClearValues[m];
-          const depthPrePass = commandEncoder.beginRenderPass(
-            depthPrePassDescriptor
-          );
-          depthPrePass.setPipeline(depthPrePassPipelines[m]);
-          depthPrePass.setBindGroup(0, uniformBindGroups[m]);
-          depthPrePass.setVertexBuffer(0, verticesBuffer);
-          depthPrePass.setViewport(
+        const descriptor = drawPassDescriptors[m];
+        if (descriptor) {
+          const colorAttachments =
+            descriptor.colorAttachments as (GPURenderPassColorAttachment | null)[];
+          if (colorAttachments[0]) {
+            colorAttachments[0].view = attachment;
+          }
+
+          if (descriptor.depthStencilAttachment) {
+            descriptor.depthStencilAttachment.depthClearValue =
+              depthClearValues[m];
+          }
+          const colorPass = commandEncoder.beginRenderPass(descriptor);
+          colorPass.setPipeline(colorPassPipelines[m]);
+          colorPass.setBindGroup(0, uniformBindGroups[m]);
+          colorPass.setVertexBuffer(0, verticesBuffer);
+          colorPass.setViewport(
             (canvas.width * m) / 2,
             0,
             canvas.width / 2,
@@ -619,13 +610,47 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
             0,
             1
           );
-          depthPrePass.draw(geometryDrawCount, numInstances, 0, 0);
-          depthPrePass.end();
+          colorPass.draw(geometryDrawCount, numInstances, 0, 0);
+          colorPass.end();
+        }
+      }
+    } else if (settings.mode === 'precision-error') {
+      for (const m of depthBufferModes) {
+        {
+          if (depthPrePassDescriptor.depthStencilAttachment) {
+            depthPrePassDescriptor.depthStencilAttachment.depthClearValue =
+              depthClearValues[m];
+            const depthPrePass = commandEncoder.beginRenderPass(
+              depthPrePassDescriptor
+            );
+            depthPrePass.setPipeline(depthPrePassPipelines[m]);
+            depthPrePass.setBindGroup(0, uniformBindGroups[m]);
+            depthPrePass.setVertexBuffer(0, verticesBuffer);
+            depthPrePass.setViewport(
+              (canvas.width * m) / 2,
+              0,
+              canvas.width / 2,
+              canvas.height,
+              0,
+              1
+            );
+            depthPrePass.draw(geometryDrawCount, numInstances, 0, 0);
+            depthPrePass.end();
+          }
         }
         {
-          drawPassDescriptors[m].colorAttachments[0].view = attachment;
-          drawPassDescriptors[m].depthStencilAttachment.depthClearValue =
-            depthClearValues[m];
+          const descriptor = drawPassDescriptors[m];
+          if (descriptor) {
+            const colorAttachments =
+              descriptor.colorAttachments as (GPURenderPassColorAttachment | null)[];
+            if (colorAttachments[0]) {
+              colorAttachments[0].view = attachment;
+            }
+            if (descriptor.depthStencilAttachment) {
+              descriptor.depthStencilAttachment.depthClearValue =
+                depthClearValues[m];
+            }
+          }
           const precisionErrorPass = commandEncoder.beginRenderPass(
             drawPassDescriptors[m]
           );
@@ -648,7 +673,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     } else {
       // depth texture quad
       for (const m of depthBufferModes) {
-        {
+        if (depthPrePassDescriptor.depthStencilAttachment) {
           depthPrePassDescriptor.depthStencilAttachment.depthClearValue =
             depthClearValues[m];
           const depthPrePass = commandEncoder.beginRenderPass(
@@ -668,11 +693,17 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           depthPrePass.draw(geometryDrawCount, numInstances, 0, 0);
           depthPrePass.end();
         }
+
         {
-          textureQuadPassDescriptors[m].colorAttachments[0].view = attachment;
-          const depthTextureQuadPass = commandEncoder.beginRenderPass(
-            textureQuadPassDescriptors[m]
-          );
+          const descriptor = textureQuadPassDescriptors[m];
+          const colorAttachments =
+            descriptor.colorAttachments as (GPURenderPassColorAttachment | null)[];
+          if (colorAttachments[0]) {
+            colorAttachments[0].view = attachment;
+          }
+
+          const depthTextureQuadPass =
+            commandEncoder.beginRenderPass(descriptor);
           depthTextureQuadPass.setPipeline(textureQuadPassPipline);
           depthTextureQuadPass.setBindGroup(0, depthTextureBindGroup);
           depthTextureQuadPass.setViewport(

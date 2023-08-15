@@ -1,4 +1,4 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 import { mat4, vec3, vec4 } from 'wgpu-matrix';
 import { mesh } from '../../meshes/stanfordDragon';
 
@@ -15,7 +15,9 @@ const lightExtentMax = vec3.fromValues(50, 50, 50);
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
   const device = await adapter.requestDevice();
+  assert(gui, 'gui is null');
 
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -285,7 +287,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     colorAttachments: [
       {
         // view is acquired and set in render loop.
-        view: undefined,
+        view: undefined as any,
 
         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         loadOp: 'clear',
@@ -549,6 +551,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
 
     const commandEncoder = device.createCommandEncoder();
+    type GPURenderPassColorAttachmentArray =
+      (GPURenderPassColorAttachment | null)[];
     {
       // Write position, normal, albedo etc. data to gBuffers
       const gBufferPass = commandEncoder.beginRenderPass(
@@ -575,9 +579,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         // Left: depth
         // Middle: normal
         // Right: albedo (use uv to mimic a checkerboard texture)
-        textureQuadPassDescriptor.colorAttachments[0].view = context
-          .getCurrentTexture()
-          .createView();
+        const textureQuadAttachment = (
+          textureQuadPassDescriptor.colorAttachments as GPURenderPassColorAttachmentArray
+        )[0];
+        assert(textureQuadAttachment, 'textureQuadAttachment is null');
+        textureQuadAttachment.view = context.getCurrentTexture().createView();
         const debugViewPass = commandEncoder.beginRenderPass(
           textureQuadPassDescriptor
         );
@@ -587,9 +593,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         debugViewPass.end();
       } else {
         // Deferred rendering
-        textureQuadPassDescriptor.colorAttachments[0].view = context
-          .getCurrentTexture()
-          .createView();
+        const textureQuadAttachment = (
+          textureQuadPassDescriptor.colorAttachments as GPURenderPassColorAttachmentArray
+        )[0];
+        assert(textureQuadAttachment, 'textureQuadAttachment is null');
+        textureQuadAttachment.view = context.getCurrentTexture().createView();
         const deferredRenderingPass = commandEncoder.beginRenderPass(
           textureQuadPassDescriptor
         );

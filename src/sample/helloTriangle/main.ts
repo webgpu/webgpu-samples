@@ -1,10 +1,11 @@
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import triangleVertWGSL from '../../shaders/triangle.vert.wgsl';
 import redFragWGSL from '../../shaders/red.frag.wgsl';
 
 const init: SampleInit = async ({ canvas, pageState }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;

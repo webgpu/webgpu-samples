@@ -1,5 +1,5 @@
 import { mat4, vec3 } from 'wgpu-matrix';
-import { makeSample, SampleInit } from '../../components/SampleLayout';
+import { assert, makeSample, SampleInit } from '../../components/SampleLayout';
 
 import particleWGSL from './particle.wgsl';
 import probabilityMapWGSL from './probabilityMap.wgsl';
@@ -17,6 +17,7 @@ const particleInstanceByteSize =
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
+  assert(adapter, 'Unable to find a suitable GPU adapter.');
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
@@ -147,7 +148,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: undefined, // Assigned later
+        view: undefined as any, // Assigned later
         clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
         loadOp: 'clear',
         storeOp: 'store',
@@ -332,8 +333,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
+  assert(gui, 'gui is null');
   Object.keys(simulationParams).forEach((k) => {
-    gui.add(simulationParams, k);
+    gui.add(simulationParams, k as 'simulate' | 'deltaTime');
   });
 
   const computePipeline = device.createComputePipeline({
@@ -418,9 +420,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         0, // padding
       ])
     );
-    const swapChainTexture = context.getCurrentTexture();
-    // prettier-ignore
-    renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
+    type GPURenderPassColorAttachmentArray =
+      (GPURenderPassColorAttachment | null)[];
+
+    const attachment = (
+      renderPassDescriptor.colorAttachments as GPURenderPassColorAttachmentArray
+    )[0];
+
+    assert(attachment, 'attachment is null');
+
+    attachment.view = context.getCurrentTexture().createView();
 
     const commandEncoder = device.createCommandEncoder();
     {

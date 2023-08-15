@@ -11,12 +11,17 @@ import Radiosity from './radiosity';
 import Rasterizer from './rasterizer';
 import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
+import { assert } from '../../components/SampleLayout';
 
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   const requiredFeatures: GPUFeatureName[] =
     presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
   const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) {
+    throw new Error('Adapter is null or not supported');
+  }
+
   for (const feature of requiredFeatures) {
     if (!adapter.features.has(feature)) {
       throw new Error(
@@ -24,7 +29,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       );
     }
   }
-  const device = await adapter.requestDevice({ requiredFeatures });
+  const device = await adapter?.requestDevice({ requiredFeatures });
 
   if (!pageState.active) return;
 
@@ -36,6 +41,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     rotateCamera: true,
   };
 
+  assert(gui, 'gui is null');
   gui.add(params, 'renderer', ['rasterizer', 'raytracer']);
   gui.add(params, 'rotateCamera', true);
 
@@ -80,7 +86,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }
 
     const canvasTexture = context.getCurrentTexture();
-    const commandEncoder = device.createCommandEncoder();
+    const commandEncoder = device?.createCommandEncoder();
 
     common.update({
       rotateCamera: params.rotateCamera,
