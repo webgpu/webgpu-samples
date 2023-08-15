@@ -45,6 +45,7 @@ export const pages: PageComponentType = {
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
   worker: dynamic(() => import('../../sample/worker/main')),
+  'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
 };
 
 function Page({ slug }: Props): JSX.Element {
