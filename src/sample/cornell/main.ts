@@ -87,8 +87,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     const canvasTexture = context.getCurrentTexture();
     const commandEncoder = device?.createCommandEncoder();
-    assert(commandEncoder, 'commandEncoder is null');
-    assert(device, 'device is null');
 
     common.update({
       rotateCamera: params.rotateCamera,
