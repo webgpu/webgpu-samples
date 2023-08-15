@@ -18,8 +18,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const requiredFeatures: GPUFeatureName[] =
     presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
   const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) {
+    throw new Error('Adapter is null or not supported');
+  }
+
   for (const feature of requiredFeatures) {
-    if (!adapter?.features.has(feature)) {
+    if (!adapter.features.has(feature)) {
       throw new Error(
         `sample requires ${feature}, but is not supported by the adapter`
       );
