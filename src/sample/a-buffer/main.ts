@@ -392,7 +392,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 
-    // update the unforms buffer
+    // update the uniform buffer
     {
       const buffer = new ArrayBuffer(uniformBuffer.size);
 

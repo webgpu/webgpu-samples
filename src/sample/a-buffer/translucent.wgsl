@@ -21,8 +21,8 @@ struct LinkedList {
 };
 
 @binding(0) @group(0) var<uniform> uniforms: Uniforms;
-@binding(1) @group(0) var<storage,read_write> heads: Heads;
-@binding(2) @group(0) var<storage,read_write> linkedList: LinkedList;
+@binding(1) @group(0) var<storage, read_write> heads: Heads;
+@binding(2) @group(0) var<storage, read_write> linkedList: LinkedList;
 @binding(3) @group(0) var opaqueDepthTexture: texture_depth_2d;
 
 struct VertexOutput {

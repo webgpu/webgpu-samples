@@ -20,8 +20,8 @@ struct LinkedList {
 };
 
 @binding(0) @group(0) var<uniform> uniforms: Uniforms;
-@binding(1) @group(0) var<storage,read_write> heads: Heads;
-@binding(2) @group(0) var<storage,read_write> linkedList: LinkedList;
+@binding(1) @group(0) var<storage, read_write> heads: Heads;
+@binding(2) @group(0) var<storage, read_write> linkedList: LinkedList;
 
 // Output a full screen quad
 @vertex
@@ -46,7 +46,7 @@ fn main_fs(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
   // The maximum layers we can process for any pixel
   const maxLayers = 24u;
 
-  var layers: array<LinkedListElement,maxLayers>;
+  var layers: array<LinkedListElement, maxLayers>;
 
   var numLayers = 0u;
   var elementIndex = heads.data[headsIndex];
