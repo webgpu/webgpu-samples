@@ -30,7 +30,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }
   }
   const device = await adapter?.requestDevice({ requiredFeatures });
-  assert(device, 'device is null');
 
   if (!pageState.active) return;
 
