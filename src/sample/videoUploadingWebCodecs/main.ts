@@ -3,7 +3,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
 import sampleExternalTextureWGSL from '../../shaders/sampleExternalTexture.frag.wgsl';
 
-const init: SampleInit = async ({ canvas, pageState }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // Set video element
   const video = document.createElement('video');
   video.loop = true;
@@ -61,6 +61,15 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     minFilter: 'linear',
   });
 
+  const settings = {
+    requestFrame: 'requestAnimationFrame',
+  };
+
+  gui.add(settings, 'requestFrame', [
+    'requestAnimationFrame',
+    'requestVideoFrameCallback',
+  ]);
+
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -104,14 +113,14 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
-    if ('requestVideoFrameCallback' in video) {
+    if (settings.requestFrame == 'requestVideoFrameCallback') {
       video.requestVideoFrameCallback(frame);
     } else {
       requestAnimationFrame(frame);
     }
   }
 
-  if ('requestVideoFrameCallback' in video) {
+  if (settings.requestFrame == 'requestVideoFrameCallback') {
     video.requestVideoFrameCallback(frame);
   } else {
     requestAnimationFrame(frame);
@@ -120,15 +129,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 
 const VideoUploadingWebCodecs: () => JSX.Element = () =>
   makeSample({
-    name: 'Video Uploading with WebCodecs (Experimental)',
-    description: `This example shows how to upload a WebCodecs VideoFrame to WebGPU.
-      Support for using a VideoFrame as the source for a GPUExternalTexture requires
-      running Chrome with the "WebGPU Developer Features" flag or the WebGPU WebCodecs
-      integration origin trial.
-      See https://developer.chrome.com/origintrials/#/view_trial/1705738358866575361
-    `,
-    originTrial:
-      'Auo9JMDbdn/Jg1pd8liB9Ofp1OLzi9mecxjBBfjv/3f8O8775CXgcTobX4t6KYxMC1wnO4Z7MWArPSptGtkD2woAAABZeyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVVdlYkNvZGVjcyIsImV4cGlyeSI6MTcwMTk5MzU5OX0=',
+    name: 'Video Uploading with WebCodecs',
+    description: `This example shows how to upload a WebCodecs VideoFrame to WebGPU.`,
+    gui: true,
     init,
     sources: [
       {
