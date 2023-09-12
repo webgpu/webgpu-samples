@@ -24,6 +24,7 @@ export const pages: PageComponentType = {
   texturedCube: dynamic(() => import('../../sample/texturedCube/main')),
   instancedCube: dynamic(() => import('../../sample/instancedCube/main')),
   fractalCube: dynamic(() => import('../../sample/fractalCube/main')),
+  cameras: dynamic(() => import('../../sample/cameras/main')),
   cubemap: dynamic(() => import('../../sample/cubemap/main')),
   computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
   animometer: dynamic(() => import('../../sample/animometer/main')),
