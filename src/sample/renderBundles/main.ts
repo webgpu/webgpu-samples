@@ -239,7 +239,7 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     return bindGroup;
   }
 
-  const transform = mat4.create();
+  const transform = mat4.create() as Float32Array;
   mat4.identity(transform);
 
   // Create one large central planet surrounded by a large ring of asteroids

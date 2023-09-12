@@ -281,7 +281,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     mat4.perspective(2 * Math.atan(1 / kCameraDist), 1, 0.1, 100),
     [0, 0, -kCameraDist]
   );
-  device.queue.writeBuffer(bufConfig, 0, viewProj);
+  device.queue.writeBuffer(bufConfig, 0, viewProj as Float32Array);
 
   const bufMatrices = device.createBuffer({
     usage: GPUBufferUsage.STORAGE,

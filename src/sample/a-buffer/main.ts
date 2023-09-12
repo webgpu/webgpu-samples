@@ -382,7 +382,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     const rotation = mat4.rotateY(mat4.translation(origin), rad);
     vec3.transformMat4(eyePosition, rotation, eyePosition);
 
-    const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
+    const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
     const viewProjMatrix = mat4.multiply(projectionMatrix, viewMatrix);
     return viewProjMatrix as Float32Array;

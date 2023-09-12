@@ -520,8 +520,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const rad = Math.PI * (Date.now() / 5000);
     const rotation = mat4.rotateY(mat4.translation(origin), rad);
     vec3.transformMat4(eyePosition, rotation, eyePosition);
+    const rotatedEyePosition = vec3.transformMat4(eyePosition, rotation);
 
-    const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
+    const viewMatrix = mat4.lookAt(rotatedEyePosition, origin, upVector);
 
     mat4.multiply(projectionMatrix, viewMatrix, viewProjMatrix);
     return viewProjMatrix as Float32Array;
