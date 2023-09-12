@@ -120,6 +120,12 @@ const SampleLayout: React.FunctionComponent<
 
     if (gui && guiParentRef.current) {
       guiParentRef.current.appendChild(gui.domElement);
+
+      // HACK: useEffect() is sometimes called twice, resulting in the GUI being populated twice.
+      // Erase any existing controllers before calling init() on the sample.
+      while (gui.__controllers.length > 0) {
+        gui.__controllers[0].remove();
+      }
     }
 
     if (stats && statsParentRef.current) {
