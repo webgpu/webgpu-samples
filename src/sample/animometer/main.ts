@@ -273,7 +273,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         } else {
           passEncoder.setBindGroup(1, bindGroups[i]);
         }
-        passEncoder.draw(3, 1, 0, 0);
+        passEncoder.draw(3);
       }
     }
 

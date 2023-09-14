@@ -109,7 +109,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
-    passEncoder.draw(6, 1, 0, 0);
+    passEncoder.draw(6);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 

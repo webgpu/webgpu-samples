@@ -221,7 +221,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, verticesBuffer);
-    passEncoder.draw(cubeVertexCount, 1, 0, 0);
+    passEncoder.draw(cubeVertexCount);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 

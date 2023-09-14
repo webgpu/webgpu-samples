@@ -683,7 +683,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
             0,
             1
           );
-          depthTextureQuadPass.draw(6, 1, 0, 0);
+          depthTextureQuadPass.draw(6);
           depthTextureQuadPass.end();
         }
       }
