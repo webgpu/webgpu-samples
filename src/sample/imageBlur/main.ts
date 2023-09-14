@@ -285,7 +285,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     passEncoder.setPipeline(fullscreenQuadPipeline);
     passEncoder.setBindGroup(0, showResultBindGroup);
-    passEncoder.draw(6, 1, 0, 0);
+    passEncoder.draw(6);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
 
