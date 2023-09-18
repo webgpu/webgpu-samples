@@ -116,9 +116,9 @@ export class WASDCamera extends CameraBase implements Camera {
   rotationSpeed = 1;
 
   // Movement velocity drag coeffient [0 .. 1]
-  // 0: Instantly stops moving
-  // 1: Continues forever
-  frictionCoefficient = 0.01;
+  // 0: Continues forever
+  // 1: Instantly stops moving
+  frictionCoefficient = 0.99;
 
   // Returns velocity vector
   get velocity() {
@@ -140,8 +140,8 @@ export class WASDCamera extends CameraBase implements Camera {
     if (options && (options.position || options.target)) {
       const position = options.position ?? vec3.create(0, 0, -5);
       const target = options.target ?? vec3.create(0, 0, 0);
-      const forward = vec3.sub(target, position);
-      this.recalculateAngles(vec3.normalize(forward));
+      const forward = vec3.normalize(vec3.sub(target, position));
+      this.recalculateAngles(forward);
       this.position = position;
     }
   }
@@ -192,7 +192,7 @@ export class WASDCamera extends CameraBase implements Camera {
     this.velocity = lerp(
       targetVelocity,
       this.velocity,
-      Math.pow(this.frictionCoefficient, deltaTime)
+      Math.pow(1 - this.frictionCoefficient, deltaTime)
     );
 
     // Integrate velocity to calculate new position
@@ -237,9 +237,9 @@ export class ArcballCamera extends CameraBase implements Camera {
   zoomSpeed = 0.1;
 
   // Rotation velocity drag coeffient [0 .. 1]
-  // 0: Instantly stops spinning
-  // 1: Spins forever
-  frictionCoefficient = 0.0001;
+  // 0: Spins forever
+  // 1: Instantly stops spinning
+  frictionCoefficient = 0.999;
 
   // Construtor
   constructor(options?: {
@@ -275,7 +275,7 @@ export class ArcballCamera extends CameraBase implements Camera {
       this.angularVelocity = 0;
     } else {
       // Dampen any existing angular velocity
-      this.angularVelocity *= Math.pow(this.frictionCoefficient, deltaTime);
+      this.angularVelocity *= Math.pow(1 - this.frictionCoefficient, deltaTime);
     }
 
     // Calculate the movement vector
@@ -299,7 +299,7 @@ export class ArcballCamera extends CameraBase implements Camera {
 
     // The rotation around this.axis to apply to the camera matrix this update
     const rotationAngle = this.angularVelocity * deltaTime;
-    if (Math.abs(rotationAngle) > epsilon) {
+    if (rotationAngle > epsilon) {
       // Rotate the matrix around axis
       // Note: The rotation is not done as a matrix-matrix multiply as the repeated multiplications
       // will quickly introduce substantial error into the matrix.
