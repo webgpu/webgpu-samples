@@ -384,7 +384,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 const Animometer: () => JSX.Element = () =>
   makeSample({
     name: 'Animometer',
-    description: 'A WebGPU of port of the Animometer MotionMark benchmark.',
+    description: 'A WebGPU port of the Animometer MotionMark benchmark.',
     gui: true,
     init,
     sources: [
