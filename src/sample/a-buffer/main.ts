@@ -18,7 +18,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
+  // The devicePixelRatio is clamped here because the linkedListBuffer size will
+  // be computed based on the canvas size, but if the devicePixelRatio is too
+  // high then it will cause that buffer to exceed the default
+  // maxStorageBufferBindingSize (128Mib).
+  const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 3);
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
