@@ -573,6 +573,13 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         headsInitBuffer.size
       );
 
+      const scissorX = 0;
+      const scissorY = slice * sliceHeight;
+      const scissorWidth = canvas.width;
+      const scissorHeight =
+        Math.min((slice + 1) * sliceHeight, canvas.height) -
+        slice * sliceHeight;
+
       // Draw the translucent objects
       translucentPassDescriptor.colorAttachments[0].view = textureView;
       const translucentPassEncoder = commandEncoder.beginRenderPass(
@@ -581,10 +588,10 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 
       // Set the scissor to only process a horizontal slice of the frame
       translucentPassEncoder.setScissorRect(
-        0,
-        slice * sliceHeight,
-        canvas.width,
-        Math.min((slice + 1) * sliceHeight, canvas.height) - slice * sliceHeight
+        scissorX,
+        scissorY,
+        scissorWidth,
+        scissorHeight
       );
 
       translucentPassEncoder.setPipeline(translucentPipeline);
@@ -604,10 +611,10 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 
       // Set the scissor to only process a horizontal slice of the frame
       compositePassEncoder.setScissorRect(
-        0,
-        slice * sliceHeight,
-        canvas.width,
-        Math.min((slice + 1) * sliceHeight, canvas.height) - slice * sliceHeight
+        scissorX,
+        scissorY,
+        scissorWidth,
+        scissorHeight
       );
 
       compositePassEncoder.setPipeline(compositePipeline);
