@@ -297,13 +297,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     ],
   });
 
-  const translucentPipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts: [translucentBindGroupLayout],
-    label: 'translucentPipelineLayout',
-  });
-
   const translucentPipeline = device.createRenderPipeline({
-    layout: translucentPipelineLayout,
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [translucentBindGroupLayout],
+      label: 'translucentPipelineLayout',
+    }),
     vertex: {
       module: translucentModule,
       entryPoint: 'main_vs',
@@ -427,13 +425,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     ],
   });
 
-  const compositePipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts: [compositeBindGroupLayout],
-    label: 'compositePipelineLayout',
-  });
-
   const compositePipeline = device.createRenderPipeline({
-    layout: compositePipelineLayout,
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [compositeBindGroupLayout],
+      label: 'compositePipelineLayout',
+    }),
     vertex: {
       module: compositeModule,
       entryPoint: 'main_vs',
