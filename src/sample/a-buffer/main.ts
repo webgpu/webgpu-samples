@@ -75,18 +75,77 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     indexBuffer.unmap();
   }
 
+  // Determines how much memory is allocated to store linked-list elements
+  const averageLayersPerFragment = 4;
+
+  // Each element stores
+  // * color : vec4<f32>
+  // * depth : f32
+  // * index of next element in the list : u32
+  const linkedListElementSize =
+    5 * Float32Array.BYTES_PER_ELEMENT + 1 * Uint32Array.BYTES_PER_ELEMENT;
+
+  let numSlices = 1;
+  let sliceHeight = canvas.height;
+
+  const calculateLinkedListBufferSize = (width: number, height: number) => {
+    return averageLayersPerFragment * linkedListElementSize * width * height;
+  };
+
+  let linkedListBufferSize = calculateLinkedListBufferSize(
+    canvas.width,
+    canvas.height
+  );
+
+  while (linkedListBufferSize > device.limits.maxStorageBufferBindingSize) {
+    numSlices += 1;
+    sliceHeight = Math.ceil(canvas.height / numSlices);
+
+    linkedListBufferSize = calculateLinkedListBufferSize(
+      canvas.width,
+      sliceHeight
+    );
+  }
+
+  const linkedListBuffer = device.createBuffer({
+    size: linkedListBufferSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    label: 'linkedListBuffer',
+  });
+
+  // To slice up the frame we need to pass the starting fragment y position of the slice.
+  // We do this using a uniform buffer with a dynamic offset.
+  const sliceInfoBuffer = device.createBuffer({
+    size: numSlices * device.limits.minUniformBufferOffsetAlignment,
+    usage: GPUBufferUsage.UNIFORM,
+    mappedAtCreation: true,
+    label: 'sliceInfoBuffer',
+  });
+  {
+    const mapping = new Int32Array(sliceInfoBuffer.getMappedRange());
+
+    // This assumes minUniformBufferOffsetAlignment is a multiple of 4
+    const stride =
+      device.limits.minUniformBufferOffsetAlignment /
+      Int32Array.BYTES_PER_ELEMENT;
+    for (let i = 0; i < numSlices; ++i) {
+      mapping[i * stride] = i * sliceHeight;
+    }
+    sliceInfoBuffer.unmap();
+  }
+
   // `Heads` struct contains the start index of the linked-list of translucent fragments
   // for a given pixel.
   // * numFragments : u32
   // * data : array<u32>
   const headsBuffer = device.createBuffer({
-    size: (1 + canvas.width * canvas.height) * Uint32Array.BYTES_PER_ELEMENT,
+    size: (1 + canvas.width * sliceHeight) * Uint32Array.BYTES_PER_ELEMENT,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     label: 'headsBuffer',
   });
 
   const headsInitBuffer = device.createBuffer({
-    size: (1 + canvas.width * canvas.height) * Uint32Array.BYTES_PER_ELEMENT,
+    size: (1 + canvas.width * sliceHeight) * Uint32Array.BYTES_PER_ELEMENT,
     usage: GPUBufferUsage.COPY_SRC,
     mappedAtCreation: true,
     label: 'headsInitBuffer',
@@ -100,26 +159,6 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 
     headsInitBuffer.unmap();
   }
-
-  // Determines how much memory is allocated to store linked-list elements
-  const averageLayersPerFragment = 4;
-
-  // Each element stores
-  // * color : vec4<f32>
-  // * depth : f32
-  // * index of next element in the list : u32
-  const linkedListElementSize =
-    5 * Float32Array.BYTES_PER_ELEMENT + 1 * Uint32Array.BYTES_PER_ELEMENT;
-
-  const linkedListBuffer = device.createBuffer({
-    size:
-      averageLayersPerFragment *
-      linkedListElementSize *
-      canvas.width *
-      canvas.height,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    label: 'linkedListBuffer',
-  });
 
   // Uniforms contains:
   // * modelViewProjectionMatrix: mat4x4<f32>
@@ -218,8 +257,53 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     label: 'translucentModule',
   });
 
+  const translucentBindGroupLayout = device.createBindGroupLayout({
+    label: 'translucentBindGroupLayout',
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'storage',
+        },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'storage',
+        },
+      },
+      {
+        binding: 3,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: { sampleType: 'depth' },
+      },
+      {
+        binding: 4,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'uniform',
+          hasDynamicOffset: true,
+        },
+      },
+    ],
+  });
+
+  const translucentPipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [translucentBindGroupLayout],
+    label: 'translucentPipelineLayout',
+  });
+
   const translucentPipeline = device.createRenderPipeline({
-    layout: 'auto',
+    layout: translucentPipelineLayout,
     vertex: {
       module: translucentModule,
       entryPoint: 'main_vs',
@@ -264,7 +348,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   };
 
   const translucentBindGroup = device.createBindGroup({
-    layout: translucentPipeline.getBindGroupLayout(0),
+    layout: translucentBindGroupLayout,
     entries: [
       {
         binding: 0,
@@ -291,6 +375,14 @@ const init: SampleInit = async ({ canvas, pageState }) => {
         binding: 3,
         resource: depthTextureView,
       },
+      {
+        binding: 4,
+        resource: {
+          buffer: sliceInfoBuffer,
+          size: device.limits.minUniformBufferOffsetAlignment,
+          label: 'sliceInfoBuffer',
+        },
+      },
     ],
     label: 'translucentBindGroup',
   });
@@ -300,8 +392,48 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     label: 'compositeModule',
   });
 
+  const compositeBindGroupLayout = device.createBindGroupLayout({
+    label: 'compositeBindGroupLayout',
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'uniform',
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'storage',
+        },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'storage',
+        },
+      },
+      {
+        binding: 3,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: {
+          type: 'uniform',
+          hasDynamicOffset: true,
+        },
+      },
+    ],
+  });
+
+  const compositePipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [compositeBindGroupLayout],
+    label: 'compositePipelineLayout',
+  });
+
   const compositePipeline = device.createRenderPipeline({
-    layout: 'auto',
+    layout: compositePipelineLayout,
     vertex: {
       module: compositeModule,
       entryPoint: 'main_vs',
@@ -364,6 +496,14 @@ const init: SampleInit = async ({ canvas, pageState }) => {
           label: 'linkedListBuffer',
         },
       },
+      {
+        binding: 3,
+        resource: {
+          buffer: sliceInfoBuffer,
+          size: device.limits.minUniformBufferOffsetAlignment,
+          label: 'sliceInfoBuffer',
+        },
+      },
     ],
   });
 
@@ -402,7 +542,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 
       new Float32Array(buffer).set(getCameraViewProjMatrix());
       new Uint32Array(buffer, 16 * Float32Array.BYTES_PER_ELEMENT).set([
-        averageLayersPerFragment * canvas.width * canvas.height,
+        averageLayersPerFragment * canvas.width * sliceHeight,
         canvas.width,
       ]);
 
@@ -410,15 +550,6 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     }
 
     const commandEncoder = device.createCommandEncoder();
-
-    // initialize the heads buffer
-    commandEncoder.copyBufferToBuffer(
-      headsInitBuffer,
-      0,
-      headsBuffer,
-      0,
-      headsInitBuffer.size
-    );
 
     const textureView = context.getCurrentTexture().createView();
 
@@ -433,27 +564,60 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     opaquePassEncoder.drawIndexed(mesh.triangles.length * 3, 8);
     opaquePassEncoder.end();
 
-    // Draw the translucent objects
-    translucentPassDescriptor.colorAttachments[0].view = textureView;
-    const translucentPassEncoder = commandEncoder.beginRenderPass(
-      translucentPassDescriptor
-    );
-    translucentPassEncoder.setPipeline(translucentPipeline);
-    translucentPassEncoder.setBindGroup(0, translucentBindGroup);
-    translucentPassEncoder.setVertexBuffer(0, vertexBuffer);
-    translucentPassEncoder.setIndexBuffer(indexBuffer, 'uint16');
-    translucentPassEncoder.drawIndexed(mesh.triangles.length * 3, 8);
-    translucentPassEncoder.end();
+    for (let slice = 0; slice < numSlices; ++slice) {
+      // initialize the heads buffer
+      commandEncoder.copyBufferToBuffer(
+        headsInitBuffer,
+        0,
+        headsBuffer,
+        0,
+        headsInitBuffer.size
+      );
 
-    // Composite the opaque and translucent objects
-    compositePassDescriptor.colorAttachments[0].view = textureView;
-    const compositePassEncoder = commandEncoder.beginRenderPass(
-      compositePassDescriptor
-    );
-    compositePassEncoder.setPipeline(compositePipeline);
-    compositePassEncoder.setBindGroup(0, compositeBindGroup);
-    compositePassEncoder.draw(6);
-    compositePassEncoder.end();
+      // Draw the translucent objects
+      translucentPassDescriptor.colorAttachments[0].view = textureView;
+      const translucentPassEncoder = commandEncoder.beginRenderPass(
+        translucentPassDescriptor
+      );
+
+      // Set the scissor to only process a horizontal slice of the frame
+      translucentPassEncoder.setScissorRect(
+        0,
+        slice * sliceHeight,
+        canvas.width,
+        Math.min((slice + 1) * sliceHeight, canvas.height) - slice * sliceHeight
+      );
+
+      translucentPassEncoder.setPipeline(translucentPipeline);
+      translucentPassEncoder.setBindGroup(0, translucentBindGroup, [
+        slice * device.limits.minUniformBufferOffsetAlignment,
+      ]);
+      translucentPassEncoder.setVertexBuffer(0, vertexBuffer);
+      translucentPassEncoder.setIndexBuffer(indexBuffer, 'uint16');
+      translucentPassEncoder.drawIndexed(mesh.triangles.length * 3, 8);
+      translucentPassEncoder.end();
+
+      // Composite the opaque and translucent objects
+      compositePassDescriptor.colorAttachments[0].view = textureView;
+      const compositePassEncoder = commandEncoder.beginRenderPass(
+        compositePassDescriptor
+      );
+
+      // Set the scissor to only process a horizontal slice of the frame
+      compositePassEncoder.setScissorRect(
+        0,
+        slice * sliceHeight,
+        canvas.width,
+        Math.min((slice + 1) * sliceHeight, canvas.height) - slice * sliceHeight
+      );
+
+      compositePassEncoder.setPipeline(compositePipeline);
+      compositePassEncoder.setBindGroup(0, compositeBindGroup, [
+        slice * device.limits.minUniformBufferOffsetAlignment,
+      ]);
+      compositePassEncoder.draw(6);
+      compositePassEncoder.end();
+    }
 
     device.queue.submit([commandEncoder.finish()]);
 
