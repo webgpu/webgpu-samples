@@ -88,6 +88,9 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   let numSlices = 1;
   let sliceHeight = canvas.height;
 
+  // We want to keep the linked-list buffer size under the maxStorageBufferBindingSize.
+  // First calculate the size needed to process the entire frame at once, and then
+  // if necessary break it up into horizontal slices until it's under the limit.
   const calculateLinkedListBufferSize = (width: number, height: number) => {
     return averageLayersPerFragment * linkedListElementSize * width * height;
   };
