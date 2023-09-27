@@ -11,18 +11,43 @@ function roundUp(n: number, k: number): number {
   return Math.ceil(n / k) * k;
 }
 
-const init: SampleInit = async ({ canvas, pageState }) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
   if (!pageState.active) return;
+
+  const params = new URLSearchParams(window.location.search);
+
+  const settings = {
+    bufferSizeLimitMitigation:
+      params.get('bufferSizeLimitMitigation') || 'multipass',
+  };
+
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
-  // The devicePixelRatio is clamped here because the linkedListBuffer size will
-  // be computed based on the canvas size, but if the devicePixelRatio is too
-  // high then it will cause that buffer to exceed the default
-  // maxStorageBufferBindingSize (128Mib).
-  const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+  let devicePixelRatio = window.devicePixelRatio || 1;
+
+  // The default maximum storage buffer binding size is 128Mib. The amount
+  // of memory we need to store transparent fragments depends on the size
+  // of the canvas and the average number of layers per fragment we want to
+  // support. When the devicePixelRatio is 1, we know that 128Mib is enough
+  // to store 4 layers per pixel. However, when the device pixel ratio is
+  // high enough (such as on some mobile devices) we will exceed this limit.
+  // We provide 2 mitigations to this issue:
+  // 1) Clamp the device pixel ratio to a value which we know will not break
+  //    the limit. The tradeoff here is that the canvas resolution will not
+  //    match the native resolution and therefore may have a reduction in
+  //    quality.
+  // 2) Break the frame into a series of vertical slices using the scissor
+  //    functionality and process a single slice at a time. This limits memory
+  //    usage because we only need enough memory to process the dimensions
+  //    of the slice. The tradeoff is the performance reduction due to multiple
+  //    passes.
+  if (settings.bufferSizeLimitMitigation == 'clamp pixel ratio') {
+    devicePixelRatio = Math.min(window.devicePixelRatio, 3);
+  }
+
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -531,6 +556,11 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     return viewProjMatrix as Float32Array;
   }
 
+  gui.add(settings, 'bufferSizeLimitMitigation', [
+    'multipass',
+    'clamp pixel ratio',
+  ]);
+
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -636,8 +666,10 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 const ABuffer: () => JSX.Element = () =>
   makeSample({
     name: 'A-Buffer',
-    description:
-      'Demonstrates order independent transparency using a per-pixel linked-list of translucent fragments.',
+    description: `Demonstrates order independent transparency using a per-pixel 
+       linked-list of translucent fragments. Provides a choice for 
+       limiting memory usage (when required).`,
+    gui: true,
     init,
     sources: [
       {
