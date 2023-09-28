@@ -347,7 +347,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     //    the limit. The tradeoff here is that the canvas resolution will not
     //    match the native resolution and therefore may have a reduction in
     //    quality.
-    // 2) Break the frame into a series of vertical slices using the scissor
+    // 2) Break the frame into a series of horizontal slices using the scissor
     //    functionality and process a single slice at a time. This limits memory
     //    usage because we only need enough memory to process the dimensions
     //    of the slice. The tradeoff is the performance reduction due to multiple
