@@ -339,8 +339,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     // of the canvas and the average number of layers per fragment we want to
     // support. When the devicePixelRatio is 1, we know that 128Mib is enough
     // to store 4 layers per pixel at 600x600. However, when the device pixel
-    // ratio is high enough (such as on some mobile devices) we will exceed
-    // this limit.
+    // ratio is high enough we will exceed this limit.
     //
     // We provide 2 choices of mitigations to this issue:
     // 1) Clamp the device pixel ratio to a value which we know will not break
