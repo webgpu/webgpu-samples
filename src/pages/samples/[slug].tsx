@@ -47,6 +47,7 @@ export const pages: PageComponentType = {
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
   worker: dynamic(() => import('../../sample/worker/main')),
   'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
+  bitonicSort: dynamic(() => import('../../sample/bitonicSort/main')),
 };
 
 function Page({ slug }: Props): JSX.Element {
