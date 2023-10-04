@@ -380,30 +380,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const linkedListElementSize =
       5 * Float32Array.BYTES_PER_ELEMENT + 1 * Uint32Array.BYTES_PER_ELEMENT;
 
-    let numSlices = 1;
-    let sliceHeight = canvas.height;
-
     // We want to keep the linked-list buffer size under the maxStorageBufferBindingSize.
-    // First calculate the size needed to process the entire frame at once, and then
-    // if necessary break it up into horizontal slices until it's under the limit.
-    const calculateLinkedListBufferSize = (width: number, height: number) => {
-      return averageLayersPerFragment * linkedListElementSize * width * height;
-    };
-
-    let linkedListBufferSize = calculateLinkedListBufferSize(
-      canvas.width,
-      canvas.height
+    // Split the frame into enough slices to meet that constraint.
+    const bytesPerline =
+      canvas.width * averageLayersPerFragment * linkedListElementSize;
+    const maxLinesSupported = Math.floor(
+      device.limits.maxStorageBufferBindingSize / bytesPerline
     );
-
-    while (linkedListBufferSize > device.limits.maxStorageBufferBindingSize) {
-      numSlices += 1;
-      sliceHeight = Math.ceil(canvas.height / numSlices);
-
-      linkedListBufferSize = calculateLinkedListBufferSize(
-        canvas.width,
-        sliceHeight
-      );
-    }
+    const numSlices = Math.ceil(canvas.height / maxLinesSupported);
+    const sliceHeight = Math.ceil(canvas.height / numSlices);
+    const linkedListBufferSize = sliceHeight * bytesPerline;
 
     const linkedListBuffer = device.createBuffer({
       size: linkedListBufferSize,
