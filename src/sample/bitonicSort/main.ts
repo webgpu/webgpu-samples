@@ -2,7 +2,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { SampleInitFactoryWebGPU } from './utils';
 import { createBindGroupDescriptor } from './utils';
 import BitonicDisplayRenderer from './display';
-import { BitonicDisplayShader } from './renderShader';
+import { argKeys, BitonicDisplayShader } from './renderShader';
 import { NaiveBitonicCompute } from './computeShader';
 import FullScreenWebGLShader from './fullscreenWebGL.vert.wgsl';
 
@@ -53,6 +53,7 @@ interface SettingsInterface {
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
+  reticleSize: number;
 }
 
 let init: SampleInit;
@@ -110,6 +111,7 @@ SampleInitFactoryWebGPU(
       'Log Elements': () => {
         return;
       },
+      reticleSize: 0.2,
     };
 
     //Initialize initial elements array
@@ -311,10 +313,6 @@ SampleInitFactoryWebGPU(
     gui
       .add(settings, 'Total Elements', totalElementLengths)
       .onChange(resizeElementArray);
-    const hoveredElementCell = gui
-      .add(settings, 'hoveredElement')
-      .onChange(setSwappedElement);
-    const swappedElementCell = gui.add(settings, 'swappedElement');
     gui.add(settings, 'Execute Sort Step').onChange(() => {
       settings.executeStep = true;
     });
@@ -323,6 +321,12 @@ SampleInitFactoryWebGPU(
       resetExecutionInformation();
     });
     gui.add(settings, 'Log Elements').onChange(() => console.log(elements));
+    const hoverFolder = gui.addFolder('Hover Information');
+    const hoveredElementCell = hoverFolder
+      .add(settings, 'hoveredElement')
+      .onChange(setSwappedElement);
+    const swappedElementCell = hoverFolder.add(settings, 'swappedElement');
+    hoverFolder.add(settings, 'reticleSize', -0.02, 0.4).step(0.01);
     const executionInformationFolder = gui.addFolder('Execution Information');
     const prevStepCell = executionInformationFolder.add(settings, 'Prev Step');
     const nextStepCell = executionInformationFolder.add(settings, 'Next Step');
@@ -442,6 +446,7 @@ SampleInitFactoryWebGPU(
         hoverPosY: settings.hoverPosY,
         swapPosX: settings.swapPosX,
         swapPosY: settings.swapPosY,
+        reticleSize: settings.reticleSize,
       });
       if (
         settings.executeStep &&

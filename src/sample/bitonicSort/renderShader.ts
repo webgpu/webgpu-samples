@@ -12,7 +12,8 @@ export const argKeys = [
   'hoverPosY',
   //Swapped element position in uv coordinates
   'swapPosX',
-  'swapPosY'
+  'swapPosY',
+  'reticleSize',
 ];
 
 export const BitonicDisplayShader = () => {
@@ -26,17 +27,21 @@ struct VertexOutput {
 
 //Mask is calculated in uv coordinates
 fn calculateMask(uv: vec2<f32>, pos: vec2<f32>) -> f32 {
-  var top = step(
+  var vertDiff = abs(uv.y - pos.y);
+  vertDiff = smoothstep(uniforms.reticleSize, uniforms.reticleSize + 0.02, vertDiff) * select(1.0, 0.0, vertDiff > 0.5);
+  var horDiff = abs(uv.x - pos.x);
+  horDiff = smoothstep(uniforms.reticleSize, uniforms.reticleSize + 0.02, horDiff) * select(1.0, 0.0, horDiff > 0.5);
+  /*var top = step(
     uv.y, 
     pos.y + 0.5
   );
   var bottom = step(
     pos.y - 0.5, 
     uv.y
-  );
+  );*/
   var right = step(uv.x, pos.x + 0.5);
   var left = step(pos.x - 0.5, uv.x);
-  return top * bottom * left * right;
+  return vertDiff * horDiff; 
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
