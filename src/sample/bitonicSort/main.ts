@@ -31,9 +31,9 @@ type StepType =
 //TODO: Encapsulate common data types together (i.e create objects that just holds pos items)
 interface SettingsInterface {
   'Total Elements': number;
-  widthInCells: number;
-  heightInCells: number;
-  workGroupThreads: number;
+  'Grid Width': number;
+  'Grid Height': number;
+  'Total Threads': number;
   hoveredElement: number;
   hoverPosX: number;
   hoverPosY: number;
@@ -53,7 +53,9 @@ interface SettingsInterface {
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
-  reticleSize: number;
+  'Complete Sort': () => void;
+  'Reticle Size': number;
+  sortSpeed: number;
 }
 
 let init: SampleInit;
@@ -68,14 +70,14 @@ SampleInitFactoryWebGPU(
 
     //TODO: hover/target pos system a little too complex, need to simplify
     const settings: SettingsInterface = {
-      //number of cellElements. Must equal widthInCells * heightInCells and workGroupThreads * 2
+      //number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
       'Total Elements': 16,
       //width of screen in cells.
-      widthInCells: 4,
+      'Grid Width': 4,
       //height of screen in cells
-      heightInCells: 4,
-      //number of threads to execute in a workgroup (workgroupThreads, 1, 1)
-      workGroupThreads: 16 / 2,
+      'Grid Height': 4,
+      //number of threads to execute in a workgroup ('Total Threads', 1, 1)
+      'Total Threads': 16 / 2,
       //currently highlighted element
       hoveredElement: 0,
       hoverPosX: 0.5,
@@ -111,7 +113,11 @@ SampleInitFactoryWebGPU(
       'Log Elements': () => {
         return;
       },
-      reticleSize: 0.2,
+      'Complete Sort': () => {
+        return;
+      },
+      'Reticle Size': 0.2,
+      sortSpeed: 200,
     };
 
     //Initialize initial elements array
@@ -168,7 +174,7 @@ SampleInitFactoryWebGPU(
       }),
       compute: {
         module: device.createShaderModule({
-          code: NaiveBitonicCompute(settings.workGroupThreads),
+          code: NaiveBitonicCompute(settings['Total Threads']),
         }),
         entryPoint: 'computeMain',
       },
@@ -197,7 +203,7 @@ SampleInitFactoryWebGPU(
     );
 
     const resetExecutionInformation = () => {
-      workGroupThreadsCell.setValue(settings['Total Elements'] / 2);
+      totalThreadsCell.setValue(settings['Total Elements'] / 2);
 
       //Get new width and height of screen display in cells
       const newCellWidth =
@@ -208,8 +214,8 @@ SampleInitFactoryWebGPU(
         Math.sqrt(settings['Total Elements']) % 2 === 0
           ? Math.floor(Math.sqrt(settings['Total Elements']))
           : 8;
-      widthInCellsCell.setValue(newCellWidth);
-      heightInCellsCell.setValue(newCellHeight);
+      gridWidthCell.setValue(newCellWidth);
+      gridHeightCell.setValue(newCellHeight);
 
       //Set prevStep to None (restart) and next step to FLIP
       prevStepCell.setValue('NONE');
@@ -298,35 +304,69 @@ SampleInitFactoryWebGPU(
       }
       //hover pos is tied to the mouse so it's position gets set immediately
       settings.hoverPosX =
-        Math.floor(settings.hoveredElement % settings.widthInCells) + 0.5;
+        Math.floor(settings.hoveredElement % settings['Grid Width']) + 0.5;
       settings.hoverPosY =
-        Math.floor(settings.hoveredElement / settings.widthInCells) + 0.5;
+        Math.floor(settings.hoveredElement / settings['Grid Width']) + 0.5;
       //swap pos has velocity as it shifts from one element to the other
       settings.swapTargetPosX =
-        Math.floor(swappedIndex % settings.widthInCells) + 0.5;
+        Math.floor(swappedIndex % settings['Grid Width']) + 0.5;
       settings.swapTargetPosY =
-        Math.floor(swappedIndex / settings.widthInCells) + 0.5;
+        Math.floor(swappedIndex / settings['Grid Width']) + 0.5;
       settings.velocityX = 0.25;
       settings.velocityY = 0.25;
     };
 
-    gui
-      .add(settings, 'Total Elements', totalElementLengths)
-      .onChange(resizeElementArray);
-    gui.add(settings, 'Execute Sort Step').onChange(() => {
+    let completeSortIntervalID: NodeJS.Timer | null = null;
+    const endSortInterval = () => {
+      if (completeSortIntervalID !== null) {
+        clearInterval(completeSortIntervalID);
+        completeSortIntervalID = null;
+      }
+    };
+    const startSortInterval = () => {
+      completeSortIntervalID = setInterval(() => {
+        if (settings['Next Step'] === 'NONE') {
+          clearInterval(completeSortIntervalID);
+          completeSortIntervalID = null;
+        }
+        settings.executeStep = true;
+        setSwappedElement();
+      }, settings.sortSpeed);
+    };
+
+    //At top level, basic information about the number of elements sorted and the number of threads
+    //deployed per workgroup.
+    gui.add(settings, 'Total Elements', totalElementLengths).onChange(() => {
+      endSortInterval();
+      resizeElementArray();
+    });
+    const totalThreadsCell = gui.add(settings, 'Total Threads');
+
+    //Folder with functions that control the execution of the sort
+    const controlFolder = gui.addFolder('Sort Controls');
+    controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
+      endSortInterval();
       settings.executeStep = true;
     });
-    gui.add(settings, 'Randomize Values').onChange(() => {
+    controlFolder.add(settings, 'Randomize Values').onChange(() => {
+      endSortInterval();
       randomizeElementArray();
       resetExecutionInformation();
     });
-    gui.add(settings, 'Log Elements').onChange(() => console.log(elements));
+    controlFolder
+      .add(settings, 'Log Elements')
+      .onChange(() => console.log(elements));
+    controlFolder.add(settings, 'Complete Sort').onChange(startSortInterval);
+
+    //Folder with indexes of the hovered element and reticle display settings
     const hoverFolder = gui.addFolder('Hover Information');
     const hoveredElementCell = hoverFolder
       .add(settings, 'hoveredElement')
       .onChange(setSwappedElement);
     const swappedElementCell = hoverFolder.add(settings, 'swappedElement');
-    hoverFolder.add(settings, 'reticleSize', -0.02, 0.4).step(0.01);
+    hoverFolder.add(settings, 'Reticle Size', -0.02, 0.4).step(0.01);
+
+    //Additional Information about the execution state of the sort
     const executionInformationFolder = gui.addFolder('Execution Information');
     const prevStepCell = executionInformationFolder.add(settings, 'Prev Step');
     const nextStepCell = executionInformationFolder.add(settings, 'Next Step');
@@ -338,40 +378,48 @@ SampleInitFactoryWebGPU(
       settings,
       'Next Swap Span'
     );
-    const workGroupThreadsCell = executionInformationFolder.add(
+    const gridWidthCell = executionInformationFolder.add(
       settings,
-      'workGroupThreads'
+      'Grid Width'
     );
-    const widthInCellsCell = executionInformationFolder.add(
+    const gridHeightCell = executionInformationFolder.add(
       settings,
-      'widthInCells'
+      'Grid Height'
     );
-    const heightInCellsCell = executionInformationFolder.add(
-      settings,
-      'heightInCells'
-    );
+
+    //Adjust styles of Function List Elements within GUI
+    const liFunctionElements = document.getElementsByClassName('cr function');
+    for (let i = 0; i < liFunctionElements.length; i++) {
+      (liFunctionElements[i].children[0] as HTMLElement).style.display = 'flex';
+      (liFunctionElements[i].children[0] as HTMLElement).style.justifyContent =
+        'center';
+      (
+        liFunctionElements[i].children[0].children[1] as HTMLElement
+      ).style.position = 'absolute';
+    }
 
     canvas.addEventListener('mousemove', (event) => {
       const currWidth = canvas.getBoundingClientRect().width;
       const currHeight = canvas.getBoundingClientRect().height;
       const cellSize: [number, number] = [
-        currWidth / settings.widthInCells,
-        currHeight / settings.heightInCells,
+        currWidth / settings['Grid Width'],
+        currHeight / settings['Grid Height'],
       ];
       const xIndex = Math.floor(event.offsetX / cellSize[0]);
       const yIndex =
-        settings.heightInCells - 1 - Math.floor(event.offsetY / cellSize[1]);
-      hoveredElementCell.setValue(yIndex * settings.widthInCells + xIndex);
-      settings.hoveredElement = yIndex * settings.widthInCells + xIndex;
+        settings['Grid Height'] - 1 - Math.floor(event.offsetY / cellSize[1]);
+      hoveredElementCell.setValue(yIndex * settings['Grid Width'] + xIndex);
+      settings.hoveredElement = yIndex * settings['Grid Width'] + xIndex;
     });
-    //Make gui non-interactive
+
+    //Deactivate interaction with select GUI elements
     prevStepCell.domElement.style.pointerEvents = 'none';
     prevBlockHeightCell.domElement.style.pointerEvents = 'none';
     nextStepCell.domElement.style.pointerEvents = 'none';
     nextBlockHeightCell.domElement.style.pointerEvents = 'none';
-    workGroupThreadsCell.domElement.style.pointerEvents = 'none';
-    widthInCellsCell.domElement.style.pointerEvents = 'none';
-    heightInCellsCell.domElement.style.pointerEvents = 'none';
+    totalThreadsCell.domElement.style.pointerEvents = 'none';
+    gridWidthCell.domElement.style.pointerEvents = 'none';
+    gridHeightCell.domElement.style.pointerEvents = 'none';
 
     let highestBlockHeight = 2;
 
@@ -388,8 +436,8 @@ SampleInitFactoryWebGPU(
       );
 
       const dims = new Float32Array([
-        settings.widthInCells,
-        settings.heightInCells,
+        settings['Grid Width'],
+        settings['Grid Height'],
       ]);
       const stepDetails = new Uint32Array([
         StepEnum[settings['Next Step']],
@@ -440,13 +488,13 @@ SampleInitFactoryWebGPU(
 
       const commandEncoder = device.createCommandEncoder();
       bitonicDisplayRenderer.startRun(commandEncoder, {
-        width: settings.widthInCells,
-        height: settings.heightInCells,
+        width: settings['Grid Width'],
+        height: settings['Grid Height'],
         hoverPosX: settings.hoverPosX,
         hoverPosY: settings.hoverPosY,
         swapPosX: settings.swapPosX,
         swapPosY: settings.swapPosY,
-        reticleSize: settings.reticleSize,
+        reticleSize: settings['Reticle Size'],
       });
       if (
         settings.executeStep &&
@@ -506,6 +554,7 @@ SampleInitFactoryWebGPU(
         const elementsOutput = new Uint32Array(elementsData);
         elementsStagingBuffer.unmap();
         elements = elementsOutput;
+        setSwappedElement();
       }
       settings.executeStep = false;
       requestAnimationFrame(frame);
