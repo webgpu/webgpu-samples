@@ -2,7 +2,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { SampleInitFactoryWebGPU } from './utils';
 import { createBindGroupDescriptor } from './utils';
 import BitonicDisplayRenderer from './display';
-import { argKeys, BitonicDisplayShader } from './renderShader';
+import { BitonicDisplayShader } from './renderShader';
 import { NaiveBitonicCompute } from './computeShader';
 import FullScreenWebGLShader from './fullscreenWebGL.vert.wgsl';
 
