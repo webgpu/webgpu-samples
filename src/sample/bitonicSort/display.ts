@@ -58,7 +58,6 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
       device,
       label,
       [bgDescript.bindGroupLayout, this.computeBGDescript.bindGroupLayout],
-      'WEBGL',
       BitonicDisplayShader(),
       presentationFormat
     );

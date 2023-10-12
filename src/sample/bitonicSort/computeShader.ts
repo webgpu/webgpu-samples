@@ -15,6 +15,7 @@ struct Uniforms {
 }
 
 //Create local workgroup data that can contain all elements
+
 var<workgroup> local_data: array<u32, ${threadsPerWorkgroup * 2}>;
 
 //Swap values in local_data

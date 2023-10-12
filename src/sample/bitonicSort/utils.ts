@@ -37,7 +37,6 @@ export const createBindGroupDescriptor = (
   device: GPUDevice
 ): BindGroupDescriptor => {
   const layoutEntries: GPUBindGroupLayoutEntry[] = [];
-  //const groupEntries: GPUBindGroupEntry[] = [];
   for (let i = 0; i < bindings.length; i++) {
     const layoutEntry: any = {};
     layoutEntry.binding = bindings[i];
@@ -153,34 +152,7 @@ export type FullScreenVertexShaderType =
 
 export const create2DVertexModule = (
   device: GPUDevice,
-  uvOrder: FullScreenVertexShaderType
 ): GPUVertexState => {
-  let vertexCode = '';
-  switch (uvOrder) {
-    case 'WEBGL':
-      {
-        vertexCode = fullscreenWebGLVertShader;
-      }
-      break;
-    /*case 'WEBGPU':
-      {
-        vertexCode = fullScreenWebGPUVertShader;
-      }
-      break;
-    case 'NDC':
-      {
-        vertexCode = fullScreenNDCVertShader;
-      }
-      break;
-    case 'NDCFlipped':
-      {
-        vertexCode = fullscreenNDCFlippedVertShader;
-      }
-      break; */
-    default: {
-      vertexCode = fullscreenWebGLVertShader;
-    }
-  }
   const vertexState = {
     module: device.createShaderModule({
       code: vertexCode,
@@ -193,8 +165,8 @@ export const create2DVertexModule = (
 export abstract class Base2DRendererClass {
   abstract switchBindGroup(name: string): void;
   abstract startRun(commandEncoder: GPUCommandEncoder, ...args: any[]): void;
-  renderPassDescriptor: GPURenderPassDescriptor; // | GPURENDERPASSDESCRIPTOR[]
-  pipeline: GPURenderPipeline; // GPURenderPipelien[]
+  renderPassDescriptor: GPURenderPassDescriptor;
+  pipeline: GPURenderPipeline;
   bindGroupMap: Record<string, GPUBindGroup>;
   currentBindGroup: GPUBindGroup;
   currentBindGroupName: string;
@@ -233,7 +205,6 @@ export abstract class Base2DRendererClass {
     device: GPUDevice,
     label: string,
     bgLayouts: GPUBindGroupLayout[],
-    mode: FullScreenVertexShaderType,
     code: string,
     presentationFormat: GPUTextureFormat
   ) {
@@ -242,7 +213,12 @@ export abstract class Base2DRendererClass {
       layout: device.createPipelineLayout({
         bindGroupLayouts: bgLayouts,
       }),
-      vertex: create2DVertexModule(device, mode),
+      vertex: {
+        module: device.createShaderModule({
+          code: fullscreenWebGLVertShader,
+        }),
+        entryPoint: 'vertexMain',
+      },
       fragment: {
         module: device.createShaderModule({
           code: code,
