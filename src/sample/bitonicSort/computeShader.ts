@@ -18,8 +18,8 @@ struct Uniforms {
 
 var<workgroup> local_data: array<u32, ${threadsPerWorkgroup * 2}>;
 
-//Swap values in local_data
-fn swap(idx_before: u32, idx_after: u32) {
+//Compare and swap values in local_data
+fn compare_and_swap(idx_before: u32, idx_after: u32) {
   //idx_before should always be < idx_after
   if (local_data[idx_after] < local_data[idx_before]) {
     var temp: u32 = local_data[idx_before];
@@ -38,7 +38,7 @@ fn prepare_flip(thread_id: u32, block_height: u32) {
   );
   idx.x += q;
   idx.y += q;
-  swap(idx.x, idx.y);
+  compare_and_swap(idx.x, idx.y);
 }
 
 fn prepare_disperse(thread_id: u32, block_height: u32) {
@@ -49,11 +49,7 @@ fn prepare_disperse(thread_id: u32, block_height: u32) {
   );
   idx.x += q;
   idx.y += q;
-	swap(idx.x, idx.y);
-}
-
-fn prepare_flip_and_disperse(thread_id: u32, block_height: u32) {
-  swap(0, 0);
+	compare_and_swap(idx.x, idx.y);
 }
 
 @group(0) @binding(0) var<storage, read> input_data: array<u32>;
@@ -83,7 +79,7 @@ fn computeMain(
       prepare_disperse(local_id.x, uniforms.blockHeight);
     }
     case 3, default: { //Local Flip and Disperse
-      prepare_flip_and_disperse(local_id.x, uniforms.blockHeight);
+      //prepare_flip_and_disperse(local_id.x, uniforms.blockHeight);
     }
   }
 

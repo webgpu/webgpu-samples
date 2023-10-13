@@ -63,9 +63,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
   var elementIndex = u32(uniforms.width) * pixel.y + pixel.x;
   var colorChanger = data[elementIndex];
 
-  var subtracter = (
-    1.0 / (uniforms.width * uniforms.height)
-  ) * f32(colorChanger);
+  var subtracter = f32(colorChanger) / (uniforms.width * uniforms.height);
 
   var color: vec3<f32> = vec3f(
     1.0 - subtracter

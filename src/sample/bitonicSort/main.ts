@@ -209,11 +209,8 @@ SampleInitFactoryWebGPU(
       const newCellWidth =
         Math.sqrt(settings['Total Elements']) % 2 === 0
           ? Math.floor(Math.sqrt(settings['Total Elements']))
-          : Math.floor(settings['Total Elements'] / 8);
-      const newCellHeight =
-        Math.sqrt(settings['Total Elements']) % 2 === 0
-          ? Math.floor(Math.sqrt(settings['Total Elements']))
-          : 8;
+          : Math.floor(Math.sqrt(settings['Total Elements'] / 2));
+      const newCellHeight = settings['Total Elements'] / newCellWidth;
       gridWidthCell.setValue(newCellWidth);
       gridHeightCell.setValue(newCellHeight);
 

@@ -52,8 +52,8 @@ export const createBindGroupDescriptor = (
 
   const bindGroups: GPUBindGroup[] = [];
   //i represent the bindGroup index, j represents the binding index of the resource within the bindgroup
-  //i=0, j=0 bindGroup 0, binding: 0
-  //i=1, j=1, bindGroup0 binding 1
+  //i=0, j=0  bindGroup: 0, binding: 0
+  //i=1, j=1, bindGroup: 0, binding: 1
   //NOTE: not the same as @group(0) @binding(1) group index within the fragment shader is set within a pipeline
   for (let i = 0; i < resources.length; i++) {
     const groupEntries: GPUBindGroupEntry[] = [];
@@ -142,24 +142,6 @@ export const SampleInitFactoryWebGPU = async (
     });
   };
   return init;
-};
-
-export type FullScreenVertexShaderType =
-  | 'WEBGPU'
-  | 'WEBGL'
-  | 'NDC'
-  | 'NDCFlipped';
-
-export const create2DVertexModule = (
-  device: GPUDevice,
-): GPUVertexState => {
-  const vertexState = {
-    module: device.createShaderModule({
-      code: vertexCode,
-    }),
-    entryPoint: 'vertexMain',
-  };
-  return vertexState;
 };
 
 export abstract class Base2DRendererClass {
