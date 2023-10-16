@@ -12,9 +12,6 @@ enum StepEnum {
   FLIP_LOCAL = 1,
   DISPERSE_LOCAL = 2,
   FLIP_DISPERSE_LOCAL = 3,
-  FLIP_GLOBAL = 4,
-  DISPERSE_GLOBAL = 5,
-  FLIP_DISPERSE_GLOBAL = 6,
 }
 
 // String access to StepEnum
@@ -22,10 +19,7 @@ type StepType =
   | 'NONE'
   | 'FLIP_LOCAL'
   | 'DISPERSE_LOCAL'
-  | 'FLIP_DISPERSE_LOCAL'
-  | 'FLIP_GLOBAL'
-  | 'DISPERSE_GLOBAL'
-  | 'FLIP_DISPERSE_GLOBAL';
+  | 'FLIP_DISPERSE_LOCAL';
 
 // Gui settings object
 interface SettingsInterface {
@@ -279,7 +273,7 @@ SampleInitFactoryWebGPU(
       }
     };
 
-    let completeSortIntervalID;
+    let completeSortIntervalID: ReturnType<typeof setInterval> | null = null;
     const endSortInterval = () => {
       if (completeSortIntervalID !== null) {
         clearInterval(completeSortIntervalID);
@@ -320,6 +314,7 @@ SampleInitFactoryWebGPU(
       .add(settings, 'Log Elements')
       .onChange(() => console.log(elements));
     controlFolder.add(settings, 'Complete Sort').onChange(startSortInterval);
+    controlFolder.open();
 
     // Folder with indexes of the hovered element
     const hoverFolder = gui.addFolder('Hover Information');

@@ -1,11 +1,7 @@
 import { createWGSLUniform } from './utils';
 
-export const argKeys = [
-  // screen width in cells/elements
-  'width',
-  // screen height in cells/elements
-  'height',
-];
+// Pass screen width and height in cells/elements as uniforms
+export const argKeys = ['width', 'height'];
 
 export const BitonicDisplayShader = () => {
   return `
