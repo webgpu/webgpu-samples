@@ -1,6 +1,6 @@
 import { SampleInit } from '../../components/SampleLayout';
 import type { GUI } from 'dat.gui';
-import fullscreenWebGLVertShader from './fullscreenWebGL.vert.wgsl';
+import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 
 type BindGroupBindingLayout =
   | GPUBufferBindingLayout
@@ -9,7 +9,7 @@ type BindGroupBindingLayout =
   | GPUStorageTextureBindingLayout
   | GPUExternalTextureBindingLayout;
 
-export type BindGroupDescriptor = {
+export type BindGroupsObjectsAndLayout = {
   bindGroups: GPUBindGroup[];
   bindGroupLayout: GPUBindGroupLayout;
 };
@@ -25,7 +25,7 @@ type ResourceTypeName =
  * @param {number[]} bindings - The binding value of each resource in the bind group.
  * @param {number[]} visibilities - The GPUShaderStage visibility of the resource at the corresponding index.
  * @param {ResourceTypeName[]} resourceTypes - The resourceType at the corresponding index.
- * @returns {BindGroupDescriptor} An object containing an array of bindGroups and the bindGroupLayout they implement.
+ * @returns {BindGroupsObjectsAndLayout} An object containing an array of bindGroups and the bindGroupLayout they implement.
  */
 export const createBindGroupDescriptor = (
   bindings: number[],
@@ -35,7 +35,7 @@ export const createBindGroupDescriptor = (
   resources: GPUBindingResource[][],
   label: string,
   device: GPUDevice
-): BindGroupDescriptor => {
+): BindGroupsObjectsAndLayout => {
   const layoutEntries: GPUBindGroupLayoutEntry[] = [];
   for (let i = 0; i < bindings.length; i++) {
     const layoutEntry: any = {};
@@ -197,15 +197,15 @@ export abstract class Base2DRendererClass {
       }),
       vertex: {
         module: device.createShaderModule({
-          code: fullscreenWebGLVertShader,
+          code: fullscreenTexturedQuad,
         }),
-        entryPoint: 'vertexMain',
+        entryPoint: 'vert_main',
       },
       fragment: {
         module: device.createShaderModule({
           code: code,
         }),
-        entryPoint: 'fragmentMain',
+        entryPoint: 'frag_main',
         targets: [
           {
             format: presentationFormat,

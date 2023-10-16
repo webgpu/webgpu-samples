@@ -4,7 +4,7 @@ export const NaiveBitonicCompute = (threadsPerWorkgroup: number) => {
   if (threadsPerWorkgroup % 2 !== 0 || threadsPerWorkgroup > 256) {
     threadsPerWorkgroup = 256;
   }
-  //Ensure that workgroupSize is half the number of elements
+  // Ensure that workgroupSize is half the number of elements
   return `
 
 struct Uniforms {
@@ -14,7 +14,7 @@ struct Uniforms {
   blockHeight: u32,
 }
 
-//Create local workgroup data that can contain all elements
+// Create local workgroup data that can contain all elements
 
 var<workgroup> local_data: array<u32, ${threadsPerWorkgroup * 2}>;
 
@@ -29,7 +29,7 @@ fn compare_and_swap(idx_before: u32, idx_after: u32) {
   return;
 }
 
-//thread_id goes from 0 to threadsPerWorkgroup
+// thread_id goes from 0 to threadsPerWorkgroup
 fn prepare_flip(thread_id: u32, block_height: u32) {
   let q: u32 = ((2 * thread_id) / block_height) * block_height;
   let half_height = block_height / 2;
@@ -56,7 +56,7 @@ fn prepare_disperse(thread_id: u32, block_height: u32) {
 @group(0) @binding(1) var<storage, read_write> output_data: array<u32>;
 @group(0) @binding(2) var<uniform> uniforms: Uniforms;
 
-//Our compute shader will execute specified # of threads or elements / 2 threads
+// Our compute shader will execute specified # of threads or elements / 2 threads
 @compute @workgroup_size(${threadsPerWorkgroup}, 1, 1)
 fn computeMain(
   @builtin(global_invocation_id) global_id: vec3<u32>,

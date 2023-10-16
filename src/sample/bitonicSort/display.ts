@@ -1,5 +1,5 @@
 import {
-  BindGroupDescriptor,
+  BindGroupsObjectsAndLayout,
   createBindGroupDescriptor,
   Base2DRendererClass,
   ShaderKeyInterface,
@@ -16,14 +16,14 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
 
   switchBindGroup: (name: string) => void;
   setArguments: (args: BitonicDisplayRenderArgs) => void;
-  computeBGDescript: BindGroupDescriptor;
+  computeBGDescript: BindGroupsObjectsAndLayout;
 
   constructor(
     device: GPUDevice,
     presentationFormat: GPUTextureFormat,
     renderPassDescriptor: GPURenderPassDescriptor,
     bindGroupNames: string[],
-    computeBGDescript: BindGroupDescriptor,
+    computeBGDescript: BindGroupsObjectsAndLayout,
     label: string
   ) {
     super();

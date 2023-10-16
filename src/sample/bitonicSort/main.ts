@@ -4,9 +4,9 @@ import { createBindGroupDescriptor } from './utils';
 import BitonicDisplayRenderer from './display';
 import { BitonicDisplayShader } from './renderShader';
 import { NaiveBitonicCompute } from './computeShader';
-import FullScreenWebGLShader from './fullscreenWebGL.vert.wgsl';
+import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 
-//Type of step that will be executed in our shader
+// Type of step that will be executed in our shader
 enum StepEnum {
   NONE = 0,
   FLIP_LOCAL = 1,
@@ -17,7 +17,7 @@ enum StepEnum {
   FLIP_DISPERSE_GLOBAL = 6,
 }
 
-//String access to StepEnum
+// String access to StepEnum
 type StepType =
   | 'NONE'
   | 'FLIP_LOCAL'
@@ -27,8 +27,7 @@ type StepType =
   | 'DISPERSE_GLOBAL'
   | 'FLIP_DISPERSE_GLOBAL';
 
-//Gui settings object
-//TODO: Encapsulate common data types together (i.e create objects that just holds pos items)
+// Gui settings object
 interface SettingsInterface {
   'Total Elements': number;
   'Grid Width': number;
@@ -59,31 +58,30 @@ SampleInitFactoryWebGPU(
       totalElementLengths.push(i);
     }
 
-    //TODO: hover/target pos system a little too complex, need to simplify
     const settings: SettingsInterface = {
-      //number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
+      // number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
       'Total Elements': 16,
-      //width of screen in cells.
+      // width of screen in cells.
       'Grid Width': 4,
-      //height of screen in cells
+      // height of screen in cells
       'Grid Height': 4,
-      //number of threads to execute in a workgroup ('Total Threads', 1, 1)
+      // number of threads to execute in a workgroup ('Total Threads', 1, 1)
       'Total Threads': 16 / 2,
-      //currently highlighted element
+      // currently highlighted element
       hoveredElement: 0,
-      //element the hoveredElement just swapped with,
+      // element the hoveredElement just swapped with,
       swappedElement: 1,
-      //Previously executed step
+      // Previously executed step
       'Prev Step': 'NONE',
-      //Next step to execute
+      // Next step to execute
       'Next Step': 'FLIP_LOCAL',
-      //Max thread span of previous block
+      // Max thread span of previous block
       'Prev Swap Span': 0,
-      //Max thread span of next block
+      // Max thread span of next block
       'Next Swap Span': 2,
-      //workloads to dispatch per frame,
+      // workloads to dispatch per frame,
       workLoads: 1,
-      //Whether we will dispatch a workload this frame
+      // Whether we will dispatch a workload this frame
       executeStep: false,
       'Randomize Values': () => {
         return;
@@ -100,14 +98,14 @@ SampleInitFactoryWebGPU(
       sortSpeed: 200,
     };
 
-    //Initialize initial elements array
+    // Initialize initial elements array
     let elements = new Uint32Array(
       Array.from({ length: settings['Total Elements'] }, (_, i) => i)
     );
 
-    //Initialize elementsBuffer and elementsStagingBuffer
+    // Initialize elementsBuffer and elementsStagingBuffer
     const elementsBufferSize = Float32Array.BYTES_PER_ELEMENT * 512;
-    //Initialize input, output, staging buffers
+    // Initialize input, output, staging buffers
     const elementsInputBuffer = device.createBuffer({
       size: elementsBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -121,9 +119,9 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
-    //Create uniform buffer for compute shader
+    // Create uniform buffer for compute shader
     const computeUniformsBuffer = device.createBuffer({
-      //width, height, blockHeight, algo
+      // width, height, blockHeight, algo
       size: Float32Array.BYTES_PER_ELEMENT * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
@@ -160,7 +158,7 @@ SampleInitFactoryWebGPU(
       },
     });
 
-    //Create bitonic debug renderer
+    // Create bitonic debug renderer
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
@@ -185,7 +183,7 @@ SampleInitFactoryWebGPU(
     const resetExecutionInformation = () => {
       totalThreadsCell.setValue(settings['Total Elements'] / 2);
 
-      //Get new width and height of screen display in cells
+      // Get new width and height of screen display in cells
       const newCellWidth =
         Math.sqrt(settings['Total Elements']) % 2 === 0
           ? Math.floor(Math.sqrt(settings['Total Elements']))
@@ -194,11 +192,11 @@ SampleInitFactoryWebGPU(
       gridWidthCell.setValue(newCellWidth);
       gridHeightCell.setValue(newCellHeight);
 
-      //Set prevStep to None (restart) and next step to FLIP
+      // Set prevStep to None (restart) and next step to FLIP
       prevStepCell.setValue('NONE');
       nextStepCell.setValue('FLIP_LOCAL');
 
-      //Reset block heights
+      // Reset block heights
       prevBlockHeightCell.setValue(0);
       nextBlockHeightCell.setValue(2);
       highestBlockHeight = 2;
@@ -219,14 +217,14 @@ SampleInitFactoryWebGPU(
     };
 
     const resizeElementArray = () => {
-      //Recreate elements array with new length
+      // Recreate elements array with new length
       elements = new Uint32Array(
         Array.from({ length: settings['Total Elements'] }, (_, i) => i)
       );
 
       resetExecutionInformation();
 
-      //Create new shader invocation with workgroupSize that reflects number of threads
+      // Create new shader invocation with workgroupSize that reflects number of threads
       computePipeline = device.createComputePipeline({
         layout: device.createPipelineLayout({
           bindGroupLayouts: [computeBGDescript.bindGroupLayout],
@@ -238,7 +236,7 @@ SampleInitFactoryWebGPU(
           entryPoint: 'computeMain',
         },
       });
-      //Randomize array elements
+      // Randomize array elements
       randomizeElementArray();
       highestBlockHeight = 2;
     };
@@ -281,7 +279,7 @@ SampleInitFactoryWebGPU(
       }
     };
 
-    let completeSortIntervalID: NodeJS.Timer | null = null;
+    let completeSortIntervalID;
     const endSortInterval = () => {
       if (completeSortIntervalID !== null) {
         clearInterval(completeSortIntervalID);
@@ -299,15 +297,15 @@ SampleInitFactoryWebGPU(
       }, settings.sortSpeed);
     };
 
-    //At top level, basic information about the number of elements sorted and the number of threads
-    //deployed per workgroup.
+    // At top level, basic information about the number of elements sorted and the number of threads
+    // deployed per workgroup.
     gui.add(settings, 'Total Elements', totalElementLengths).onChange(() => {
       endSortInterval();
       resizeElementArray();
     });
     const totalThreadsCell = gui.add(settings, 'Total Threads');
 
-    //Folder with functions that control the execution of the sort
+    // Folder with functions that control the execution of the sort
     const controlFolder = gui.addFolder('Sort Controls');
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
       endSortInterval();
@@ -323,14 +321,14 @@ SampleInitFactoryWebGPU(
       .onChange(() => console.log(elements));
     controlFolder.add(settings, 'Complete Sort').onChange(startSortInterval);
 
-    //Folder with indexes of the hovered element
+    // Folder with indexes of the hovered element
     const hoverFolder = gui.addFolder('Hover Information');
     const hoveredElementCell = hoverFolder
       .add(settings, 'hoveredElement')
       .onChange(setSwappedElement);
     const swappedElementCell = hoverFolder.add(settings, 'swappedElement');
 
-    //Additional Information about the execution state of the sort
+    // Additional Information about the execution state of the sort
     const executionInformationFolder = gui.addFolder('Execution Information');
     const prevStepCell = executionInformationFolder.add(settings, 'Prev Step');
     const nextStepCell = executionInformationFolder.add(settings, 'Next Step');
@@ -351,7 +349,7 @@ SampleInitFactoryWebGPU(
       'Grid Height'
     );
 
-    //Adjust styles of Function List Elements within GUI
+    // Adjust styles of Function List Elements within GUI
     const liFunctionElements = document.getElementsByClassName('cr function');
     for (let i = 0; i < liFunctionElements.length; i++) {
       (liFunctionElements[i].children[0] as HTMLElement).style.display = 'flex';
@@ -376,7 +374,7 @@ SampleInitFactoryWebGPU(
       settings.hoveredElement = yIndex * settings['Grid Width'] + xIndex;
     });
 
-    //Deactivate interaction with select GUI elements
+    // Deactivate interaction with select GUI elements
     prevStepCell.domElement.style.pointerEvents = 'none';
     prevBlockHeightCell.domElement.style.pointerEvents = 'none';
     nextStepCell.domElement.style.pointerEvents = 'none';
@@ -390,7 +388,7 @@ SampleInitFactoryWebGPU(
     async function frame() {
       if (!pageState.active) return;
 
-      //Write elements buffer
+      // Write elements buffer
       device.queue.writeBuffer(
         elementsInputBuffer,
         0,
@@ -465,7 +463,7 @@ SampleInitFactoryWebGPU(
       device.queue.submit([commandEncoder.finish()]);
 
       if (settings.executeStep) {
-        //Copy GPU element data to CPU
+        // Copy GPU element data to CPU
         await elementsStagingBuffer.mapAsync(
           GPUMapMode.READ,
           0,
@@ -475,12 +473,12 @@ SampleInitFactoryWebGPU(
           0,
           elementsBufferSize
         );
-        //Get correct range of data from CPU copy of GPU Data
+        // Get correct range of data from CPU copy of GPU Data
         const elementsData = copyElementsBuffer.slice(
           0,
           Uint32Array.BYTES_PER_ELEMENT * settings['Total Elements']
         );
-        //Extract data
+        // Extract data
         const elementsOutput = new Uint32Array(elementsData);
         elementsStagingBuffer.unmap();
         elements = elementsOutput;
@@ -497,7 +495,7 @@ const bitonicSortExample: () => JSX.Element = () =>
   makeSample({
     name: 'Bitonic Sort',
     description:
-      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each invocation of the bitonic sort shader dispatches a workgroup containing elements/2 threads. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results, hovered cells in red, and the cells they'll swap with on the next step in green.",
+      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each invocation of the bitonic sort shader dispatches a workgroup containing elements/2 threads. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
     init,
     gui: true,
     sources: [
@@ -507,8 +505,8 @@ const bitonicSortExample: () => JSX.Element = () =>
       },
       BitonicDisplayRenderer.sourceInfo,
       {
-        name: '../../../shaders/fullscreenWebGL.vert.wgsl',
-        contents: FullScreenWebGLShader,
+        name: '../../../shaders/fullscreenTexturedQuad.vert.wgsl',
+        contents: fullscreenTexturedQuad,
       },
       {
         name: './bitonicDisplay.frag.wgsl',
