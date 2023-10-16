@@ -1,8 +1,8 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { SampleInitFactoryWebGPU } from './utils';
 import { createBindGroupDescriptor } from './utils';
-import BitonicDisplayRenderer from './display';
-import { BitonicDisplayShader } from './renderShader';
+import BitonicDisplayRenderer from './bitonicDisplay';
+import bitonicDisplay from './bitonicDisplay.frag.wgsl';
 import { NaiveBitonicCompute } from './computeShader';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 
@@ -505,7 +505,7 @@ const bitonicSortExample: () => JSX.Element = () =>
       },
       {
         name: './bitonicDisplay.frag.wgsl',
-        contents: BitonicDisplayShader(),
+        contents: bitonicDisplay,
       },
       {
         name: './bitonicCompute.frag.wgsl',

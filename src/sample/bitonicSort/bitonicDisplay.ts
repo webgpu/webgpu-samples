@@ -2,11 +2,14 @@ import {
   BindGroupsObjectsAndLayout,
   createBindGroupDescriptor,
   Base2DRendererClass,
-  ShaderKeyInterface,
 } from './utils';
-import { BitonicDisplayShader, argKeys } from './renderShader';
 
-type BitonicDisplayRenderArgs = ShaderKeyInterface<typeof argKeys>;
+import bitonicDisplay from './bitonicDisplay.frag.wgsl';
+
+interface BitonicDisplayRenderArgs {
+  width: number;
+  height: number;
+}
 
 export default class BitonicDisplayRenderer extends Base2DRendererClass {
   static sourceInfo = {
@@ -31,7 +34,7 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
     this.computeBGDescript = computeBGDescript;
 
     const uniformBuffer = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * argKeys.length,
+      size: Float32Array.BYTES_PER_ELEMENT * 2,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -58,7 +61,7 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
       device,
       label,
       [bgDescript.bindGroupLayout, this.computeBGDescript.bindGroupLayout],
-      BitonicDisplayShader(),
+      bitonicDisplay,
       presentationFormat
     );
 
@@ -68,7 +71,10 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
     };
 
     this.setArguments = (args: BitonicDisplayRenderArgs) => {
-      super.setUniformArguments(device, uniformBuffer, args, argKeys);
+      super.setUniformArguments(device, uniformBuffer, args, [
+        'width',
+        'height',
+      ]);
     };
   }
 

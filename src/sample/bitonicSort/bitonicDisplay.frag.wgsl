@@ -1,11 +1,7 @@
-import { createWGSLUniform } from './utils';
-
-// Pass screen width and height in cells/elements as uniforms
-export const argKeys = ['width', 'height'];
-
-export const BitonicDisplayShader = () => {
-  return `
-${createWGSLUniform('Uniforms', argKeys)}
+struct Uniforms {
+  width: f32,
+  height: f32,
+}
 
 struct VertexOutput {
   @builtin(position) Position: vec4<f32>,
@@ -38,5 +34,3 @@ fn frag_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
   return vec4<f32>(color.rgb, 1.0);
 }
-`;
-};

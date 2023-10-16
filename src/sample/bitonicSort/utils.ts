@@ -77,15 +77,6 @@ export const createBindGroupDescriptor = (
   };
 };
 
-export const createWGSLUniform = (structName: string, keys: string[]) => {
-  let retString = `struct ${structName} {\n`;
-  for (let i = 0; i < keys.length; i++) {
-    retString += `  ${keys[i]}: f32,\n`;
-  }
-  retString += `}\n`;
-  return retString;
-};
-
 export type ShaderKeyInterface<T extends string[]> = {
   [K in T[number]]: number;
 };
