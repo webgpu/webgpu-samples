@@ -35,15 +35,7 @@ interface SettingsInterface {
   'Grid Height': number;
   'Total Threads': number;
   hoveredElement: number;
-  hoverPosX: number;
-  hoverPosY: number;
   swappedElement: number;
-  swapPosX: number;
-  swapPosY: number;
-  swapTargetPosX: number;
-  swapTargetPosY: number;
-  velocityX: number;
-  velocityY: number;
   'Prev Step': StepType;
   'Next Step': StepType;
   'Prev Swap Span': number;
@@ -54,7 +46,6 @@ interface SettingsInterface {
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
   'Complete Sort': () => void;
-  'Reticle Size': number;
   sortSpeed: number;
 }
 
@@ -80,18 +71,8 @@ SampleInitFactoryWebGPU(
       'Total Threads': 16 / 2,
       //currently highlighted element
       hoveredElement: 0,
-      hoverPosX: 0.5,
-      hoverPosY: 0.5,
       //element the hoveredElement just swapped with,
       swappedElement: 1,
-      swapPosX: 0.5,
-      swapPosY: 0.5,
-      //target of the current swapped element
-      swapTargetPosX: 0.5,
-      swapTargetPosY: 0.5,
-      //Velocity of a hover/swap element when it changes
-      velocityX: 0.1,
-      velocityY: 0.1,
       //Previously executed step
       'Prev Step': 'NONE',
       //Next step to execute
@@ -116,7 +97,6 @@ SampleInitFactoryWebGPU(
       'Complete Sort': () => {
         return;
       },
-      'Reticle Size': 0.2,
       sortSpeed: 200,
     };
 
@@ -299,18 +279,6 @@ SampleInitFactoryWebGPU(
           }
           break;
       }
-      //hover pos is tied to the mouse so it's position gets set immediately
-      settings.hoverPosX =
-        Math.floor(settings.hoveredElement % settings['Grid Width']) + 0.5;
-      settings.hoverPosY =
-        Math.floor(settings.hoveredElement / settings['Grid Width']) + 0.5;
-      //swap pos has velocity as it shifts from one element to the other
-      settings.swapTargetPosX =
-        Math.floor(swappedIndex % settings['Grid Width']) + 0.5;
-      settings.swapTargetPosY =
-        Math.floor(swappedIndex / settings['Grid Width']) + 0.5;
-      settings.velocityX = 0.25;
-      settings.velocityY = 0.25;
     };
 
     let completeSortIntervalID: NodeJS.Timer | null = null;
@@ -355,13 +323,12 @@ SampleInitFactoryWebGPU(
       .onChange(() => console.log(elements));
     controlFolder.add(settings, 'Complete Sort').onChange(startSortInterval);
 
-    //Folder with indexes of the hovered element and reticle display settings
+    //Folder with indexes of the hovered element
     const hoverFolder = gui.addFolder('Hover Information');
     const hoveredElementCell = hoverFolder
       .add(settings, 'hoveredElement')
       .onChange(setSwappedElement);
     const swappedElementCell = hoverFolder.add(settings, 'swappedElement');
-    hoverFolder.add(settings, 'Reticle Size', -0.02, 0.4).step(0.01);
 
     //Additional Information about the execution state of the sort
     const executionInformationFolder = gui.addFolder('Execution Information');
@@ -450,35 +417,6 @@ SampleInitFactoryWebGPU(
 
       device.queue.writeBuffer(computeUniformsBuffer, 8, stepDetails);
 
-      //TODO: Fix bad code
-      if (settings.swapPosX < settings.swapTargetPosX) {
-        settings.swapPosX += settings.velocityX;
-        if (settings.swapPosX >= settings.swapTargetPosX) {
-          settings.swapPosX = settings.swapTargetPosX;
-          settings.velocityX = 0;
-        }
-      } else if (settings.swapPosX > settings.swapTargetPosX) {
-        settings.swapPosX -= settings.velocityX;
-        if (settings.swapPosX <= settings.swapTargetPosX) {
-          settings.swapPosX = settings.swapTargetPosX;
-          settings.velocityX = 0;
-        }
-      }
-
-      if (settings.swapPosY < settings.swapTargetPosY) {
-        settings.swapPosY += settings.velocityY;
-        if (settings.swapPosY >= settings.swapTargetPosY) {
-          settings.swapPosY = settings.swapTargetPosY;
-          settings.velocityY = 0;
-        }
-      } else if (settings.swapPosY > settings.swapTargetPosY) {
-        settings.swapPosY -= settings.velocityY;
-        if (settings.swapPosY <= settings.swapTargetPosY) {
-          settings.swapPosY = settings.swapTargetPosY;
-          settings.velocityY = 0;
-        }
-      }
-
       renderPassDescriptor.colorAttachments[0].view = context
         .getCurrentTexture()
         .createView();
@@ -487,11 +425,6 @@ SampleInitFactoryWebGPU(
       bitonicDisplayRenderer.startRun(commandEncoder, {
         width: settings['Grid Width'],
         height: settings['Grid Height'],
-        hoverPosX: settings.hoverPosX,
-        hoverPosY: settings.hoverPosY,
-        swapPosX: settings.swapPosX,
-        swapPosY: settings.swapPosY,
-        reticleSize: settings['Reticle Size'],
       });
       if (
         settings.executeStep &&

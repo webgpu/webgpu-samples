@@ -7,13 +7,6 @@ export const argKeys = [
   'width',
   //screen height in cells/elements
   'height',
-  //Hovered element position in uv coordinates
-  'hoverPosX',
-  'hoverPosY',
-  //Swapped element position in uv coordinates
-  'swapPosX',
-  'swapPosY',
-  'reticleSize',
 ];
 
 export const BitonicDisplayShader = () => {
@@ -23,25 +16,6 @@ ${createWGSLUniform('Uniforms', argKeys)}
 struct VertexOutput {
   @builtin(position) Position: vec4<f32>,
   @location(0) v_uv: vec2<f32>
-}
-
-//Mask is calculated in uv coordinates
-fn calculateMask(uv: vec2<f32>, pos: vec2<f32>) -> f32 {
-  var vertDiff = abs(uv.y - pos.y);
-  vertDiff = smoothstep(uniforms.reticleSize, uniforms.reticleSize + 0.02, vertDiff) * select(1.0, 0.0, vertDiff > 0.5);
-  var horDiff = abs(uv.x - pos.x);
-  horDiff = smoothstep(uniforms.reticleSize, uniforms.reticleSize + 0.02, horDiff) * select(1.0, 0.0, horDiff > 0.5);
-  /*var top = step(
-    uv.y, 
-    pos.y + 0.5
-  );
-  var bottom = step(
-    pos.y - 0.5, 
-    uv.y
-  );*/
-  var right = step(uv.x, pos.x + 0.5);
-  var left = step(pos.x - 0.5, uv.x);
-  return vertDiff * horDiff; 
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -68,22 +42,6 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
   var color: vec3<f32> = vec3f(
     1.0 - subtracter
   );
-
-  var hoverMask = calculateMask(
-    uv,
-    vec2<f32>(uniforms.hoverPosX, uniforms.hoverPosY)
-  );
-
-  var swapMask = calculateMask(
-    uv,
-    vec2<f32>(uniforms.swapPosX, uniforms.swapPosY)
-  );
-
-  var red = vec3f(1.0, 0.0, 0.0);
-  var green = vec3f(0.0, 1.0, 0.0);
-
-  color = mix(color, red, hoverMask);
-  color = mix(color, green, swapMask);
 
   return vec4<f32>(color.rgb, 1.0);
 }
