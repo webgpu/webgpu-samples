@@ -78,8 +78,8 @@ fn computeMain(
     case 2: { //Local Disperse
       prepare_disperse(local_id.x, uniforms.blockHeight);
     }
-    case 3, default: { //Local Flip and Disperse
-      //prepare_flip_and_disperse(local_id.x, uniforms.blockHeight);
+    default: { 
+      
     }
   }
 
