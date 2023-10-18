@@ -154,7 +154,11 @@ export const convertVertexFormatToBytes = (vf: GPUVertexFormat): number => {
   return bytesPerVec;
 };
 
-export const createVBuffers = (
+/** Creates a GPUVertexBuffer Layout that maps to an interleaved vertex buffer.
+ * @param {GPUVertexFormat[]} vertexFormats - An array of valid GPUVertexFormats.
+ * @returns {GPUVertexBufferLayout} A GPUVertexBufferLayout representing an interleaved vertex buffer.
+ */
+export const createVBuffer = (
   vertexFormats: GPUVertexFormat[]
 ): GPUVertexBufferLayout[] => {
   const initialValue: AttribAcc = { attributes: [], arrayStride: 0 };
@@ -210,7 +214,7 @@ export const create3DRenderPipeline = (
       }),
       entryPoint: 'vertexMain',
       buffers:
-        vBufferFormats.length !== 0 ? createVBuffers(vBufferFormats) : [],
+        vBufferFormats.length !== 0 ? [createVBuffers(vBufferFormats) : [],
     },
     fragment: {
       module: device.createShaderModule({
