@@ -15,6 +15,12 @@ import {
 //import { VertexBuiltIn, createRenderShader } from '../../../utils/shaderUtils';
 const MAT4X4_BYTES = 64;
 
+enum TextureAtlas {
+  Spiral,
+  Toybox,
+  Bark,
+}
+
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({ canvas, pageState, gui, device, context, presentationFormat }) => {
@@ -24,8 +30,7 @@ SampleInitFactoryWebGPU(
         | 'Normal Texture'
         | 'Normal Map'
         | 'Parallax Scale'
-        | 'Steep Parallax'
-        | 'Parallax Occlusion';
+        | 'Steep Parallax';
       cameraPosX: number;
       cameraPosY: number;
       cameraPosZ: number;
@@ -35,40 +40,22 @@ SampleInitFactoryWebGPU(
       lightIntensity: number;
       depthScale: number;
       depthLayers: number;
+      Texture: string;
     }
 
     const settings: GUISettings = {
       'Bump Mode': 'Normal Map',
       cameraPosX: 0.0,
       cameraPosY: 0.0,
-      cameraPosZ: -4.1,
+      cameraPosZ: -2.4,
       lightPosX: 1.7,
       lightPosY: -0.7,
       lightPosZ: 1.9,
       lightIntensity: 0.02,
       depthScale: 0.05,
       depthLayers: 16,
+      Texture: 'Spiral',
     };
-    gui.add(settings, 'Bump Mode', [
-      'None',
-      'Normal Texture',
-      'Normal Map',
-      'Parallax Scale',
-      'Steep Parallax',
-      'Parallax Occlusion',
-    ]);
-    const cameraFolder = gui.addFolder('Camera');
-    const lightFolder = gui.addFolder('Light');
-    const depthFolder = gui.addFolder('Depth');
-    cameraFolder.add(settings, 'cameraPosX', -5, 5).step(0.1);
-    cameraFolder.add(settings, 'cameraPosY', -5, 5).step(0.1);
-    cameraFolder.add(settings, 'cameraPosZ', -5, 5).step(0.1);
-    lightFolder.add(settings, 'lightPosX', -5, 5).step(0.1);
-    lightFolder.add(settings, 'lightPosY', -5, 5).step(0.1);
-    lightFolder.add(settings, 'lightPosZ', -5, 5).step(0.1);
-    lightFolder.add(settings, 'lightIntensity', 0.0, 0.1).step(0.01);
-    depthFolder.add(settings, 'depthScale', 0.0, 0.1).step(0.01);
-    depthFolder.add(settings, 'depthLayers', 1, 32).step(1);
 
     //Create normal mapping resources and pipeline
     const depthTexture = device.createTexture({
@@ -88,17 +75,37 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    //TODO: Make sure a shader only gets passed the textures that are created in case an invalid format is passed
-    //TODO: Allow user to pass multiple diffuse, normals, height, etc
-    let toyboxPBR: Required<PBRDescriptor>;
+    let spiralPBR: Required<PBRDescriptor>;
     {
       const response = await createPBRDescriptor(device, [
         'wood_diffuse.png',
         'spiral_normal.png',
         'spiral_height.png',
       ]);
+      spiralPBR = response as Required<PBRDescriptor>;
+    }
+
+    let toyboxPBR: Required<PBRDescriptor>;
+    {
+      const response = await createPBRDescriptor(device, [
+        'wood_diffuse.png',
+        'toybox_normal.png',
+        'toybox_height.png',
+      ]);
       toyboxPBR = response as Required<PBRDescriptor>;
     }
+
+    // TODO: Flip textures
+    let barkPBR: Required<PBRDescriptor>;
+    {
+      const response = await createPBRDescriptor(device, [
+        'bark_diffuse.png',
+        'bark_normal.png',
+        'bark_height.png',
+      ]);
+      barkPBR = response as Required<PBRDescriptor>;
+    }
+
     // Create a sampler with linear filtering for smooth interpolation.
     const sampler = device.createSampler({
       magFilter: 'linear',
@@ -124,7 +131,7 @@ SampleInitFactoryWebGPU(
       },
     };
 
-    const toybox = createMeshRenderable(
+    const box = createMeshRenderable(
       device,
       createBoxMeshWithTangents(1.0, 1.0, 1.0)
     );
@@ -142,7 +149,7 @@ SampleInitFactoryWebGPU(
       device
     );
 
-    const toyboxBGDescriptor = createBindGroupDescriptor(
+    const surfaceBGDescriptor = createBindGroupDescriptor(
       [0, 1, 2, 3],
       [GPUShaderStage.FRAGMENT],
       ['sampler', 'texture', 'texture', 'texture'],
@@ -155,12 +162,24 @@ SampleInitFactoryWebGPU(
       [
         [
           sampler,
+          spiralPBR.diffuse.createView(),
+          spiralPBR.normal.createView(),
+          spiralPBR.height.createView(),
+        ],
+        [
+          sampler,
           toyboxPBR.diffuse.createView(),
           toyboxPBR.normal.createView(),
           toyboxPBR.height.createView(),
         ],
+        [
+          sampler,
+          barkPBR.diffuse.createView(),
+          barkPBR.normal.createView(),
+          barkPBR.height.createView(),
+        ],
       ],
-      'Toybox',
+      'Surface',
       device
     );
 
@@ -212,9 +231,6 @@ SampleInitFactoryWebGPU(
         case 'Steep Parallax':
           arr[0] = 4;
           break;
-        case 'Parallax Occlusion':
-          arr[0] = 5;
-          break;
       }
     };
 
@@ -223,13 +239,38 @@ SampleInitFactoryWebGPU(
     const texturedCubePipeline = create3DRenderPipeline(
       device,
       'NormalMappingRender',
-      [frameBGDescriptor.bindGroupLayout, toyboxBGDescriptor.bindGroupLayout],
+      [frameBGDescriptor.bindGroupLayout, surfaceBGDescriptor.bindGroupLayout],
       normalMapWGSL,
       ['float32x3', 'float32x3', 'float32x2', 'float32x3', 'float32x3'],
       normalMapWGSL,
       presentationFormat,
       true
     );
+
+    let currentSurfaceBindGroup = 0;
+
+    const onChangeTexture = () => {
+      currentSurfaceBindGroup = TextureAtlas[settings.Texture];
+    };
+
+    gui.add(settings, 'Bump Mode', [
+      'None',
+      'Normal Texture',
+      'Normal Map',
+      'Parallax Scale',
+      'Steep Parallax',
+    ]);
+    gui
+      .add(settings, 'Texture', ['Spiral', 'Toybox', 'Bark'])
+      .onChange(onChangeTexture);
+    const lightFolder = gui.addFolder('Light');
+    const depthFolder = gui.addFolder('Depth');
+    lightFolder.add(settings, 'lightPosX', -5, 5).step(0.1);
+    lightFolder.add(settings, 'lightPosY', -5, 5).step(0.1);
+    lightFolder.add(settings, 'lightPosZ', -5, 5).step(0.1);
+    lightFolder.add(settings, 'lightIntensity', 0.0, 0.1).step(0.002);
+    depthFolder.add(settings, 'depthScale', 0.0, 0.1).step(0.01);
+    depthFolder.add(settings, 'depthLayers', 1, 32).step(1);
 
     function frame() {
       // Sample is no longer the active page.
@@ -273,10 +314,13 @@ SampleInitFactoryWebGPU(
       //Draw textured Cube
       passEncoder.setPipeline(texturedCubePipeline);
       passEncoder.setBindGroup(0, frameBGDescriptor.bindGroups[0]);
-      passEncoder.setBindGroup(1, toyboxBGDescriptor.bindGroups[0]);
-      passEncoder.setVertexBuffer(0, toybox.vertexBuffer);
-      passEncoder.setIndexBuffer(toybox.indexBuffer, 'uint16');
-      passEncoder.drawIndexed(toybox.indexCount);
+      passEncoder.setBindGroup(
+        1,
+        surfaceBGDescriptor.bindGroups[currentSurfaceBindGroup]
+      );
+      passEncoder.setVertexBuffer(0, box.vertexBuffer);
+      passEncoder.setIndexBuffer(box.indexBuffer, 'uint16');
+      passEncoder.drawIndexed(box.indexCount);
       //End Pass Encoder
       passEncoder.end();
       device.queue.submit([commandEncoder.finish()]);

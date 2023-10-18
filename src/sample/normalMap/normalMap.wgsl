@@ -83,14 +83,7 @@ fn parallax_uv(
     prevDepthFromTexture = select(depthFromTexture, prevDepthFromTexture, prevDepthFromTexture < currentDepth);
     prevCurrentDepth = select(currentDepth, prevCurrentDepth, prevDepthFromTexture < currentDepth);
   }
-  if (mapInfo.mappingType == 4) {
-    return cur_uv; 
-  }
-  prev_uv = cur_uv + delta_uv;
-  var next: f32 = prevDepthFromTexture - prevCurrentDepth;
-  var prev: f32 = textureSample(depthTexture, textureSampler, prev_uv).r - prevCurrentDepth + depthPerLayer;
-  var weight: f32 = next / (next - prev);
-  return mix(cur_uv, prev_uv, weight);
+  return cur_uv;
 }
 
 fn when_greater(v1: f32, v2: f32) -> f32 {
