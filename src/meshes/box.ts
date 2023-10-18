@@ -1,11 +1,5 @@
 import { vec3 } from 'wgpu-matrix';
-import {
-  calculateVertexStride,
-  getMeshPosAtIndex,
-  getMeshUVAtIndex,
-  Mesh,
-  VertexProperty,
-} from './mesh';
+import { getMeshPosAtIndex, getMeshUVAtIndex, Mesh } from './mesh';
 
 export interface BoxMesh extends Mesh {
   vertices: Float32Array;
@@ -21,8 +15,7 @@ const createBoxGeometry = (
   depth = 1.0,
   widthSegments = 1.0,
   heightSegments = 1.0,
-  depthSegments = 1.0,
-  vertProperties = 7
+  depthSegments = 1.0
 ) => {
   widthSegments = Math.floor(widthSegments);
   heightSegments = Math.floor(heightSegments);
@@ -65,27 +58,21 @@ const createBoxGeometry = (
       for (let ix = 0; ix < gridX1; ix++) {
         const x = ix * segmentWidth - widthHalf;
 
-        if (vertProperties & VertexProperty.POSITION) {
-          //Calculate plane vertices
-          vertex[u] = x * udir;
-          vertex[v] = y * vdir;
-          vertex[w] = depthHalf;
-          vertNormalUVBuffer.push(...vertex);
-        }
+        //Calculate plane vertices
+        vertex[u] = x * udir;
+        vertex[v] = y * vdir;
+        vertex[w] = depthHalf;
+        vertNormalUVBuffer.push(...vertex);
 
-        if (vertProperties & VertexProperty.NORMAL) {
-          //Caclulate normal
-          normal[u] = 0;
-          normal[v] = 0;
-          normal[w] = planeDepth > 0 ? 1.0 : -1.0;
-          vertNormalUVBuffer.push(...normal);
-        }
+        //Caclulate normal
+        normal[u] = 0;
+        normal[v] = 0;
+        normal[w] = planeDepth > 0 ? 1.0 : -1.0;
+        vertNormalUVBuffer.push(...normal);
 
-        if (vertProperties & VertexProperty.UV) {
-          //Calculate uvs
-          vertNormalUVBuffer.push(ix / xSections);
-          vertNormalUVBuffer.push(1 - iy / ySections);
-        }
+        //Calculate uvs
+        vertNormalUVBuffer.push(ix / xSections);
+        vertNormalUVBuffer.push(1 - iy / ySections);
 
         vertexCounter += 1;
       }
@@ -208,7 +195,6 @@ export const createBoxMesh = (
   widthSegments = 1.0,
   heightSegments = 1.0,
   depthSegments = 1.0,
-  vertexProperties = 7,
   indexFormat: IndexFormat = 'uint16'
 ): Mesh => {
   const { vertices, indices } = createBoxGeometry(
@@ -217,11 +203,10 @@ export const createBoxMesh = (
     depth,
     widthSegments,
     heightSegments,
-    depthSegments,
-    vertexProperties
+    depthSegments
   );
 
-  const vertexStride = calculateVertexStride(vertexProperties);
+  const vertexStride = 8 * Float32Array.BYTES_PER_ELEMENT; //calculateVertexStride(vertexProperties);
 
   const indicesArray =
     indexFormat === 'uint16'
@@ -290,9 +275,9 @@ export const createBoxMeshWithTangents = (
     const deltaUV1 = vec3.sub(uv2, uv1);
     const deltaUV2 = vec3.sub(uv3, uv1);
 
-    //Edge of a triangle moves in both u and v direction (2d)
-    //deltaU * tangent vector + deltav * bitangent
-    //Manipulating the data into matrices, we get an equation
+    // Edge of a triangle moves in both u and v direction (2d)
+    // deltaU * tangent vector + deltav * bitangent
+    // Manipulating the data into matrices, we get an equation
 
     const constantVal =
       1.0 / (deltaUV1[0] * deltaUV2[1] - deltaUV1[1] * deltaUV2[0]);
