@@ -187,7 +187,7 @@ const createBoxGeometry = (
 
 type IndexFormat = 'uint16' | 'uint32';
 
-//Possibly used later
+// Box mesh code ported from threejs, with addition of indexFormat specifier for vertex pulling
 export const createBoxMesh = (
   width = 1.0,
   height = 1.0,

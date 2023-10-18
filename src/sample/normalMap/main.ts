@@ -12,13 +12,13 @@ import {
   write32ToBuffer,
   writeMat4ToBuffer,
 } from './utils';
-//import { VertexBuiltIn, createRenderShader } from '../../../utils/shaderUtils';
+
 const MAT4X4_BYTES = 64;
 
 enum TextureAtlas {
   Spiral,
   Toybox,
-  Bark,
+  BrickWall,
 }
 
 let init: SampleInit;
@@ -57,7 +57,7 @@ SampleInitFactoryWebGPU(
       Texture: 'Spiral',
     };
 
-    //Create normal mapping resources and pipeline
+    // Create normal mapping resources and pipeline
     const depthTexture = device.createTexture({
       size: [canvas.width, canvas.height],
       format: 'depth24plus',
@@ -65,16 +65,18 @@ SampleInitFactoryWebGPU(
     });
 
     const uniformBuffer = device.createBuffer({
-      //One extra element needed due to padding
+      // Buffer holding projection, view, and model matrices plus padding bytes
       size: MAT4X4_BYTES * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
     const mapMethodBuffer = device.createBuffer({
+      // Buffer holding mapping type, light uniforms, and depth uniforms
       size: Float32Array.BYTES_PER_ELEMENT * 7,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
+    // Create PBR info
     let spiralPBR: Required<PBRDescriptor>;
     {
       const response = await createPBRDescriptor(device, [
@@ -95,15 +97,14 @@ SampleInitFactoryWebGPU(
       toyboxPBR = response as Required<PBRDescriptor>;
     }
 
-    // TODO: Flip textures
-    let barkPBR: Required<PBRDescriptor>;
+    let brickWallPBR: Required<PBRDescriptor>;
     {
       const response = await createPBRDescriptor(device, [
-        'bark_diffuse.png',
-        'bark_normal.png',
-        'bark_height.png',
+        'brickwall_diffuse.png',
+        'brickwall_normal.png',
+        'brickwall_height.png',
       ]);
-      barkPBR = response as Required<PBRDescriptor>;
+      brickWallPBR = response as Required<PBRDescriptor>;
     }
 
     // Create a sampler with linear filtering for smooth interpolation.
@@ -136,6 +137,7 @@ SampleInitFactoryWebGPU(
       createBoxMeshWithTangents(1.0, 1.0, 1.0)
     );
 
+    // Uniform bindGroups and bindGroupLayout
     const frameBGDescriptor = createBindGroupDescriptor(
       [0, 1],
       [
@@ -149,6 +151,7 @@ SampleInitFactoryWebGPU(
       device
     );
 
+    // Texture bindGroups and bindGroupLayout
     const surfaceBGDescriptor = createBindGroupDescriptor(
       [0, 1, 2, 3],
       [GPUShaderStage.FRAGMENT],
@@ -174,9 +177,9 @@ SampleInitFactoryWebGPU(
         ],
         [
           sampler,
-          barkPBR.diffuse.createView(),
-          barkPBR.normal.createView(),
-          barkPBR.height.createView(),
+          brickWallPBR.diffuse.createView(),
+          brickWallPBR.normal.createView(),
+          brickWallPBR.height.createView(),
         ],
       ],
       'Surface',
@@ -241,6 +244,7 @@ SampleInitFactoryWebGPU(
       'NormalMappingRender',
       [frameBGDescriptor.bindGroupLayout, surfaceBGDescriptor.bindGroupLayout],
       normalMapWGSL,
+      // Position,   normal       uv           tangent      bitangent
       ['float32x3', 'float32x3', 'float32x2', 'float32x3', 'float32x3'],
       normalMapWGSL,
       presentationFormat,
@@ -261,7 +265,7 @@ SampleInitFactoryWebGPU(
       'Steep Parallax',
     ]);
     gui
-      .add(settings, 'Texture', ['Spiral', 'Toybox', 'Bark'])
+      .add(settings, 'Texture', ['Spiral', 'Toybox', 'BrickWall'])
       .onChange(onChangeTexture);
     const lightFolder = gui.addFolder('Light');
     const depthFolder = gui.addFolder('Depth');
@@ -276,7 +280,7 @@ SampleInitFactoryWebGPU(
       // Sample is no longer the active page.
       if (!pageState.active) return;
 
-      //Write to normal map shader
+      // Write to normal map shader
       const viewMatrixTemp = getViewMatrix();
       const viewMatrix = viewMatrixTemp as Float32Array;
 
@@ -311,7 +315,7 @@ SampleInitFactoryWebGPU(
 
       const commandEncoder = device.createCommandEncoder();
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-      //Draw textured Cube
+      // Draw textured Cube
       passEncoder.setPipeline(texturedCubePipeline);
       passEncoder.setBindGroup(0, frameBGDescriptor.bindGroups[0]);
       passEncoder.setBindGroup(
@@ -321,7 +325,6 @@ SampleInitFactoryWebGPU(
       passEncoder.setVertexBuffer(0, box.vertexBuffer);
       passEncoder.setIndexBuffer(box.indexBuffer, 'uint16');
       passEncoder.drawIndexed(box.indexCount);
-      //End Pass Encoder
       passEncoder.end();
       device.queue.submit([commandEncoder.finish()]);
 

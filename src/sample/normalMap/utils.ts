@@ -50,10 +50,10 @@ export const createBindGroupDescriptor = (
   });
 
   const bindGroups: GPUBindGroup[] = [];
-  //i represent the bindGroup index, j represents the binding index of the resource within the bindgroup
-  //i=0, j=0  bindGroup: 0, binding: 0
-  //i=1, j=1, bindGroup: 0, binding: 1
-  //NOTE: not the same as @group(0) @binding(1) group index within the fragment shader is set within a pipeline
+  // i represent the bindGroup index, j represents the binding index of the resource within the bindgroup
+  // i=0, j=0  bindGroup: 0, binding: 0
+  // i=1, j=1, bindGroup: 0, binding: 1
+  // NOTE: not the same as @group(0) @binding(1) group index within the fragment shader is set within a pipeline
   for (let i = 0; i < resources.length; i++) {
     const groupEntries: GPUBindGroupEntry[] = [];
     for (let j = 0; j < resources[0].length; j++) {
@@ -139,6 +139,10 @@ interface AttribAcc {
   arrayStride: number;
 }
 
+/**
+ * @param {GPUVertexFormat} vf - A valid GPUVertexFormat, representing a per-vertex value that can be passed to the vertex shader.
+ * @returns {number} The number of bytes present in the value to be passed.
+ */
 export const convertVertexFormatToBytes = (vf: GPUVertexFormat): number => {
   const splitFormat = vf.split('x');
   const bytesPerElement = parseInt(splitFormat[0].replace(/[^0-9]/g, '')) / 8;

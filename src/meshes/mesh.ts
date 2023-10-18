@@ -1,5 +1,6 @@
 import { vec3, vec2 } from 'wgpu-matrix';
 
+// Defines what to pass to pipeline to render mesh
 export interface Renderable {
   vertexBuffer: GPUBuffer;
   indexBuffer: GPUBuffer;
@@ -13,27 +14,28 @@ export interface Mesh {
   vertexStride: number;
 }
 
-export interface MeshProperties {
-  vertexProperties?: number;
-  indexFormat?: GPUIndexFormat;
-}
 
+/**
+ * @param {GPUDevice} device - A valid GPUDevice.
+ * @param {Mesh} mesh - An indexed triangle-list mesh, containing its vertices, indices, and vertexStride (number of elements per vertex).
+ * @param {boolean} storeVertices - A boolean flag indicating whether the vertexBuffer should be available to use as a storage buffer.
+ * @returns {boolean} An object containing an array of bindGroups and the bindGroupLayout they implement.
+ */
 export const createMeshRenderable = (
   device: GPUDevice,
   mesh: Mesh,
   storeVertices = false,
   storeIndices = false
 ): Renderable => {
+  // Define buffer usage
   const vertexBufferUsage = storeVertices
     ? GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE
     : GPUBufferUsage.VERTEX;
-  // Create a vertex buffer from the sphere data.
-
   const indexBufferUsage = storeIndices
     ? GPUBufferUsage.INDEX | GPUBufferUsage.STORAGE
     : GPUBufferUsage.INDEX;
-  console.log(`vertexBufferSize: ${mesh.vertices.byteLength}`);
-  console.log(mesh.vertices);
+
+  // Create vertex and index buffers
   const vertexBuffer = device.createBuffer({
     size: mesh.vertices.byteLength,
     usage: vertexBufferUsage,
@@ -48,14 +50,13 @@ export const createMeshRenderable = (
     mappedAtCreation: true,
   });
 
+  // Determine whether index buffer is indices are in uint16 or uint32 format
   if (
     mesh.indices.byteLength ===
     mesh.indices.length * Uint16Array.BYTES_PER_ELEMENT
   ) {
-    console.log('mapping uint16 indices');
     new Uint16Array(indexBuffer.getMappedRange()).set(mesh.indices);
   } else {
-    console.log('mapping uint32 indices');
     new Uint32Array(indexBuffer.getMappedRange()).set(mesh.indices);
   }
 
@@ -68,8 +69,6 @@ export const createMeshRenderable = (
   };
 };
 
-//Remeber that float32array asks for a byte offset then an element length
-//NOTE: This code won't work for tangents and bitangents
 export const getMeshPosAtIndex = (mesh: Mesh, index: number) => {
   const arr = new Float32Array(
     mesh.vertices.buffer,
