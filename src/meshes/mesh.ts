@@ -14,7 +14,6 @@ export interface Mesh {
   vertexStride: number;
 }
 
-
 /**
  * @param {GPUDevice} device - A valid GPUDevice.
  * @param {Mesh} mesh - An indexed triangle-list mesh, containing its vertices, indices, and vertexStride (number of elements per vertex).
