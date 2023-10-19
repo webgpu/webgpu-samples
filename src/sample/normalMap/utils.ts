@@ -160,7 +160,7 @@ export const convertVertexFormatToBytes = (vf: GPUVertexFormat): number => {
  */
 export const createVBuffer = (
   vertexFormats: GPUVertexFormat[]
-): GPUVertexBufferLayout[] => {
+): GPUVertexBufferLayout => {
   const initialValue: AttribAcc = { attributes: [], arrayStride: 0 };
 
   const vertexBuffer = vertexFormats.reduce(
@@ -181,12 +181,13 @@ export const createVBuffer = (
     },
     initialValue
   );
-  return [
-    {
-      arrayStride: vertexBuffer.arrayStride,
-      attributes: vertexBuffer.attributes,
-    },
-  ];
+
+  const layout: GPUVertexBufferLayout = {
+    arrayStride: vertexBuffer.arrayStride,
+    attributes: vertexBuffer.attributes,
+  };
+
+  return layout;
 };
 
 export const create3DRenderPipeline = (
@@ -214,7 +215,7 @@ export const create3DRenderPipeline = (
       }),
       entryPoint: 'vertexMain',
       buffers:
-        vBufferFormats.length !== 0 ? [createVBuffers(vBufferFormats) : [],
+        vBufferFormats.length !== 0 ? [createVBuffer(vBufferFormats)] : [],
     },
     fragment: {
       module: device.createShaderModule({

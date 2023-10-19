@@ -27,9 +27,13 @@ struct VertexOutput {
   @builtin(position) Position : vec4f,
   @location(0) normal: vec3f,
   @location(1) uv : vec2f,
+  // Vertex position in world space
   @location(2) posWS: vec3f,
+  // Vertex position in tangent space
   @location(3) posTS: vec3f,
+  // View position in tangent space
   @location(4) viewTS: vec3f,
+  // Extracted components of our tbn matrix
   @location(5) tbnTS0: vec3<f32>, 
   @location(6) tbnTS1: vec3<f32>,
   @location(7) tbnTS2: vec3<f32>,
@@ -59,14 +63,15 @@ fn parallax_uv(
   depthSample: f32,
   depthScale: f32,
 ) -> vec2f {
-  if (mapInfo.mappingType == 3) {
+  if (mapInfo.mappingType == 4) {
     // Perturb uv coordinates based on depth and camera direction
     var p: vec2f = viewDirTS.xy * (depthSample * depthScale) / viewDirTS.z;
     return uv - p;
   }
+  // Break up depth space into layers
   var depthPerLayer: f32 = 1.0 / f32(mapInfo.depthLayers);
+  // Start at lowest depth
   var currentDepth: f32 = 0.0;
-  // How much we will go down
   var delta_uv: vec2<f32> = viewDirTS.xy * depthScale / (viewDirTS.z * mapInfo.depthLayers);
   var prev_uv = uv;
   var cur_uv = uv;
@@ -79,6 +84,8 @@ fn parallax_uv(
     prev_uv = cur_uv;
     cur_uv -= delta_uv;
     depthFromTexture = textureSample(depthTexture, textureSampler, cur_uv).r;
+    // Determine whether current depth is greater than depth map
+    // Once we reach a certain threshold, we stop updating cur_uv
     cur_uv = select(cur_uv, prev_uv, depthFromTexture < currentDepth);
     prevDepthFromTexture = select(depthFromTexture, prevDepthFromTexture, prevDepthFromTexture < currentDepth);
     prevCurrentDepth = select(currentDepth, prevCurrentDepth, prevDepthFromTexture < currentDepth);
@@ -90,7 +97,6 @@ fn when_greater(v1: f32, v2: f32) -> f32 {
   return max(sign(v1 - v2), 0.0);
 }
 
-/* VERTEX SHADER */
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output : VertexOutput;
@@ -139,7 +145,6 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   return output;
 }
 
-/* FRAGMENT SHADER */
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   // Reconstruct tbnTS
@@ -163,7 +168,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   var uv = select(
     parallax_uv(input.uv, viewDirTS, depthMap.r, mapInfo.depthScale),
     input.uv,
-    mapInfo.mappingType < 3
+    mapInfo.mappingType < 4
   );
 
   // Get values from textures
@@ -183,11 +188,17 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   var diffuseLight = (lightColorIntensity * diffuseStrength) / (lightDistanceTS * lightDistanceTS);
 
   switch (mapInfo.mappingType) {
+    // Output the diffuse texture
     case 0: {
       return vec4f(diffuseMap.rgb, 1.0);
     }
+    // Output the normal map
     case 1: {
       return vec4f(normalMap.rgb, 1.0);
+    }
+    // Output the height map
+    case 2: {
+      return vec4f(depthMap.rgb, 1.0);
     }
     default: {
       return vec4f(diffuseMap.rgb * diffuseLight, 1.0);

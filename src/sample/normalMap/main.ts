@@ -26,8 +26,9 @@ SampleInitFactoryWebGPU(
   async ({ canvas, pageState, gui, device, context, presentationFormat }) => {
     interface GUISettings {
       'Bump Mode':
-        | 'None'
+        | 'Diffuse Texture'
         | 'Normal Texture'
+        | 'Depth Texture'
         | 'Normal Map'
         | 'Parallax Scale'
         | 'Steep Parallax';
@@ -41,6 +42,7 @@ SampleInitFactoryWebGPU(
       depthScale: number;
       depthLayers: number;
       Texture: string;
+      'Reset Light': () => void;
     }
 
     const settings: GUISettings = {
@@ -55,6 +57,9 @@ SampleInitFactoryWebGPU(
       depthScale: 0.05,
       depthLayers: 16,
       Texture: 'Spiral',
+      'Reset Light': () => {
+        return;
+      },
     };
 
     // Create normal mapping resources and pipeline
@@ -219,20 +224,23 @@ SampleInitFactoryWebGPU(
 
     const getMappingType = (arr: Uint32Array) => {
       switch (settings['Bump Mode']) {
-        case 'None':
+        case 'Diffuse Texture':
           arr[0] = 0;
           break;
         case 'Normal Texture':
           arr[0] = 1;
           break;
-        case 'Normal Map':
+        case 'Depth Texture':
           arr[0] = 2;
           break;
-        case 'Parallax Scale':
+        case 'Normal Map':
           arr[0] = 3;
           break;
-        case 'Steep Parallax':
+        case 'Parallax Scale':
           arr[0] = 4;
+          break;
+        case 'Steep Parallax':
+          arr[0] = 5;
           break;
       }
     };
@@ -258,8 +266,9 @@ SampleInitFactoryWebGPU(
     };
 
     gui.add(settings, 'Bump Mode', [
-      'None',
+      'Diffuse Texture',
       'Normal Texture',
+      'Depth Texture',
       'Normal Map',
       'Parallax Scale',
       'Steep Parallax',
@@ -269,15 +278,38 @@ SampleInitFactoryWebGPU(
       .onChange(onChangeTexture);
     const lightFolder = gui.addFolder('Light');
     const depthFolder = gui.addFolder('Depth');
-    lightFolder.add(settings, 'lightPosX', -5, 5).step(0.1);
-    lightFolder.add(settings, 'lightPosY', -5, 5).step(0.1);
-    lightFolder.add(settings, 'lightPosZ', -5, 5).step(0.1);
-    lightFolder.add(settings, 'lightIntensity', 0.0, 0.1).step(0.002);
+    lightFolder.add(settings, 'Reset Light').onChange(() => {
+      lightPosXCell.setValue(1.7);
+      lightPosYCell.setValue(-0.7);
+      lightPosZCell.setValue(1.9);
+      lightIntensityCell.setValue(0.02);
+    });
+    const lightPosXCell = lightFolder
+      .add(settings, 'lightPosX', -5, 5)
+      .step(0.1);
+    const lightPosYCell = lightFolder
+      .add(settings, 'lightPosY', -5, 5)
+      .step(0.1);
+    const lightPosZCell = lightFolder
+      .add(settings, 'lightPosZ', -5, 5)
+      .step(0.1);
+    const lightIntensityCell = lightFolder
+      .add(settings, 'lightIntensity', 0.0, 0.1)
+      .step(0.002);
     depthFolder.add(settings, 'depthScale', 0.0, 0.1).step(0.01);
     depthFolder.add(settings, 'depthLayers', 1, 32).step(1);
 
+    const liFunctionElements = document.getElementsByClassName('cr function');
+    for (let i = 0; i < liFunctionElements.length; i++) {
+      (liFunctionElements[i].children[0] as HTMLElement).style.display = 'flex';
+      (liFunctionElements[i].children[0] as HTMLElement).style.justifyContent =
+        'center';
+      (
+        liFunctionElements[i].children[0].children[1] as HTMLElement
+      ).style.position = 'absolute';
+    }
+
     function frame() {
-      // Sample is no longer the active page.
       if (!pageState.active) return;
 
       // Write to normal map shader
