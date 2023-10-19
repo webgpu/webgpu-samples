@@ -14,7 +14,6 @@ import {
 } from './utils';
 
 const MAT4X4_BYTES = 64;
-
 enum TextureAtlas {
   Spiral,
   Toybox,
@@ -81,7 +80,7 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    // Create PBR info
+    // Create PBR info (diffuse, normal, and depth/height textures)
     let spiralPBR: Required<PBRDescriptor>;
     {
       const response = await createPBRDescriptor(device, [
@@ -167,6 +166,7 @@ SampleInitFactoryWebGPU(
         { sampleType: 'float' },
         { sampleType: 'float' },
       ],
+      // Multiple bindgroups that accord to the layout defined above
       [
         [
           sampler,
@@ -222,6 +222,7 @@ SampleInitFactoryWebGPU(
       return modelMatrix;
     }
 
+    // Change the model mapping type
     const getMappingType = (arr: Uint32Array) => {
       switch (settings['Bump Mode']) {
         case 'Diffuse Texture':
@@ -244,7 +245,6 @@ SampleInitFactoryWebGPU(
           break;
       }
     };
-
     const mappingType: Uint32Array = new Uint32Array([0]);
 
     const texturedCubePipeline = create3DRenderPipeline(
@@ -260,7 +260,6 @@ SampleInitFactoryWebGPU(
     );
 
     let currentSurfaceBindGroup = 0;
-
     const onChangeTexture = () => {
       currentSurfaceBindGroup = TextureAtlas[settings.Texture];
     };
