@@ -369,7 +369,7 @@ const NormalMapping: () => JSX.Element = () =>
   makeSample({
     name: 'Normal Mapping',
     description:
-      "This example demonstrates multiple different methods that employ fragment shaders to achieve additional perceptual depth on a mesh's surface. Demonstrated methods include normal mapping, parallax mapping, and steep parallax mapping.",
+      'This example demonstrates multiple different methods that employ fragment shaders to achieve additional perceptual depth on the surface of a cube mesh. Demonstrated methods include normal mapping, parallax mapping, and steep parallax mapping.',
     gui: true,
     init,
     sources: [
