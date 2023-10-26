@@ -1,6 +1,3 @@
-import { SampleInit } from '../../components/SampleLayout';
-import type { GUI } from 'dat.gui';
-
 type BindGroupBindingLayout =
   | GPUBufferBindingLayout
   | GPUTextureBindingLayout
@@ -50,10 +47,6 @@ export const createBindGroupDescriptor = (
   });
 
   const bindGroups: GPUBindGroup[] = [];
-  // i represent the bindGroup index, j represents the binding index of the resource within the bindgroup
-  // i=0, j=0  bindGroup: 0, binding: 0
-  // i=1, j=1, bindGroup: 0, binding: 1
-  // NOTE: not the same as @group(0) @binding(1) group index within the fragment shader is set within a pipeline
   for (let i = 0; i < resources.length; i++) {
     const groupEntries: GPUBindGroupEntry[] = [];
     for (let j = 0; j < resources[0].length; j++) {
@@ -78,60 +71,6 @@ export const createBindGroupDescriptor = (
 
 export type ShaderKeyInterface<T extends string[]> = {
   [K in T[number]]: number;
-};
-
-export type SampleInitParams = {
-  canvas: HTMLCanvasElement;
-  pageState: { active: boolean };
-  gui?: GUI;
-  stats?: Stats;
-};
-
-interface DeviceInitParms {
-  device: GPUDevice;
-}
-
-interface DeviceInit3DParams extends DeviceInitParms {
-  context: GPUCanvasContext;
-  presentationFormat: GPUTextureFormat;
-}
-
-type CallbackSync3D = (params: SampleInitParams & DeviceInit3DParams) => void;
-type CallbackAsync3D = (
-  params: SampleInitParams & DeviceInit3DParams
-) => Promise<void>;
-
-type SampleInitCallback3D = CallbackSync3D | CallbackAsync3D;
-
-export const SampleInitFactoryWebGPU = async (
-  callback: SampleInitCallback3D
-): Promise<SampleInit> => {
-  const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
-    const adapter = await navigator.gpu.requestAdapter();
-    const device = await adapter.requestDevice();
-    if (!pageState.active) return;
-    const context = canvas.getContext('webgpu') as GPUCanvasContext;
-    const devicePixelRatio = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * devicePixelRatio;
-    canvas.height = canvas.clientHeight * devicePixelRatio;
-    const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-    context.configure({
-      device,
-      format: presentationFormat,
-      alphaMode: 'premultiplied',
-    });
-
-    callback({
-      canvas,
-      pageState,
-      gui,
-      device,
-      context,
-      presentationFormat,
-      stats,
-    });
-  };
-  return init;
 };
 
 interface AttribAcc {
@@ -322,52 +261,4 @@ export const createPBRDescriptor = async (
     }
   }
   return pbr;
-};
-
-/**
- * @param {GPUDevice} device - The GPU performing each buffer write.
- * @param {GPUBuffer} buffer-  The buffer we are filling with data.
- * @param {Float32Array[]} mat4Arr - An array of multiple 4x4 matrices.
- * @returns {string} An offset designating the end of the region that was written to within the buffer.
- */
-export const writeMat4ToBuffer = (
-  device: GPUDevice,
-  buffer: GPUBuffer,
-  mat4Arr: Float32Array[],
-  offset = 0
-): number => {
-  for (let i = 0; i < mat4Arr.length; i++) {
-    device.queue.writeBuffer(
-      buffer,
-      offset + 64 * i,
-      mat4Arr[i].buffer,
-      mat4Arr[i].byteOffset,
-      mat4Arr[i].byteLength
-    );
-  }
-  return 64 * mat4Arr.length;
-};
-
-/**
- * @param {GPUDevice} device - The GPU performing each buffer write.
- * @param {GPUBuffer} buffer-  The buffer we are filling with data.
- * @param {Float32Array[]} mat4Arr - An array of f32 values.
- * @returns {string} An offset designating the end of the region that was written to within the buffer.
- */
-export const write32ToBuffer = (
-  device: GPUDevice,
-  buffer: GPUBuffer,
-  arr: (Float32Array | Uint32Array)[],
-  offset = 0
-) => {
-  for (let i = 0; i < arr.length; i++) {
-    device.queue.writeBuffer(
-      buffer,
-      offset + 4 * i,
-      arr[i].buffer,
-      arr[i].byteOffset,
-      arr[i].byteLength
-    );
-  }
-  return 4 * arr.length;
 };
