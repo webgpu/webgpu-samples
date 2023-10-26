@@ -285,13 +285,13 @@ export const createBoxMeshWithTangents = (
     const tangent = [
       constantVal * (deltaUV2[1] * edge1[0] - deltaUV1[1] * edge2[0]),
       constantVal * (deltaUV2[1] * edge1[1] - deltaUV1[1] * edge2[1]),
-      constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2])
+      constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2]),
     ];
 
     const bitangent = [
       constantVal * (-deltaUV2[0] * edge1[0] + deltaUV1[0] * edge2[0]),
       constantVal * (-deltaUV2[0] * edge1[1] + deltaUV1[0] * edge2[1]),
-      constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2])
+      constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2]),
     ];
 
     //Accumulate tangents and bitangents
