@@ -32,28 +32,31 @@ export const createBindGroupDescriptor = (
   label: string,
   device: GPUDevice
 ): BindGroupsObjectsAndLayout => {
+  // Create layout of each entry within a bindGroup
   const layoutEntries: GPUBindGroupLayoutEntry[] = [];
   for (let i = 0; i < bindings.length; i++) {
-    const layoutEntry: any = {};
-    layoutEntry.binding = bindings[i];
-    layoutEntry.visibility = visibilities[i % visibilities.length];
-    layoutEntry[resourceTypes[i]] = resourceLayouts[i];
-    layoutEntries.push(layoutEntry);
+    layoutEntries.push({
+      binding: bindings[i],
+      visibility: visibilities[i % visibilities.length],
+      [resourceTypes[i]]: resourceLayouts[i],
+    });
   }
 
+  // Apply entry layouts to bindGroupLayout
   const bindGroupLayout = device.createBindGroupLayout({
     label: `${label}.bindGroupLayout`,
     entries: layoutEntries,
   });
 
+  // Create bindGroups that conform to the layout
   const bindGroups: GPUBindGroup[] = [];
   for (let i = 0; i < resources.length; i++) {
     const groupEntries: GPUBindGroupEntry[] = [];
     for (let j = 0; j < resources[0].length; j++) {
-      const groupEntry: any = {};
-      groupEntry.binding = j;
-      groupEntry.resource = resources[i][j];
-      groupEntries.push(groupEntry);
+      groupEntries.push({
+        binding: j,
+        resource: resources[i][j]
+      });
     }
     const newBindGroup = device.createBindGroup({
       label: `${label}.bindGroup${i}`,

@@ -273,30 +273,28 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     .onChange(onChangeTexture);
   const lightFolder = gui.addFolder('Light');
   const depthFolder = gui.addFolder('Depth');
-  lightFolder.add(settings, 'Reset Light').onChange(() => {
-    lightPosXCell.setValue(1.7);
-    lightPosYCell.setValue(-0.7);
-    lightPosZCell.setValue(1.9);
-    lightIntensityCell.setValue(0.02);
-  });
-  const lightPosXCell = lightFolder.add(settings, 'lightPosX', -5, 5).step(0.1);
-  const lightPosYCell = lightFolder.add(settings, 'lightPosY', -5, 5).step(0.1);
-  const lightPosZCell = lightFolder.add(settings, 'lightPosZ', -5, 5).step(0.1);
-  const lightIntensityCell = lightFolder
+  const resetLightController = lightFolder
+    .add(settings, 'Reset Light')
+    .onChange(() => {
+      lightPosXController.setValue(1.7);
+      lightPosYController.setValue(-0.7);
+      lightPosZController.setValue(1.9);
+      lightIntensityController.setValue(0.02);
+    });
+  const lightPosXController = lightFolder
+    .add(settings, 'lightPosX', -5, 5)
+    .step(0.1);
+  const lightPosYController = lightFolder
+    .add(settings, 'lightPosY', -5, 5)
+    .step(0.1);
+  const lightPosZController = lightFolder
+    .add(settings, 'lightPosZ', -5, 5)
+    .step(0.1);
+  const lightIntensityController = lightFolder
     .add(settings, 'lightIntensity', 0.0, 0.1)
     .step(0.002);
   depthFolder.add(settings, 'depthScale', 0.0, 0.1).step(0.01);
   depthFolder.add(settings, 'depthLayers', 1, 32).step(1);
-
-  const liFunctionElements = document.getElementsByClassName('cr function');
-  for (let i = 0; i < liFunctionElements.length; i++) {
-    (liFunctionElements[i].children[0] as HTMLElement).style.display = 'flex';
-    (liFunctionElements[i].children[0] as HTMLElement).style.justifyContent =
-      'center';
-    (
-      liFunctionElements[i].children[0].children[1] as HTMLElement
-    ).style.position = 'absolute';
-  }
 
   function frame() {
     if (!pageState.active) return;
@@ -313,7 +311,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ]);
 
     const mappingType = getMappingType();
-    console.log(mappingType);
 
     device.queue.writeBuffer(
       uniformBuffer,
