@@ -55,7 +55,7 @@ export const createBindGroupDescriptor = (
     for (let j = 0; j < resources[0].length; j++) {
       groupEntries.push({
         binding: j,
-        resource: resources[i][j]
+        resource: resources[i][j],
       });
     }
     const newBindGroup = device.createBindGroup({

@@ -57,14 +57,14 @@ fn parallax_uv(
 ) -> vec2f {
   if (mapInfo.mappingType == 4) {
     // Perturb uv coordinates based on depth and camera direction
-    var p = viewDirTS.xy * (depthSample * depthScale) / viewDirTS.z;
+    let p = viewDirTS.xy * (depthSample * depthScale) / viewDirTS.z;
     return uv - p;
   }
   // Break up depth space into layers
-  var depthPerLayer = 1.0 / f32(mapInfo.depthLayers);
+  let depthPerLayer = 1.0 / f32(mapInfo.depthLayers);
   // Start at lowest depth
   var currentDepth = 0.0;
-  var delta_uv = viewDirTS.xy * depthScale / (viewDirTS.z * mapInfo.depthLayers);
+  let delta_uv = viewDirTS.xy * depthScale / (viewDirTS.z * mapInfo.depthLayers);
   var prev_uv = uv;
   var cur_uv = uv;
 
@@ -93,9 +93,9 @@ fn when_greater(v1: f32, v2: f32) -> f32 {
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output : VertexOutput;
   // Create the Model to View Matrix
-  var MV = spaceTransform.viewMatrix * spaceTransform.modelMatrix;
+  let MV = spaceTransform.viewMatrix * spaceTransform.modelMatrix;
   // Create the Model to View to Projection Matrix
-  var MVP = spaceTransform.projMatrix * MV;
+  let MVP = spaceTransform.projMatrix * MV;
   
   // Get Clip space transforms and pass through values out of the way
   output.Position = MVP * input.position;
@@ -112,9 +112,9 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   );
 
   // Get unit vectors of normal, tangent, and bitangents in model space
-  var vertexTangent = normalize(input.vert_tan);
-  var vertexBitangent = normalize(input.vert_bitan);
-  var vertexNormal = normalize(input.normal);
+  let vertexTangent = normalize(input.vert_tan);
+  let vertexBitangent = normalize(input.vert_bitan);
+  let vertexNormal = normalize(input.normal);
 
   // Convert tbn unit vectors to mv space for a model view tbn
   var tbnTS = transpose(
@@ -140,24 +140,24 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   // Reconstruct tbnTS
-  var tbnTS = mat3x3f(
+  let tbnTS = mat3x3f(
     input.tbnTS0,
     input.tbnTS1,
     input.tbnTS2,
   );
 
   // Get direction of view in tangent space
-  var viewDirTS = normalize(input.viewTS - input.posTS);
+  let viewDirTS = normalize(input.viewTS - input.posTS);
 
   // Get position, direction, and distance of light in tangent space (no need to multiply by model matrix as there is no model)
-  var lightPosVS = spaceTransform.viewMatrix * vec4f(mapInfo.lightPosX, mapInfo.lightPosY, mapInfo.lightPosZ, 1.0);
-  var lightPosTS = tbnTS * lightPosVS.xyz;
-  var lightDirTS = normalize(lightPosTS - input.posTS);
-  var lightDistanceTS = distance(input.posTS, lightPosTS);
+  let lightPosVS = spaceTransform.viewMatrix * vec4f(mapInfo.lightPosX, mapInfo.lightPosY, mapInfo.lightPosZ, 1.0);
+  let lightPosTS = tbnTS * lightPosVS.xyz;
+  let lightDirTS = normalize(lightPosTS - input.posTS);
+  let lightDistanceTS = distance(input.posTS, lightPosTS);
 
   let depthMap = textureSample(depthTexture, textureSampler, input.uv); 
 
-  var uv = select(
+  let uv = select(
     parallax_uv(input.uv, viewDirTS, depthMap.r, mapInfo.depthScale),
     input.uv,
     mapInfo.mappingType < 4
@@ -168,16 +168,16 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   let normalMap = textureSample(normalTexture, textureSampler, uv);
 
   // Get normal in tangent space
-  var normalTS = normalize((normalMap.xyz * 2.0) - 1.0);
+  let normalTS = normalize((normalMap.xyz * 2.0) - 1.0);
   
   // Calculate diffusion lighting
-  var lightColorIntensity = vec3f(255.0, 255.0, 255.0) * mapInfo.lightIntensity;
+  let lightColorIntensity = vec3f(255.0, 255.0, 255.0) * mapInfo.lightIntensity;
   //How similar is the normal to the lightDirection
-  var diffuseStrength = clamp(
+  let diffuseStrength = clamp(
     dot(normalTS, lightDirTS), 0.0, 1.0
   );
   // Strenght inversely proportional to square of distance from light
-  var diffuseLight = (lightColorIntensity * diffuseStrength) / (lightDistanceTS * lightDistanceTS);
+  let diffuseLight = (lightColorIntensity * diffuseStrength) / (lightDistanceTS * lightDistanceTS);
 
   switch (mapInfo.mappingType) {
     // Output the diffuse texture

@@ -273,14 +273,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     .onChange(onChangeTexture);
   const lightFolder = gui.addFolder('Light');
   const depthFolder = gui.addFolder('Depth');
-  const resetLightController = lightFolder
-    .add(settings, 'Reset Light')
-    .onChange(() => {
-      lightPosXController.setValue(1.7);
-      lightPosYController.setValue(-0.7);
-      lightPosZController.setValue(1.9);
-      lightIntensityController.setValue(0.02);
-    });
+  lightFolder.add(settings, 'Reset Light').onChange(() => {
+    lightPosXController.setValue(1.7);
+    lightPosYController.setValue(-0.7);
+    lightPosZController.setValue(1.9);
+    lightIntensityController.setValue(0.02);
+  });
   const lightPosXController = lightFolder
     .add(settings, 'lightPosX', -5, 5)
     .step(0.1);
