@@ -19,7 +19,7 @@ struct Uniforms {
 var<workgroup> local_data: array<u32, ${threadsPerWorkgroup * 2}>;
 
 //Compare and swap values in local_data
-fn compare_and_swap(idx_before: u32, idx_after: u32) {
+fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
   //idx_before should always be < idx_after
   if (local_data[idx_after] < local_data[idx_before]) {
     var temp: u32 = local_data[idx_before];
@@ -30,7 +30,7 @@ fn compare_and_swap(idx_before: u32, idx_after: u32) {
 }
 
 // thread_id goes from 0 to threadsPerWorkgroup
-fn prepare_flip(thread_id: u32, block_height: u32) {
+fn get_flip_indices(thread_id: u32, block_height: u32) {
   let q: u32 = ((2 * thread_id) / block_height) * block_height;
   let half_height = block_height / 2;
   var idx: vec2<u32> = vec2<u32>(
@@ -38,10 +38,10 @@ fn prepare_flip(thread_id: u32, block_height: u32) {
   );
   idx.x += q;
   idx.y += q;
-  compare_and_swap(idx.x, idx.y);
+  local_compare_and_swap(idx.x, idx.y);
 }
 
-fn prepare_disperse(thread_id: u32, block_height: u32) {
+fn get_disperse_indices(thread_id: u32, block_height: u32) {
   var q: u32 = ((2 * thread_id) / block_height) * block_height;
   let half_height = block_height / 2;
 	var idx: vec2<u32> = vec2<u32>(
@@ -49,7 +49,7 @@ fn prepare_disperse(thread_id: u32, block_height: u32) {
   );
   idx.x += q;
   idx.y += q;
-	compare_and_swap(idx.x, idx.y);
+	local_compare_and_swap(idx.x, idx.y);
 }
 
 @group(0) @binding(0) var<storage, read> input_data: array<u32>;
@@ -73,10 +73,10 @@ fn computeMain(
 
   switch uniforms.algo {
     case 1: { //Local Flip
-      prepare_flip(local_id.x, uniforms.blockHeight);
+      get_flip_indices(local_id.x, uniforms.blockHeight);
     }
     case 2: { //Local Disperse
-      prepare_disperse(local_id.x, uniforms.blockHeight);
+      get_disperse_indices(local_id.x, uniforms.blockHeight);
     }
     default: { 
       

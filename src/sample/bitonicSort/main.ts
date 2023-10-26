@@ -29,6 +29,8 @@ interface SettingsInterface {
   'Total Threads': number;
   hoveredElement: number;
   swappedElement: number;
+  'Step Index': number;
+  'Total Steps': number;
   'Prev Step': StepType;
   'Next Step': StepType;
   'Prev Swap Span': number;
@@ -41,6 +43,11 @@ interface SettingsInterface {
   'Complete Sort': () => void;
   'Sort Speed': number;
 }
+
+const getNumSteps = (numElements: number) => {
+  const n = Math.log2(numElements);
+  return (n * (n + 1)) / 2;
+};
 
 let init: SampleInit;
 SampleInitFactoryWebGPU(
@@ -73,6 +80,10 @@ SampleInitFactoryWebGPU(
       hoveredElement: 0,
       // element the hoveredElement just swapped with,
       swappedElement: 1,
+      // Index of current step
+      'Step Index': 0,
+      // Total steps to sort current number of elements
+      'Total Steps': getNumSteps(maxElements),
       // Previously executed step
       'Prev Step': 'NONE',
       // Next step to execute
@@ -186,6 +197,10 @@ SampleInitFactoryWebGPU(
     const resetExecutionInformation = () => {
       totalThreadsCell.setValue(settings['Total Elements'] / 2);
 
+      // Reset step Index and number of steps based on elements size
+      stepIndexCell.setValue(0);
+      totalStepsCell.setValue(getNumSteps(settings['Total Elements']));
+
       // Get new width and height of screen display in cells
       const newCellWidth =
         Math.sqrt(settings['Total Elements']) % 2 === 0
@@ -290,10 +305,16 @@ SampleInitFactoryWebGPU(
       }
     };
     const startSortInterval = () => {
+      const currentIntervalSpeed = settings['Sort Speed'];
       completeSortIntervalID = setInterval(() => {
         if (settings['Next Step'] === 'NONE') {
           clearInterval(completeSortIntervalID);
           completeSortIntervalID = null;
+        }
+        if (settings['Sort Speed'] !== currentIntervalSpeed) {
+          clearInterval(completeSortIntervalID);
+          completeSortIntervalID = null;
+          startSortInterval();
         }
         settings.executeStep = true;
         setSwappedElement();
@@ -335,6 +356,14 @@ SampleInitFactoryWebGPU(
 
     // Additional Information about the execution state of the sort
     const executionInformationFolder = gui.addFolder('Execution Information');
+    const stepIndexCell = executionInformationFolder.add(
+      settings,
+      'Step Index'
+    );
+    const totalStepsCell = executionInformationFolder.add(
+      settings,
+      'Total Steps'
+    );
     const prevStepCell = executionInformationFolder.add(settings, 'Prev Step');
     const nextStepCell = executionInformationFolder.add(settings, 'Next Step');
     const prevBlockHeightCell = executionInformationFolder.add(
@@ -380,6 +409,7 @@ SampleInitFactoryWebGPU(
     });
 
     // Deactivate interaction with select GUI elements
+    stepIndexCell.domElement.style.pointerEvents = 'none';
     prevStepCell.domElement.style.pointerEvents = 'none';
     prevBlockHeightCell.domElement.style.pointerEvents = 'none';
     nextStepCell.domElement.style.pointerEvents = 'none';
@@ -440,7 +470,7 @@ SampleInitFactoryWebGPU(
         computePassEncoder.setBindGroup(0, computeBGDescript.bindGroups[0]);
         computePassEncoder.dispatchWorkgroups(1);
         computePassEncoder.end();
-
+        stepIndexCell.setValue(settings['Step Index'] + 1);
         prevStepCell.setValue(settings['Next Step']);
         prevBlockHeightCell.setValue(settings['Next Swap Span']);
         nextBlockHeightCell.setValue(settings['Next Swap Span'] / 2);
