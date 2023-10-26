@@ -39,7 +39,7 @@ interface SettingsInterface {
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
   'Complete Sort': () => void;
-  sortSpeed: number;
+  'Sort Speed': number;
 }
 
 let init: SampleInit;
@@ -48,19 +48,27 @@ SampleInitFactoryWebGPU(
     const maxWorkgroupsX = device.limits.maxComputeWorkgroupSizeX;
 
     const totalElementLengths = [];
-    for (let i = maxWorkgroupsX * 2; i >= 4; i /= 2) {
+    const maxElements = maxWorkgroupsX * 2;
+    for (let i = maxElements; i >= 4; i /= 2) {
       totalElementLengths.push(i);
     }
 
+    const defaultGridWidth =
+      Math.sqrt(maxElements) % 2 === 0
+        ? Math.floor(Math.sqrt(maxElements))
+        : Math.floor(Math.sqrt(maxElements / 2));
+
+    const defaultGridHeight = maxElements / defaultGridWidth;
+
     const settings: SettingsInterface = {
       // number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
-      'Total Elements': 16,
+      'Total Elements': maxElements,
       // width of screen in cells.
-      'Grid Width': 4,
+      'Grid Width': defaultGridWidth,
       // height of screen in cells
-      'Grid Height': 4,
+      'Grid Height': defaultGridHeight,
       // number of threads to execute in a workgroup ('Total Threads', 1, 1)
-      'Total Threads': 16 / 2,
+      'Total Threads': maxWorkgroupsX,
       // currently highlighted element
       hoveredElement: 0,
       // element the hoveredElement just swapped with,
@@ -89,7 +97,7 @@ SampleInitFactoryWebGPU(
       'Complete Sort': () => {
         return;
       },
-      sortSpeed: 200,
+      'Sort Speed': 50,
     };
 
     // Initialize initial elements array
@@ -98,7 +106,8 @@ SampleInitFactoryWebGPU(
     );
 
     // Initialize elementsBuffer and elementsStagingBuffer
-    const elementsBufferSize = Float32Array.BYTES_PER_ELEMENT * 512;
+    const elementsBufferSize =
+      Float32Array.BYTES_PER_ELEMENT * totalElementLengths[0];
     // Initialize input, output, staging buffers
     const elementsInputBuffer = device.createBuffer({
       size: elementsBufferSize,
@@ -288,7 +297,7 @@ SampleInitFactoryWebGPU(
         }
         settings.executeStep = true;
         setSwappedElement();
-      }, settings.sortSpeed);
+      }, settings['Sort Speed']);
     };
 
     // At top level, basic information about the number of elements sorted and the number of threads
@@ -301,6 +310,7 @@ SampleInitFactoryWebGPU(
 
     // Folder with functions that control the execution of the sort
     const controlFolder = gui.addFolder('Sort Controls');
+    controlFolder.add(settings, 'Sort Speed', 50, 1000).step(50);
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
       endSortInterval();
       settings.executeStep = true;
@@ -379,6 +389,8 @@ SampleInitFactoryWebGPU(
     gridHeightCell.domElement.style.pointerEvents = 'none';
 
     let highestBlockHeight = 2;
+
+    startSortInterval();
 
     async function frame() {
       if (!pageState.active) return;
