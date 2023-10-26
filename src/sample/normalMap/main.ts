@@ -22,7 +22,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const device = await adapter.requestDevice();
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
-  const devicePixelRatio = window.devicePixelRatio || 1;
+  const devicePixelRatio = window.devicePixelRatio;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -56,11 +56,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const settings: GUISettings = {
     'Bump Mode': 'Normal Map',
     cameraPosX: 0.0,
-    cameraPosY: 0.0,
-    cameraPosZ: -2.4,
+    cameraPosY: 0.8,
+    cameraPosZ: -1.4,
     lightPosX: 1.7,
-    lightPosY: -0.7,
-    lightPosZ: 1.9,
+    lightPosY: 0.7,
+    lightPosZ: -1.9,
     lightIntensity: 0.02,
     depthScale: 0.05,
     depthLayers: 16,
@@ -204,22 +204,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const projectionMatrix = mat4.perspective(
     (2 * Math.PI) / 5,
     aspect,
-    1,
-    100.0
+    0.1,
+    10.0
   ) as Float32Array;
 
   function getViewMatrix() {
-    const viewMatrix = mat4.identity();
-    mat4.translate(
-      viewMatrix,
-      vec3.fromValues(
-        settings.cameraPosX,
-        settings.cameraPosY,
-        settings.cameraPosZ
-      ),
-      viewMatrix
+    return mat4.lookAt(
+      [settings.cameraPosX, settings.cameraPosY, settings.cameraPosZ],
+      [0, 0, 0],
+      [0, 1, 0]
     );
-    return viewMatrix;
   }
 
   function getModelMatrix() {
@@ -308,11 +302,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     if (!pageState.active) return;
 
     // Write to normal map shader
-    const viewMatrixTemp = getViewMatrix();
-    const viewMatrix = viewMatrixTemp as Float32Array;
+    const viewMatrix = getViewMatrix();
 
-    const modelMatrixTemp = getModelMatrix();
-    const modelMatrix = modelMatrixTemp as Float32Array;
+    const modelMatrix = getModelMatrix();
 
     const matrices = new Float32Array([
       ...projectionMatrix,
@@ -321,6 +313,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ]);
 
     const mappingType = getMappingType();
+    console.log(mappingType);
 
     device.queue.writeBuffer(
       uniformBuffer,
@@ -333,8 +326,13 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     device.queue.writeBuffer(
       mapMethodBuffer,
       0,
+      new Uint32Array([mappingType])
+    );
+
+    device.queue.writeBuffer(
+      mapMethodBuffer,
+      4,
       new Float32Array([
-        mappingType,
         settings.lightPosX,
         settings.lightPosY,
         settings.lightPosZ,

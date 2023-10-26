@@ -213,8 +213,6 @@ export const createBoxMesh = (
       ? new Uint16Array(indices)
       : new Uint32Array(indices);
 
-  console.log(indicesArray);
-
   return {
     vertices: new Float32Array(vertices),
     indices: indicesArray,
@@ -245,11 +243,13 @@ export const createBoxMeshWithTangents = (
   const vertexCount = mesh.vertices.length / originalStrideElements;
 
   const tangents = new Array(vertexCount);
-  tangents.fill(vec3.create(0.0, 0.0, 0.0));
   const bitangents = new Array(vertexCount);
-  bitangents.fill(vec3.create(0.0, 0.0, 0.0));
   const counts = new Array(vertexCount);
-  counts.fill(0);
+  for (let i = 0; i < vertexCount; i++) {
+    tangents[i] = [0, 0, 0];
+    bitangents[i] = [0, 0, 0];
+    counts[i] = 0;
+  }
 
   for (let i = 0; i < mesh.indices.length; i += 3) {
     const [idx1, idx2, idx3] = [
@@ -282,17 +282,17 @@ export const createBoxMeshWithTangents = (
     const constantVal =
       1.0 / (deltaUV1[0] * deltaUV2[1] - deltaUV1[1] * deltaUV2[0]);
 
-    const tangent = vec3.fromValues(
+    const tangent = [
       constantVal * (deltaUV2[1] * edge1[0] - deltaUV1[1] * edge2[0]),
       constantVal * (deltaUV2[1] * edge1[1] - deltaUV1[1] * edge2[1]),
       constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2])
-    );
+    ];
 
-    const bitangent = vec3.fromValues(
+    const bitangent = [
       constantVal * (-deltaUV2[0] * edge1[0] + deltaUV1[0] * edge2[0]),
       constantVal * (-deltaUV2[0] * edge1[1] + deltaUV1[0] * edge2[1]),
       constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2])
-    );
+    ];
 
     //Accumulate tangents and bitangents
     tangents[idx1] = vec3.add(tangents[idx1], tangent);

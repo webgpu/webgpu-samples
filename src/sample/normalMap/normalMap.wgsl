@@ -39,14 +39,6 @@ struct VertexOutput {
   @location(7) tbnTS2: vec3<f32>,
 }
 
-fn transpose3x3(mat: mat3x3f) -> mat3x3f  {
-  return mat3x3f(
-    mat[0][0], mat[1][0], mat[2][0],
-    mat[0][1], mat[1][1], mat[2][1],
-    mat[0][2], mat[1][2], mat[2][2],
-  );
-}
-
 // Uniforms
 @group(0) @binding(0) var<uniform> spaceTransform : SpaceTransformUniforms;
 @group(0) @binding(1) var<uniform> mapInfo: Uniforms_MapInfo;
@@ -65,20 +57,20 @@ fn parallax_uv(
 ) -> vec2f {
   if (mapInfo.mappingType == 4) {
     // Perturb uv coordinates based on depth and camera direction
-    var p: vec2f = viewDirTS.xy * (depthSample * depthScale) / viewDirTS.z;
+    var p = viewDirTS.xy * (depthSample * depthScale) / viewDirTS.z;
     return uv - p;
   }
   // Break up depth space into layers
-  var depthPerLayer: f32 = 1.0 / f32(mapInfo.depthLayers);
+  var depthPerLayer = 1.0 / f32(mapInfo.depthLayers);
   // Start at lowest depth
-  var currentDepth: f32 = 0.0;
-  var delta_uv: vec2<f32> = viewDirTS.xy * depthScale / (viewDirTS.z * mapInfo.depthLayers);
+  var currentDepth = 0.0;
+  var delta_uv = viewDirTS.xy * depthScale / (viewDirTS.z * mapInfo.depthLayers);
   var prev_uv = uv;
   var cur_uv = uv;
 
-  var depthFromTexture: f32 = textureSample(depthTexture, textureSampler, cur_uv).r;
-  var prevDepthFromTexture: f32 = depthFromTexture;
-  var prevCurrentDepth: f32 = currentDepth;
+  var depthFromTexture = textureSample(depthTexture, textureSampler, cur_uv).r;
+  var prevDepthFromTexture = depthFromTexture;
+  var prevCurrentDepth  = currentDepth;
   for (var i: u32 = 0; i < 32; i++) {
     currentDepth += depthPerLayer;
     prev_uv = cur_uv;
@@ -120,12 +112,12 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   );
 
   // Get unit vectors of normal, tangent, and bitangents in model space
-  var vertexTangent: vec3f = normalize(input.vert_tan);
-  var vertexBitangent: vec3f = normalize(input.vert_bitan);
-  var vertexNormal: vec3f = normalize(input.normal);
+  var vertexTangent = normalize(input.vert_tan);
+  var vertexBitangent = normalize(input.vert_bitan);
+  var vertexNormal = normalize(input.normal);
 
   // Convert tbn unit vectors to mv space for a model view tbn
-  var tbnTS = transpose3x3(
+  var tbnTS = transpose(
     MV3x3 * mat3x3f(
       vertexTangent,
       vertexBitangent,
@@ -158,9 +150,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   var viewDirTS = normalize(input.viewTS - input.posTS);
 
   // Get position, direction, and distance of light in tangent space (no need to multiply by model matrix as there is no model)
-  var lightPosVS: vec4f = spaceTransform.viewMatrix * vec4f(mapInfo.lightPosX, mapInfo.lightPosY, mapInfo.lightPosZ, 1.0);
-  var lightPosTS: vec3f = tbnTS * lightPosVS.xyz;
-  var lightDirTS: vec3f = normalize(lightPosTS - input.posTS);
+  var lightPosVS = spaceTransform.viewMatrix * vec4f(mapInfo.lightPosX, mapInfo.lightPosY, mapInfo.lightPosZ, 1.0);
+  var lightPosTS = tbnTS * lightPosVS.xyz;
+  var lightDirTS = normalize(lightPosTS - input.posTS);
   var lightDistanceTS = distance(input.posTS, lightPosTS);
 
   let depthMap = textureSample(depthTexture, textureSampler, input.uv); 
