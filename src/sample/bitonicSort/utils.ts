@@ -112,7 +112,7 @@ export const SampleInitFactoryWebGPU = async (
     const device = await adapter.requestDevice();
     if (!pageState.active) return;
     const context = canvas.getContext('webgpu') as GPUCanvasContext;
-    const devicePixelRatio = window.devicePixelRatio || 1;
+    const devicePixelRatio = window.devicePixelRatio;
     canvas.width = canvas.clientWidth * devicePixelRatio;
     canvas.height = canvas.clientHeight * devicePixelRatio;
     const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
