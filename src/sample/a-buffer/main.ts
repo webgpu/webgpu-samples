@@ -332,7 +332,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   };
 
   const configure = () => {
-    let devicePixelRatio = window.devicePixelRatio || 1;
+    let devicePixelRatio = window.devicePixelRatio;
 
     // The default maximum storage buffer binding size is 128Mib. The amount
     // of memory we need to store transparent fragments depends on the size

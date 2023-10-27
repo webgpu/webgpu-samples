@@ -38,11 +38,11 @@ export const createBindGroupDescriptor = (
 ): BindGroupsObjectsAndLayout => {
   const layoutEntries: GPUBindGroupLayoutEntry[] = [];
   for (let i = 0; i < bindings.length; i++) {
-    const layoutEntry: any = {};
-    layoutEntry.binding = bindings[i];
-    layoutEntry.visibility = visibilities[i % visibilities.length];
-    layoutEntry[resourceTypes[i]] = resourceLayouts[i];
-    layoutEntries.push(layoutEntry);
+    layoutEntries.push({
+      binding: bindings[i],
+      visibility: visibilities[i % visibilities.length],
+      [resourceTypes[i]]: resourceLayouts[i],
+    });
   }
 
   const bindGroupLayout = device.createBindGroupLayout({
@@ -58,10 +58,10 @@ export const createBindGroupDescriptor = (
   for (let i = 0; i < resources.length; i++) {
     const groupEntries: GPUBindGroupEntry[] = [];
     for (let j = 0; j < resources[0].length; j++) {
-      const groupEntry: any = {};
-      groupEntry.binding = j;
-      groupEntry.resource = resources[i][j];
-      groupEntries.push(groupEntry);
+      groupEntries.push({
+        binding: j,
+        resource: resources[i][j],
+      });
     }
     const newBindGroup = device.createBindGroup({
       label: `${label}.bindGroup${i}`,
@@ -112,7 +112,7 @@ export const SampleInitFactoryWebGPU = async (
     const device = await adapter.requestDevice();
     if (!pageState.active) return;
     const context = canvas.getContext('webgpu') as GPUCanvasContext;
-    const devicePixelRatio = window.devicePixelRatio || 1;
+    const devicePixelRatio = window.devicePixelRatio;
     canvas.width = canvas.clientWidth * devicePixelRatio;
     canvas.height = canvas.clientHeight * devicePixelRatio;
     const presentationFormat = navigator.gpu.getPreferredCanvasFormat();

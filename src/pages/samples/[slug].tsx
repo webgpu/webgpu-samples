@@ -48,6 +48,7 @@ export const pages: PageComponentType = {
   worker: dynamic(() => import('../../sample/worker/main')),
   'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
   bitonicSort: dynamic(() => import('../../sample/bitonicSort/main')),
+  normalMap: dynamic(() => import('../../sample/normalMap/main')),
 };
 
 function Page({ slug }: Props): JSX.Element {

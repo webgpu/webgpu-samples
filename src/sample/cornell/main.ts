@@ -39,7 +39,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   gui.add(params, 'renderer', ['rasterizer', 'raytracer']);
   gui.add(params, 'rotateCamera', true);
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
+  const devicePixelRatio = window.devicePixelRatio;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 

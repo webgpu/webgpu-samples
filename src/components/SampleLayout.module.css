@@ -21,6 +21,7 @@ nav.sourceFileNav li {
   display: inline-block;
   margin: 0;
   padding: 0;
+  transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 nav.sourceFileNav li a {
