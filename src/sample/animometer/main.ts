@@ -33,7 +33,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
+  const devicePixelRatio = window.devicePixelRatio;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -283,7 +283,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     const renderPassDescriptor = {
       colorAttachments: [
         {
-          view: undefined as any, // Assigned later
+          view: undefined as GPUTextureView, // Assigned later
           clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
           loadOp: 'clear' as const,
           storeOp: 'store' as const,
