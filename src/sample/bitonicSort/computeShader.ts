@@ -18,7 +18,7 @@ struct Uniforms {
 
 var<workgroup> local_data: array<u32, ${threadsPerWorkgroup * 2}>;
 
-//Compare and swap values in local_data
+// Compare and swap values in local_data
 fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
   //idx_before should always be < idx_after
   if (local_data[idx_after] < local_data[idx_before]) {
@@ -30,7 +30,7 @@ fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
 }
 
 // thread_id goes from 0 to threadsPerWorkgroup
-fn get_flip_indices(thread_id: u32, block_height: u32) {
+fn get_flip_indices(thread_id: u32, block_height: u32) -> vec2<u32> {
   let q: u32 = ((2 * thread_id) / block_height) * block_height;
   let half_height = block_height / 2;
   var idx: vec2<u32> = vec2<u32>(
@@ -38,10 +38,10 @@ fn get_flip_indices(thread_id: u32, block_height: u32) {
   );
   idx.x += q;
   idx.y += q;
-  local_compare_and_swap(idx.x, idx.y);
+  return idx;
 }
 
-fn get_disperse_indices(thread_id: u32, block_height: u32) {
+fn get_disperse_indices(thread_id: u32, block_height: u32) -> vec2<u32> {
   var q: u32 = ((2 * thread_id) / block_height) * block_height;
   let half_height = block_height / 2;
 	var idx: vec2<u32> = vec2<u32>(
@@ -49,18 +49,26 @@ fn get_disperse_indices(thread_id: u32, block_height: u32) {
   );
   idx.x += q;
   idx.y += q;
-	local_compare_and_swap(idx.x, idx.y);
+  return idx;
 }
 
 @group(0) @binding(0) var<storage, read> input_data: array<u32>;
 @group(0) @binding(1) var<storage, read_write> output_data: array<u32>;
 @group(0) @binding(2) var<uniform> uniforms: Uniforms;
 
+fn global_compare_and_swap(idx_before: u32, idx_after: u32) {
+  if (input_data[idx_after] < input_data[idx_before]) {
+    output_data[idx_before] = input_data[idx_after];
+    output_data[idx_after] = input_data[idx_before];
+  } 
+}
+
 // Our compute shader will execute specified # of threads or elements / 2 threads
 @compute @workgroup_size(${threadsPerWorkgroup}, 1, 1)
 fn computeMain(
   @builtin(global_invocation_id) global_id: vec3<u32>,
   @builtin(local_invocation_id) local_id: vec3<u32>,
+  @builtin(workgroup_id) workgroup: vec3<u32>,
 ) {
   //Each thread will populate the workgroup data... (1 thread for every 2 elements)
   local_data[local_id.x * 2] = input_data[local_id.x * 2];
@@ -72,18 +80,24 @@ fn computeMain(
   var num_elements = uniforms.width * uniforms.height;
 
   switch uniforms.algo {
-    case 1: { //Local Flip
-      get_flip_indices(local_id.x, uniforms.blockHeight);
+    case 1: { // Local Flip
+      let idx = get_flip_indices(local_id.x, uniforms.blockHeight);
+      local_compare_and_swap(idx.x, idx.y);
     }
-    case 2: { //Local Disperse
-      get_disperse_indices(local_id.x, uniforms.blockHeight);
+    case 2: { // Local Disperse
+      let idx = get_disperse_indices(local_id.x, uniforms.blockHeight);
+      local_compare_and_swap(idx.x, idx.y);
+    }
+    case 4: { // Global Flip
+      let idx = get_flip_indices(local_id.x, uniforms.blockHeight);
+      global_compare_and_swap(idx.x, idx.y);
     }
     default: { 
       
     }
   }
 
-  //Ensure that all threads have swapped their own regions of data
+  // Ensure that all threads have swapped their own regions of data
   workgroupBarrier();
 
   //Repopulate global data with local data

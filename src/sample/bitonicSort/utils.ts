@@ -9,7 +9,10 @@ type BindGroupBindingLayout =
   | GPUStorageTextureBindingLayout
   | GPUExternalTextureBindingLayout;
 
-export type BindGroupsObjectsAndLayout = {
+// An object containing
+// 1. A generated Bind Group Layout
+// 2. An array of Bind Groups that accord to that layout
+export type BindGroupCluster = {
   bindGroups: GPUBindGroup[];
   bindGroupLayout: GPUBindGroupLayout;
 };
@@ -27,7 +30,7 @@ type ResourceTypeName =
  * @param {ResourceTypeName[]} resourceTypes - The resourceType at the corresponding index.
  * @returns {BindGroupsObjectsAndLayout} An object containing an array of bindGroups and the bindGroupLayout they implement.
  */
-export const createBindGroupDescriptor = (
+export const createBindGroupCluster = (
   bindings: number[],
   visibilities: number[],
   resourceTypes: ResourceTypeName[],
@@ -35,7 +38,7 @@ export const createBindGroupDescriptor = (
   resources: GPUBindingResource[][],
   label: string,
   device: GPUDevice
-): BindGroupsObjectsAndLayout => {
+): BindGroupCluster => {
   const layoutEntries: GPUBindGroupLayoutEntry[] = [];
   for (let i = 0; i < bindings.length; i++) {
     const layoutEntry: any = {};

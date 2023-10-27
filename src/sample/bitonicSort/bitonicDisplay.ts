@@ -1,6 +1,6 @@
 import {
-  BindGroupsObjectsAndLayout,
-  createBindGroupDescriptor,
+  BindGroupCluster,
+  createBindGroupCluster,
   Base2DRendererClass,
 } from './utils';
 
@@ -19,14 +19,14 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
 
   switchBindGroup: (name: string) => void;
   setArguments: (args: BitonicDisplayRenderArgs) => void;
-  computeBGDescript: BindGroupsObjectsAndLayout;
+  computeBGDescript: BindGroupCluster;
 
   constructor(
     device: GPUDevice,
     presentationFormat: GPUTextureFormat,
     renderPassDescriptor: GPURenderPassDescriptor,
     bindGroupNames: string[],
-    computeBGDescript: BindGroupsObjectsAndLayout,
+    computeBGDescript: BindGroupCluster,
     label: string
   ) {
     super();
@@ -38,7 +38,7 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    const bgDescript = createBindGroupDescriptor(
+    const bgCluster = createBindGroupCluster(
       [0],
       [GPUShaderStage.FRAGMENT],
       ['buffer'],
@@ -48,19 +48,19 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
       device
     );
 
-    this.currentBindGroup = bgDescript.bindGroups[0];
+    this.currentBindGroup = bgCluster.bindGroups[0];
     this.currentBindGroupName = bindGroupNames[0];
 
     this.bindGroupMap = {};
 
-    bgDescript.bindGroups.forEach((bg, idx) => {
+    bgCluster.bindGroups.forEach((bg, idx) => {
       this.bindGroupMap[bindGroupNames[idx]] = bg;
     });
 
     this.pipeline = super.create2DRenderPipeline(
       device,
       label,
-      [bgDescript.bindGroupLayout, this.computeBGDescript.bindGroupLayout],
+      [bgCluster.bindGroupLayout, this.computeBGDescript.bindGroupLayout],
       bitonicDisplay,
       presentationFormat
     );
