@@ -32,7 +32,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     // Anything drawn to the OffscreenCanvas that call returns will automatically be displayed on
     // the source canvas on the page.
     const offscreenCanvas = canvas.transferControlToOffscreen();
-    const devicePixelRatio = window.devicePixelRatio || 1;
+    const devicePixelRatio = window.devicePixelRatio;
     offscreenCanvas.width = canvas.clientWidth * devicePixelRatio;
     offscreenCanvas.height = canvas.clientHeight * devicePixelRatio;
 

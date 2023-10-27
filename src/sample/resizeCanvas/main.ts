@@ -15,7 +15,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
 
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
-  const devicePixelRatio = window.devicePixelRatio || 1;
+  const devicePixelRatio = window.devicePixelRatio;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
 
