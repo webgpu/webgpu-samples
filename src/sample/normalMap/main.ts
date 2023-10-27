@@ -340,8 +340,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const depthFolder = gui.addFolder('Depth');
   lightFolder.add(settings, 'Reset Light').onChange(() => {
     lightPosXController.setValue(1.7);
-    lightPosYController.setValue(-0.7);
-    lightPosZController.setValue(1.9);
+    lightPosYController.setValue(0.7);
+    lightPosZController.setValue(-1.9);
     lightIntensityController.setValue(0.02);
   });
   const lightPosXController = lightFolder
