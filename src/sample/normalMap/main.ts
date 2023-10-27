@@ -4,10 +4,10 @@ import normalMapWGSL from './normalMap.wgsl';
 import { createMeshRenderable } from '../../meshes/mesh';
 import { createBoxMeshWithTangents } from '../../meshes/box';
 import {
-  PBRDescriptor,
-  createPBRDescriptor,
   createBindGroupDescriptor,
   create3DRenderPipeline,
+  createPBRDescriptor,
+  PBRDescriptor,
 } from './utils';
 
 const MAT4X4_BYTES = 64;

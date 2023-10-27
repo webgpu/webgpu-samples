@@ -221,7 +221,7 @@ export const createPBRDescriptor = async (
   device: GPUDevice,
   urls: string[]
 ): Promise<PBRDescriptor> => {
-  const imgAssetPrepend = '/img/';
+  const imgAssetPrepend = '../../../assets/img/';
   const loads = urls.map((url) => {
     const splits = url.split('_');
     const ttype = splits[splits.length - 1].split('.')[0];
@@ -234,11 +234,11 @@ export const createPBRDescriptor = async (
   console.log(loads);
   const pbr: PBRDescriptor = {};
   for (let i = 0; i < loads.length; i++) {
-    console.log(loads[i].url);
-    console.log(import.meta.url);
     let texture: GPUTexture;
     {
-      const response = await fetch(loads[i].url);
+      const url = new URL(loads[i].url, import.meta.url).toString();
+      console.log(url);
+      const response = await fetch(url);
       const imageBitmap = await createImageBitmap(await response.blob());
       texture = createTextureFromImage(device, imageBitmap);
     }

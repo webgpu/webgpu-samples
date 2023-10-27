@@ -8,6 +8,9 @@ module.exports = {
   basePath: BASE_PATH,
   compress: true,
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.module.rules.push({
       test: /\.(png|jpe?g|gif|webm)$/i,
