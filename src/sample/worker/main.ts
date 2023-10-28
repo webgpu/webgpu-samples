@@ -14,12 +14,6 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     // complexity. Here we establish a convention that all messages to and from the worker will
     // have a `type` field that we can use to determine the content of the message.
     switch (ev.data.type) {
-      case 'log': {
-        // Workers don't have a built-in mechanism for logging to the console, so it's useful to
-        // create a way to echo console messages.
-        console.log(ev.data.message);
-        break;
-      }
       default: {
         console.error(`Unknown Message Type: ${ev.data.type}`);
       }

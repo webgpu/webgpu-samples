@@ -21,10 +21,9 @@ self.addEventListener('message', (ev) => {
       try {
         init(ev.data.offscreenCanvas);
       } catch (err) {
-        self.postMessage({
-          type: 'log',
-          message: `Error while initializing WebGPU in worker process: ${err.message}`,
-        });
+        console.error(
+          `Error while initializing WebGPU in worker process: ${err.message}`
+        );
       }
       break;
     }
