@@ -110,9 +110,7 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   // Fetch the image and upload it into a GPUTexture.
   let cubeTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL('../../../assets/img/Di-3d.png', import.meta.url).toString()
-    );
+    const response = await fetch('/assets/img/Di-3d.png');
     const imageBitmap = await createImageBitmap(await response.blob());
 
     cubeTexture = device.createTexture({

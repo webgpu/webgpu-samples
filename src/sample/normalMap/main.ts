@@ -91,96 +91,56 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   // Fetch the image and upload it into a GPUTexture.
   let woodDiffuseTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/wood_diffuse.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/wood_diffuse.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     woodDiffuseTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let spiralNormalTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/spiral_normal.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/spiral_normal.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     spiralNormalTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let spiralHeightTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/spiral_height.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/spiral_height.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     spiralHeightTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let toyboxNormalTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/toybox_normal.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/toybox_normal.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     toyboxNormalTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let toyboxHeightTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/toybox_height.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/toybox_height.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     toyboxHeightTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let brickwallDiffuseTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/brickwall_diffuse.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/brickwall_diffuse.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     brickwallDiffuseTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let brickwallNormalTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/brickwall_normal.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/brickwall_normal.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     brickwallNormalTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let brickwallHeightTexture: GPUTexture;
   {
-    const response = await fetch(
-      new URL(
-        '../../../assets/img/brickwall_height.png',
-        import.meta.url
-      ).toString()
-    );
+    const response = await fetch('/assets/img/brickwall_height.png');
     const imageBitmap = await createImageBitmap(await response.blob());
     brickwallHeightTexture = createTextureFromImage(device, imageBitmap);
   }
