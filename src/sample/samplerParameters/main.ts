@@ -164,7 +164,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const kScaleFactor = Math.floor(kCanvasLayoutDevicePixels / kCanvasSize);
   const kCanvasDevicePixels = kScaleFactor * kCanvasSize;
   const kCanvasCSSSize = kCanvasDevicePixels / devicePixelRatio;
-  console.log(kCanvasDevicePixels, kCanvasCSSSize);
   canvas.style.imageRendering = 'pixelated';
   canvas.width = canvas.height = kCanvasSize;
   canvas.style.minWidth = canvas.style.maxWidth = kCanvasCSSSize + 'px';
