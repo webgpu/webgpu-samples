@@ -4,10 +4,9 @@ import normalMapWGSL from './normalMap.wgsl';
 import { createMeshRenderable } from '../../meshes/mesh';
 import { createBoxMeshWithTangents } from '../../meshes/box';
 import {
-  PBRDescriptor,
-  createPBRDescriptor,
   createBindGroupDescriptor,
   create3DRenderPipeline,
+  createTextureFromImage,
 } from './utils';
 
 const MAT4X4_BYTES = 64;
@@ -89,35 +88,101 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  // Create PBR info (diffuse, normal, and depth/height textures)
-  let spiralPBR: Required<PBRDescriptor>;
+  // Fetch the image and upload it into a GPUTexture.
+  let woodDiffuseTexture: GPUTexture;
   {
-    const response = await createPBRDescriptor(device, [
-      'wood_diffuse.png',
-      'spiral_normal.png',
-      'spiral_height.png',
-    ]);
-    spiralPBR = response as Required<PBRDescriptor>;
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/wood_diffuse.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    woodDiffuseTexture = createTextureFromImage(device, imageBitmap);
   }
 
-  let toyboxPBR: Required<PBRDescriptor>;
+  let spiralNormalTexture: GPUTexture;
   {
-    const response = await createPBRDescriptor(device, [
-      'wood_diffuse.png',
-      'toybox_normal.png',
-      'toybox_height.png',
-    ]);
-    toyboxPBR = response as Required<PBRDescriptor>;
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/spiral_normal.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    spiralNormalTexture = createTextureFromImage(device, imageBitmap);
   }
 
-  let brickWallPBR: Required<PBRDescriptor>;
+  let spiralHeightTexture: GPUTexture;
   {
-    const response = await createPBRDescriptor(device, [
-      'brickwall_diffuse.png',
-      'brickwall_normal.png',
-      'brickwall_height.png',
-    ]);
-    brickWallPBR = response as Required<PBRDescriptor>;
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/spiral_height.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    spiralHeightTexture = createTextureFromImage(device, imageBitmap);
+  }
+
+  let toyboxNormalTexture: GPUTexture;
+  {
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/toybox_normal.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    toyboxNormalTexture = createTextureFromImage(device, imageBitmap);
+  }
+
+  let toyboxHeightTexture: GPUTexture;
+  {
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/toybox_height.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    toyboxHeightTexture = createTextureFromImage(device, imageBitmap);
+  }
+
+  let brickwallDiffuseTexture: GPUTexture;
+  {
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/brickwall_diffuse.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    brickwallDiffuseTexture = createTextureFromImage(device, imageBitmap);
+  }
+
+  let brickwallNormalTexture: GPUTexture;
+  {
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/brickwall_normal.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    brickwallNormalTexture = createTextureFromImage(device, imageBitmap);
+  }
+
+  let brickwallHeightTexture: GPUTexture;
+  {
+    const response = await fetch(
+      new URL(
+        '../../../assets/img/brickwall_height.png',
+        import.meta.url
+      ).toString()
+    );
+    const imageBitmap = await createImageBitmap(await response.blob());
+    brickwallHeightTexture = createTextureFromImage(device, imageBitmap);
   }
 
   // Create a sampler with linear filtering for smooth interpolation.
@@ -179,21 +244,21 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     [
       [
         sampler,
-        spiralPBR.diffuse.createView(),
-        spiralPBR.normal.createView(),
-        spiralPBR.height.createView(),
+        woodDiffuseTexture.createView(),
+        spiralNormalTexture.createView(),
+        spiralHeightTexture.createView(),
       ],
       [
         sampler,
-        toyboxPBR.diffuse.createView(),
-        toyboxPBR.normal.createView(),
-        toyboxPBR.height.createView(),
+        woodDiffuseTexture.createView(),
+        toyboxNormalTexture.createView(),
+        toyboxHeightTexture.createView(),
       ],
       [
         sampler,
-        brickWallPBR.diffuse.createView(),
-        brickWallPBR.normal.createView(),
-        brickWallPBR.height.createView(),
+        brickwallDiffuseTexture.createView(),
+        brickwallNormalTexture.createView(),
+        brickwallHeightTexture.createView(),
       ],
     ],
     'Surface',
@@ -219,7 +284,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   function getModelMatrix() {
     const modelMatrix = mat4.create();
     mat4.identity(modelMatrix);
-    mat4.rotateX(modelMatrix, 10, modelMatrix);
     const now = Date.now() / 1000;
     mat4.rotateY(modelMatrix, now * -0.5, modelMatrix);
     return modelMatrix;
@@ -275,8 +339,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const depthFolder = gui.addFolder('Depth');
   lightFolder.add(settings, 'Reset Light').onChange(() => {
     lightPosXController.setValue(1.7);
-    lightPosYController.setValue(-0.7);
-    lightPosZController.setValue(1.9);
+    lightPosYController.setValue(0.7);
+    lightPosZController.setValue(-1.9);
     lightIntensityController.setValue(0.02);
   });
   const lightPosXController = lightFolder
