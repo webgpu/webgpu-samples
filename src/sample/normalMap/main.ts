@@ -284,7 +284,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   function getModelMatrix() {
     const modelMatrix = mat4.create();
     mat4.identity(modelMatrix);
-    mat4.rotateX(modelMatrix, 0, modelMatrix);
     const now = Date.now() / 1000;
     mat4.rotateY(modelMatrix, now * -0.5, modelMatrix);
     return modelMatrix;
