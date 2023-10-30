@@ -1,0 +1,11 @@
+html, body {
+  margin: 0;
+  height: 100%;
+}
+#canvas {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1;
+  display: block;
+  margin: 0 auto;
+}
