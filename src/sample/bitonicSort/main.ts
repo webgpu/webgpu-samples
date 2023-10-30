@@ -368,10 +368,7 @@ SampleInitFactoryWebGPU(
 
     // Information about grid display
     const gridFolder = gui.addFolder('Grid Information');
-    const displayModeController = gridFolder.add(settings, 'Display Mode', [
-      'Elements',
-      'Swap Highlight',
-    ]);
+    gridFolder.add(settings, 'Display Mode', ['Elements', 'Swap Highlight']);
     const gridWidthController = gridFolder.add(settings, 'Grid Width');
     const gridHeightController = gridFolder.add(settings, 'Grid Height');
     const hoveredCellController = gridFolder
