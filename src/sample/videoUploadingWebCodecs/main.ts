@@ -9,7 +9,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   video.loop = true;
   video.autoplay = true;
   video.muted = true;
-  video.src = '/assets/video/pano.webm';
+  video.src = new URL(
+    '../../../assets/video/pano.webm',
+    import.meta.url
+  ).toString();
   await video.play();
 
   const adapter = await navigator.gpu.requestAdapter();
