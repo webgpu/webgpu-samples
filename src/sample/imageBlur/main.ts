@@ -64,7 +64,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     minFilter: 'linear',
   });
 
-  const response = await fetch('/assets/img/Di-3d.png');
+  const response = await fetch('../assets/img/Di-3d.png');
   const imageBitmap = await createImageBitmap(await response.blob());
 
   const [srcWidth, srcHeight] = [imageBitmap.width, imageBitmap.height];
