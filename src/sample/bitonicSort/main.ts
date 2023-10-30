@@ -11,10 +11,16 @@ enum StepEnum {
   FLIP_LOCAL,
   DISPERSE_LOCAL,
   FLIP_GLOBAL,
+  DISPERSE_GLOBAL,
 }
 
 // String access to StepEnum
-type StepType = 'NONE' | 'FLIP_LOCAL' | 'DISPERSE_LOCAL' | 'FLIP_GLOBAL';
+type StepType =
+  | 'NONE'
+  | 'FLIP_LOCAL'
+  | 'DISPERSE_LOCAL'
+  | 'FLIP_GLOBAL'
+  | 'DISPERSE_GLOBAL';
 
 type DisplayType = 'Elements' | 'Swap Highlight';
 
@@ -50,10 +56,10 @@ const getNumSteps = (numElements: number) => {
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
-    const maxWorkgroupsX = device.limits.maxComputeWorkgroupSizeX;
+    const maxThreadsX = device.limits.maxComputeWorkgroupSizeX;
 
     const totalElementLengths = [];
-    const maxElements = maxWorkgroupsX * 2;
+    const maxElements = maxThreadsX * 32;
     for (let i = maxElements; i >= 4; i /= 2) {
       totalElementLengths.push(i);
     }
@@ -73,7 +79,7 @@ SampleInitFactoryWebGPU(
       // height of screen in cells
       'Grid Height': defaultGridHeight,
       // number of threads to execute in a workgroup ('Total Threads', 1, 1)
-      'Total Threads': maxWorkgroupsX,
+      'Total Threads': maxThreadsX,
       // Cell in element grid mouse element is hovering over
       'Hovered Cell': 0,
       // element the hovered cell just swapped with,
@@ -91,7 +97,7 @@ SampleInitFactoryWebGPU(
       // Max thread span of next block
       'Next Swap Span': 2,
       // Workgroups to dispatch per frame,
-      'Total Workgroups': maxElements / (maxWorkgroupsX * 2),
+      'Total Workgroups': maxElements / (maxThreadsX * 2),
       // Whether we will dispatch a workload this frame
       executeStep: false,
       'Display Mode': 'Elements',
@@ -195,12 +201,12 @@ SampleInitFactoryWebGPU(
     const resetExecutionInformation = () => {
       // Total threads are either elements / 2 or maxWorkgroupsSizeX
       totalThreadsController.setValue(
-        Math.min(settings['Total Elements'] / 2, maxWorkgroupsX)
+        Math.min(settings['Total Elements'] / 2, maxThreadsX)
       );
 
       // Dispatch a workgroup for every (Max threads * 2) elements
       const workgroupsPerStep =
-        (settings['Total Elements'] - 1) / (maxWorkgroupsX * 2);
+        (settings['Total Elements'] - 1) / (maxThreadsX * 2);
 
       totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
 
@@ -506,7 +512,9 @@ SampleInitFactoryWebGPU(
             nextBlockHeightController.setValue(highestBlockHeight);
           }
         } else {
-          nextStepController.setValue('DISPERSE_LOCAL');
+          settings['Next Swap Span'] > settings['Total Threads'] * 2
+            ? nextStepController.setValue('DISPERSE_GLOBAL')
+            : nextStepController.setValue('DISPERSE_LOCAL');
         }
         commandEncoder.copyBufferToBuffer(
           elementsOutputBuffer,

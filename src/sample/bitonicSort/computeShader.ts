@@ -80,11 +80,14 @@ fn computeMain(
   @builtin(workgroup_id) workgroup_id: vec3<u32>,
 ) {
 
+  let offset = ${threadsPerWorkgroup} * 2 * workgroup_id.x;
   // If we will perform a local swap, then populate the local data
   if (uniforms.algo <= 2) {
-    //Each thread will populate the workgroup data... (1 thread for every 2 elements)
-    local_data[global_id.x * 2] = input_data[global_id.x * 2];
-    local_data[global_id.x * 2 + 1] = input_data[global_id.x * 2 + 1];
+    // Assign range of input_data to local_data.
+    // Range cannot exceed maxWorkgroupsX * 2
+    // Each thread will populate the workgroup data... (1 thread for every 2 elements)
+    local_data[local_id.x * 2] = input_data[offset + local_id.x * 2];
+    local_data[local_id.x * 2 + 1] = input_data[offset + local_id.x * 2 + 1];
   }
 
   //...and wait for each other to finish their own bit of data population.
@@ -92,18 +95,21 @@ fn computeMain(
 
   switch uniforms.algo {
     case 1: { // Local Flip
-      let idx = get_flip_indices(global_id.x, uniforms.blockHeight);
+      let idx = get_flip_indices(local_id.x, uniforms.blockHeight);
       local_compare_and_swap(idx.x, idx.y);
     } 
     case 2: { // Local Disperse
-      let idx = get_disperse_indices(global_id.x, uniforms.blockHeight);
+      let idx = get_disperse_indices(local_id.x, uniforms.blockHeight);
       local_compare_and_swap(idx.x, idx.y);
     } 
     case 3: { // Global Flip
       let idx = get_flip_indices(global_id.x, uniforms.blockHeight);
       global_compare_and_swap(idx.x, idx.y);
     }
-    // case 4: { //Global Disperse
+    case 4: { 
+      let idx = get_disperse_indices(global_id.x, uniforms.blockHeight);
+      global_compare_and_swap(idx.x, idx.y);
+    }
     default: { 
       
     }
@@ -114,8 +120,8 @@ fn computeMain(
 
   if (uniforms.algo <= ALGO_LOCAL_DISPERSE) {
     //Repopulate global data with local data
-    output_data[local_id.x * 2] = local_data[local_id.x * 2];
-    output_data[local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
+    output_data[offset + local_id.x * 2] = local_data[local_id.x * 2];
+    output_data[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
   }
 
 }`;
