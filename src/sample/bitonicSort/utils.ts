@@ -137,7 +137,10 @@ export const SampleInitFactoryWebGPU = async (
 
 export abstract class Base2DRendererClass {
   abstract switchBindGroup(name: string): void;
-  abstract startRun(commandEncoder: GPUCommandEncoder, ...args: any[]): void;
+  abstract startRun(
+    commandEncoder: GPUCommandEncoder,
+    ...args: unknown[]
+  ): void;
   renderPassDescriptor: GPURenderPassDescriptor;
   pipeline: GPURenderPipeline;
   bindGroupMap: Record<string, GPUBindGroup>;
