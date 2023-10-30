@@ -16,6 +16,8 @@ enum StepEnum {
 // String access to StepEnum
 type StepType = 'NONE' | 'FLIP_LOCAL' | 'DISPERSE_LOCAL' | 'FLIP_GLOBAL';
 
+type DisplayType = 'Elements' | 'Swap Highlight';
+
 // Gui settings object
 interface SettingsInterface {
   'Total Elements': number;
@@ -31,6 +33,7 @@ interface SettingsInterface {
   'Prev Swap Span': number;
   'Next Swap Span': number;
   'Total Workgroups': number;
+  'Display Mode': DisplayType;
   executeStep: boolean;
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
@@ -91,6 +94,7 @@ SampleInitFactoryWebGPU(
       'Total Workgroups': maxElements / (maxWorkgroupsX * 2),
       // Whether we will dispatch a workload this frame
       executeStep: false,
+      'Display Mode': 'Elements',
       'Randomize Values': () => {
         return;
       },
@@ -140,7 +144,7 @@ SampleInitFactoryWebGPU(
       [
         GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
         GPUShaderStage.COMPUTE,
-        GPUShaderStage.COMPUTE,
+        GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
       ],
       ['buffer', 'buffer', 'buffer'],
       [{ type: 'read-only-storage' }, { type: 'storage' }, { type: 'uniform' }],
@@ -184,7 +188,6 @@ SampleInitFactoryWebGPU(
       device,
       presentationFormat,
       renderPassDescriptor,
-      ['default'],
       computeBGCluster,
       'BitonicDisplay'
     );
@@ -365,6 +368,10 @@ SampleInitFactoryWebGPU(
 
     // Information about grid display
     const gridFolder = gui.addFolder('Grid Information');
+    const displayModeController = gridFolder.add(settings, 'Display Mode', [
+      'Elements',
+      'Swap Highlight',
+    ]);
     const gridWidthController = gridFolder.add(settings, 'Grid Width');
     const gridHeightController = gridFolder.add(settings, 'Grid Height');
     const hoveredCellController = gridFolder
@@ -474,8 +481,7 @@ SampleInitFactoryWebGPU(
 
       const commandEncoder = device.createCommandEncoder();
       bitonicDisplayRenderer.startRun(commandEncoder, {
-        width: settings['Grid Width'],
-        height: settings['Grid Height'],
+        highlight: settings['Display Mode'] === 'Elements' ? 0 : 1,
       });
       if (
         settings.executeStep &&

@@ -1,14 +1,13 @@
 import {
   BindGroupCluster,
-  createBindGroupCluster,
   Base2DRendererClass,
+  createBindGroupCluster,
 } from './utils';
 
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
 
 interface BitonicDisplayRenderArgs {
-  width: number;
-  height: number;
+  highlight: number;
 }
 
 export default class BitonicDisplayRenderer extends Base2DRendererClass {
@@ -25,7 +24,6 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
     device: GPUDevice,
     presentationFormat: GPUTextureFormat,
     renderPassDescriptor: GPURenderPassDescriptor,
-    bindGroupNames: string[],
     computeBGDescript: BindGroupCluster,
     label: string
   ) {
@@ -34,7 +32,7 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
     this.computeBGDescript = computeBGDescript;
 
     const uniformBuffer = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * 2,
+      size: Uint32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -49,40 +47,29 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
     );
 
     this.currentBindGroup = bgCluster.bindGroups[0];
-    this.currentBindGroupName = bindGroupNames[0];
-
-    this.bindGroupMap = {};
-
-    bgCluster.bindGroups.forEach((bg, idx) => {
-      this.bindGroupMap[bindGroupNames[idx]] = bg;
-    });
 
     this.pipeline = super.create2DRenderPipeline(
       device,
       label,
-      [bgCluster.bindGroupLayout, this.computeBGDescript.bindGroupLayout],
+      [this.computeBGDescript.bindGroupLayout, bgCluster.bindGroupLayout],
       bitonicDisplay,
       presentationFormat
     );
 
-    this.switchBindGroup = (name: string) => {
-      this.currentBindGroup = this.bindGroupMap[name];
-      this.currentBindGroupName = name;
-    };
-
     this.setArguments = (args: BitonicDisplayRenderArgs) => {
-      super.setUniformArguments(device, uniformBuffer, args, [
-        'width',
-        'height',
-      ]);
+      device.queue.writeBuffer(
+        uniformBuffer,
+        0,
+        new Uint32Array([args.highlight])
+      );
     };
   }
 
   startRun(commandEncoder: GPUCommandEncoder, args: BitonicDisplayRenderArgs) {
     this.setArguments(args);
     super.executeRun(commandEncoder, this.renderPassDescriptor, this.pipeline, [
-      this.currentBindGroup,
       this.computeBGDescript.bindGroups[0],
+      this.currentBindGroup,
     ]);
   }
 }
