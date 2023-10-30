@@ -1,6 +1,8 @@
 struct Uniforms {
   width: f32,
   height: f32,
+  algo: u32,
+  blockHeight: u32,
 }
 
 struct VertexOutput {
@@ -9,7 +11,6 @@ struct VertexOutput {
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
-@group(1) @binding(0) var<storage, read> data: array<u32>;
 
 @fragment
 fn frag_main(input: VertexOutput) -> @location(0) vec4<f32> {

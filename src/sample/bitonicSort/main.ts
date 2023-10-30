@@ -10,17 +10,11 @@ enum StepEnum {
   NONE,
   FLIP_LOCAL,
   DISPERSE_LOCAL,
-  FLIP_DISPERSE_LOCAL,
   FLIP_GLOBAL,
 }
 
 // String access to StepEnum
-type StepType =
-  | 'NONE'
-  | 'FLIP_LOCAL'
-  | 'DISPERSE_LOCAL'
-  | 'FLIP_DISPERSE_LOCAL'
-  | 'FLIP_GLOBAL';
+type StepType = 'NONE' | 'FLIP_LOCAL' | 'DISPERSE_LOCAL' | 'FLIP_GLOBAL';
 
 // Gui settings object
 interface SettingsInterface {
@@ -94,7 +88,7 @@ SampleInitFactoryWebGPU(
       // Max thread span of next block
       'Next Swap Span': 2,
       // Workgroups to dispatch per frame,
-      'Total Workgroups': 1,
+      'Total Workgroups': maxElements / (maxWorkgroupsX * 2),
       // Whether we will dispatch a workload this frame
       executeStep: false,
       'Randomize Values': () => {
@@ -275,6 +269,7 @@ SampleInitFactoryWebGPU(
       let swappedIndex: number;
       switch (settings['Next Step']) {
         case 'FLIP_LOCAL':
+        case 'FLIP_GLOBAL':
           {
             const blockHeight = settings['Next Swap Span'];
             const p2 = Math.floor(settings['Hovered Cell'] / blockHeight) + 1;
@@ -497,16 +492,16 @@ SampleInitFactoryWebGPU(
         nextBlockHeightController.setValue(settings['Next Swap Span'] / 2);
         if (settings['Next Swap Span'] === 1) {
           highestBlockHeight *= 2;
-          nextStepController.setValue(
-            highestBlockHeight === settings['Total Elements'] * 2
-              ? 'NONE'
-              : 'FLIP_LOCAL'
-          );
-          nextBlockHeightController.setValue(
-            highestBlockHeight === settings['Total Elements'] * 2
-              ? 0
-              : highestBlockHeight
-          );
+          if (highestBlockHeight === settings['Total Elements'] * 2) {
+            nextStepController.setValue('NONE');
+            nextBlockHeightController.setValue(0);
+          } else if (highestBlockHeight > settings['Total Threads'] * 2) {
+            nextStepController.setValue('FLIP_GLOBAL');
+            nextBlockHeightController.setValue(highestBlockHeight);
+          } else {
+            nextStepController.setValue('FLIP_LOCAL');
+            nextBlockHeightController.setValue(highestBlockHeight);
+          }
         } else {
           nextStepController.setValue('DISPERSE_LOCAL');
         }
