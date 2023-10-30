@@ -185,7 +185,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   let textureHeight = 1;
   let numMipLevels = 1;
   {
-    const response = await fetch('/assets/img/webgpu.png');
+    const response = await fetch('../assets/img/webgpu.png');
     const imageBitmap = await createImageBitmap(await response.blob());
 
     // Calculate number of mip levels required to generate the probability map
