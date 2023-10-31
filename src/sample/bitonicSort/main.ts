@@ -1,17 +1,18 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { SampleInitFactoryWebGPU } from './utils';
-import { createBindGroupDescriptor } from './utils';
+import { createBindGroupCluster, SampleInitFactoryWebGPU } from './utils';
 import BitonicDisplayRenderer from './bitonicDisplay';
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
 import { NaiveBitonicCompute } from './computeShader';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
+import atomicToZero from './atomicToZero.wgsl';
 
 // Type of step that will be executed in our shader
 enum StepEnum {
-  NONE = 0,
-  FLIP_LOCAL = 1,
-  DISPERSE_LOCAL = 2,
-  FLIP_DISPERSE_LOCAL = 3,
+  NONE,
+  FLIP_LOCAL,
+  DISPERSE_LOCAL,
+  FLIP_GLOBAL,
+  DISPERSE_GLOBAL,
 }
 
 // String access to StepEnum
@@ -19,7 +20,10 @@ type StepType =
   | 'NONE'
   | 'FLIP_LOCAL'
   | 'DISPERSE_LOCAL'
-  | 'FLIP_DISPERSE_LOCAL';
+  | 'FLIP_GLOBAL'
+  | 'DISPERSE_GLOBAL';
+
+type DisplayType = 'Elements' | 'Swap Highlight';
 
 // Gui settings object
 interface SettingsInterface {
@@ -27,44 +31,65 @@ interface SettingsInterface {
   'Grid Width': number;
   'Grid Height': number;
   'Total Threads': number;
-  hoveredElement: number;
-  swappedElement: number;
+  'Hovered Cell': number;
+  'Swapped Cell': number;
+  'Step Index': number;
+  'Total Steps': number;
   'Prev Step': StepType;
   'Next Step': StepType;
   'Prev Swap Span': number;
   'Next Swap Span': number;
-  workLoads: number;
+  'Total Workgroups': number;
+  'Display Mode': DisplayType;
+  'Total Swaps': number;
   executeStep: boolean;
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
   'Complete Sort': () => void;
-  sortSpeed: number;
+  'Sort Speed': number;
 }
+
+const getNumSteps = (numElements: number) => {
+  const n = Math.log2(numElements);
+  return (n * (n + 1)) / 2;
+};
 
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
-    const maxWorkgroupsX = device.limits.maxComputeWorkgroupSizeX;
+    const maxThreadsX = device.limits.maxComputeWorkgroupSizeX;
 
     const totalElementLengths = [];
-    for (let i = maxWorkgroupsX * 2; i >= 4; i /= 2) {
+    const maxElements = maxThreadsX * 32;
+    for (let i = maxElements; i >= 4; i /= 2) {
       totalElementLengths.push(i);
     }
 
+    const defaultGridWidth =
+      Math.sqrt(maxElements) % 2 === 0
+        ? Math.floor(Math.sqrt(maxElements))
+        : Math.floor(Math.sqrt(maxElements / 2));
+
+    const defaultGridHeight = maxElements / defaultGridWidth;
+
     const settings: SettingsInterface = {
       // number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
-      'Total Elements': 16,
+      'Total Elements': maxElements,
       // width of screen in cells.
-      'Grid Width': 4,
+      'Grid Width': defaultGridWidth,
       // height of screen in cells
-      'Grid Height': 4,
+      'Grid Height': defaultGridHeight,
       // number of threads to execute in a workgroup ('Total Threads', 1, 1)
-      'Total Threads': 16 / 2,
-      // currently highlighted element
-      hoveredElement: 0,
-      // element the hoveredElement just swapped with,
-      swappedElement: 1,
+      'Total Threads': maxThreadsX,
+      // Cell in element grid mouse element is hovering over
+      'Hovered Cell': 0,
+      // element the hovered cell just swapped with,
+      'Swapped Cell': 1,
+      // Index of current step
+      'Step Index': 0,
+      // Total steps to sort current number of elements
+      'Total Steps': getNumSteps(maxElements),
       // Previously executed step
       'Prev Step': 'NONE',
       // Next step to execute
@@ -73,10 +98,13 @@ SampleInitFactoryWebGPU(
       'Prev Swap Span': 0,
       // Max thread span of next block
       'Next Swap Span': 2,
-      // workloads to dispatch per frame,
-      workLoads: 1,
+      // Workgroups to dispatch per frame,
+      'Total Workgroups': maxElements / (maxThreadsX * 2),
+      // The number of swap operations executed over time
+      'Total Swaps': 0,
       // Whether we will dispatch a workload this frame
       executeStep: false,
+      'Display Mode': 'Elements',
       'Randomize Values': () => {
         return;
       },
@@ -89,7 +117,7 @@ SampleInitFactoryWebGPU(
       'Complete Sort': () => {
         return;
       },
-      sortSpeed: 200,
+      'Sort Speed': 50,
     };
 
     // Initialize initial elements array
@@ -98,7 +126,8 @@ SampleInitFactoryWebGPU(
     );
 
     // Initialize elementsBuffer and elementsStagingBuffer
-    const elementsBufferSize = Float32Array.BYTES_PER_ELEMENT * 512;
+    const elementsBufferSize =
+      Float32Array.BYTES_PER_ELEMENT * totalElementLengths[0];
     // Initialize input, output, staging buffers
     const elementsInputBuffer = device.createBuffer({
       size: elementsBufferSize,
@@ -113,6 +142,17 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
+    // Initialize atomic swap buffer on GPU and CPU. Counts number of swaps actually performed by
+    // compute shader (when value at index x is greater than value at index y)
+    const atomicSwapsOutputBuffer = device.createBuffer({
+      size: Uint32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    });
+    const atomicSwapsStagingBuffer = device.createBuffer({
+      size: Uint32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+
     // Create uniform buffer for compute shader
     const computeUniformsBuffer = device.createBuffer({
       // width, height, blockHeight, algo
@@ -120,35 +160,55 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    const computeBGDescript = createBindGroupDescriptor(
-      [0, 1, 2],
+    const computeBGCluster = createBindGroupCluster(
+      [0, 1, 2, 3],
       [
         GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
         GPUShaderStage.COMPUTE,
+        GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
         GPUShaderStage.COMPUTE,
       ],
-      ['buffer', 'buffer', 'buffer'],
-      [{ type: 'read-only-storage' }, { type: 'storage' }, { type: 'uniform' }],
+      ['buffer', 'buffer', 'buffer', 'buffer'],
+      [
+        { type: 'read-only-storage' },
+        { type: 'storage' },
+        { type: 'uniform' },
+        { type: 'storage' },
+      ],
       [
         [
           { buffer: elementsInputBuffer },
           { buffer: elementsOutputBuffer },
           { buffer: computeUniformsBuffer },
+          { buffer: atomicSwapsOutputBuffer },
         ],
       ],
-      'NaiveBitonicSort',
+      'BitonicSort',
       device
     );
 
     let computePipeline = device.createComputePipeline({
       layout: device.createPipelineLayout({
-        bindGroupLayouts: [computeBGDescript.bindGroupLayout],
+        bindGroupLayouts: [computeBGCluster.bindGroupLayout],
       }),
       compute: {
         module: device.createShaderModule({
           code: NaiveBitonicCompute(settings['Total Threads']),
         }),
         entryPoint: 'computeMain',
+      },
+    });
+
+    // Simple pipeline that zeros out an atomic value at group 0 binding 3
+    const atomicToZeroComputePipeline = device.createComputePipeline({
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [computeBGCluster.bindGroupLayout],
+      }),
+      compute: {
+        module: device.createShaderModule({
+          code: atomicToZero,
+        }),
+        entryPoint: 'atomicToZero',
       },
     });
 
@@ -169,13 +229,25 @@ SampleInitFactoryWebGPU(
       device,
       presentationFormat,
       renderPassDescriptor,
-      ['default'],
-      computeBGDescript,
+      computeBGCluster,
       'BitonicDisplay'
     );
 
     const resetExecutionInformation = () => {
-      totalThreadsCell.setValue(settings['Total Elements'] / 2);
+      // Total threads are either elements / 2 or maxWorkgroupsSizeX
+      totalThreadsController.setValue(
+        Math.min(settings['Total Elements'] / 2, maxThreadsX)
+      );
+
+      // Dispatch a workgroup for every (Max threads * 2) elements
+      const workgroupsPerStep =
+        (settings['Total Elements'] - 1) / (maxThreadsX * 2);
+
+      totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
+
+      // Reset step Index and number of steps based on elements size
+      stepIndexController.setValue(0);
+      totalStepsController.setValue(getNumSteps(settings['Total Elements']));
 
       // Get new width and height of screen display in cells
       const newCellWidth =
@@ -183,16 +255,27 @@ SampleInitFactoryWebGPU(
           ? Math.floor(Math.sqrt(settings['Total Elements']))
           : Math.floor(Math.sqrt(settings['Total Elements'] / 2));
       const newCellHeight = settings['Total Elements'] / newCellWidth;
-      gridWidthCell.setValue(newCellWidth);
-      gridHeightCell.setValue(newCellHeight);
+      gridWidthController.setValue(newCellWidth);
+      gridHeightController.setValue(newCellHeight);
 
       // Set prevStep to None (restart) and next step to FLIP
-      prevStepCell.setValue('NONE');
-      nextStepCell.setValue('FLIP_LOCAL');
+      prevStepController.setValue('NONE');
+      nextStepController.setValue('FLIP_LOCAL');
 
       // Reset block heights
-      prevBlockHeightCell.setValue(0);
-      nextBlockHeightCell.setValue(2);
+      prevBlockHeightController.setValue(0);
+      nextBlockHeightController.setValue(2);
+
+      // Reset Total Swaps by setting atomic value to 0
+      const commandEncoder = device.createCommandEncoder();
+      const computePassEncoder = commandEncoder.beginComputePass();
+      computePassEncoder.setPipeline(atomicToZeroComputePipeline);
+      computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
+      computePassEncoder.dispatchWorkgroups(1);
+      computePassEncoder.end();
+      device.queue.submit([commandEncoder.finish()]);
+      totalSwapsController.setValue(0);
+
       highestBlockHeight = 2;
     };
 
@@ -221,7 +304,7 @@ SampleInitFactoryWebGPU(
       // Create new shader invocation with workgroupSize that reflects number of threads
       computePipeline = device.createComputePipeline({
         layout: device.createPipelineLayout({
-          bindGroupLayouts: [computeBGDescript.bindGroupLayout],
+          bindGroupLayouts: [computeBGCluster.bindGroupLayout],
         }),
         compute: {
           module: device.createShaderModule({
@@ -237,16 +320,17 @@ SampleInitFactoryWebGPU(
 
     randomizeElementArray();
 
-    const setSwappedElement = () => {
+    const setSwappedCell = () => {
       let swappedIndex: number;
       switch (settings['Next Step']) {
         case 'FLIP_LOCAL':
+        case 'FLIP_GLOBAL':
           {
             const blockHeight = settings['Next Swap Span'];
-            const p2 = Math.floor(settings.hoveredElement / blockHeight) + 1;
-            const p3 = settings.hoveredElement % blockHeight;
+            const p2 = Math.floor(settings['Hovered Cell'] / blockHeight) + 1;
+            const p3 = settings['Hovered Cell'] % blockHeight;
             swappedIndex = blockHeight * p2 - p3 - 1;
-            swappedElementCell.setValue(swappedIndex);
+            swappedCellController.setValue(swappedIndex);
           }
           break;
         case 'DISPERSE_LOCAL':
@@ -254,20 +338,20 @@ SampleInitFactoryWebGPU(
             const blockHeight = settings['Next Swap Span'];
             const halfHeight = blockHeight / 2;
             swappedIndex =
-              settings.hoveredElement % blockHeight < halfHeight
-                ? settings.hoveredElement + halfHeight
-                : settings.hoveredElement - halfHeight;
-            swappedElementCell.setValue(swappedIndex);
+              settings['Hovered Cell'] % blockHeight < halfHeight
+                ? settings['Hovered Cell'] + halfHeight
+                : settings['Hovered Cell'] - halfHeight;
+            swappedCellController.setValue(swappedIndex);
           }
           break;
         case 'NONE': {
-          swappedIndex = settings.hoveredElement;
-          swappedElementCell.setValue(swappedIndex);
+          swappedIndex = settings['Hovered Cell'];
+          swappedCellController.setValue(swappedIndex);
         }
         default:
           {
-            swappedIndex = settings.hoveredElement;
-            swappedElementCell.setValue(swappedIndex);
+            swappedIndex = settings['Hovered Cell'];
+            swappedCellController.setValue(swappedIndex);
           }
           break;
       }
@@ -281,26 +365,44 @@ SampleInitFactoryWebGPU(
       }
     };
     const startSortInterval = () => {
+      const currentIntervalSpeed = settings['Sort Speed'];
       completeSortIntervalID = setInterval(() => {
         if (settings['Next Step'] === 'NONE') {
           clearInterval(completeSortIntervalID);
           completeSortIntervalID = null;
         }
+        if (settings['Sort Speed'] !== currentIntervalSpeed) {
+          clearInterval(completeSortIntervalID);
+          completeSortIntervalID = null;
+          startSortInterval();
+        }
         settings.executeStep = true;
-        setSwappedElement();
-      }, settings.sortSpeed);
+        setSwappedCell();
+      }, settings['Sort Speed']);
     };
 
-    // At top level, basic information about the number of elements sorted and the number of threads
-    // deployed per workgroup.
-    gui.add(settings, 'Total Elements', totalElementLengths).onChange(() => {
-      endSortInterval();
-      resizeElementArray();
-    });
-    const totalThreadsCell = gui.add(settings, 'Total Threads');
+    // At top level, information about resources used to execute the compute shader
+    // i.e elements sorted, threads/invocations per workgroup, and workgroups dispatched
+    const computeResourcesFolder = gui.addFolder('Compute Resources');
+    computeResourcesFolder
+      .add(settings, 'Total Elements', totalElementLengths)
+      .onChange(() => {
+        endSortInterval();
+        resizeElementArray();
+      });
+    const totalThreadsController = computeResourcesFolder.add(
+      settings,
+      'Total Threads'
+    );
+    const totalWorkgroupsController = computeResourcesFolder.add(
+      settings,
+      'Total Workgroups'
+    );
+    computeResourcesFolder.open();
 
     // Folder with functions that control the execution of the sort
     const controlFolder = gui.addFolder('Sort Controls');
+    controlFolder.add(settings, 'Sort Speed', 50, 1000).step(50);
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
       endSortInterval();
       settings.executeStep = true;
@@ -316,32 +418,45 @@ SampleInitFactoryWebGPU(
     controlFolder.add(settings, 'Complete Sort').onChange(startSortInterval);
     controlFolder.open();
 
-    // Folder with indexes of the hovered element
-    const hoverFolder = gui.addFolder('Hover Information');
-    const hoveredElementCell = hoverFolder
-      .add(settings, 'hoveredElement')
-      .onChange(setSwappedElement);
-    const swappedElementCell = hoverFolder.add(settings, 'swappedElement');
+    // Information about grid display
+    const gridFolder = gui.addFolder('Grid Information');
+    gridFolder.add(settings, 'Display Mode', ['Elements', 'Swap Highlight']);
+    const gridWidthController = gridFolder.add(settings, 'Grid Width');
+    const gridHeightController = gridFolder.add(settings, 'Grid Height');
+    const hoveredCellController = gridFolder
+      .add(settings, 'Hovered Cell')
+      .onChange(setSwappedCell);
+    const swappedCellController = gridFolder.add(settings, 'Swapped Cell');
 
     // Additional Information about the execution state of the sort
     const executionInformationFolder = gui.addFolder('Execution Information');
-    const prevStepCell = executionInformationFolder.add(settings, 'Prev Step');
-    const nextStepCell = executionInformationFolder.add(settings, 'Next Step');
-    const prevBlockHeightCell = executionInformationFolder.add(
+    const stepIndexController = executionInformationFolder.add(
+      settings,
+      'Step Index'
+    );
+    const totalStepsController = executionInformationFolder.add(
+      settings,
+      'Total Steps'
+    );
+    const prevStepController = executionInformationFolder.add(
+      settings,
+      'Prev Step'
+    );
+    const nextStepController = executionInformationFolder.add(
+      settings,
+      'Next Step'
+    );
+    const totalSwapsController = executionInformationFolder.add(
+      settings,
+      'Total Swaps'
+    );
+    const prevBlockHeightController = executionInformationFolder.add(
       settings,
       'Prev Swap Span'
     );
-    const nextBlockHeightCell = executionInformationFolder.add(
+    const nextBlockHeightController = executionInformationFolder.add(
       settings,
       'Next Swap Span'
-    );
-    const gridWidthCell = executionInformationFolder.add(
-      settings,
-      'Grid Width'
-    );
-    const gridHeightCell = executionInformationFolder.add(
-      settings,
-      'Grid Height'
     );
 
     // Adjust styles of Function List Elements within GUI
@@ -365,20 +480,28 @@ SampleInitFactoryWebGPU(
       const xIndex = Math.floor(event.offsetX / cellSize[0]);
       const yIndex =
         settings['Grid Height'] - 1 - Math.floor(event.offsetY / cellSize[1]);
-      hoveredElementCell.setValue(yIndex * settings['Grid Width'] + xIndex);
-      settings.hoveredElement = yIndex * settings['Grid Width'] + xIndex;
+      hoveredCellController.setValue(yIndex * settings['Grid Width'] + xIndex);
+      settings['Hovered Cell'] = yIndex * settings['Grid Width'] + xIndex;
     });
 
     // Deactivate interaction with select GUI elements
-    prevStepCell.domElement.style.pointerEvents = 'none';
-    prevBlockHeightCell.domElement.style.pointerEvents = 'none';
-    nextStepCell.domElement.style.pointerEvents = 'none';
-    nextBlockHeightCell.domElement.style.pointerEvents = 'none';
-    totalThreadsCell.domElement.style.pointerEvents = 'none';
-    gridWidthCell.domElement.style.pointerEvents = 'none';
-    gridHeightCell.domElement.style.pointerEvents = 'none';
+    totalWorkgroupsController.domElement.style.pointerEvents = 'none';
+    hoveredCellController.domElement.style.pointerEvents = 'none';
+    swappedCellController.domElement.style.pointerEvents = 'none';
+    stepIndexController.domElement.style.pointerEvents = 'none';
+    totalStepsController.domElement.style.pointerEvents = 'none';
+    prevStepController.domElement.style.pointerEvents = 'none';
+    prevBlockHeightController.domElement.style.pointerEvents = 'none';
+    nextStepController.domElement.style.pointerEvents = 'none';
+    nextBlockHeightController.domElement.style.pointerEvents = 'none';
+    totalThreadsController.domElement.style.pointerEvents = 'none';
+    gridWidthController.domElement.style.pointerEvents = 'none';
+    gridHeightController.domElement.style.pointerEvents = 'none';
+    totalSwapsController.domElement.style.pointerEvents = 'none';
 
     let highestBlockHeight = 2;
+
+    startSortInterval();
 
     async function frame() {
       if (!pageState.active) return;
@@ -416,8 +539,7 @@ SampleInitFactoryWebGPU(
 
       const commandEncoder = device.createCommandEncoder();
       bitonicDisplayRenderer.startRun(commandEncoder, {
-        width: settings['Grid Width'],
-        height: settings['Grid Height'],
+        highlight: settings['Display Mode'] === 'Elements' ? 0 : 1,
       });
       if (
         settings.executeStep &&
@@ -425,34 +547,46 @@ SampleInitFactoryWebGPU(
       ) {
         const computePassEncoder = commandEncoder.beginComputePass();
         computePassEncoder.setPipeline(computePipeline);
-        computePassEncoder.setBindGroup(0, computeBGDescript.bindGroups[0]);
-        computePassEncoder.dispatchWorkgroups(1);
+        computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
+        computePassEncoder.dispatchWorkgroups(settings['Total Workgroups']);
         computePassEncoder.end();
-
-        prevStepCell.setValue(settings['Next Step']);
-        prevBlockHeightCell.setValue(settings['Next Swap Span']);
-        nextBlockHeightCell.setValue(settings['Next Swap Span'] / 2);
+        stepIndexController.setValue(settings['Step Index'] + 1);
+        prevStepController.setValue(settings['Next Step']);
+        prevBlockHeightController.setValue(settings['Next Swap Span']);
+        nextBlockHeightController.setValue(settings['Next Swap Span'] / 2);
         if (settings['Next Swap Span'] === 1) {
           highestBlockHeight *= 2;
-          nextStepCell.setValue(
-            highestBlockHeight === settings['Total Elements'] * 2
-              ? 'NONE'
-              : 'FLIP_LOCAL'
-          );
-          nextBlockHeightCell.setValue(
-            highestBlockHeight === settings['Total Elements'] * 2
-              ? 0
-              : highestBlockHeight
-          );
+          if (highestBlockHeight === settings['Total Elements'] * 2) {
+            nextStepController.setValue('NONE');
+            nextBlockHeightController.setValue(0);
+          } else if (highestBlockHeight > settings['Total Threads'] * 2) {
+            nextStepController.setValue('FLIP_GLOBAL');
+            nextBlockHeightController.setValue(highestBlockHeight);
+          } else {
+            nextStepController.setValue('FLIP_LOCAL');
+            nextBlockHeightController.setValue(highestBlockHeight);
+          }
         } else {
-          nextStepCell.setValue('DISPERSE_LOCAL');
+          settings['Next Swap Span'] > settings['Total Threads'] * 2
+            ? nextStepController.setValue('DISPERSE_GLOBAL')
+            : nextStepController.setValue('DISPERSE_LOCAL');
         }
+
+        // Copy GPU accessible buffers to CPU accessible buffers
         commandEncoder.copyBufferToBuffer(
           elementsOutputBuffer,
           0,
           elementsStagingBuffer,
           0,
           elementsBufferSize
+        );
+
+        commandEncoder.copyBufferToBuffer(
+          atomicSwapsOutputBuffer,
+          0,
+          atomicSwapsStagingBuffer,
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
         );
       }
       device.queue.submit([commandEncoder.finish()]);
@@ -468,16 +602,33 @@ SampleInitFactoryWebGPU(
           0,
           elementsBufferSize
         );
+        // Copy atomic swaps data to CPU
+        await atomicSwapsStagingBuffer.mapAsync(
+          GPUMapMode.READ,
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
+        );
+        const copySwapsBuffer = atomicSwapsStagingBuffer.getMappedRange(
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
+        );
         // Get correct range of data from CPU copy of GPU Data
         const elementsData = copyElementsBuffer.slice(
           0,
           Uint32Array.BYTES_PER_ELEMENT * settings['Total Elements']
         );
+        const swapsData = copySwapsBuffer.slice(
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
+        );
         // Extract data
         const elementsOutput = new Uint32Array(elementsData);
+        totalSwapsController.setValue(new Uint32Array(swapsData)[0]);
         elementsStagingBuffer.unmap();
+        atomicSwapsStagingBuffer.unmap();
+        // Elements output becomes elements input, swap accumulate
         elements = elementsOutput;
-        setSwappedElement();
+        setSwappedCell();
       }
       settings.executeStep = false;
       requestAnimationFrame(frame);
@@ -509,7 +660,11 @@ const bitonicSortExample: () => JSX.Element = () =>
       },
       {
         name: './bitonicCompute.frag.wgsl',
-        contents: NaiveBitonicCompute(16),
+        contents: NaiveBitonicCompute(64),
+      },
+      {
+        name: './atomicToZero.wgsl',
+        contents: atomicToZero,
       },
     ],
     filename: __filename,

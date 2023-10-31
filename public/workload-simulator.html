@@ -1012,7 +1012,7 @@ async function render(fromRaf, fromPostMessage) {
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-          console.log(gl.getShaderInfoLog(shader));
+          console.error(gl.getShaderInfoLog(shader));
         gl.attachShader(prog, shader);
       }
       compileShader(vsSource, gl.VERTEX_SHADER);
@@ -1021,7 +1021,7 @@ async function render(fromRaf, fromPostMessage) {
         gl.bindAttribLocation(prog, i, attribs[i]);
       gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
-        console.log(gl.getProgramInfoLog(prog));
+        console.error(gl.getProgramInfoLog(prog));
       for (const attrib of attribs)
         prog[attrib] = gl.getAttribLocation(prog, attrib);
       for (const uniform of uniforms)

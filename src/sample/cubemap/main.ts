@@ -107,30 +107,12 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   {
     // The order of the array layers is [+X, -X, +Y, -Y, +Z, -Z]
     const imgSrcs = [
-      new URL(
-        `../../../assets/img/cubemap/posx.jpg`,
-        import.meta.url
-      ).toString(),
-      new URL(
-        `../../../assets/img/cubemap/negx.jpg`,
-        import.meta.url
-      ).toString(),
-      new URL(
-        `../../../assets/img/cubemap/posy.jpg`,
-        import.meta.url
-      ).toString(),
-      new URL(
-        `../../../assets/img/cubemap/negy.jpg`,
-        import.meta.url
-      ).toString(),
-      new URL(
-        `../../../assets/img/cubemap/posz.jpg`,
-        import.meta.url
-      ).toString(),
-      new URL(
-        `../../../assets/img/cubemap/negz.jpg`,
-        import.meta.url
-      ).toString(),
+      '../assets/img/cubemap/posx.jpg',
+      '../assets/img/cubemap/negx.jpg',
+      '../assets/img/cubemap/posy.jpg',
+      '../assets/img/cubemap/negy.jpg',
+      '../assets/img/cubemap/posz.jpg',
+      '../assets/img/cubemap/negz.jpg',
     ];
     const promises = imgSrcs.map(async (src) => {
       const response = await fetch(src);
