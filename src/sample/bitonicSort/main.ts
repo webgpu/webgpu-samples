@@ -497,6 +497,7 @@ SampleInitFactoryWebGPU(
     totalThreadsController.domElement.style.pointerEvents = 'none';
     gridWidthController.domElement.style.pointerEvents = 'none';
     gridHeightController.domElement.style.pointerEvents = 'none';
+    totalSwapsController.domElement.style.pointerEvents = 'none';
 
     let highestBlockHeight = 2;
 
