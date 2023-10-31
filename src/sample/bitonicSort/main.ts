@@ -4,6 +4,7 @@ import BitonicDisplayRenderer from './bitonicDisplay';
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
 import { NaiveBitonicCompute } from './computeShader';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
+import atomicToZero from './atomicToZero.wgsl';
 
 // Type of step that will be executed in our shader
 enum StepEnum {
@@ -40,6 +41,7 @@ interface SettingsInterface {
   'Next Swap Span': number;
   'Total Workgroups': number;
   'Display Mode': DisplayType;
+  'Total Swaps': number;
   executeStep: boolean;
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
@@ -98,6 +100,8 @@ SampleInitFactoryWebGPU(
       'Next Swap Span': 2,
       // Workgroups to dispatch per frame,
       'Total Workgroups': maxElements / (maxThreadsX * 2),
+      // The number of swap operations executed over time
+      'Total Swaps': 0,
       // Whether we will dispatch a workload this frame
       executeStep: false,
       'Display Mode': 'Elements',
@@ -138,6 +142,17 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
+    // Initialize atomic swap buffer on GPU and CPU. Counts number of swaps actually performed by
+    // compute shader (when value at index x is greater than value at index y)
+    const atomicSwapsOutputBuffer = device.createBuffer({
+      size: Uint32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    });
+    const atomicSwapsStagingBuffer = device.createBuffer({
+      size: Uint32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+
     // Create uniform buffer for compute shader
     const computeUniformsBuffer = device.createBuffer({
       // width, height, blockHeight, algo
@@ -146,22 +161,29 @@ SampleInitFactoryWebGPU(
     });
 
     const computeBGCluster = createBindGroupCluster(
-      [0, 1, 2],
+      [0, 1, 2, 3],
       [
         GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
         GPUShaderStage.COMPUTE,
         GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
+        GPUShaderStage.COMPUTE,
       ],
-      ['buffer', 'buffer', 'buffer'],
-      [{ type: 'read-only-storage' }, { type: 'storage' }, { type: 'uniform' }],
+      ['buffer', 'buffer', 'buffer', 'buffer'],
+      [
+        { type: 'read-only-storage' },
+        { type: 'storage' },
+        { type: 'uniform' },
+        { type: 'storage' },
+      ],
       [
         [
           { buffer: elementsInputBuffer },
           { buffer: elementsOutputBuffer },
           { buffer: computeUniformsBuffer },
+          { buffer: atomicSwapsOutputBuffer },
         ],
       ],
-      'NaiveBitonicSort',
+      'BitonicSort',
       device
     );
 
@@ -174,6 +196,19 @@ SampleInitFactoryWebGPU(
           code: NaiveBitonicCompute(settings['Total Threads']),
         }),
         entryPoint: 'computeMain',
+      },
+    });
+
+    // Simple pipeline that zeros out an atomic value at group 0 binding 3
+    const atomicToZeroComputePipeline = device.createComputePipeline({
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [computeBGCluster.bindGroupLayout],
+      }),
+      compute: {
+        module: device.createShaderModule({
+          code: atomicToZero,
+        }),
+        entryPoint: 'atomicToZero',
       },
     });
 
@@ -230,6 +265,17 @@ SampleInitFactoryWebGPU(
       // Reset block heights
       prevBlockHeightController.setValue(0);
       nextBlockHeightController.setValue(2);
+
+      // Reset Total Swaps by setting atomic value to 0
+      const commandEncoder = device.createCommandEncoder();
+      const computePassEncoder = commandEncoder.beginComputePass();
+      computePassEncoder.setPipeline(atomicToZeroComputePipeline);
+      computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
+      computePassEncoder.dispatchWorkgroups(1);
+      computePassEncoder.end();
+      device.queue.submit([commandEncoder.finish()]);
+      totalSwapsController.setValue(0);
+
       highestBlockHeight = 2;
     };
 
@@ -400,6 +446,10 @@ SampleInitFactoryWebGPU(
       settings,
       'Next Step'
     );
+    const totalSwapsController = executionInformationFolder.add(
+      settings,
+      'Total Swaps'
+    );
     const prevBlockHeightController = executionInformationFolder.add(
       settings,
       'Prev Swap Span'
@@ -435,7 +485,11 @@ SampleInitFactoryWebGPU(
     });
 
     // Deactivate interaction with select GUI elements
+    totalWorkgroupsController.domElement.style.pointerEvents = 'none';
+    hoveredCellController.domElement.style.pointerEvents = 'none';
+    swappedCellController.domElement.style.pointerEvents = 'none';
     stepIndexController.domElement.style.pointerEvents = 'none';
+    totalStepsController.domElement.style.pointerEvents = 'none';
     prevStepController.domElement.style.pointerEvents = 'none';
     prevBlockHeightController.domElement.style.pointerEvents = 'none';
     nextStepController.domElement.style.pointerEvents = 'none';
@@ -516,12 +570,22 @@ SampleInitFactoryWebGPU(
             ? nextStepController.setValue('DISPERSE_GLOBAL')
             : nextStepController.setValue('DISPERSE_LOCAL');
         }
+
+        // Copy GPU accessible buffers to CPU accessible buffers
         commandEncoder.copyBufferToBuffer(
           elementsOutputBuffer,
           0,
           elementsStagingBuffer,
           0,
           elementsBufferSize
+        );
+
+        commandEncoder.copyBufferToBuffer(
+          atomicSwapsOutputBuffer,
+          0,
+          atomicSwapsStagingBuffer,
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
         );
       }
       device.queue.submit([commandEncoder.finish()]);
@@ -537,14 +601,31 @@ SampleInitFactoryWebGPU(
           0,
           elementsBufferSize
         );
+        // Copy atomic swaps data to CPU
+        await atomicSwapsStagingBuffer.mapAsync(
+          GPUMapMode.READ,
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
+        );
+        const copySwapsBuffer = atomicSwapsStagingBuffer.getMappedRange(
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
+        );
         // Get correct range of data from CPU copy of GPU Data
         const elementsData = copyElementsBuffer.slice(
           0,
           Uint32Array.BYTES_PER_ELEMENT * settings['Total Elements']
         );
+        const swapsData = copySwapsBuffer.slice(
+          0,
+          Uint32Array.BYTES_PER_ELEMENT
+        );
         // Extract data
         const elementsOutput = new Uint32Array(elementsData);
+        totalSwapsController.setValue(new Uint32Array(swapsData)[0]);
         elementsStagingBuffer.unmap();
+        atomicSwapsStagingBuffer.unmap();
+        // Elements output becomes elements input, swap accumulate
         elements = elementsOutput;
         setSwappedCell();
       }
@@ -578,7 +659,11 @@ const bitonicSortExample: () => JSX.Element = () =>
       },
       {
         name: './bitonicCompute.frag.wgsl',
-        contents: NaiveBitonicCompute(16),
+        contents: NaiveBitonicCompute(64),
+      },
+      {
+        name: './atomicToZero.wgsl',
+        contents: atomicToZero,
       },
     ],
     filename: __filename,

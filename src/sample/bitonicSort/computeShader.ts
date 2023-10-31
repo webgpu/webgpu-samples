@@ -15,13 +15,19 @@ struct Uniforms {
 }
 
 // Create local workgroup data that can contain all elements
-
 var<workgroup> local_data: array<u32, ${threadsPerWorkgroup * 2}>;
+
+// Define groups (functions refer to this data)
+@group(0) @binding(0) var<storage, read> input_data: array<u32>;
+@group(0) @binding(1) var<storage, read_write> output_data: array<u32>;
+@group(0) @binding(2) var<uniform> uniforms: Uniforms;
+@group(0) @binding(3) var<storage, read_write> counter: atomic<u32>;
 
 // Compare and swap values in local_data
 fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
   //idx_before should always be < idx_after
   if (local_data[idx_after] < local_data[idx_before]) {
+    atomicAdd(&counter, 1);
     var temp: u32 = local_data[idx_before];
     local_data[idx_before] = local_data[idx_after];
     local_data[idx_after] = temp;
@@ -53,11 +59,6 @@ fn get_disperse_indices(thread_id: u32, block_height: u32) -> vec2<u32> {
   idx.y += block_offset;
   return idx;
 }
-
-@group(0) @binding(0) var<storage, read> input_data: array<u32>;
-@group(0) @binding(1) var<storage, read_write> output_data: array<u32>;
-@group(0) @binding(2) var<uniform> uniforms: Uniforms;
-
 
 fn global_compare_and_swap(idx_before: u32, idx_after: u32) {
   if (input_data[idx_after] < input_data[idx_before]) {
