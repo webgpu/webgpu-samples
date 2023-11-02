@@ -30,9 +30,11 @@ interface SettingsInterface {
   'Total Elements': number;
   'Grid Width': number;
   'Grid Height': number;
+  'Grid Dimensions': string;
   'Total Threads': number;
   'Hovered Cell': number;
   'Swapped Cell': number;
+  'Current Step': string;
   'Step Index': number;
   'Total Steps': number;
   'Prev Step': StepType;
@@ -80,6 +82,8 @@ SampleInitFactoryWebGPU(
       'Grid Width': defaultGridWidth,
       // height of screen in cells
       'Grid Height': defaultGridHeight,
+      // Grid Dimensions as string
+      'Grid Dimensions': `${defaultGridWidth}x${defaultGridHeight}`,
       // number of threads to execute in a workgroup ('Total Threads', 1, 1)
       'Total Threads': maxThreadsX,
       // Cell in element grid mouse element is hovering over
@@ -90,6 +94,8 @@ SampleInitFactoryWebGPU(
       'Step Index': 0,
       // Total steps to sort current number of elements
       'Total Steps': getNumSteps(maxElements),
+      //Step Info as string
+      'Current Step': `0 of 91`,
       // Previously executed step
       'Prev Step': 'NONE',
       // Next step to execute
@@ -246,8 +252,11 @@ SampleInitFactoryWebGPU(
       totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
 
       // Reset step Index and number of steps based on elements size
-      stepIndexController.setValue(0);
-      totalStepsController.setValue(getNumSteps(settings['Total Elements']));
+      settings['Step Index'] = 0;
+      settings['Total Steps'] = getNumSteps(settings['Total Elements']);
+      currentStepController.setValue(
+        `${settings['Step Index']} of ${settings['Total Steps']}`
+      );
 
       // Get new width and height of screen display in cells
       const newCellWidth =
@@ -255,8 +264,9 @@ SampleInitFactoryWebGPU(
           ? Math.floor(Math.sqrt(settings['Total Elements']))
           : Math.floor(Math.sqrt(settings['Total Elements'] / 2));
       const newCellHeight = settings['Total Elements'] / newCellWidth;
-      gridWidthController.setValue(newCellWidth);
-      gridHeightController.setValue(newCellHeight);
+      settings['Grid Width'] = newCellWidth;
+      settings['Grid Height'] = newCellHeight;
+      gridDimensionsController.setValue(`${newCellWidth}x${newCellHeight}`);
 
       // Set prevStep to None (restart) and next step to FLIP
       prevStepController.setValue('NONE');
@@ -421,8 +431,10 @@ SampleInitFactoryWebGPU(
     // Information about grid display
     const gridFolder = gui.addFolder('Grid Information');
     gridFolder.add(settings, 'Display Mode', ['Elements', 'Swap Highlight']);
-    const gridWidthController = gridFolder.add(settings, 'Grid Width');
-    const gridHeightController = gridFolder.add(settings, 'Grid Height');
+    const gridDimensionsController = gridFolder.add(
+      settings,
+      'Grid Dimensions'
+    );
     const hoveredCellController = gridFolder
       .add(settings, 'Hovered Cell')
       .onChange(setSwappedCell);
@@ -430,13 +442,9 @@ SampleInitFactoryWebGPU(
 
     // Additional Information about the execution state of the sort
     const executionInformationFolder = gui.addFolder('Execution Information');
-    const stepIndexController = executionInformationFolder.add(
+    const currentStepController = executionInformationFolder.add(
       settings,
-      'Step Index'
-    );
-    const totalStepsController = executionInformationFolder.add(
-      settings,
-      'Total Steps'
+      'Current Step'
     );
     const prevStepController = executionInformationFolder.add(
       settings,
@@ -488,15 +496,13 @@ SampleInitFactoryWebGPU(
     totalWorkgroupsController.domElement.style.pointerEvents = 'none';
     hoveredCellController.domElement.style.pointerEvents = 'none';
     swappedCellController.domElement.style.pointerEvents = 'none';
-    stepIndexController.domElement.style.pointerEvents = 'none';
-    totalStepsController.domElement.style.pointerEvents = 'none';
+    currentStepController.domElement.style.pointerEvents = 'none';
     prevStepController.domElement.style.pointerEvents = 'none';
     prevBlockHeightController.domElement.style.pointerEvents = 'none';
     nextStepController.domElement.style.pointerEvents = 'none';
     nextBlockHeightController.domElement.style.pointerEvents = 'none';
     totalThreadsController.domElement.style.pointerEvents = 'none';
-    gridWidthController.domElement.style.pointerEvents = 'none';
-    gridHeightController.domElement.style.pointerEvents = 'none';
+    gridDimensionsController.domElement.style.pointerEvents = 'none';
     totalSwapsController.domElement.style.pointerEvents = 'none';
 
     let highestBlockHeight = 2;
@@ -550,7 +556,11 @@ SampleInitFactoryWebGPU(
         computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
         computePassEncoder.dispatchWorkgroups(settings['Total Workgroups']);
         computePassEncoder.end();
-        stepIndexController.setValue(settings['Step Index'] + 1);
+        //stepIndexController.setValue(settings['Step Index'] + 1);
+        settings['Step Index'] = settings['Step Index'] + 1;
+        currentStepController.setValue(
+          `${settings['Step Index']} of ${settings['Total Steps']}`
+        );
         prevStepController.setValue(settings['Next Step']);
         prevBlockHeightController.setValue(settings['Next Swap Span']);
         nextBlockHeightController.setValue(settings['Next Swap Span'] / 2);
