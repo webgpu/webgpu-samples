@@ -28,6 +28,7 @@ type DisplayType = 'Elements' | 'Swap Highlight';
 // Gui settings object
 interface SettingsInterface {
   'Total Elements': number;
+  'Thread Constraint': number;
   'Grid Width': number;
   'Grid Height': number;
   'Grid Dimensions': string;
@@ -68,6 +69,11 @@ SampleInitFactoryWebGPU(
       totalElementLengths.push(i);
     }
 
+    const totalThreadLengths = [];
+    for (let i = 0; i >= 2; i /= 2) {
+      totalThreadLengths.push(i);
+    }
+
     const defaultGridWidth =
       Math.sqrt(maxElements) % 2 === 0
         ? Math.floor(Math.sqrt(maxElements))
@@ -78,6 +84,8 @@ SampleInitFactoryWebGPU(
     const settings: SettingsInterface = {
       // number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
       'Total Elements': maxElements,
+      // Artificially constrain the maximum number of threads/invocations that can be executed per workgroup
+      'Thread Constraint': maxThreadsX,
       // width of screen in cells.
       'Grid Width': defaultGridWidth,
       // height of screen in cells
@@ -400,6 +408,11 @@ SampleInitFactoryWebGPU(
         endSortInterval();
         resizeElementArray();
       });
+    computeResourcesFolder.add(
+      settings,
+      'Thread Constraint',
+      totalThreadLengths
+    );
     const totalThreadsController = computeResourcesFolder.add(
       settings,
       'Total Threads'
