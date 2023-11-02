@@ -61,7 +61,6 @@ const getNumSteps = (numElements: number) => {
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
-    // TODO: Only use this once to define the initial values
     const maxThreadsX = device.limits.maxComputeWorkgroupSizeX;
 
     const totalElementLengths = [];
@@ -327,7 +326,6 @@ SampleInitFactoryWebGPU(
         }),
         compute: {
           module: device.createShaderModule({
-            // TODO: set to min(settings['Total Elements'] / 2, settings['ThreadConstraint'])
             code: NaiveBitonicCompute(
               Math.min(
                 settings['Total Elements'] / 2,
@@ -436,7 +434,6 @@ SampleInitFactoryWebGPU(
           }),
           compute: {
             module: device.createShaderModule({
-              // TODO: set to min(settings['Total Elements'] / 2, settings['ThreadConstraint'])
               code: NaiveBitonicCompute(
                 Math.min(
                   settings['Total Elements'] / 2,
