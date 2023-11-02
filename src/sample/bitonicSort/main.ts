@@ -61,6 +61,7 @@ const getNumSteps = (numElements: number) => {
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
+    // TODO: Only use this once to define the initial values
     const maxThreadsX = device.limits.maxComputeWorkgroupSizeX;
 
     const totalElementLengths = [];
@@ -70,7 +71,7 @@ SampleInitFactoryWebGPU(
     }
 
     const totalThreadLengths = [];
-    for (let i = 0; i >= 2; i /= 2) {
+    for (let i = maxThreadsX; i >= 2; i /= 2) {
       totalThreadLengths.push(i);
     }
 
@@ -248,14 +249,14 @@ SampleInitFactoryWebGPU(
     );
 
     const resetExecutionInformation = () => {
-      // Total threads are either elements / 2 or maxWorkgroupsSizeX
+      // Total threads are either elements / 2 or Max Threads X
       totalThreadsController.setValue(
-        Math.min(settings['Total Elements'] / 2, maxThreadsX)
+        Math.min(settings['Total Elements'] / 2, settings['Thread Constraint'])
       );
 
       // Dispatch a workgroup for every (Max threads * 2) elements
       const workgroupsPerStep =
-        (settings['Total Elements'] - 1) / (maxThreadsX * 2);
+        (settings['Total Elements'] - 1) / (settings['Thread Constraint'] * 2);
 
       totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
 
@@ -326,7 +327,13 @@ SampleInitFactoryWebGPU(
         }),
         compute: {
           module: device.createShaderModule({
-            code: NaiveBitonicCompute(settings['Total Elements'] / 2),
+            // TODO: set to min(settings['Total Elements'] / 2, settings['ThreadConstraint'])
+            code: NaiveBitonicCompute(
+              Math.min(
+                settings['Total Elements'] / 2,
+                settings['Thread Constraint']
+              )
+            ),
           }),
           entryPoint: 'computeMain',
         },
@@ -334,6 +341,7 @@ SampleInitFactoryWebGPU(
       // Randomize array elements
       randomizeElementArray();
       highestBlockHeight = 2;
+      // Unlock thread
     };
 
     randomizeElementArray();
@@ -388,6 +396,7 @@ SampleInitFactoryWebGPU(
         if (settings['Next Step'] === 'NONE') {
           clearInterval(completeSortIntervalID);
           completeSortIntervalID = null;
+          threadConstraintCell.domElement.style.pointerEvents = 'auto';
         }
         if (settings['Sort Speed'] !== currentIntervalSpeed) {
           clearInterval(completeSortIntervalID);
@@ -407,12 +416,38 @@ SampleInitFactoryWebGPU(
       .onChange(() => {
         endSortInterval();
         resizeElementArray();
+        threadConstraintCell.domElement.style.pointerEvents = 'auto';
       });
-    computeResourcesFolder.add(
-      settings,
-      'Thread Constraint',
-      totalThreadLengths
-    );
+    const threadConstraintCell = computeResourcesFolder
+      .add(settings, 'Thread Constraint', totalThreadLengths)
+      .onChange(() => {
+        const constraint = Math.min(
+          settings['Total Elements'] / 2,
+          settings['Thread Constraint']
+        );
+        const workgroupsPerStep =
+          (settings['Total Elements'] - 1) /
+          (settings['Thread Constraint'] * 2);
+        totalThreadsController.setValue(constraint);
+        totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
+        computePipeline = computePipeline = device.createComputePipeline({
+          layout: device.createPipelineLayout({
+            bindGroupLayouts: [computeBGCluster.bindGroupLayout],
+          }),
+          compute: {
+            module: device.createShaderModule({
+              // TODO: set to min(settings['Total Elements'] / 2, settings['ThreadConstraint'])
+              code: NaiveBitonicCompute(
+                Math.min(
+                  settings['Total Elements'] / 2,
+                  settings['Thread Constraint']
+                )
+              ),
+            }),
+            entryPoint: 'computeMain',
+          },
+        });
+      });
     const totalThreadsController = computeResourcesFolder.add(
       settings,
       'Total Threads'
@@ -427,6 +462,8 @@ SampleInitFactoryWebGPU(
     const controlFolder = gui.addFolder('Sort Controls');
     controlFolder.add(settings, 'Sort Speed', 50, 1000).step(50);
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
+      // Thread number locked upon sort
+      threadConstraintCell.domElement.style.pointerEvents = 'none';
       endSortInterval();
       settings.executeStep = true;
     });
@@ -434,11 +471,17 @@ SampleInitFactoryWebGPU(
       endSortInterval();
       randomizeElementArray();
       resetExecutionInformation();
+      // Unlock threadChange since sort has stopped
+      threadConstraintCell.domElement.style.pointerEvents = 'auto';
     });
     controlFolder
       .add(settings, 'Log Elements')
       .onChange(() => console.log(elements));
-    controlFolder.add(settings, 'Complete Sort').onChange(startSortInterval);
+    controlFolder.add(settings, 'Complete Sort').onChange(() => {
+      // Thread number locked upon sort
+      threadConstraintCell.domElement.style.pointerEvents = 'none';
+      startSortInterval();
+    });
     controlFolder.open();
 
     // Information about grid display
@@ -506,6 +549,7 @@ SampleInitFactoryWebGPU(
     });
 
     // Deactivate interaction with select GUI elements
+    threadConstraintCell.domElement.style.pointerEvents = 'none';
     totalWorkgroupsController.domElement.style.pointerEvents = 'none';
     hoveredCellController.domElement.style.pointerEvents = 'none';
     swappedCellController.domElement.style.pointerEvents = 'none';
