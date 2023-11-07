@@ -1,347 +1,105 @@
-import { vec3 } from 'wgpu-matrix';
-import { getMeshPosAtIndex, getMeshUVAtIndex, Mesh } from './mesh';
+import { Mesh } from './mesh';
 
-export interface BoxMesh extends Mesh {
-  vertices: Float32Array;
-  indices: Uint16Array | Uint32Array;
-  vertexStride: number;
+/**
+ * Constructs a box mesh with the given dimensions.
+ * The vertex buffer will have the following vertex fields (in the given order):
+ *   position  : float32x3
+ *   normal    : float32x3
+ *   uv        : float32x2
+ *   tangent   : float32x3
+ *   bitangent : float32x3
+ * @param width the width of the box
+ * @param height the height of the box
+ * @param depth the depth of the box
+ * @returns the box mesh with tangent and bitangents.
+ */
+export function createBoxMeshWithTangents(
+  width: number,
+  height: number,
+  depth: number
+): Mesh {
+  //    __________
+  //   /         /|      y
+  //  /   +y    / |      ^
+  // /_________/  |      |
+  // |         |+x|      +---> x
+  // |   +z    |  |     /
+  // |         | /     z
+  // |_________|/
+  //
+  const pX = 0; // +x
+  const nX = 1; // -x
+  const pY = 2; // +y
+  const nY = 3; // -y
+  const pZ = 4; // +z
+  const nZ = 5; // -z
+  const faces = [
+    { tangent: nZ, bitangent: pY, normal: pX },
+    { tangent: pZ, bitangent: pY, normal: nX },
+    { tangent: pX, bitangent: nZ, normal: pY },
+    { tangent: pX, bitangent: pZ, normal: nY },
+    { tangent: pX, bitangent: pY, normal: pZ },
+    { tangent: nX, bitangent: pY, normal: nZ },
+  ];
+  const verticesPerSide = 4;
+  const indicesPerSize = 6;
+  const f32sPerVertex = 14; // position : vec3f, tangent : vec3f, bitangent : vec3f, normal : vec3f, uv :vec2f
+  const vertexStride = f32sPerVertex * 4;
+  const vertices = new Float32Array(
+    faces.length * verticesPerSide * f32sPerVertex
+  );
+  const indices = new Uint16Array(faces.length * indicesPerSize);
+  const halfVecs = [
+    [+width / 2, 0, 0], // +x
+    [-width / 2, 0, 0], // -x
+    [0, +height / 2, 0], // +y
+    [0, -height / 2, 0], // -y
+    [0, 0, +depth / 2], // +z
+    [0, 0, -depth / 2], // -z
+  ];
+
+  let vertexOffset = 0;
+  let indexOffset = 0;
+  for (let faceIndex = 0; faceIndex < faces.length; faceIndex++) {
+    const face = faces[faceIndex];
+    const tangent = halfVecs[face.tangent];
+    const bitangent = halfVecs[face.bitangent];
+    const normal = halfVecs[face.normal];
+
+    for (let u = 0; u < 2; u++) {
+      for (let v = 0; v < 2; v++) {
+        for (let i = 0; i < 3; i++) {
+          vertices[vertexOffset++] =
+            normal[i] +
+            (u == 0 ? -1 : 1) * tangent[i] +
+            (v == 0 ? -1 : 1) * bitangent[i];
+        }
+        for (let i = 0; i < 3; i++) {
+          vertices[vertexOffset++] = normal[i];
+        }
+        vertices[vertexOffset++] = u;
+        vertices[vertexOffset++] = v;
+        for (let i = 0; i < 3; i++) {
+          vertices[vertexOffset++] = tangent[i];
+        }
+        for (let i = 0; i < 3; i++) {
+          vertices[vertexOffset++] = bitangent[i];
+        }
+      }
+    }
+
+    indices[indexOffset++] = faceIndex * verticesPerSide + 0;
+    indices[indexOffset++] = faceIndex * verticesPerSide + 2;
+    indices[indexOffset++] = faceIndex * verticesPerSide + 1;
+
+    indices[indexOffset++] = faceIndex * verticesPerSide + 2;
+    indices[indexOffset++] = faceIndex * verticesPerSide + 3;
+    indices[indexOffset++] = faceIndex * verticesPerSide + 1;
+  }
+
+  return {
+    vertices,
+    indices,
+    vertexStride,
+  };
 }
-
-//// Borrowed and simplified from https://github.com/mrdoob/three.js/blob/master/src/geometries/BoxGeometry.js
-//// Presumes vertex buffer alignment of verts, normals, and uvs
-const createBoxGeometry = (
-  width = 1.0,
-  height = 1.0,
-  depth = 1.0,
-  widthSegments = 1.0,
-  heightSegments = 1.0,
-  depthSegments = 1.0
-) => {
-  widthSegments = Math.floor(widthSegments);
-  heightSegments = Math.floor(heightSegments);
-  depthSegments = Math.floor(depthSegments);
-
-  const indices = [];
-  const vertNormalUVBuffer = [];
-
-  let numVertices = 0;
-
-  const buildPlane = (
-    u: 0 | 1 | 2,
-    v: 0 | 1 | 2,
-    w: 0 | 1 | 2,
-    udir: -1 | 1,
-    vdir: -1 | 1,
-    planeWidth: number,
-    planeHeight: number,
-    planeDepth: number,
-    xSections: number,
-    ySections: number
-  ) => {
-    const segmentWidth = planeWidth / xSections;
-    const segmentHeight = planeHeight / ySections;
-
-    const widthHalf = planeWidth / 2;
-    const heightHalf = planeHeight / 2;
-    const depthHalf = planeDepth / 2;
-
-    const gridX1 = xSections + 1;
-    const gridY1 = ySections + 1;
-
-    let vertexCounter = 0;
-
-    const vertex = vec3.create();
-    const normal = vec3.create();
-    for (let iy = 0; iy < gridY1; iy++) {
-      const y = iy * segmentHeight - heightHalf;
-
-      for (let ix = 0; ix < gridX1; ix++) {
-        const x = ix * segmentWidth - widthHalf;
-
-        //Calculate plane vertices
-        vertex[u] = x * udir;
-        vertex[v] = y * vdir;
-        vertex[w] = depthHalf;
-        vertNormalUVBuffer.push(...vertex);
-
-        //Caclulate normal
-        normal[u] = 0;
-        normal[v] = 0;
-        normal[w] = planeDepth > 0 ? 1.0 : -1.0;
-        vertNormalUVBuffer.push(...normal);
-
-        //Calculate uvs
-        vertNormalUVBuffer.push(ix / xSections);
-        vertNormalUVBuffer.push(1 - iy / ySections);
-
-        vertexCounter += 1;
-      }
-    }
-
-    for (let iy = 0; iy < ySections; iy++) {
-      for (let ix = 0; ix < xSections; ix++) {
-        const a = numVertices + ix + gridX1 * iy;
-        const b = numVertices + ix + gridX1 * (iy + 1);
-        const c = numVertices + (ix + 1) + gridX1 * (iy + 1);
-        const d = numVertices + (ix + 1) + gridX1 * iy;
-
-        //Push vertex indices
-        //6 indices for each face
-        indices.push(a, b, d);
-        indices.push(b, c, d);
-
-        numVertices += vertexCounter;
-      }
-    }
-  };
-
-  //Side face
-  buildPlane(
-    2, //z
-    1, //y
-    0, //x
-    -1,
-    -1,
-    depth,
-    height,
-    width,
-    depthSegments,
-    heightSegments
-  );
-
-  //Side face
-  buildPlane(
-    2, //z
-    1, //y
-    0, //x
-    1,
-    -1,
-    depth,
-    height,
-    -width,
-    depthSegments,
-    heightSegments
-  );
-
-  //Bottom face
-  buildPlane(
-    0, //x
-    2, //z
-    1, //y
-    1,
-    1,
-    width,
-    depth,
-    height,
-    widthSegments,
-    depthSegments
-  );
-
-  //Top face
-  buildPlane(
-    0, //x
-    2, //z
-    1, //y
-    1,
-    -1,
-    width,
-    depth,
-    -height,
-    widthSegments,
-    depthSegments
-  );
-
-  //Side faces
-  buildPlane(
-    0, //x
-    1, //y
-    2, //z
-    1,
-    -1,
-    width,
-    height,
-    depth,
-    widthSegments,
-    heightSegments
-  );
-
-  //Side face
-  buildPlane(
-    0, //x
-    1, //y
-    2, //z
-    -1,
-    -1,
-    width,
-    height,
-    -depth,
-    widthSegments,
-    heightSegments
-  );
-
-  return {
-    vertices: vertNormalUVBuffer,
-    indices: indices,
-  };
-};
-
-type IndexFormat = 'uint16' | 'uint32';
-
-// Box mesh code ported from threejs, with addition of indexFormat specifier for vertex pulling
-export const createBoxMesh = (
-  width = 1.0,
-  height = 1.0,
-  depth = 1.0,
-  widthSegments = 1.0,
-  heightSegments = 1.0,
-  depthSegments = 1.0,
-  indexFormat: IndexFormat = 'uint16'
-): Mesh => {
-  const { vertices, indices } = createBoxGeometry(
-    width,
-    height,
-    depth,
-    widthSegments,
-    heightSegments,
-    depthSegments
-  );
-
-  const vertexStride = 8 * Float32Array.BYTES_PER_ELEMENT; //calculateVertexStride(vertexProperties);
-
-  const indicesArray =
-    indexFormat === 'uint16'
-      ? new Uint16Array(indices)
-      : new Uint32Array(indices);
-
-  return {
-    vertices: new Float32Array(vertices),
-    indices: indicesArray,
-    vertexStride: vertexStride,
-  };
-};
-
-export const createBoxMeshWithTangents = (
-  width = 1.0,
-  height = 1.0,
-  depth = 1.0,
-  widthSegments = 1.0,
-  heightSegments = 1.0,
-  depthSegments = 1.0
-): Mesh => {
-  const mesh = createBoxMesh(
-    width,
-    height,
-    depth,
-    widthSegments,
-    heightSegments,
-    depthSegments
-  );
-
-  const originalStrideElements =
-    mesh.vertexStride / Float32Array.BYTES_PER_ELEMENT;
-
-  const vertexCount = mesh.vertices.length / originalStrideElements;
-
-  const tangents = new Array(vertexCount);
-  const bitangents = new Array(vertexCount);
-  const counts = new Array(vertexCount);
-  for (let i = 0; i < vertexCount; i++) {
-    tangents[i] = [0, 0, 0];
-    bitangents[i] = [0, 0, 0];
-    counts[i] = 0;
-  }
-
-  for (let i = 0; i < mesh.indices.length; i += 3) {
-    const [idx1, idx2, idx3] = [
-      mesh.indices[i],
-      mesh.indices[i + 1],
-      mesh.indices[i + 2],
-    ];
-
-    const [pos1, pos2, pos3] = [
-      getMeshPosAtIndex(mesh, idx1),
-      getMeshPosAtIndex(mesh, idx2),
-      getMeshPosAtIndex(mesh, idx3),
-    ];
-
-    const [uv1, uv2, uv3] = [
-      getMeshUVAtIndex(mesh, idx1),
-      getMeshUVAtIndex(mesh, idx2),
-      getMeshUVAtIndex(mesh, idx3),
-    ];
-
-    const edge1 = vec3.sub(pos2, pos1);
-    const edge2 = vec3.sub(pos3, pos1);
-    const deltaUV1 = vec3.sub(uv2, uv1);
-    const deltaUV2 = vec3.sub(uv3, uv1);
-
-    // Edge of a triangle moves in both u and v direction (2d)
-    // deltaU * tangent vector + deltav * bitangent
-    // Manipulating the data into matrices, we get an equation
-
-    const constantVal =
-      1.0 / (deltaUV1[0] * deltaUV2[1] - deltaUV1[1] * deltaUV2[0]);
-
-    const tangent = [
-      constantVal * (deltaUV2[1] * edge1[0] - deltaUV1[1] * edge2[0]),
-      constantVal * (deltaUV2[1] * edge1[1] - deltaUV1[1] * edge2[1]),
-      constantVal * (deltaUV2[1] * edge1[2] - deltaUV1[1] * edge2[2]),
-    ];
-
-    const bitangent = [
-      constantVal * (-deltaUV2[0] * edge1[0] + deltaUV1[0] * edge2[0]),
-      constantVal * (-deltaUV2[0] * edge1[1] + deltaUV1[0] * edge2[1]),
-      constantVal * (-deltaUV2[0] * edge1[2] + deltaUV1[0] * edge2[2]),
-    ];
-
-    //Accumulate tangents and bitangents
-    tangents[idx1] = vec3.add(tangents[idx1], tangent);
-    bitangents[idx1] = vec3.add(bitangents[idx1], bitangent);
-    tangents[idx2] = vec3.add(tangents[idx2], tangent);
-    bitangents[idx2] = vec3.add(bitangents[idx2], bitangent);
-    tangents[idx3] = vec3.add(tangents[idx3], tangent);
-    bitangents[idx3] = vec3.add(bitangents[idx3], bitangent);
-
-    //Increment index count
-    counts[idx1]++;
-    counts[idx2]++;
-    counts[idx3]++;
-  }
-
-  for (let i = 0; i < tangents.length; i++) {
-    tangents[i] = vec3.divScalar(tangents[i], counts[i]);
-    bitangents[i] = vec3.divScalar(bitangents[i], counts[i]);
-  }
-
-  const newStrideElements = 14;
-  const wTangentArray = new Float32Array(vertexCount * newStrideElements);
-
-  for (let i = 0; i < vertexCount; i++) {
-    //Copy original vertex data (pos, normal uv)
-    wTangentArray.set(
-      //Get the original vertex [8 elements] (3 ele pos, 3 ele normal, 2 ele uv)
-      mesh.vertices.subarray(
-        i * originalStrideElements,
-        (i + 1) * originalStrideElements
-      ),
-      //And put it at the proper location in the new array [14 bytes = 8 og + 6 empty]
-      i * newStrideElements
-    );
-    //For each vertex, place tangent after originalStride
-    wTangentArray.set(
-      tangents[i],
-      i * newStrideElements + originalStrideElements
-    );
-    //Place bitangent after 3 elements of tangent
-    wTangentArray.set(
-      bitangents[i],
-      i * newStrideElements + originalStrideElements + 3
-    );
-  }
-
-  return {
-    vertices: wTangentArray,
-    indices: mesh.indices,
-    vertexStride: mesh.vertexStride + Float32Array.BYTES_PER_ELEMENT * 3 * 2,
-  };
-};
