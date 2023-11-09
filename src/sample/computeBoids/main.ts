@@ -6,7 +6,27 @@ import updateSpritesWGSL from './updateSprites.wgsl';
 const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const adapter = await navigator.gpu.requestAdapter();
   assert(adapter, 'requestAdapter returned null');
-  const device = await adapter.requestDevice();
+
+  const hasTimestampQuery = adapter.features.has('timestamp-query');
+  const device = await adapter.requestDevice({
+    requiredFeatures: hasTimestampQuery ? ['timestamp-query'] : [],
+  });
+
+  const perfDisplayContainer = document.createElement('div');
+  perfDisplayContainer.style.color = 'white';
+  perfDisplayContainer.style.background = 'black';
+  perfDisplayContainer.style.position = 'absolute';
+  perfDisplayContainer.style.top = '10px';
+  perfDisplayContainer.style.left = '10px';
+  perfDisplayContainer.style.textAlign = 'left';
+
+  const perfDisplay = document.createElement('pre');
+  perfDisplayContainer.appendChild(perfDisplay);
+  if (canvas.parentNode) {
+    canvas.parentNode.appendChild(perfDisplayContainer);
+  } else {
+    console.error('canvas.parentNode is null');
+  }
 
   if (!pageState.active) return;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -96,6 +116,36 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       },
     ],
   };
+
+  const computePassDescriptor = {};
+
+  let querySet: GPUQuerySet | undefined = undefined;
+  let resolveBuffer: GPUBuffer | undefined = undefined;
+  let resultBuffer: GPUBuffer | undefined = undefined;
+  if (hasTimestampQuery) {
+    querySet = device.createQuerySet({
+      type: 'timestamp',
+      count: 4,
+    });
+    resolveBuffer = device.createBuffer({
+      size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+    });
+    resultBuffer = device.createBuffer({
+      size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    renderPassDescriptor.timestampWrites = {
+      querySet,
+      beginningOfPassWriteIndex: 0,
+      endOfPassWriteIndex: 1,
+    };
+    computePassDescriptor.timestampWrites = {
+      querySet,
+      beginningOfPassWriteIndex: 2,
+      endOfPassWriteIndex: 3,
+    };
+  }
 
   // prettier-ignore
   const vertexBufferData = new Float32Array([
@@ -217,7 +267,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     const commandEncoder = device.createCommandEncoder();
     {
-      const passEncoder = commandEncoder.beginComputePass();
+      const passEncoder = commandEncoder.beginComputePass(
+        computePassDescriptor
+      );
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, particleBindGroups[t % 2]);
       passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64));
@@ -231,7 +283,29 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       passEncoder.draw(3, numParticles, 0, 0);
       passEncoder.end();
     }
+
+    if (hasTimestampQuery && resultBuffer.mapState == 'unmapped') {
+      commandEncoder.resolveQuerySet(querySet, 0, 4, resolveBuffer, 0);
+      commandEncoder.copyBufferToBuffer(
+        resolveBuffer,
+        0,
+        resultBuffer,
+        0,
+        resultBuffer.size
+      );
+    }
+
     device.queue.submit([commandEncoder.finish()]);
+
+    if (hasTimestampQuery && resultBuffer.mapState == 'unmapped') {
+      resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
+        const times = new BigInt64Array(resultBuffer.getMappedRange());
+        const renderPassDuration = Number(times[1] - times[0]);
+        const computePassDuration = Number(times[3] - times[2]);
+        perfDisplay.textContent = ` render pass duration: ${renderPassDuration}ns\ncompute pass duration: ${computePassDuration}ns\n`;
+        resultBuffer.unmap();
+      });
+    }
 
     ++t;
     requestAnimationFrame(frame);
