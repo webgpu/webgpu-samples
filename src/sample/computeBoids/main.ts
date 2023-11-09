@@ -120,20 +120,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const computePassDescriptor = {};
 
   let querySet: GPUQuerySet | undefined = undefined;
-  let resolveBuffer: GPUBuffer | undefined = undefined;
-  let resultBuffer: GPUBuffer | undefined = undefined;
   if (hasTimestampQuery) {
     querySet = device.createQuerySet({
       type: 'timestamp',
       count: 4,
-    });
-    resolveBuffer = device.createBuffer({
-      size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
-      usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
-    });
-    resultBuffer = device.createBuffer({
-      size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
     renderPassDescriptor.timestampWrites = {
       querySet,
@@ -284,7 +274,17 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       passEncoder.end();
     }
 
-    if (hasTimestampQuery && resultBuffer.mapState == 'unmapped') {
+    let resolveBuffer: GPUBuffer | undefined = undefined;
+    let resultBuffer: GPUBuffer | undefined = undefined;
+    if (hasTimestampQuery) {
+      resolveBuffer = device.createBuffer({
+        size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
+        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+      });
+      resultBuffer = device.createBuffer({
+        size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+      });
       commandEncoder.resolveQuerySet(querySet, 0, 4, resolveBuffer, 0);
       commandEncoder.copyBufferToBuffer(
         resolveBuffer,
@@ -297,7 +297,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
     device.queue.submit([commandEncoder.finish()]);
 
-    if (hasTimestampQuery && resultBuffer.mapState == 'unmapped') {
+    if (hasTimestampQuery) {
       resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
         const times = new BigInt64Array(resultBuffer.getMappedRange());
         const renderPassDuration = Number(times[1] - times[0]);
