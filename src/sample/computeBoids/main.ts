@@ -106,7 +106,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
   });
 
-  const renderPassDescriptor = {
+  const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
         view: undefined as GPUTextureView, // Assigned later
@@ -117,7 +117,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
   };
 
-  const computePassDescriptor = {};
+  const computePassDescriptor: GPUComputePassDescriptor = {};
 
   let querySet: GPUQuerySet | undefined = undefined;
   if (hasTimestampQuery) {
