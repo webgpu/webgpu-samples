@@ -318,9 +318,15 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         // Periodically update the text for the timer stats
         const kNumTimerSamples = 100;
         if (t % kNumTimerSamples === 0) {
+          const avgComputeMicroseconds = Math.round(
+            computePassDurationSum / kNumTimerSamples / 1000
+          );
+          const avgRenderMicroseconds = Math.round(
+            renderPassDurationSum / kNumTimerSamples / 1000
+          );
           perfDisplay.textContent = `\
-avg compute pass duration: ${Math.round(computePassDurationSum / kNumTimerSamples / 1000)}µs
-avg render pass duration: ${Math.round(renderPassDurationSum / kNumTimerSamples / 1000)}µs
+avg compute pass duration: ${avgComputeMicroseconds}µs
+avg render pass duration: ${avgRenderMicroseconds}µs
 spare readback buffers: ${spareResultBuffers.length}`;
           computePassDurationSum = 0;
           renderPassDurationSum = 0;
