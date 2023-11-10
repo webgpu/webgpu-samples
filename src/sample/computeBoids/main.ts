@@ -119,9 +119,15 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const computePassDescriptor: GPUComputePassDescriptor = {};
 
+  /** Storage for timestamp query results */
   let querySet: GPUQuerySet | undefined = undefined;
+  /** Timestamps are resolved into this buffer */
   let resolveBuffer: GPUBuffer | undefined = undefined;
-  const freeBuffers = [];
+  /** Pool of spare buffers for MAP_READing the timestamps back to CPU. A buffer
+   * is taken from the pool (if available) when a readback is needed, and placed
+   * back into the pool once the readback is done and it's unmapped. */
+  const spareResultBuffers = [];
+
   if (hasTimestampQuery) {
     querySet = device.createQuerySet({
       type: 'timestamp',
@@ -253,6 +259,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   }
 
   let t = 0;
+  let computePassDurationSum = 0;
+  let renderPassDurationSum = 0;
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -283,7 +291,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     let resultBuffer: GPUBuffer | undefined = undefined;
     if (hasTimestampQuery) {
       resultBuffer =
-        freeBuffers.pop() ||
+        spareResultBuffers.pop() ||
         device.createBuffer({
           size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
           usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
@@ -303,11 +311,21 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     if (hasTimestampQuery) {
       resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
         const times = new BigInt64Array(resultBuffer.getMappedRange());
-        const computePassDuration = Number(times[1] - times[0]);
-        const renderPassDuration = Number(times[3] - times[2]);
+        computePassDurationSum += Number(times[1] - times[0]);
+        renderPassDurationSum += Number(times[3] - times[2]);
         resultBuffer.unmap();
-        freeBuffers.push(resultBuffer);
-        perfDisplay.textContent = `compute pass duration: ${computePassDuration}ns\n render pass duration: ${renderPassDuration}ns\nfree buffers capacity: ${freeBuffers.length} `;
+
+        // Periodically update the text for the timer stats
+        const kNumTimerSamples = 100;
+        if (t % kNumTimerSamples === 0) {
+          perfDisplay.textContent = `\
+avg compute pass duration: ${Math.round(computePassDurationSum / kNumTimerSamples / 1000)}µs
+avg render pass duration: ${Math.round(renderPassDurationSum / kNumTimerSamples / 1000)}µs
+spare readback buffers: ${spareResultBuffers.length}`;
+          computePassDurationSum = 0;
+          renderPassDurationSum = 0;
+        }
+        spareResultBuffers.push(resultBuffer);
       });
     }
 
