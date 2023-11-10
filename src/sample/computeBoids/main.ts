@@ -120,17 +120,23 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const computePassDescriptor: GPUComputePassDescriptor = {};
 
   let querySet: GPUQuerySet | undefined = undefined;
+  let resolveBuffer: GPUBuffer | undefined = undefined;
+  const freeBuffers = [];
   if (hasTimestampQuery) {
     querySet = device.createQuerySet({
       type: 'timestamp',
       count: 4,
     });
-    renderPassDescriptor.timestampWrites = {
+    resolveBuffer = device.createBuffer({
+      size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+    });
+    computePassDescriptor.timestampWrites = {
       querySet,
       beginningOfPassWriteIndex: 0,
       endOfPassWriteIndex: 1,
     };
-    computePassDescriptor.timestampWrites = {
+    renderPassDescriptor.timestampWrites = {
       querySet,
       beginningOfPassWriteIndex: 2,
       endOfPassWriteIndex: 3,
@@ -274,17 +280,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       passEncoder.end();
     }
 
-    let resolveBuffer: GPUBuffer | undefined = undefined;
     let resultBuffer: GPUBuffer | undefined = undefined;
     if (hasTimestampQuery) {
-      resolveBuffer = device.createBuffer({
-        size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
-        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
-      });
-      resultBuffer = device.createBuffer({
-        size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-      });
+      resultBuffer =
+        freeBuffers.pop() ||
+        device.createBuffer({
+          size: 4 * BigInt64Array.BYTES_PER_ELEMENT,
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
       commandEncoder.resolveQuerySet(querySet, 0, 4, resolveBuffer, 0);
       commandEncoder.copyBufferToBuffer(
         resolveBuffer,
@@ -300,10 +303,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     if (hasTimestampQuery) {
       resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
         const times = new BigInt64Array(resultBuffer.getMappedRange());
-        const renderPassDuration = Number(times[1] - times[0]);
-        const computePassDuration = Number(times[3] - times[2]);
-        perfDisplay.textContent = ` render pass duration: ${renderPassDuration}ns\ncompute pass duration: ${computePassDuration}ns\n`;
+        const computePassDuration = Number(times[1] - times[0]);
+        const renderPassDuration = Number(times[3] - times[2]);
         resultBuffer.unmap();
+        freeBuffers.push(resultBuffer);
+        perfDisplay.textContent = `compute pass duration: ${computePassDuration}ns\n render pass duration: ${renderPassDuration}ns\nfree buffers capacity: ${freeBuffers.length} `;
       });
     }
 
