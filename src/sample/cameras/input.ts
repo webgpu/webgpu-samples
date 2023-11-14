@@ -27,8 +27,11 @@ export default interface Input {
 // InputHandler is a function that when called, returns the current Input state.
 export type InputHandler = () => Input;
 
-// createInputHandler returns an InputHandler by attaching event handlers to the window.
-export function createInputHandler(window: Window): InputHandler {
+// createInputHandler returns an InputHandler by attaching event handlers to the window and canvas.
+export function createInputHandler(
+  window: Window,
+  canvas: HTMLCanvasElement
+): InputHandler {
   const digital = {
     forward: false,
     backward: false,
@@ -83,20 +86,22 @@ export function createInputHandler(window: Window): InputHandler {
 
   window.addEventListener('keydown', (e) => setDigital(e, true));
   window.addEventListener('keyup', (e) => setDigital(e, false));
-  window.addEventListener('mousedown', () => {
+
+  canvas.style.touchAction = 'pinch-zoom';
+  canvas.addEventListener('pointerdown', () => {
     mouseDown = true;
   });
-  window.addEventListener('mouseup', () => {
+  canvas.addEventListener('pointerup', () => {
     mouseDown = false;
   });
-  window.addEventListener('mousemove', (e) => {
-    mouseDown = (e.buttons & 1) !== 0;
+  canvas.addEventListener('pointermove', (e) => {
+    mouseDown = e.pointerType == 'mouse' ? (e.buttons & 1) !== 0 : true;
     if (mouseDown) {
       analog.x += e.movementX;
       analog.y += e.movementY;
     }
   });
-  window.addEventListener(
+  canvas.addEventListener(
     'wheel',
     (e) => {
       mouseDown = (e.buttons & 1) !== 0;

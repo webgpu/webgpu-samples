@@ -17,7 +17,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   }
 
   // The input handler
-  const inputHandler = createInputHandler(window);
+  const inputHandler = createInputHandler(window, canvas);
 
   // The camera types
   const initialCameraPosition = vec3.create(3, 2, 5);
@@ -245,7 +245,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   requestAnimationFrame(frame);
 };
 
-const TexturedCube: () => JSX.Element = () =>
+const Cameras: () => JSX.Element = () =>
   makeSample({
     name: 'Cameras',
     description: 'This example provides example camera implementations',
@@ -272,4 +272,4 @@ const TexturedCube: () => JSX.Element = () =>
     filename: __filename,
   });
 
-export default TexturedCube;
+export default Cameras;
