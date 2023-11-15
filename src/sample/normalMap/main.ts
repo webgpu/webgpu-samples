@@ -1,4 +1,4 @@
-import { mat4 } from 'wgpu-matrix';
+import { mat4, vec3 } from 'wgpu-matrix';
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 import normalMapWGSL from './normalMap.wgsl';
 import { createMeshRenderable } from '../../meshes/mesh';
@@ -33,7 +33,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   interface GUISettings {
     'Bump Mode':
-      | 'Diffuse Texture'
+      | 'Albedo Texture'
       | 'Normal Texture'
       | 'Depth Texture'
       | 'Normal Map'
@@ -60,7 +60,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     lightPosX: 1.7,
     lightPosY: 0.7,
     lightPosZ: -1.9,
-    lightIntensity: 0.02,
+    lightIntensity: 5.0,
     depthScale: 0.05,
     depthLayers: 16,
     Texture: 'Spiral',
@@ -76,24 +76,26 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
-  const uniformBuffer = device.createBuffer({
+  const spaceTransformsBuffer = device.createBuffer({
     // Buffer holding projection, view, and model matrices plus padding bytes
     size: MAT4X4_BYTES * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const mapMethodBuffer = device.createBuffer({
+  const mapInfoBuffer = device.createBuffer({
     // Buffer holding mapping type, light uniforms, and depth uniforms
-    size: Float32Array.BYTES_PER_ELEMENT * 7,
+    size: Float32Array.BYTES_PER_ELEMENT * 8,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
+  const mapInfoArray = new ArrayBuffer(mapInfoBuffer.size);
+  const mapInfoView = new DataView(mapInfoArray, 0, mapInfoArray.byteLength);
 
   // Fetch the image and upload it into a GPUTexture.
-  let woodDiffuseTexture: GPUTexture;
+  let woodAlbedoTexture: GPUTexture;
   {
-    const response = await fetch('../assets/img/wood_diffuse.png');
+    const response = await fetch('../assets/img/wood_albedo.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    woodDiffuseTexture = createTextureFromImage(device, imageBitmap);
+    woodAlbedoTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let spiralNormalTexture: GPUTexture;
@@ -124,11 +126,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     toyboxHeightTexture = createTextureFromImage(device, imageBitmap);
   }
 
-  let brickwallDiffuseTexture: GPUTexture;
+  let brickwallAlbedoTexture: GPUTexture;
   {
-    const response = await fetch('../assets/img/brickwall_diffuse.png');
+    const response = await fetch('../assets/img/brickwall_albedo.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    brickwallDiffuseTexture = createTextureFromImage(device, imageBitmap);
+    brickwallAlbedoTexture = createTextureFromImage(device, imageBitmap);
   }
 
   let brickwallNormalTexture: GPUTexture;
@@ -184,7 +186,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
     ['buffer', 'buffer'],
     [{ type: 'uniform' }, { type: 'uniform' }],
-    [[{ buffer: uniformBuffer }, { buffer: mapMethodBuffer }]],
+    [[{ buffer: spaceTransformsBuffer }, { buffer: mapInfoBuffer }]],
     'Frame',
     device
   );
@@ -204,19 +206,19 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     [
       [
         sampler,
-        woodDiffuseTexture.createView(),
+        woodAlbedoTexture.createView(),
         spiralNormalTexture.createView(),
         spiralHeightTexture.createView(),
       ],
       [
         sampler,
-        woodDiffuseTexture.createView(),
+        woodAlbedoTexture.createView(),
         toyboxNormalTexture.createView(),
         toyboxHeightTexture.createView(),
       ],
       [
         sampler,
-        brickwallDiffuseTexture.createView(),
+        brickwallAlbedoTexture.createView(),
         brickwallNormalTexture.createView(),
         brickwallHeightTexture.createView(),
       ],
@@ -250,9 +252,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   }
 
   // Change the model mapping type
-  const getMappingType = (): number => {
+  const getMode = (): number => {
     switch (settings['Bump Mode']) {
-      case 'Diffuse Texture':
+      case 'Albedo Texture':
         return 0;
       case 'Normal Texture':
         return 1;
@@ -285,7 +287,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   };
 
   gui.add(settings, 'Bump Mode', [
-    'Diffuse Texture',
+    'Albedo Texture',
     'Normal Texture',
     'Depth Texture',
     'Normal Map',
@@ -301,7 +303,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     lightPosXController.setValue(1.7);
     lightPosYController.setValue(0.7);
     lightPosZController.setValue(-1.9);
-    lightIntensityController.setValue(0.02);
+    lightIntensityController.setValue(5.0);
   });
   const lightPosXController = lightFolder
     .add(settings, 'lightPosX', -5, 5)
@@ -313,53 +315,54 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     .add(settings, 'lightPosZ', -5, 5)
     .step(0.1);
   const lightIntensityController = lightFolder
-    .add(settings, 'lightIntensity', 0.0, 0.1)
-    .step(0.002);
+    .add(settings, 'lightIntensity', 0.0, 10)
+    .step(0.1);
   depthFolder.add(settings, 'depthScale', 0.0, 0.1).step(0.01);
   depthFolder.add(settings, 'depthLayers', 1, 32).step(1);
 
   function frame() {
     if (!pageState.active) return;
 
-    // Write to normal map shader
+    // Update spaceTransformsBuffer
     const viewMatrix = getViewMatrix();
-
-    const modelMatrix = getModelMatrix();
-
+    const worldViewMatrix = mat4.mul(viewMatrix, getModelMatrix());
+    const worldViewProjMatrix = mat4.mul(projectionMatrix, worldViewMatrix);
     const matrices = new Float32Array([
-      ...projectionMatrix,
-      ...viewMatrix,
-      ...modelMatrix,
+      ...worldViewProjMatrix,
+      ...worldViewMatrix,
     ]);
 
-    const mappingType = getMappingType();
-
+    // Update mapInfoBuffer
+    const lightPosWS = vec3.create(
+      settings.lightPosX,
+      settings.lightPosY,
+      settings.lightPosZ
+    );
+    const lightPosVS = vec3.transformMat4(lightPosWS, viewMatrix);
+    const mode = getMode();
     device.queue.writeBuffer(
-      uniformBuffer,
+      spaceTransformsBuffer,
       0,
       matrices.buffer,
       matrices.byteOffset,
       matrices.byteLength
     );
 
-    device.queue.writeBuffer(
-      mapMethodBuffer,
-      0,
-      new Uint32Array([mappingType])
-    );
-
-    device.queue.writeBuffer(
-      mapMethodBuffer,
-      4,
-      new Float32Array([
-        settings.lightPosX,
-        settings.lightPosY,
-        settings.lightPosZ,
-        settings.lightIntensity,
-        settings.depthScale,
-        settings.depthLayers,
-      ])
-    );
+    // struct MapInfo {
+    //   lightPosVS: vec3f,
+    //   mode: u32,
+    //   lightIntensity: f32,
+    //   depthScale: f32,
+    //   depthLayers: f32,
+    // }
+    mapInfoView.setFloat32(0, lightPosVS[0], true);
+    mapInfoView.setFloat32(4, lightPosVS[1], true);
+    mapInfoView.setFloat32(8, lightPosVS[2], true);
+    mapInfoView.setUint32(12, mode, true);
+    mapInfoView.setFloat32(16, settings.lightIntensity, true);
+    mapInfoView.setFloat32(20, settings.depthScale, true);
+    mapInfoView.setFloat32(24, settings.depthLayers, true);
+    device.queue.writeBuffer(mapInfoBuffer, 0, mapInfoArray);
 
     renderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
