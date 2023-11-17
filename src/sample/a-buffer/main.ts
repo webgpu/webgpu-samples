@@ -676,15 +676,15 @@ const ABuffer: () => JSX.Element = () =>
         contents: __SOURCE__,
       },
       {
-        name: 'opaque.wsgl',
+        name: 'opaque.wgsl',
         contents: opaqueWGSL,
       },
       {
-        name: 'translucent.wsgl',
+        name: 'translucent.wgsl',
         contents: translucentWGSL,
       },
       {
-        name: 'composite.wsgl',
+        name: 'composite.wgsl',
         contents: compositeWGSL,
       },
     ],
