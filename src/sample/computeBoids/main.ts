@@ -261,6 +261,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   let t = 0;
   let computePassDurationSum = 0;
   let renderPassDurationSum = 0;
+  let timerSamples = 0;
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -311,18 +312,26 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     if (hasTimestampQuery) {
       resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
         const times = new BigInt64Array(resultBuffer.getMappedRange());
-        computePassDurationSum += Number(times[1] - times[0]);
-        renderPassDurationSum += Number(times[3] - times[2]);
+        const computePassDuration = Number(times[1] - times[0]);
+        const renderPassDuration = Number(times[3] - times[2]);
+
+        // In some cases the timestamps may wrap around and produce a negative
+        // number as the GPU resets it's timings. These can safely be ignored.
+        if (computePassDuration > 0 && renderPassDuration > 0) {
+          computePassDurationSum += computePassDuration;
+          renderPassDurationSum += renderPassDuration;
+          timerSamples++;
+        }
         resultBuffer.unmap();
 
         // Periodically update the text for the timer stats
-        const kNumTimerSamples = 100;
-        if (t % kNumTimerSamples === 0) {
+        const kNumTimerSamplesPerUpdate = 100;
+        if (timerSamples >= kNumTimerSamplesPerUpdate) {
           const avgComputeMicroseconds = Math.round(
-            computePassDurationSum / kNumTimerSamples / 1000
+            computePassDurationSum / timerSamples / 1000
           );
           const avgRenderMicroseconds = Math.round(
-            renderPassDurationSum / kNumTimerSamples / 1000
+            renderPassDurationSum / timerSamples / 1000
           );
           perfDisplay.textContent = `\
 avg compute pass duration: ${avgComputeMicroseconds}µs
@@ -330,6 +339,7 @@ avg render pass duration: ${avgRenderMicroseconds}µs
 spare readback buffers: ${spareResultBuffers.length}`;
           computePassDurationSum = 0;
           renderPassDurationSum = 0;
+          timerSamples = 0;
         }
         spareResultBuffers.push(resultBuffer);
       });
