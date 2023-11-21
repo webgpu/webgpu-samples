@@ -309,30 +309,32 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     device.queue.submit([commandEncoder.finish()]);
 
     if (hasTimestampQuery) {
-      resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
-        const times = new BigInt64Array(resultBuffer.getMappedRange());
-        computePassDurationSum += Number(times[1] - times[0]);
-        renderPassDurationSum += Number(times[3] - times[2]);
-        resultBuffer.unmap();
+      ((t) => {
+        resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
+          const times = new BigInt64Array(resultBuffer.getMappedRange());
+          computePassDurationSum += Number(times[1] - times[0]);
+          renderPassDurationSum += Number(times[3] - times[2]);
+          resultBuffer.unmap();
 
-        // Periodically update the text for the timer stats
-        const kNumTimerSamples = 100;
-        if (t % kNumTimerSamples === 0) {
-          const avgComputeMicroseconds = Math.round(
-            computePassDurationSum / kNumTimerSamples / 1000
-          );
-          const avgRenderMicroseconds = Math.round(
-            renderPassDurationSum / kNumTimerSamples / 1000
-          );
-          perfDisplay.textContent = `\
+          // Periodically update the text for the timer stats
+          const kNumTimerSamples = 100;
+          if (t % kNumTimerSamples === 0) {
+            const avgComputeMicroseconds = Math.round(
+              computePassDurationSum / kNumTimerSamples / 1000
+            );
+            const avgRenderMicroseconds = Math.round(
+              renderPassDurationSum / kNumTimerSamples / 1000
+            );
+            perfDisplay.textContent = `\
 avg compute pass duration: ${avgComputeMicroseconds}µs
 avg render pass duration: ${avgRenderMicroseconds}µs
 spare readback buffers: ${spareResultBuffers.length}`;
-          computePassDurationSum = 0;
-          renderPassDurationSum = 0;
-        }
-        spareResultBuffers.push(resultBuffer);
-      });
+            computePassDurationSum = 0;
+            renderPassDurationSum = 0;
+          }
+          spareResultBuffers.push(resultBuffer);
+        });
+      })(t);
     }
 
     ++t;
