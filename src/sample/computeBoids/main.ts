@@ -14,13 +14,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const perfDisplayContainer = document.createElement('div');
   perfDisplayContainer.style.color = 'white';
-  perfDisplayContainer.style.background = 'black';
+  perfDisplayContainer.style.backdropFilter = 'blur(10px)';
   perfDisplayContainer.style.position = 'absolute';
-  perfDisplayContainer.style.top = '10px';
+  perfDisplayContainer.style.bottom = '10px';
   perfDisplayContainer.style.left = '10px';
   perfDisplayContainer.style.textAlign = 'left';
 
   const perfDisplay = document.createElement('pre');
+  perfDisplay.style.margin = '.5em';
   perfDisplayContainer.appendChild(perfDisplay);
   if (canvas.parentNode) {
     canvas.parentNode.appendChild(perfDisplayContainer);
@@ -335,8 +336,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
           );
           perfDisplay.textContent = `\
 avg compute pass duration: ${avgComputeMicroseconds}µs
-avg render pass duration: ${avgRenderMicroseconds}µs
-spare readback buffers: ${spareResultBuffers.length}`;
+avg render pass duration:  ${avgRenderMicroseconds}µs
+spare readback buffers:    ${spareResultBuffers.length}`;
           computePassDurationSum = 0;
           renderPassDurationSum = 0;
           timerSamples = 0;
