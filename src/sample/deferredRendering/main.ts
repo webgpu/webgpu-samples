@@ -487,10 +487,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     2000.0
   );
 
-  const viewMatrix = mat4.inverse(mat4.lookAt(eyePosition, origin, upVector));
-
-  const viewProjMatrix = mat4.multiply(projectionMatrix, viewMatrix);
-
   // Move the model so it's centered.
   const modelMatrix = mat4.translation([0, -45, 0]);
 
@@ -515,17 +511,13 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   // Rotates the camera around the origin based on time.
   function getCameraViewProjMatrix() {
-    const eyePosition = vec3.fromValues(0, 50, -100);
-
     const rad = Math.PI * (Date.now() / 5000);
     const rotation = mat4.rotateY(mat4.translation(origin), rad);
-    vec3.transformMat4(eyePosition, rotation, eyePosition);
     const rotatedEyePosition = vec3.transformMat4(eyePosition, rotation);
 
     const viewMatrix = mat4.lookAt(rotatedEyePosition, origin, upVector);
 
-    mat4.multiply(projectionMatrix, viewMatrix, viewProjMatrix);
-    return viewProjMatrix as Float32Array;
+    return mat4.multiply(projectionMatrix, viewMatrix) as Float32Array;
   }
 
   function frame() {
