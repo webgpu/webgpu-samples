@@ -124,7 +124,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       }),
       compute: {
         module: computeShader,
-        entryPoint: 'main',
         constants: {
           blockSize: GameOptions.workgroupSize,
         },
@@ -190,12 +189,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       },
       vertex: {
         module: vertexShader,
-        entryPoint: 'main',
         buffers: [cellsStride, squareStride],
       },
       fragment: {
         module: fragmentShader,
-        entryPoint: 'main',
         targets: [
           {
             format: presentationFormat,

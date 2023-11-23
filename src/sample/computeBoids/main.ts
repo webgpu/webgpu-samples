@@ -47,7 +47,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     layout: 'auto',
     vertex: {
       module: spriteShaderModule,
-      entryPoint: 'vert_main',
       buffers: [
         {
           // instanced particles buffer
@@ -85,7 +84,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
     fragment: {
       module: spriteShaderModule,
-      entryPoint: 'frag_main',
       targets: [
         {
           format: presentationFormat,
@@ -103,7 +101,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: updateSpritesWGSL,
       }),
-      entryPoint: 'main',
     },
   });
 

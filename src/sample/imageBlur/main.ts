@@ -31,7 +31,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: blurWGSL,
       }),
-      entryPoint: 'main',
     },
   });
 
@@ -41,13 +40,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: fullscreenTexturedQuadWGSL,
       }),
-      entryPoint: 'vert_main',
     },
     fragment: {
       module: device.createShaderModule({
         code: fullscreenTexturedQuadWGSL,
       }),
-      entryPoint: 'frag_main',
       targets: [
         {
           format: presentationFormat,

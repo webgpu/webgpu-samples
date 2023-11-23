@@ -49,7 +49,6 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     layout: 'auto',
     vertex: {
       module: shaderModule,
-      entryPoint: 'vertexMain',
       buffers: [
         {
           arrayStride: SphereLayout.vertexStride,
@@ -78,7 +77,6 @@ const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     },
     fragment: {
       module: shaderModule,
-      entryPoint: 'fragmentMain',
       targets: [
         {
           format: presentationFormat,

@@ -35,13 +35,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: fullscreenTexturedQuadWGSL,
       }),
-      entryPoint: 'vert_main',
     },
     fragment: {
       module: device.createShaderModule({
         code: sampleExternalTextureWGSL,
       }),
-      entryPoint: 'main',
       targets: [
         {
           format: presentationFormat,

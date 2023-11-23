@@ -232,10 +232,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   });
   const showTexturePipeline = device.createRenderPipeline({
     layout: 'auto',
-    vertex: { module: showTextureModule, entryPoint: 'vmain' },
+    vertex: { module: showTextureModule },
     fragment: {
       module: showTextureModule,
-      entryPoint: 'fmain',
       targets: [{ format: presentationFormat }],
     },
     primitive: { topology: 'triangle-list' },
@@ -258,12 +257,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     layout: 'auto',
     vertex: {
       module: texturedSquareModule,
-      entryPoint: 'vmain',
       constants: { kTextureBaseSize, kViewportSize },
     },
     fragment: {
       module: texturedSquareModule,
-      entryPoint: 'fmain',
       targets: [{ format: presentationFormat }],
     },
     primitive: { topology: 'triangle-list' },

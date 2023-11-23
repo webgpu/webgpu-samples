@@ -676,11 +676,9 @@ async function render(fromRaf, fromPostMessage) {
           layout: pipelineLayout,
           multisample: { count: sampleCount },
           vertex: {
-            entryPoint: 'vs',
             module: shaderModule,
           },
           fragment: {
-            entryPoint: 'fs',
             targets: [ { format: canvasFormat, }, ],
             module: shaderModule,
           },

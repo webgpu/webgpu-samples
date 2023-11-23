@@ -206,13 +206,11 @@ export abstract class Base2DRendererClass {
         module: device.createShaderModule({
           code: fullscreenTexturedQuad,
         }),
-        entryPoint: 'vert_main',
       },
       fragment: {
         module: device.createShaderModule({
           code: code,
         }),
-        entryPoint: 'frag_main',
         targets: [
           {
             format: presentationFormat,

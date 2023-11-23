@@ -87,7 +87,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     layout: 'auto',
     vertex: {
       module: opaqueModule,
-      entryPoint: 'main_vs',
       buffers: [
         {
           arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
@@ -104,7 +103,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
     fragment: {
       module: opaqueModule,
-      entryPoint: 'main_fs',
       targets: [
         {
           format: presentationFormat,
@@ -207,7 +205,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }),
     vertex: {
       module: translucentModule,
-      entryPoint: 'main_vs',
       buffers: [
         {
           arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
@@ -223,7 +220,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
     fragment: {
       module: translucentModule,
-      entryPoint: 'main_fs',
       targets: [
         {
           format: presentationFormat,
@@ -295,11 +291,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     }),
     vertex: {
       module: compositeModule,
-      entryPoint: 'main_vs',
     },
     fragment: {
       module: compositeModule,
-      entryPoint: 'main_fs',
       targets: [
         {
           format: presentationFormat,

@@ -155,7 +155,6 @@ export const create3DRenderPipeline = (
         label: `${label}.vertexShader`,
         code: vertexShader,
       }),
-      entryPoint: 'vertexMain',
       buffers:
         vBufferFormats.length !== 0 ? [createVBuffer(vBufferFormats)] : [],
     },
@@ -164,7 +163,6 @@ export const create3DRenderPipeline = (
         label: `${label}.fragmentShader`,
         code: fragmentShader,
       }),
-      entryPoint: 'fragmentMain',
       targets: [
         {
           format: presentationFormat,

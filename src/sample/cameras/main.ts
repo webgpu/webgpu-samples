@@ -70,7 +70,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: cubeWGSL,
       }),
-      entryPoint: 'vertex_main',
       buffers: [
         {
           arrayStride: cubeVertexSize,
@@ -95,7 +94,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: cubeWGSL,
       }),
-      entryPoint: 'fragment_main',
       targets: [
         {
           format: presentationFormat,

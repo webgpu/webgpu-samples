@@ -44,7 +44,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: particleWGSL,
       }),
-      entryPoint: 'vs_main',
       buffers: [
         {
           // instanced particles buffer
@@ -84,7 +83,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: particleWGSL,
       }),
-      entryPoint: 'fs_main',
       targets: [
         {
           format: presentationFormat,
@@ -340,7 +338,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       module: device.createShaderModule({
         code: particleWGSL,
       }),
-      entryPoint: 'simulate',
     },
   });
   const computeBindGroup = device.createBindGroup({

@@ -100,7 +100,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     layout: 'auto',
     vertex: {
       module: shaderModule,
-      entryPoint: 'vert_main',
       buffers: [
         {
           // vertex buffer
@@ -125,7 +124,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
     fragment: {
       module: shaderModule,
-      entryPoint: 'frag_main',
       targets: [
         {
           format: presentationFormat,
