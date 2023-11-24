@@ -37,7 +37,7 @@ fn main(input : FragmentInput) -> @location(0) vec4<f32> {
   }
   visibility /= 9.0;
 
-  let lambertFactor = max(dot(normalize(scene.lightPos - input.fragPos), input.fragNorm), 0.0);
+  let lambertFactor = max(dot(normalize(scene.lightPos - input.fragPos), normalize(input.fragNorm)), 0.0);
   let lightingFactor = min(ambientFactor + visibility * lambertFactor, 1.0);
 
   return vec4(lightingFactor * albedo, 1.0);
