@@ -90,7 +90,11 @@ const SampleLayout: React.FunctionComponent<
     if (props.gui && process.browser) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const dat = require('dat.gui');
-      return new dat.GUI({ autoPlace: false });
+      const gui = new dat.GUI({ autoPlace: false });
+      // HACK: Make
+      gui.domElement.style.position = 'relative';
+      gui.domElement.style.zIndex = '1000';
+      return gui;
     }
     return undefined;
   }, []);
