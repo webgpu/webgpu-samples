@@ -2,7 +2,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { createBindGroupCluster, SampleInitFactoryWebGPU } from './utils';
 import BitonicDisplayRenderer from './bitonicDisplay';
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
-import { NaiveBitonicCompute } from './computeShader';
+import { NaiveBitonicCompute } from './bitonicCompute';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 import atomicToZero from './atomicToZero.wgsl';
 
@@ -28,11 +28,11 @@ type DisplayType = 'Elements' | 'Swap Highlight';
 // Gui settings object
 interface SettingsInterface {
   'Total Elements': number;
-  'Thread Constraint': number;
+  'Invoke Limit': number;
   'Grid Width': number;
   'Grid Height': number;
   'Grid Dimensions': string;
-  'Total Threads': number;
+  Invocations: number;
   'Hovered Cell': number;
   'Swapped Cell': number;
   'Current Step': string;
@@ -61,17 +61,17 @@ const getNumSteps = (numElements: number) => {
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
-    const maxThreadsX = device.limits.maxComputeWorkgroupSizeX;
+    const maxInvocationsX = device.limits.maxComputeWorkgroupSizeX;
 
     const totalElementLengths = [];
-    const maxElements = maxThreadsX * 32;
+    const maxElements = maxInvocationsX * 32;
     for (let i = maxElements; i >= 4; i /= 2) {
       totalElementLengths.push(i);
     }
 
-    const totalThreadLengths = [];
-    for (let i = maxThreadsX; i >= 2; i /= 2) {
-      totalThreadLengths.push(i);
+    const totalInvocationLengths: number[] = [];
+    for (let i = maxInvocationsX; i >= 2; i /= 2) {
+      totalInvocationLengths.push(i);
     }
 
     const defaultGridWidth =
@@ -82,18 +82,18 @@ SampleInitFactoryWebGPU(
     const defaultGridHeight = maxElements / defaultGridWidth;
 
     const settings: SettingsInterface = {
-      // number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
+      // number of cellElements. Must equal gridWidth * gridHeight and 'Invocations' * 2
       'Total Elements': maxElements,
-      // Artificially constrain the maximum number of threads/invocations that can be executed per workgroup
-      'Thread Constraint': maxThreadsX,
+      // Artificially constrain the maximum number of invocations that can be executed per workgroup
+      'Invoke Limit': maxInvocationsX,
       // width of screen in cells.
       'Grid Width': defaultGridWidth,
       // height of screen in cells
       'Grid Height': defaultGridHeight,
       // Grid Dimensions as string
       'Grid Dimensions': `${defaultGridWidth}x${defaultGridHeight}`,
-      // number of threads to execute in a workgroup ('Total Threads', 1, 1)
-      'Total Threads': maxThreadsX,
+      // number of invocations to execute in a workgroup ('Invocations', 1, 1)
+      Invocations: maxInvocationsX,
       // Cell in element grid mouse element is hovering over
       'Hovered Cell': 0,
       // element the hovered cell just swapped with,
@@ -108,12 +108,12 @@ SampleInitFactoryWebGPU(
       'Prev Step': 'NONE',
       // Next step to execute
       'Next Step': 'FLIP_LOCAL',
-      // Max thread span of previous block
+      // Max invocation span of previous block
       'Prev Swap Span': 0,
-      // Max thread span of next block
+      // Max invocation span of next block
       'Next Swap Span': 2,
       // Workgroups to dispatch per frame,
-      'Total Workgroups': maxElements / (maxThreadsX * 2),
+      'Total Workgroups': maxElements / (maxInvocationsX * 2),
       // The number of swap operations executed over time
       'Total Swaps': 0,
       // Whether we will dispatch a workload this frame
@@ -207,7 +207,7 @@ SampleInitFactoryWebGPU(
       }),
       compute: {
         module: device.createShaderModule({
-          code: NaiveBitonicCompute(settings['Total Threads']),
+          code: NaiveBitonicCompute(settings.Invocations),
         }),
         entryPoint: 'computeMain',
       },
@@ -248,14 +248,14 @@ SampleInitFactoryWebGPU(
     );
 
     const resetExecutionInformation = () => {
-      // Total threads are either elements / 2 or Max Threads X
-      totalThreadsController.setValue(
-        Math.min(settings['Total Elements'] / 2, settings['Thread Constraint'])
+      // Invocations are either elements / 2 or Invocation Constraint
+      invocationsController.setValue(
+        Math.min(settings['Total Elements'] / 2, settings['Invoke Limit'])
       );
 
-      // Dispatch a workgroup for every (Max threads * 2) elements
+      // Dispatch a workgroup for every (Max Invocations * 2) elements
       const workgroupsPerStep =
-        (settings['Total Elements'] - 1) / (settings['Thread Constraint'] * 2);
+        (settings['Total Elements'] - 1) / (settings['Invoke Limit'] * 2);
 
       totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
 
@@ -319,7 +319,7 @@ SampleInitFactoryWebGPU(
 
       resetExecutionInformation();
 
-      // Create new shader invocation with workgroupSize that reflects number of threads
+      // Create new shader invocation with workgroupSize that reflects number of invocations
       computePipeline = device.createComputePipeline({
         layout: device.createPipelineLayout({
           bindGroupLayouts: [computeBGCluster.bindGroupLayout],
@@ -327,10 +327,7 @@ SampleInitFactoryWebGPU(
         compute: {
           module: device.createShaderModule({
             code: NaiveBitonicCompute(
-              Math.min(
-                settings['Total Elements'] / 2,
-                settings['Thread Constraint']
-              )
+              Math.min(settings['Total Elements'] / 2, settings['Invoke Limit'])
             ),
           }),
           entryPoint: 'computeMain',
@@ -339,7 +336,6 @@ SampleInitFactoryWebGPU(
       // Randomize array elements
       randomizeElementArray();
       highestBlockHeight = 2;
-      // Unlock thread
     };
 
     randomizeElementArray();
@@ -394,7 +390,7 @@ SampleInitFactoryWebGPU(
         if (settings['Next Step'] === 'NONE') {
           clearInterval(completeSortIntervalID);
           completeSortIntervalID = null;
-          threadConstraintCell.domElement.style.pointerEvents = 'auto';
+          invokeLimitController.domElement.style.pointerEvents = 'auto';
         }
         if (settings['Sort Speed'] !== currentIntervalSpeed) {
           clearInterval(completeSortIntervalID);
@@ -407,26 +403,25 @@ SampleInitFactoryWebGPU(
     };
 
     // At top level, information about resources used to execute the compute shader
-    // i.e elements sorted, threads/invocations per workgroup, and workgroups dispatched
+    // i.e elements sorted, invocations per workgroup, and workgroups dispatched
     const computeResourcesFolder = gui.addFolder('Compute Resources');
     computeResourcesFolder
       .add(settings, 'Total Elements', totalElementLengths)
       .onChange(() => {
         endSortInterval();
         resizeElementArray();
-        threadConstraintCell.domElement.style.pointerEvents = 'auto';
+        invokeLimitController.domElement.style.pointerEvents = 'auto';
       });
-    const threadConstraintCell = computeResourcesFolder
-      .add(settings, 'Thread Constraint', totalThreadLengths)
+    const invokeLimitController = computeResourcesFolder
+      .add(settings, 'Invoke Limit', totalInvocationLengths)
       .onChange(() => {
         const constraint = Math.min(
           settings['Total Elements'] / 2,
-          settings['Thread Constraint']
+          settings['Invoke Limit']
         );
         const workgroupsPerStep =
-          (settings['Total Elements'] - 1) /
-          (settings['Thread Constraint'] * 2);
-        totalThreadsController.setValue(constraint);
+          (settings['Total Elements'] - 1) / (settings['Invoke Limit'] * 2);
+        invocationsController.setValue(constraint);
         totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
         computePipeline = computePipeline = device.createComputePipeline({
           layout: device.createPipelineLayout({
@@ -437,7 +432,7 @@ SampleInitFactoryWebGPU(
               code: NaiveBitonicCompute(
                 Math.min(
                   settings['Total Elements'] / 2,
-                  settings['Thread Constraint']
+                  settings['Invoke Limit']
                 )
               ),
             }),
@@ -445,9 +440,9 @@ SampleInitFactoryWebGPU(
           },
         });
       });
-    const totalThreadsController = computeResourcesFolder.add(
+    const invocationsController = computeResourcesFolder.add(
       settings,
-      'Total Threads'
+      'Invocations'
     );
     const totalWorkgroupsController = computeResourcesFolder.add(
       settings,
@@ -459,8 +454,8 @@ SampleInitFactoryWebGPU(
     const controlFolder = gui.addFolder('Sort Controls');
     controlFolder.add(settings, 'Sort Speed', 50, 1000).step(50);
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
-      // Thread number locked upon sort
-      threadConstraintCell.domElement.style.pointerEvents = 'none';
+      // Invoke Limit locked upon sort
+      invokeLimitController.domElement.style.pointerEvents = 'none';
       endSortInterval();
       settings.executeStep = true;
     });
@@ -468,15 +463,15 @@ SampleInitFactoryWebGPU(
       endSortInterval();
       randomizeElementArray();
       resetExecutionInformation();
-      // Unlock threadChange since sort has stopped
-      threadConstraintCell.domElement.style.pointerEvents = 'auto';
+      // Unlock invocation limit controller since sort has stopped
+      invokeLimitController.domElement.style.pointerEvents = 'auto';
     });
     controlFolder
       .add(settings, 'Log Elements')
       .onChange(() => console.log(elements));
     controlFolder.add(settings, 'Complete Sort').onChange(() => {
-      // Thread number locked upon sort
-      threadConstraintCell.domElement.style.pointerEvents = 'none';
+      // Invocation Limit locked upon sort
+      invokeLimitController.domElement.style.pointerEvents = 'none';
       startSortInterval();
     });
     controlFolder.open();
@@ -546,7 +541,7 @@ SampleInitFactoryWebGPU(
     });
 
     // Deactivate interaction with select GUI elements
-    threadConstraintCell.domElement.style.pointerEvents = 'none';
+    invokeLimitController.domElement.style.pointerEvents = 'none';
     totalWorkgroupsController.domElement.style.pointerEvents = 'none';
     hoveredCellController.domElement.style.pointerEvents = 'none';
     swappedCellController.domElement.style.pointerEvents = 'none';
@@ -555,7 +550,7 @@ SampleInitFactoryWebGPU(
     prevBlockHeightController.domElement.style.pointerEvents = 'none';
     nextStepController.domElement.style.pointerEvents = 'none';
     nextBlockHeightController.domElement.style.pointerEvents = 'none';
-    totalThreadsController.domElement.style.pointerEvents = 'none';
+    invocationsController.domElement.style.pointerEvents = 'none';
     gridDimensionsController.domElement.style.pointerEvents = 'none';
     totalSwapsController.domElement.style.pointerEvents = 'none';
 
@@ -623,7 +618,7 @@ SampleInitFactoryWebGPU(
           if (highestBlockHeight === settings['Total Elements'] * 2) {
             nextStepController.setValue('NONE');
             nextBlockHeightController.setValue(0);
-          } else if (highestBlockHeight > settings['Total Threads'] * 2) {
+          } else if (highestBlockHeight > settings.Invocations * 2) {
             nextStepController.setValue('FLIP_GLOBAL');
             nextBlockHeightController.setValue(highestBlockHeight);
           } else {
@@ -631,7 +626,7 @@ SampleInitFactoryWebGPU(
             nextBlockHeightController.setValue(highestBlockHeight);
           }
         } else {
-          settings['Next Swap Span'] > settings['Total Threads'] * 2
+          settings['Next Swap Span'] > settings.Invocations * 2
             ? nextStepController.setValue('DISPERSE_GLOBAL')
             : nextStepController.setValue('DISPERSE_LOCAL');
         }
@@ -705,7 +700,7 @@ const bitonicSortExample: () => JSX.Element = () =>
   makeSample({
     name: 'Bitonic Sort',
     description:
-      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each invocation of the bitonic sort shader dispatches a workgroup containing elements/2 threads. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
+      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each invocation of the bitonic sort shader dispatches a workgroup containing elements/2 invocations. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
     init,
     gui: true,
     sources: [
@@ -723,8 +718,9 @@ const bitonicSortExample: () => JSX.Element = () =>
         contents: bitonicDisplay,
       },
       {
-        name: './bitonicCompute.frag.wgsl',
-        contents: NaiveBitonicCompute(64),
+        name: './bitonicCompute.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        contents: require('!!raw-loader!./bitonicCompute.ts').default,
       },
       {
         name: './atomicToZero.wgsl',
