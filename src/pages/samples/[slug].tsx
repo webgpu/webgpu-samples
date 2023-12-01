@@ -49,6 +49,7 @@ export const pages: PageComponentType = {
   'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
   bitonicSort: dynamic(() => import('../../sample/bitonicSort/main')),
   normalMap: dynamic(() => import('../../sample/normalMap/main')),
+  fluid2D: dynamic(() => import('../../sample/fluid2D/main')),
 };
 
 function Page({ slug }: Props): JSX.Element {
