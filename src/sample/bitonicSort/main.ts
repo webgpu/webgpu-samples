@@ -88,7 +88,8 @@ SampleInitFactoryWebGPU(
 
     const settings: SettingsInterface = {
       // TOTAL ELEMENT AND GRID SETTINGS
-      // Num of elements to be sorted. Must equal gridWidth * gridHeight || Workgroup Size * Workgroups * 2
+      // The number of elements to be sorted. Must equal gridWidth * gridHeight || Workgroup Size * Workgroups * 2
+      // When changed, all relevant values within the settings object are reset to their defaults at the beginning of a sort with n elements.
       'Total Elements': maxElements,
       // width of screen in cells
       'Grid Width': defaultGridWidth,
@@ -103,7 +104,7 @@ SampleInitFactoryWebGPU(
       'Workgroup Size': maxInvocationsX,
       // An artifical constraint on the maximum workgroup size/maximumn invocations per workgroup as specified by device.limits.maxComputeWorkgroupSizeX
       'Size Limit': maxInvocationsX,
-      // Total workgroups that are dispatched per each step of the bitonic sort
+      // Total workgroups that are dispatched during each step of the bitonic sort
       'Workgroups Per Step': maxElements / (maxInvocationsX * 2),
 
       // HOVER SETTINGS
@@ -131,7 +132,8 @@ SampleInitFactoryWebGPU(
       // ANIMATION LOOP AND FUNCTION SETTINGS
       // A flag that designates whether we will dispatch a workload this frame.
       executeStep: false,
-      // A function that randomizes the values of each element. When called, all relevant values are reset to their defaults at the beginning of a sort with n elements.
+      // A function that randomizes the values of each element. 
+      // When called, all relevant values within the settings object are reset to their defaults at the beginning of a sort with n elements.
       'Randomize Values': () => {
         return;
       },
@@ -229,7 +231,7 @@ SampleInitFactoryWebGPU(
       }),
       compute: {
         module: device.createShaderModule({
-          code: NaiveBitonicCompute(settings.Invocations),
+          code: NaiveBitonicCompute(settings['Workgroup Size']),
         }),
         entryPoint: 'computeMain',
       },
@@ -270,16 +272,16 @@ SampleInitFactoryWebGPU(
     );
 
     const resetExecutionInformation = () => {
-      // Invocations are either elements / 2 or Invocation Constraint
-      invocationsController.setValue(
-        Math.min(settings['Total Elements'] / 2, settings['Invoke Limit'])
+      // The workgroup size is either elements / 2 or Invocation Constraint
+      workgroupSizeController.setValue(
+        Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
       );
 
       // Dispatch a workgroup for every (Max Invocations * 2) elements
       const workgroupsPerStep =
-        (settings['Total Elements'] - 1) / (settings['Invoke Limit'] * 2);
+        (settings['Total Elements'] - 1) / (settings['Size Limit'] * 2);
 
-      totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
+      workgroupsPerStepController.setValue(Math.ceil(workgroupsPerStep));
 
       // Reset step Index and number of steps based on elements size
       settings['Step Index'] = 0;
@@ -349,7 +351,7 @@ SampleInitFactoryWebGPU(
         compute: {
           module: device.createShaderModule({
             code: NaiveBitonicCompute(
-              Math.min(settings['Total Elements'] / 2, settings['Invoke Limit'])
+              Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
             ),
           }),
           entryPoint: 'computeMain',
@@ -412,7 +414,7 @@ SampleInitFactoryWebGPU(
         if (settings['Next Step'] === 'NONE') {
           clearInterval(completeSortIntervalID);
           completeSortIntervalID = null;
-          invokeLimitController.domElement.style.pointerEvents = 'auto';
+          sizeLimitController.domElement.style.pointerEvents = 'auto';
         }
         if (settings['Sort Speed'] !== currentIntervalSpeed) {
           clearInterval(completeSortIntervalID);
@@ -432,19 +434,19 @@ SampleInitFactoryWebGPU(
       .onChange(() => {
         endSortInterval();
         resizeElementArray();
-        invokeLimitController.domElement.style.pointerEvents = 'auto';
+        sizeLimitController.domElement.style.pointerEvents = 'auto';
       });
-    const invokeLimitController = computeResourcesFolder
-      .add(settings, 'Invoke Limit', sizeLimitOptions)
+    const sizeLimitController = computeResourcesFolder
+      .add(settings, 'Size Limit', sizeLimitOptions)
       .onChange(() => {
         const constraint = Math.min(
           settings['Total Elements'] / 2,
-          settings['Invoke Limit']
+          settings['Size Limit']
         );
         const workgroupsPerStep =
-          (settings['Total Elements'] - 1) / (settings['Invoke Limit'] * 2);
-        invocationsController.setValue(constraint);
-        totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
+          (settings['Total Elements'] - 1) / (settings['Size Limit'] * 2);
+        workgroupSizeController.setValue(constraint);
+        workgroupsPerStepController.setValue(Math.ceil(workgroupsPerStep));
         computePipeline = computePipeline = device.createComputePipeline({
           layout: device.createPipelineLayout({
             bindGroupLayouts: [computeBGCluster.bindGroupLayout],
@@ -452,23 +454,20 @@ SampleInitFactoryWebGPU(
           compute: {
             module: device.createShaderModule({
               code: NaiveBitonicCompute(
-                Math.min(
-                  settings['Total Elements'] / 2,
-                  settings['Invoke Limit']
-                )
+                Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
               ),
             }),
             entryPoint: 'computeMain',
           },
         });
       });
-    const invocationsController = computeResourcesFolder.add(
+    const workgroupSizeController = computeResourcesFolder.add(
       settings,
-      'Invocations'
+      'Workgroup Size'
     );
-    const totalWorkgroupsController = computeResourcesFolder.add(
+    const workgroupsPerStepController = computeResourcesFolder.add(
       settings,
-      'Total Workgroups'
+      'Workgroups Per Step'
     );
     computeResourcesFolder.open();
 
@@ -476,8 +475,8 @@ SampleInitFactoryWebGPU(
     const controlFolder = gui.addFolder('Sort Controls');
     controlFolder.add(settings, 'Sort Speed', 50, 1000).step(50);
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
-      // Invoke Limit locked upon sort
-      invokeLimitController.domElement.style.pointerEvents = 'none';
+      // Size Limit locked upon sort
+      sizeLimitController.domElement.style.pointerEvents = 'none';
       endSortInterval();
       settings.executeStep = true;
     });
@@ -485,15 +484,15 @@ SampleInitFactoryWebGPU(
       endSortInterval();
       randomizeElementArray();
       resetExecutionInformation();
-      // Unlock invocation limit controller since sort has stopped
-      invokeLimitController.domElement.style.pointerEvents = 'auto';
+      // Unlock workgroup size limit controller since sort has stopped
+      sizeLimitController.domElement.style.pointerEvents = 'auto';
     });
     controlFolder
       .add(settings, 'Log Elements')
       .onChange(() => console.log(elements));
     controlFolder.add(settings, 'Complete Sort').onChange(() => {
       // Invocation Limit locked upon sort
-      invokeLimitController.domElement.style.pointerEvents = 'none';
+      sizeLimitController.domElement.style.pointerEvents = 'none';
       startSortInterval();
     });
     controlFolder.open();
@@ -563,8 +562,8 @@ SampleInitFactoryWebGPU(
     });
 
     // Deactivate interaction with select GUI elements
-    invokeLimitController.domElement.style.pointerEvents = 'none';
-    totalWorkgroupsController.domElement.style.pointerEvents = 'none';
+    sizeLimitController.domElement.style.pointerEvents = 'none';
+    workgroupsPerStepController.domElement.style.pointerEvents = 'none';
     hoveredCellController.domElement.style.pointerEvents = 'none';
     swappedCellController.domElement.style.pointerEvents = 'none';
     currentStepController.domElement.style.pointerEvents = 'none';
@@ -572,9 +571,10 @@ SampleInitFactoryWebGPU(
     prevBlockHeightController.domElement.style.pointerEvents = 'none';
     nextStepController.domElement.style.pointerEvents = 'none';
     nextBlockHeightController.domElement.style.pointerEvents = 'none';
-    invocationsController.domElement.style.pointerEvents = 'none';
+    workgroupSizeController.domElement.style.pointerEvents = 'none';
     gridDimensionsController.domElement.style.pointerEvents = 'none';
     totalSwapsController.domElement.style.pointerEvents = 'none';
+    gui.width = 325;
 
     let highestBlockHeight = 2;
 
@@ -625,7 +625,7 @@ SampleInitFactoryWebGPU(
         const computePassEncoder = commandEncoder.beginComputePass();
         computePassEncoder.setPipeline(computePipeline);
         computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
-        computePassEncoder.dispatchWorkgroups(settings['Total Workgroups']);
+        computePassEncoder.dispatchWorkgroups(settings['Workgroups Per Step']);
         computePassEncoder.end();
         //stepIndexController.setValue(settings['Step Index'] + 1);
         settings['Step Index'] = settings['Step Index'] + 1;
@@ -640,7 +640,7 @@ SampleInitFactoryWebGPU(
           if (highestBlockHeight === settings['Total Elements'] * 2) {
             nextStepController.setValue('NONE');
             nextBlockHeightController.setValue(0);
-          } else if (highestBlockHeight > settings.Invocations * 2) {
+          } else if (highestBlockHeight > settings['Workgroup Size'] * 2) {
             nextStepController.setValue('FLIP_GLOBAL');
             nextBlockHeightController.setValue(highestBlockHeight);
           } else {
@@ -648,7 +648,7 @@ SampleInitFactoryWebGPU(
             nextBlockHeightController.setValue(highestBlockHeight);
           }
         } else {
-          settings['Next Swap Span'] > settings.Invocations * 2
+          settings['Next Swap Span'] > settings['Workgroup Size'] * 2
             ? nextStepController.setValue('DISPERSE_GLOBAL')
             : nextStepController.setValue('DISPERSE_LOCAL');
         }
@@ -722,7 +722,7 @@ const bitonicSortExample: () => JSX.Element = () =>
   makeSample({
     name: 'Bitonic Sort',
     description:
-      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each invocation of the bitonic sort shader dispatches a workgroup containing elements/2 invocations. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
+      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each dispatch of the bitonic sort shader dispatches a workgroup containing elements/2 invocations. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
     init,
     gui: true,
     sources: [
