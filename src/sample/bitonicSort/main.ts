@@ -15,12 +15,17 @@ enum StepEnum {
   DISPERSE_GLOBAL,
 }
 
-// String access to StepEnum
 type StepType =
+  // NONE: No sort step has or will occur
   | 'NONE'
+  // FLIP_LOCAL: A sort step that performs a flip operation over indices in a workgroup's locally addressable area
+  // (i.e invocations * workgroup_index -> invocations * (workgroup_index + 1) - 1.
   | 'FLIP_LOCAL'
+  // DISPERSE_LOCAL A sort step that performs a flip operation over indices in a workgroup's locally addressable area.
   | 'DISPERSE_LOCAL'
+  // FLIP_GLOBAL A sort step that performs a flip step across a range of indices outside a workgroup's locally addressable area.
   | 'FLIP_GLOBAL'
+  // DISPERSE_GLOBAL A sort step that performs a disperse operation across a range of indices outside a workgroup's locally addressable area.
   | 'DISPERSE_GLOBAL';
 
 type DisplayType = 'Elements' | 'Swap Highlight';
@@ -28,11 +33,12 @@ type DisplayType = 'Elements' | 'Swap Highlight';
 // Gui settings object
 interface SettingsInterface {
   'Total Elements': number;
-  'Invoke Limit': number;
   'Grid Width': number;
   'Grid Height': number;
   'Grid Dimensions': string;
-  Invocations: number;
+  'Workgroup Size': number;
+  'Size Limit': number;
+  'Workgroups Per Step': number;
   'Hovered Cell': number;
   'Swapped Cell': number;
   'Current Step': string;
@@ -42,15 +48,14 @@ interface SettingsInterface {
   'Next Step': StepType;
   'Prev Swap Span': number;
   'Next Swap Span': number;
-  'Total Workgroups': number;
-  'Display Mode': DisplayType;
-  'Total Swaps': number;
   executeStep: boolean;
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
   'Complete Sort': () => void;
   'Sort Speed': number;
+  'Display Mode': DisplayType;
+  'Total Swaps': number;
 }
 
 const getNumSteps = (numElements: number) => {
@@ -63,15 +68,15 @@ SampleInitFactoryWebGPU(
   async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
     const maxInvocationsX = device.limits.maxComputeWorkgroupSizeX;
 
-    const totalElementLengths = [];
+    const totalElementOptions = [];
     const maxElements = maxInvocationsX * 32;
     for (let i = maxElements; i >= 4; i /= 2) {
-      totalElementLengths.push(i);
+      totalElementOptions.push(i);
     }
 
-    const totalInvocationLengths: number[] = [];
+    const sizeLimitOptions: number[] = [];
     for (let i = maxInvocationsX; i >= 2; i /= 2) {
-      totalInvocationLengths.push(i);
+      sizeLimitOptions.push(i);
     }
 
     const defaultGridWidth =
@@ -82,56 +87,73 @@ SampleInitFactoryWebGPU(
     const defaultGridHeight = maxElements / defaultGridWidth;
 
     const settings: SettingsInterface = {
-      // number of cellElements. Must equal gridWidth * gridHeight and 'Invocations' * 2
+      // TOTAL ELEMENT AND GRID SETTINGS
+      // Num of elements to be sorted. Must equal gridWidth * gridHeight || Workgroup Size * Workgroups * 2
       'Total Elements': maxElements,
-      // Artificially constrain the maximum number of invocations that can be executed per workgroup
-      'Invoke Limit': maxInvocationsX,
-      // width of screen in cells.
+      // width of screen in cells
       'Grid Width': defaultGridWidth,
       // height of screen in cells
       'Grid Height': defaultGridHeight,
       // Grid Dimensions as string
       'Grid Dimensions': `${defaultGridWidth}x${defaultGridHeight}`,
-      // number of invocations to execute in a workgroup ('Invocations', 1, 1)
-      Invocations: maxInvocationsX,
-      // Cell in element grid mouse element is hovering over
+
+      // INVOCATION, WORKGROUP SIZE, AND WORKGROUP DISPATCH SETTINGS
+      // The size of a workgroup, or the number of invocations executed within each workgroup
+      // Determined algorithmically based on 'Size Limit', maxInvocationsX, and the current number of elements to sort
+      'Workgroup Size': maxInvocationsX,
+      // An artifical constraint on the maximum workgroup size/maximumn invocations per workgroup as specified by device.limits.maxComputeWorkgroupSizeX
+      'Size Limit': maxInvocationsX,
+      // Total workgroups that are dispatched per each step of the bitonic sort
+      'Workgroups Per Step': maxElements / (maxInvocationsX * 2),
+
+      // HOVER SETTINGS
+      // The element/cell in the element visualizer directly beneath the mouse cursor
       'Hovered Cell': 0,
-      // element the hovered cell just swapped with,
+      // The element/cell in the element visualizer that the hovered cell will swap with in the next execution step of the bitonic sort.
       'Swapped Cell': 1,
-      // Index of current step
+
+      // STEP INDEX, STEP TYPE, AND STEP SWAP SPAN SETTINGS
+      // The index of the current step in the bitonic sort.
       'Step Index': 0,
-      // Total steps to sort current number of elements
+      // The total number of steps required to sort the displayed elements.
       'Total Steps': getNumSteps(maxElements),
-      //Step Info as string
+      // A string that condenses 'Step Index' and 'Total Steps' into a single GUI Controller display element.
       'Current Step': `0 of 91`,
-      // Previously executed step
+      // The category of the previously executed step. Always begins the bitonic sort with a value of 'NONE' and ends with a value of 'DISPERSE_LOCAL'
       'Prev Step': 'NONE',
-      // Next step to execute
+      // The category of the next step that will be executed. Always begins the bitonic sort with a value of 'FLIP_LOCAL' and ends with a value of 'NONE'
       'Next Step': 'FLIP_LOCAL',
-      // Max invocation span of previous block
+      // The maximum span of a swap operation in the sort's previous step.
       'Prev Swap Span': 0,
-      // Max invocation span of next block
+      // The maximum span of a swap operation in the sort's upcoming step.
       'Next Swap Span': 2,
-      // Workgroups to dispatch per frame,
-      'Total Workgroups': maxElements / (maxInvocationsX * 2),
-      // The number of swap operations executed over time
-      'Total Swaps': 0,
-      // Whether we will dispatch a workload this frame
+
+      // ANIMATION LOOP AND FUNCTION SETTINGS
+      // A flag that designates whether we will dispatch a workload this frame.
       executeStep: false,
-      'Display Mode': 'Elements',
+      // A function that randomizes the values of each element. When called, all relevant values are reset to their defaults at the beginning of a sort with n elements.
       'Randomize Values': () => {
         return;
       },
+      // A function that manually executes a single step of the bitonic sort.
       'Execute Sort Step': () => {
         return;
       },
+      // A function that logs the values of each element as an array to the browser's console.
       'Log Elements': () => {
         return;
       },
+      // A function that automatically executes each step of the bitonic sort at an interval determined by 'Sort Speed'
       'Complete Sort': () => {
         return;
       },
+      // The speed at which each step of the bitonic sort will be executed after 'Complete Sort' has been called.
       'Sort Speed': 50,
+
+      // MISCELLANEOUS SETTINGS
+      'Display Mode': 'Elements',
+      // An atomic value representing the total number of swap operations executed over the course of the bitonic sort.
+      'Total Swaps': 0,
     };
 
     // Initialize initial elements array
@@ -141,7 +163,7 @@ SampleInitFactoryWebGPU(
 
     // Initialize elementsBuffer and elementsStagingBuffer
     const elementsBufferSize =
-      Float32Array.BYTES_PER_ELEMENT * totalElementLengths[0];
+      Float32Array.BYTES_PER_ELEMENT * totalElementOptions[0];
     // Initialize input, output, staging buffers
     const elementsInputBuffer = device.createBuffer({
       size: elementsBufferSize,
@@ -406,14 +428,14 @@ SampleInitFactoryWebGPU(
     // i.e elements sorted, invocations per workgroup, and workgroups dispatched
     const computeResourcesFolder = gui.addFolder('Compute Resources');
     computeResourcesFolder
-      .add(settings, 'Total Elements', totalElementLengths)
+      .add(settings, 'Total Elements', totalElementOptions)
       .onChange(() => {
         endSortInterval();
         resizeElementArray();
         invokeLimitController.domElement.style.pointerEvents = 'auto';
       });
     const invokeLimitController = computeResourcesFolder
-      .add(settings, 'Invoke Limit', totalInvocationLengths)
+      .add(settings, 'Invoke Limit', sizeLimitOptions)
       .onChange(() => {
         const constraint = Math.min(
           settings['Total Elements'] / 2,

@@ -1,8 +1,8 @@
 export const computeArgKeys = ['width', 'height', 'algo', 'blockHeight'];
 
-export const NaiveBitonicCompute = (invocationsPerWorkgroup: number) => {
-  if (invocationsPerWorkgroup % 2 !== 0 || invocationsPerWorkgroup > 256) {
-    invocationsPerWorkgroup = 256;
+export const NaiveBitonicCompute = (workgroupSize: number) => {
+  if (workgroupSize % 2 !== 0 || workgroupSize > 256) {
+    workgroupSize = 256;
   }
   // Ensure that workgroupSize is half the number of elements
   return `
@@ -15,7 +15,7 @@ struct Uniforms {
 }
 
 // Create local workgroup data that can contain all elements
-var<workgroup> local_data: array<u32, ${invocationsPerWorkgroup * 2}>;
+var<workgroup> local_data: array<u32, ${workgroupSize * 2}>;
 
 // Define groups (functions refer to this data)
 @group(0) @binding(0) var<storage, read> input_data: array<u32>;
@@ -74,14 +74,14 @@ const ALGO_LOCAL_DISPERSE = 2;
 const ALGO_GLOBAL_FLIP = 3;
 
 // Our compute shader will execute specified # of invocations or elements / 2 invocations
-@compute @workgroup_size(${invocationsPerWorkgroup}, 1, 1)
+@compute @workgroup_size(${workgroupSize}, 1, 1)
 fn computeMain(
   @builtin(global_invocation_id) global_id: vec3<u32>,
   @builtin(local_invocation_id) local_id: vec3<u32>,
   @builtin(workgroup_id) workgroup_id: vec3<u32>,
 ) {
 
-  let offset = ${invocationsPerWorkgroup} * 2 * workgroup_id.x;
+  let offset = ${workgroupSize} * 2 * workgroup_id.x;
   // If we will perform a local swap, then populate the local data
   if (uniforms.algo <= 2) {
     // Assign range of input_data to local_data.
