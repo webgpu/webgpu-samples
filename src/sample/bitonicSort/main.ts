@@ -132,7 +132,7 @@ SampleInitFactoryWebGPU(
       // ANIMATION LOOP AND FUNCTION SETTINGS
       // A flag that designates whether we will dispatch a workload this frame.
       executeStep: false,
-      // A function that randomizes the values of each element. 
+      // A function that randomizes the values of each element.
       // When called, all relevant values within the settings object are reset to their defaults at the beginning of a sort with n elements.
       'Randomize Values': () => {
         return;
