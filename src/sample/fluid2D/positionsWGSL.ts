@@ -1,4 +1,4 @@
-export const PositionsComputeShader = (maxWorkgroupsSizeX: number) => {
+export const PositionsComputeShader = (workgroupSize: number) => {
   return `
 struct GeneralUniforms {
   num_particles: u32,
@@ -20,7 +20,7 @@ struct ParticleUniforms {
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
 
-@compute @workgroup_size(${maxWorkgroupsSizeX}, 1, 1)
+@compute @workgroup_size(${workgroupSize}, 1, 1)
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {

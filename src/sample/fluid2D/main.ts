@@ -5,6 +5,7 @@ import particleWGSL from './particle.wgsl';
 import commonWGSL from './common.wgsl';
 import { PositionsComputeShader } from './positionsWGSL';
 import { ViscosityComputeShader } from './viscosityWGSL';
+import { DensityComputeShader } from './densityWGSL';
 
 // Bind Group Tier Level
 // Group 0: Changes per frame (read_write buffers, etc)
@@ -35,12 +36,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Delta Time': 0.04,
     // The total number of particles being simulated
     'Total Particles': 512,
-    // A fluid particle's radius
+    // A fluid particle's display radius
     'Particle Radius': 10.0,
+    // The radius of influence from the center of a particle to 
+    'Smoothing Radius': 0.7,
     // The bounce dampening on a non-fluid particle
     Damping: 0.7,
     // A boolean indicating whether the simulation is in the process of resetting
     isResetting: false,
+    simulate: false,
   };
 
   /* COMPUTE SHADER RESOURCE PREPARATION */
@@ -214,6 +218,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   generateParticles();
 
+  gui.add(settings, 'simulate');
   gui.add(settings, 'Delta Time', 0.01, 0.5).step(0.01);
   gui.add(settings, 'Particle Radius', 0.0, 300.0).step(1.0);
   gui.add(settings, 'Gravity', -20.0, 20.0).step(0.1);
@@ -266,21 +271,23 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
     const commandEncoder = device.createCommandEncoder();
 
-    // Run compute shader to compute particle positions
-    const computePositionsPassEncoder = commandEncoder.beginComputePass();
-    computePositionsPassEncoder.setPipeline(positionsComputePipeline);
-    computePositionsPassEncoder.setBindGroup(
-      0,
-      positionsStorageBGCluster.bindGroups[0]
-    );
-    computePositionsPassEncoder.setBindGroup(
-      1,
-      positionsUniformsBGCluster.bindGroups[0]
-    );
-    computePositionsPassEncoder.dispatchWorkgroups(
-      Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
-    );
-    computePositionsPassEncoder.end();
+    if (settings.simulate) {
+      // Run compute shader to compute particle positions
+      const computePositionsPassEncoder = commandEncoder.beginComputePass();
+      computePositionsPassEncoder.setPipeline(positionsComputePipeline);
+      computePositionsPassEncoder.setBindGroup(
+        0,
+        positionsStorageBGCluster.bindGroups[0]
+      );
+      computePositionsPassEncoder.setBindGroup(
+        1,
+        positionsUniformsBGCluster.bindGroups[0]
+      );
+      computePositionsPassEncoder.dispatchWorkgroups(
+        Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
+      );
+      computePositionsPassEncoder.end();
+    }
 
     const renderPassEncoder =
       commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -308,6 +315,18 @@ const fluidExample: () => JSX.Element = () =>
       {
         name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
+      },
+      {
+        name: './particle.wgsl',
+        contents: particleWGSL,
+      },
+      {
+        name: './positions.wgsl',
+        contents: PositionsComputeShader(256),
+      },
+      {
+        name: './density.wgsl',
+        contents: DensityComputeShader(256),
       },
     ],
     filename: __filename,
