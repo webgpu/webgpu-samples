@@ -547,6 +547,7 @@ SampleInitFactoryWebGPU(
       ).style.position = 'absolute';
     }
 
+    // Mouse listener that determines values of hoveredCell and swappedCell
     canvas.addEventListener('mousemove', (event) => {
       const currWidth = canvas.getBoundingClientRect().width;
       const currHeight = canvas.getBoundingClientRect().height;
@@ -627,7 +628,6 @@ SampleInitFactoryWebGPU(
         computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
         computePassEncoder.dispatchWorkgroups(settings['Workgroups Per Step']);
         computePassEncoder.end();
-        //stepIndexController.setValue(settings['Step Index'] + 1);
         settings['Step Index'] = settings['Step Index'] + 1;
         currentStepController.setValue(
           `${settings['Step Index']} of ${settings['Total Steps']}`
@@ -635,19 +635,26 @@ SampleInitFactoryWebGPU(
         prevStepController.setValue(settings['Next Step']);
         prevBlockHeightController.setValue(settings['Next Swap Span']);
         nextBlockHeightController.setValue(settings['Next Swap Span'] / 2);
+        // Each cycle of a bitonic sort contains a flip operation followed by multiple disperse operations
+        // Next Swap Span will equal one when the sort needs to begin a new cycle of flip and disperse operations
         if (settings['Next Swap Span'] === 1) {
+          // The next cycle's flip operation will have a maximum swap span 2 times that of the previous cycle
           highestBlockHeight *= 2;
           if (highestBlockHeight === settings['Total Elements'] * 2) {
+            // The next cycle's maximum swap span exceeds the total number of elements. Thus, the sort is over.
             nextStepController.setValue('NONE');
             nextBlockHeightController.setValue(0);
           } else if (highestBlockHeight > settings['Workgroup Size'] * 2) {
+            // The next cycle's maximum swap span exceeds the range of a single workgroup, so our next flip will operate on global indices.
             nextStepController.setValue('FLIP_GLOBAL');
             nextBlockHeightController.setValue(highestBlockHeight);
           } else {
+            // The next cycle's maximum swap span can be executed on a range of indices local to the workgroup.
             nextStepController.setValue('FLIP_LOCAL');
             nextBlockHeightController.setValue(highestBlockHeight);
           }
         } else {
+          // Otherwise, execute the next disperse operation
           settings['Next Swap Span'] > settings['Workgroup Size'] * 2
             ? nextStepController.setValue('DISPERSE_GLOBAL')
             : nextStepController.setValue('DISPERSE_LOCAL');
