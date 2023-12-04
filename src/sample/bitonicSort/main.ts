@@ -272,12 +272,12 @@ SampleInitFactoryWebGPU(
     );
 
     const resetExecutionInformation = () => {
-      // The workgroup size is either elements / 2 or Invocation Constraint
+      // The workgroup size is either elements / 2 or Size Limit
       workgroupSizeController.setValue(
         Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
       );
 
-      // Dispatch a workgroup for every (Max Invocations * 2) elements
+      // Dispatch a workgroup for every (Size Limit * 2) elements
       const workgroupsPerStep =
         (settings['Total Elements'] - 1) / (settings['Size Limit'] * 2);
 

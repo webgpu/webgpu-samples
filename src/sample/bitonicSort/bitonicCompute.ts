@@ -35,7 +35,7 @@ fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
   return;
 }
 
-// invoke_id goes from 0 to invocationsPerWorkgroup
+// invoke_id goes from 0 to workgroupSize
 fn get_flip_indices(invoke_id: u32, block_height: u32) -> vec2<u32> {
   // Caculate index offset (i.e move indices into correct block)
   let block_offset: u32 = ((2 * invoke_id) / block_height) * block_height;
