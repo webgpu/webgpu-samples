@@ -89,7 +89,7 @@ fn SpikeDistributionPower3Derivative(
 
 // Hash Functions
 // The offsets represent nine possible movements (from top to bottom)
-let offsets2D : array<vector<int, 2>, 9> = [
+const offsets2D: array<vector<int, 2>, 9> = [
   vec2<i32>(-1, 1),
   vec2<i32>(0, 1),
   vec2<i32>(1, 1),
@@ -123,3 +123,4 @@ fn HashCell2D(cell: vec2<i32>) -> u32 {
 fn KeyFromHash(hash: u32, tableSize: u32) -> u32 {
     return hash % tableSize;
 }
+

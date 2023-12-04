@@ -1,15 +1,29 @@
+struct VertexInput {
+  @builtin(vertex_index) VertexIndex: u32,
+  @builtin(instance_index) InstanceIndex: u32,
+}
+
+struct VertexOutput {
+  @builtin(position) Position: vec4f,
+  @location(0) v_uv: vec2<f32>,
+}
+
+struct ParticleUniforms {
+  radius: f32,
+  canvas_width: f32,
+  canvas_height: f32,
+}
+
 fn sdfCircle(p: vec2<f32>, r: f32) -> f32 {
   return length(p)-r;
 }
 
-struct Particle {
-  color: vec3<f32>,
-  position: vec2<f32>,
-  velocity: vec2<f32>,
-}
+// Storage Buffers
+@group(0) @binding(0) var<storage, read> input_positions: array<vec2<f32>>;
+@group(0) @binding(1) var<storage, read> input_velocities: array<vec2<f32>>;
 
-@group(0) @binding(0) var<uniform> ballUniforms: BallUniforms;
-@group(1) @binding(0) var<storage, read> input_particles: array<Particle>;
+// Uniform Buffers
+@group(1) @binding(0) var<uniform> particle_uniforms: ParticleUniforms;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -34,13 +48,13 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   );
 
   //Convert position and offset to canvasSpace
-  var posCS = pos[input.VertexIndex] / vec2<f32>(ballUniforms.canvasWidth, ballUniforms.canvasHeight);
-  var offset = input_particles[input.InstanceIndex].position;
-  var offsetCS = offset / vec2<f32>(ballUniforms.canvasWidth, ballUniforms.canvasHeight);
+  var posCS = pos[input.VertexIndex] / vec2<f32>(particle_uniforms.canvas_width, particle_uniforms.canvas_height);
+  var offset = input_positions[input.InstanceIndex];
+  var offsetCS = offset / vec2<f32>(particle_uniforms.canvas_width, particle_uniforms.canvas_height);
 
   //ballUniforms.radius should be clamped to the height
   output.Position = vec4<f32>(
-    posCS * ballUniforms.radius + offsetCS, 
+    posCS * particle_uniforms.radius + offsetCS, 
     0.0, 
     1.0
   );
