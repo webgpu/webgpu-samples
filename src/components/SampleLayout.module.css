@@ -32,8 +32,19 @@ nav.sourceFileNav li a {
   background-color: #403e3e;
 }
 
+nav.sourceFileNav li:hover {
+  height: 100%;
+  box-shadow: 0 -10px 0 0 rgb(167, 167, 167);
+  border-radius: 10px
+}
+
 nav.sourceFileNav li a[data-active=true] {
   background-color: #282823;
+}
+
+nav.sourceFileNav li:has(a[data-active=true]) {
+  box-shadow: 0 -10px 0 0 rgb(167, 167, 167);
+  border-radius: 10px;
 }
 
 .sourceFileContainer {
