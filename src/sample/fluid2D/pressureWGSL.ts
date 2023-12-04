@@ -7,23 +7,13 @@ struct GeneralUniforms {
   halfBoundsY: f32,
 }
 
-struct ParticleUniforms {
-  damping: f32,
-  gravity: f32,
-  particle_radius: f32,
+struct DensityUniforms {
   smoothing_radius: f32,
-  target_density: f32,
-  pressure_multiplier: f32,
-  near_pressure_multiplier: f32,
 }
 
 // Storage Buffers
-@group(0) @binding(0) var<storage, read_write> input_positions: array<vec2<f32>>;
-@group(0) @binding(1) var<storage, read_write> predicted_positions: array<vec2<f32>>;
-@group(0) @binding(2) var<storage, read_write> velocities: array<vec2<f32>>;
 @group(0) @binding(3) var<storage, read_write> densities: array<vec2<f32>>;
-@group(0) @binding(4) var<storage, read_write> spatial_indices: array<vec3<u32>>;
-@group(0) @binding(5) var<storage, read_write> spatial_offsets: array<u32>;
+
 
 // Uniform Buffers
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
