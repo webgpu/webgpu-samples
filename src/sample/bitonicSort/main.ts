@@ -2,7 +2,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { createBindGroupCluster, SampleInitFactoryWebGPU } from './utils';
 import BitonicDisplayRenderer from './bitonicDisplay';
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
-import { NaiveBitonicCompute } from './computeShader';
+import { NaiveBitonicCompute } from './bitonicCompute';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 import atomicToZero from './atomicToZero.wgsl';
 
@@ -15,12 +15,17 @@ enum StepEnum {
   DISPERSE_GLOBAL,
 }
 
-// String access to StepEnum
 type StepType =
+  // NONE: No sort step has or will occur
   | 'NONE'
+  // FLIP_LOCAL: A sort step that performs a flip operation over indices in a workgroup's locally addressable area
+  // (i.e invocations * workgroup_index -> invocations * (workgroup_index + 1) - 1.
   | 'FLIP_LOCAL'
+  // DISPERSE_LOCAL A sort step that performs a flip operation over indices in a workgroup's locally addressable area.
   | 'DISPERSE_LOCAL'
+  // FLIP_GLOBAL A sort step that performs a flip step across a range of indices outside a workgroup's locally addressable area.
   | 'FLIP_GLOBAL'
+  // DISPERSE_GLOBAL A sort step that performs a disperse operation across a range of indices outside a workgroup's locally addressable area.
   | 'DISPERSE_GLOBAL';
 
 type DisplayType = 'Elements' | 'Swap Highlight';
@@ -30,24 +35,27 @@ interface SettingsInterface {
   'Total Elements': number;
   'Grid Width': number;
   'Grid Height': number;
-  'Total Threads': number;
+  'Grid Dimensions': string;
+  'Workgroup Size': number;
+  'Size Limit': number;
+  'Workgroups Per Step': number;
   'Hovered Cell': number;
   'Swapped Cell': number;
+  'Current Step': string;
   'Step Index': number;
   'Total Steps': number;
   'Prev Step': StepType;
   'Next Step': StepType;
   'Prev Swap Span': number;
   'Next Swap Span': number;
-  'Total Workgroups': number;
-  'Display Mode': DisplayType;
-  'Total Swaps': number;
   executeStep: boolean;
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
   'Complete Sort': () => void;
   'Sort Speed': number;
+  'Display Mode': DisplayType;
+  'Total Swaps': number;
 }
 
 const getNumSteps = (numElements: number) => {
@@ -58,12 +66,17 @@ const getNumSteps = (numElements: number) => {
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
-    const maxThreadsX = device.limits.maxComputeWorkgroupSizeX;
+    const maxInvocationsX = device.limits.maxComputeWorkgroupSizeX;
 
-    const totalElementLengths = [];
-    const maxElements = maxThreadsX * 32;
+    const totalElementOptions = [];
+    const maxElements = maxInvocationsX * 32;
     for (let i = maxElements; i >= 4; i /= 2) {
-      totalElementLengths.push(i);
+      totalElementOptions.push(i);
+    }
+
+    const sizeLimitOptions: number[] = [];
+    for (let i = maxInvocationsX; i >= 2; i /= 2) {
+      sizeLimitOptions.push(i);
     }
 
     const defaultGridWidth =
@@ -74,50 +87,75 @@ SampleInitFactoryWebGPU(
     const defaultGridHeight = maxElements / defaultGridWidth;
 
     const settings: SettingsInterface = {
-      // number of cellElements. Must equal gridWidth * gridHeight and 'Total Threads' * 2
+      // TOTAL ELEMENT AND GRID SETTINGS
+      // The number of elements to be sorted. Must equal gridWidth * gridHeight || Workgroup Size * Workgroups * 2
+      // When changed, all relevant values within the settings object are reset to their defaults at the beginning of a sort with n elements.
       'Total Elements': maxElements,
-      // width of screen in cells.
+      // width of screen in cells
       'Grid Width': defaultGridWidth,
       // height of screen in cells
       'Grid Height': defaultGridHeight,
-      // number of threads to execute in a workgroup ('Total Threads', 1, 1)
-      'Total Threads': maxThreadsX,
-      // Cell in element grid mouse element is hovering over
+      // Grid Dimensions as string
+      'Grid Dimensions': `${defaultGridWidth}x${defaultGridHeight}`,
+
+      // INVOCATION, WORKGROUP SIZE, AND WORKGROUP DISPATCH SETTINGS
+      // The size of a workgroup, or the number of invocations executed within each workgroup
+      // Determined algorithmically based on 'Size Limit', maxInvocationsX, and the current number of elements to sort
+      'Workgroup Size': maxInvocationsX,
+      // An artifical constraint on the maximum workgroup size/maximumn invocations per workgroup as specified by device.limits.maxComputeWorkgroupSizeX
+      'Size Limit': maxInvocationsX,
+      // Total workgroups that are dispatched during each step of the bitonic sort
+      'Workgroups Per Step': maxElements / (maxInvocationsX * 2),
+
+      // HOVER SETTINGS
+      // The element/cell in the element visualizer directly beneath the mouse cursor
       'Hovered Cell': 0,
-      // element the hovered cell just swapped with,
+      // The element/cell in the element visualizer that the hovered cell will swap with in the next execution step of the bitonic sort.
       'Swapped Cell': 1,
-      // Index of current step
+
+      // STEP INDEX, STEP TYPE, AND STEP SWAP SPAN SETTINGS
+      // The index of the current step in the bitonic sort.
       'Step Index': 0,
-      // Total steps to sort current number of elements
+      // The total number of steps required to sort the displayed elements.
       'Total Steps': getNumSteps(maxElements),
-      // Previously executed step
+      // A string that condenses 'Step Index' and 'Total Steps' into a single GUI Controller display element.
+      'Current Step': `0 of 91`,
+      // The category of the previously executed step. Always begins the bitonic sort with a value of 'NONE' and ends with a value of 'DISPERSE_LOCAL'
       'Prev Step': 'NONE',
-      // Next step to execute
+      // The category of the next step that will be executed. Always begins the bitonic sort with a value of 'FLIP_LOCAL' and ends with a value of 'NONE'
       'Next Step': 'FLIP_LOCAL',
-      // Max thread span of previous block
+      // The maximum span of a swap operation in the sort's previous step.
       'Prev Swap Span': 0,
-      // Max thread span of next block
+      // The maximum span of a swap operation in the sort's upcoming step.
       'Next Swap Span': 2,
-      // Workgroups to dispatch per frame,
-      'Total Workgroups': maxElements / (maxThreadsX * 2),
-      // The number of swap operations executed over time
-      'Total Swaps': 0,
-      // Whether we will dispatch a workload this frame
+
+      // ANIMATION LOOP AND FUNCTION SETTINGS
+      // A flag that designates whether we will dispatch a workload this frame.
       executeStep: false,
-      'Display Mode': 'Elements',
+      // A function that randomizes the values of each element.
+      // When called, all relevant values within the settings object are reset to their defaults at the beginning of a sort with n elements.
       'Randomize Values': () => {
         return;
       },
+      // A function that manually executes a single step of the bitonic sort.
       'Execute Sort Step': () => {
         return;
       },
+      // A function that logs the values of each element as an array to the browser's console.
       'Log Elements': () => {
         return;
       },
+      // A function that automatically executes each step of the bitonic sort at an interval determined by 'Sort Speed'
       'Complete Sort': () => {
         return;
       },
+      // The speed at which each step of the bitonic sort will be executed after 'Complete Sort' has been called.
       'Sort Speed': 50,
+
+      // MISCELLANEOUS SETTINGS
+      'Display Mode': 'Elements',
+      // An atomic value representing the total number of swap operations executed over the course of the bitonic sort.
+      'Total Swaps': 0,
     };
 
     // Initialize initial elements array
@@ -127,7 +165,7 @@ SampleInitFactoryWebGPU(
 
     // Initialize elementsBuffer and elementsStagingBuffer
     const elementsBufferSize =
-      Float32Array.BYTES_PER_ELEMENT * totalElementLengths[0];
+      Float32Array.BYTES_PER_ELEMENT * totalElementOptions[0];
     // Initialize input, output, staging buffers
     const elementsInputBuffer = device.createBuffer({
       size: elementsBufferSize,
@@ -193,7 +231,7 @@ SampleInitFactoryWebGPU(
       }),
       compute: {
         module: device.createShaderModule({
-          code: NaiveBitonicCompute(settings['Total Threads']),
+          code: NaiveBitonicCompute(settings['Workgroup Size']),
         }),
         entryPoint: 'computeMain',
       },
@@ -234,20 +272,23 @@ SampleInitFactoryWebGPU(
     );
 
     const resetExecutionInformation = () => {
-      // Total threads are either elements / 2 or maxWorkgroupsSizeX
-      totalThreadsController.setValue(
-        Math.min(settings['Total Elements'] / 2, maxThreadsX)
+      // The workgroup size is either elements / 2 or Size Limit
+      workgroupSizeController.setValue(
+        Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
       );
 
-      // Dispatch a workgroup for every (Max threads * 2) elements
+      // Dispatch a workgroup for every (Size Limit * 2) elements
       const workgroupsPerStep =
-        (settings['Total Elements'] - 1) / (maxThreadsX * 2);
+        (settings['Total Elements'] - 1) / (settings['Size Limit'] * 2);
 
-      totalWorkgroupsController.setValue(Math.ceil(workgroupsPerStep));
+      workgroupsPerStepController.setValue(Math.ceil(workgroupsPerStep));
 
       // Reset step Index and number of steps based on elements size
-      stepIndexController.setValue(0);
-      totalStepsController.setValue(getNumSteps(settings['Total Elements']));
+      settings['Step Index'] = 0;
+      settings['Total Steps'] = getNumSteps(settings['Total Elements']);
+      currentStepController.setValue(
+        `${settings['Step Index']} of ${settings['Total Steps']}`
+      );
 
       // Get new width and height of screen display in cells
       const newCellWidth =
@@ -255,8 +296,9 @@ SampleInitFactoryWebGPU(
           ? Math.floor(Math.sqrt(settings['Total Elements']))
           : Math.floor(Math.sqrt(settings['Total Elements'] / 2));
       const newCellHeight = settings['Total Elements'] / newCellWidth;
-      gridWidthController.setValue(newCellWidth);
-      gridHeightController.setValue(newCellHeight);
+      settings['Grid Width'] = newCellWidth;
+      settings['Grid Height'] = newCellHeight;
+      gridDimensionsController.setValue(`${newCellWidth}x${newCellHeight}`);
 
       // Set prevStep to None (restart) and next step to FLIP
       prevStepController.setValue('NONE');
@@ -301,14 +343,16 @@ SampleInitFactoryWebGPU(
 
       resetExecutionInformation();
 
-      // Create new shader invocation with workgroupSize that reflects number of threads
+      // Create new shader invocation with workgroupSize that reflects number of invocations
       computePipeline = device.createComputePipeline({
         layout: device.createPipelineLayout({
           bindGroupLayouts: [computeBGCluster.bindGroupLayout],
         }),
         compute: {
           module: device.createShaderModule({
-            code: NaiveBitonicCompute(settings['Total Elements'] / 2),
+            code: NaiveBitonicCompute(
+              Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
+            ),
           }),
           entryPoint: 'computeMain',
         },
@@ -370,6 +414,7 @@ SampleInitFactoryWebGPU(
         if (settings['Next Step'] === 'NONE') {
           clearInterval(completeSortIntervalID);
           completeSortIntervalID = null;
+          sizeLimitController.domElement.style.pointerEvents = 'auto';
         }
         if (settings['Sort Speed'] !== currentIntervalSpeed) {
           clearInterval(completeSortIntervalID);
@@ -382,21 +427,47 @@ SampleInitFactoryWebGPU(
     };
 
     // At top level, information about resources used to execute the compute shader
-    // i.e elements sorted, threads/invocations per workgroup, and workgroups dispatched
+    // i.e elements sorted, invocations per workgroup, and workgroups dispatched
     const computeResourcesFolder = gui.addFolder('Compute Resources');
     computeResourcesFolder
-      .add(settings, 'Total Elements', totalElementLengths)
+      .add(settings, 'Total Elements', totalElementOptions)
       .onChange(() => {
         endSortInterval();
         resizeElementArray();
+        sizeLimitController.domElement.style.pointerEvents = 'auto';
       });
-    const totalThreadsController = computeResourcesFolder.add(
+    const sizeLimitController = computeResourcesFolder
+      .add(settings, 'Size Limit', sizeLimitOptions)
+      .onChange(() => {
+        const constraint = Math.min(
+          settings['Total Elements'] / 2,
+          settings['Size Limit']
+        );
+        const workgroupsPerStep =
+          (settings['Total Elements'] - 1) / (settings['Size Limit'] * 2);
+        workgroupSizeController.setValue(constraint);
+        workgroupsPerStepController.setValue(Math.ceil(workgroupsPerStep));
+        computePipeline = computePipeline = device.createComputePipeline({
+          layout: device.createPipelineLayout({
+            bindGroupLayouts: [computeBGCluster.bindGroupLayout],
+          }),
+          compute: {
+            module: device.createShaderModule({
+              code: NaiveBitonicCompute(
+                Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
+              ),
+            }),
+            entryPoint: 'computeMain',
+          },
+        });
+      });
+    const workgroupSizeController = computeResourcesFolder.add(
       settings,
-      'Total Threads'
+      'Workgroup Size'
     );
-    const totalWorkgroupsController = computeResourcesFolder.add(
+    const workgroupsPerStepController = computeResourcesFolder.add(
       settings,
-      'Total Workgroups'
+      'Workgroups Per Step'
     );
     computeResourcesFolder.open();
 
@@ -404,6 +475,8 @@ SampleInitFactoryWebGPU(
     const controlFolder = gui.addFolder('Sort Controls');
     controlFolder.add(settings, 'Sort Speed', 50, 1000).step(50);
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
+      // Size Limit locked upon sort
+      sizeLimitController.domElement.style.pointerEvents = 'none';
       endSortInterval();
       settings.executeStep = true;
     });
@@ -411,18 +484,26 @@ SampleInitFactoryWebGPU(
       endSortInterval();
       randomizeElementArray();
       resetExecutionInformation();
+      // Unlock workgroup size limit controller since sort has stopped
+      sizeLimitController.domElement.style.pointerEvents = 'auto';
     });
     controlFolder
       .add(settings, 'Log Elements')
       .onChange(() => console.log(elements));
-    controlFolder.add(settings, 'Complete Sort').onChange(startSortInterval);
+    controlFolder.add(settings, 'Complete Sort').onChange(() => {
+      // Invocation Limit locked upon sort
+      sizeLimitController.domElement.style.pointerEvents = 'none';
+      startSortInterval();
+    });
     controlFolder.open();
 
     // Information about grid display
     const gridFolder = gui.addFolder('Grid Information');
     gridFolder.add(settings, 'Display Mode', ['Elements', 'Swap Highlight']);
-    const gridWidthController = gridFolder.add(settings, 'Grid Width');
-    const gridHeightController = gridFolder.add(settings, 'Grid Height');
+    const gridDimensionsController = gridFolder.add(
+      settings,
+      'Grid Dimensions'
+    );
     const hoveredCellController = gridFolder
       .add(settings, 'Hovered Cell')
       .onChange(setSwappedCell);
@@ -430,13 +511,9 @@ SampleInitFactoryWebGPU(
 
     // Additional Information about the execution state of the sort
     const executionInformationFolder = gui.addFolder('Execution Information');
-    const stepIndexController = executionInformationFolder.add(
+    const currentStepController = executionInformationFolder.add(
       settings,
-      'Step Index'
-    );
-    const totalStepsController = executionInformationFolder.add(
-      settings,
-      'Total Steps'
+      'Current Step'
     );
     const prevStepController = executionInformationFolder.add(
       settings,
@@ -470,6 +547,7 @@ SampleInitFactoryWebGPU(
       ).style.position = 'absolute';
     }
 
+    // Mouse listener that determines values of hoveredCell and swappedCell
     canvas.addEventListener('mousemove', (event) => {
       const currWidth = canvas.getBoundingClientRect().width;
       const currHeight = canvas.getBoundingClientRect().height;
@@ -485,19 +563,19 @@ SampleInitFactoryWebGPU(
     });
 
     // Deactivate interaction with select GUI elements
-    totalWorkgroupsController.domElement.style.pointerEvents = 'none';
+    sizeLimitController.domElement.style.pointerEvents = 'none';
+    workgroupsPerStepController.domElement.style.pointerEvents = 'none';
     hoveredCellController.domElement.style.pointerEvents = 'none';
     swappedCellController.domElement.style.pointerEvents = 'none';
-    stepIndexController.domElement.style.pointerEvents = 'none';
-    totalStepsController.domElement.style.pointerEvents = 'none';
+    currentStepController.domElement.style.pointerEvents = 'none';
     prevStepController.domElement.style.pointerEvents = 'none';
     prevBlockHeightController.domElement.style.pointerEvents = 'none';
     nextStepController.domElement.style.pointerEvents = 'none';
     nextBlockHeightController.domElement.style.pointerEvents = 'none';
-    totalThreadsController.domElement.style.pointerEvents = 'none';
-    gridWidthController.domElement.style.pointerEvents = 'none';
-    gridHeightController.domElement.style.pointerEvents = 'none';
+    workgroupSizeController.domElement.style.pointerEvents = 'none';
+    gridDimensionsController.domElement.style.pointerEvents = 'none';
     totalSwapsController.domElement.style.pointerEvents = 'none';
+    gui.width = 325;
 
     let highestBlockHeight = 2;
 
@@ -548,26 +626,36 @@ SampleInitFactoryWebGPU(
         const computePassEncoder = commandEncoder.beginComputePass();
         computePassEncoder.setPipeline(computePipeline);
         computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
-        computePassEncoder.dispatchWorkgroups(settings['Total Workgroups']);
+        computePassEncoder.dispatchWorkgroups(settings['Workgroups Per Step']);
         computePassEncoder.end();
-        stepIndexController.setValue(settings['Step Index'] + 1);
+        settings['Step Index'] = settings['Step Index'] + 1;
+        currentStepController.setValue(
+          `${settings['Step Index']} of ${settings['Total Steps']}`
+        );
         prevStepController.setValue(settings['Next Step']);
         prevBlockHeightController.setValue(settings['Next Swap Span']);
         nextBlockHeightController.setValue(settings['Next Swap Span'] / 2);
+        // Each cycle of a bitonic sort contains a flip operation followed by multiple disperse operations
+        // Next Swap Span will equal one when the sort needs to begin a new cycle of flip and disperse operations
         if (settings['Next Swap Span'] === 1) {
+          // The next cycle's flip operation will have a maximum swap span 2 times that of the previous cycle
           highestBlockHeight *= 2;
           if (highestBlockHeight === settings['Total Elements'] * 2) {
+            // The next cycle's maximum swap span exceeds the total number of elements. Thus, the sort is over.
             nextStepController.setValue('NONE');
             nextBlockHeightController.setValue(0);
-          } else if (highestBlockHeight > settings['Total Threads'] * 2) {
+          } else if (highestBlockHeight > settings['Workgroup Size'] * 2) {
+            // The next cycle's maximum swap span exceeds the range of a single workgroup, so our next flip will operate on global indices.
             nextStepController.setValue('FLIP_GLOBAL');
             nextBlockHeightController.setValue(highestBlockHeight);
           } else {
+            // The next cycle's maximum swap span can be executed on a range of indices local to the workgroup.
             nextStepController.setValue('FLIP_LOCAL');
             nextBlockHeightController.setValue(highestBlockHeight);
           }
         } else {
-          settings['Next Swap Span'] > settings['Total Threads'] * 2
+          // Otherwise, execute the next disperse operation
+          settings['Next Swap Span'] > settings['Workgroup Size'] * 2
             ? nextStepController.setValue('DISPERSE_GLOBAL')
             : nextStepController.setValue('DISPERSE_LOCAL');
         }
@@ -641,7 +729,7 @@ const bitonicSortExample: () => JSX.Element = () =>
   makeSample({
     name: 'Bitonic Sort',
     description:
-      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each invocation of the bitonic sort shader dispatches a workgroup containing elements/2 threads. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
+      "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each dispatch of the bitonic sort shader dispatches a workgroup containing elements/2 invocations. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
     init,
     gui: true,
     sources: [
@@ -659,8 +747,9 @@ const bitonicSortExample: () => JSX.Element = () =>
         contents: bitonicDisplay,
       },
       {
-        name: './bitonicCompute.frag.wgsl',
-        contents: NaiveBitonicCompute(64),
+        name: './bitonicCompute.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        contents: require('!!raw-loader!./bitonicCompute.ts').default,
       },
       {
         name: './atomicToZero.wgsl',
