@@ -705,7 +705,7 @@ const ReversedZ: () => JSX.Element = () =>
       and remap depth range by multiplying an additional matrix to your projection matrix.
       Related reading:
       https://developer.nvidia.com/content/depth-precision-visualized
-      https://thxforthefish.com/posts/reverse_z/
+      https://web.archive.org/web/20220724174000/https://thxforthefish.com/posts/reverse_z/
       `,
     gui: true,
     init,
