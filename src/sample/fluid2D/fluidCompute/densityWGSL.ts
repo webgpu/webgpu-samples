@@ -71,3 +71,4 @@ fn densityComputeMain(
   var pos: vec2<f32> = predicted_particles[global_id.x];
   densities[global_id.x] = CalculateDensity(pos);
 }
+

@@ -1,12 +1,12 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { create3DRenderPipeline } from '../normalMap/utils';
-import { createBindGroupCluster } from './utils';
+import { createBindGroupCluster, extractGPUData } from './utils';
 import particleWGSL from './particle.wgsl';
 import commonWGSL from './common.wgsl';
-import { PositionsComputeShader } from './positionsWGSL';
-import { ViscosityComputeShader } from './viscosityWGSL';
-import { DensityComputeShader } from './densityWGSL';
-
+import { PositionsComputeShader } from './fluidCompute/positionsWGSL';
+import { ViscosityComputeShader } from './fluidCompute/viscosityWGSL';
+import { DensityComputeShader } from './fluidCompute/densityWGSL';
+import { SpatialInfoSort } from './sortCompute/sort';
 // Bind Group Tier Level
 // Group 0: Changes per frame (read_write buffers, etc)
 // Group 1: Per user input (uniforms)
@@ -38,7 +38,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Total Particles': 512,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
-    // The radius of influence from the center of a particle to 
+    // The radius of influence from the center of a particle to
     'Smoothing Radius': 0.7,
     // The bounce dampening on a non-fluid particle
     Damping: 0.7,
@@ -215,6 +215,36 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       entryPoint: 'computeMain',
     },
   });
+
+  /* GPU SORT PIPELINE */
+
+  const sortDevice = new SpatialInfoSort(device, settings['Total Particles']);
+  const randomIndices = new Uint32Array(
+    Array.from({ length: settings['Total Particles'] * 3 }, (_, i) => {
+      return Math.floor(Math.random() * 10000);
+    })
+  );
+  console.log(randomIndices);
+  device.queue.writeBuffer(
+    sortDevice.spatialIndicesBuffer,
+    0,
+    randomIndices.buffer,
+    randomIndices.byteOffset,
+    randomIndices.byteLength
+  );
+
+  const commandEncoder = device.createCommandEncoder();
+  const testSortPassEncoder = commandEncoder.beginComputePass();
+  sortDevice.computeSpatialInformation(device, commandEncoder);
+  const data = await extractGPUData(
+    device,
+    sortDevice.spatialIndicesBuffer,
+    Uint32Array.BYTES_PER_ELEMENT * 3 * settings['Total Particles'],
+    'Uint32',
+  );
+  console.log(data);
+
+  // Test sort on a randomly created set of values (program should only sort according to key element);
 
   generateParticles();
 

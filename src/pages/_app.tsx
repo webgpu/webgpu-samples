@@ -49,15 +49,20 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
           className={`${styles.panel} ${styles.container}`}
           data-expanded={listExpanded}
         >
-          <h1>
-            <Link href="/">{title}</Link>
-            <div
-              className={styles.expand}
-              onClick={() => {
-                setListExpanded(!listExpanded);
-              }}
-            ></div>
-          </h1>
+          <div className={styles.titleContainer}>
+            <h1 className={styles.siteTit}>
+              <Link href="/">{title}</Link>
+              <div
+                className={styles.expand}
+                onClick={() => {
+                  setListExpanded(!listExpanded);
+                }}
+              ></div>
+            </h1>
+            <Link href="https://www.w3.org/TR/webgpu/">
+              <div className={styles.logo_container}/>
+            </Link>
+          </div>
           <div className={styles.panelContents}>
             <a href={`https://github.com/${process.env.REPOSITORY_NAME}`}>
               Github
