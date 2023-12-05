@@ -85,7 +85,7 @@ export const createBindGroupCluster = (
 
 type ArrayBufferDataFormat = 'Uint32' | 'Uint16' | 'Float32';
 
-const typeArrayBuffer = (
+export const typeArrayBuffer = (
   buffer: ArrayBuffer,
   format: ArrayBufferDataFormat
 ) => {
@@ -103,19 +103,10 @@ const typeArrayBuffer = (
 };
 
 export const extractGPUData = async (
-  device: GPUDevice,
-  srcBuffer: GPUBuffer,
+  stagingBuffer: GPUBuffer,
   srcBufferSize: number,
-  dataFormat: ArrayBufferDataFormat
 ) => {
-  const stagingBuffer = device.createBuffer({
-    size: srcBufferSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_SRC,
-  });
   await stagingBuffer.mapAsync(GPUMapMode.READ, 0, srcBufferSize);
   const copyBuffer = stagingBuffer.getMappedRange(0, srcBufferSize);
-  const arrayBuffer = copyBuffer.slice(0, srcBufferSize);
-  const data = typeArrayBuffer(arrayBuffer, dataFormat);
-  stagingBuffer.unmap();
-  return data;
+  return copyBuffer.slice(0, srcBufferSize);
 };

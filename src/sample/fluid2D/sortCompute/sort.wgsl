@@ -24,8 +24,8 @@ var<workgroup> local_data: array<SpatialEntry, 512>;
 @group(1) @binding(0) var<uniform> uniforms: Uniforms;
 
 fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
-  if (local_data[idx_after] < local_data[idx_before]) {
-    var temp: u32 = local_data[idx_before];
+  if (local_data[idx_after].key < local_data[idx_before].key) {
+    var temp: SpatialEntry = local_data[idx_before];
     local_data[idx_before] = local_data[idx_after];
     local_data[idx_after] = temp;
   }
@@ -69,10 +69,10 @@ fn computeMain(
   @builtin(workgroup_id) workgroup_id: vec3<u32>,
 ) {
 
-  let offset = ${threadsPerWorkgroup} * 2 * workgroup_id.x;
+  let offset = 256 * 2 * workgroup_id.x;
   if (uniforms.algo <= 2) {
     local_data[local_id.x * 2] = spatial_indices[offset + local_id.x * 2];
-    local_data[local_id.x * 2 + 1] = input_data[offset + local_id.x * 2 + 1];
+    local_data[local_id.x * 2 + 1] = spatial_indices[offset + local_id.x * 2 + 1];
   }
 
   workgroupBarrier();
@@ -102,7 +102,7 @@ fn computeMain(
   workgroupBarrier();
 
   if (uniforms.algo <= 2) {
-    output_data[offset + local_id.x * 2] = local_data[local_id.x * 2];
-    output_data[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
+    spatial_indices[offset + local_id.x * 2] = local_data[local_id.x * 2];
+    spatial_indices[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
   }
 }

@@ -35,7 +35,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     Gravity: -9.8,
     'Delta Time': 0.04,
     // The total number of particles being simulated
-    'Total Particles': 512,
+    'Total Particles': 1024,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
     // The radius of influence from the center of a particle to
@@ -217,7 +217,6 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   });
 
   /* GPU SORT PIPELINE */
-
   const sortDevice = new SpatialInfoSort(device, settings['Total Particles']);
   const randomIndices = new Uint32Array(
     Array.from({ length: settings['Total Particles'] * 3 }, (_, i) => {
@@ -232,16 +231,32 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     randomIndices.byteOffset,
     randomIndices.byteLength
   );
-
   const commandEncoder = device.createCommandEncoder();
-  const testSortPassEncoder = commandEncoder.beginComputePass();
   sortDevice.computeSpatialInformation(device, commandEncoder);
-  const data = await extractGPUData(
-    device,
+  const randomIndicesBufferSize =
+    settings['Total Particles'] * 3 * Uint32Array.BYTES_PER_ELEMENT;
+  const randomIndicesStagingBuffer = device.createBuffer({
+    size: randomIndicesBufferSize,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+  });
+  commandEncoder.copyBufferToBuffer(
     sortDevice.spatialIndicesBuffer,
-    Uint32Array.BYTES_PER_ELEMENT * 3 * settings['Total Particles'],
-    'Uint32',
+    0,
+    randomIndicesStagingBuffer,
+    0,
+    randomIndicesBufferSize
   );
+  device.queue.submit([commandEncoder.finish()]);
+
+  let data: Uint32Array;
+  {
+    const output = await extractGPUData(
+      randomIndicesStagingBuffer,
+      Uint32Array.BYTES_PER_ELEMENT * 3 * settings['Total Particles'],
+    );
+    data = new Uint32Array(output);
+  }
+
   console.log(data);
 
   // Test sort on a randomly created set of values (program should only sort according to key element);

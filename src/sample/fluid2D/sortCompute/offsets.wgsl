@@ -14,7 +14,7 @@ fn computeMain(
 ) {
   let i = global_id.x;
   let key = spatial_indices[i].key;
-  let prevKey = select(spacial_indices[i-1].key, 9999999, i == 0);
+  let prevKey = select(spatial_indices[i-1].key, 9999999, i == 0);
   if (key != prevKey) {
     spatial_offsets[key] = i;
   }

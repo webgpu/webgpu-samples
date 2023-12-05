@@ -38,12 +38,15 @@ export class SpatialInfoSort {
     // vec3<u32>(index, hash, key)
     this.spatialIndicesBuffer = device.createBuffer({
       size: Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
     });
 
     // uint
     this.spatialOffsetsBuffer = device.createBuffer({
-      size: Uint32Array.BYTES_PER_ELEMENT * numParticles
+      size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
       usage:
         GPUBufferUsage.STORAGE |
         GPUBufferUsage.COPY_DST |
@@ -128,8 +131,11 @@ export class SpatialInfoSort {
       0,
       new Uint32Array([StepEnum[nextAlgo], nextBlockHeight])
     );
+    let step = 0;
     // Perform each step of the bitonic sort in sequence
-    while (highestBlockHeight !== this.particlesToSort * 2) {
+    while (highestBlockHeight >= this.particlesToSort * 2) {
+      console.log(step);
+      step += 1;
       this.sortSpatialIndices(commandEncoder);
       nextBlockHeight /= 2;
       if (nextBlockHeight === 1) {
