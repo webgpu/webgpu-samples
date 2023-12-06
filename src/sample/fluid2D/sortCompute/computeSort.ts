@@ -7,6 +7,13 @@
 // For more on bitonic merge sort, check the bitonicSort example.
 // For this sort, one should be reasonably assured that once a sort op touches a piece of data within the workload, it never touches it again
 
+export const NaiveBitonicCompute = (workgroupSize: number) => {
+  if (workgroupSize % 2 !== 0 || workgroupSize > 256) {
+    workgroupSize = 256;
+  }
+  // Ensure that workgroupSize is half the number of elements
+  return `
+
 struct Uniforms {
   algo: u32,
   blockHeight: u32,
@@ -14,16 +21,21 @@ struct Uniforms {
 
 struct SpatialEntry {
   index: u32,
-  hash: u32, 
+  hash: u32,
   key: u32
 }
 
-var<workgroup> local_data: array<SpatialEntry, 512>;
+// Create local workgroup data that can contain all elements
+var<workgroup> local_data: array<SpatialEntry, ${workgroupSize * 2}>;
 
-@group(0) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
+// Define groups (functions refer to this data)
+@group(0) @binding(0) var<storage, read> input_data: array<SpatialEntry>;
+@group(0) @binding(1) var<storage, read_write> output_data: array<SpatialEntry>;
 @group(1) @binding(0) var<uniform> uniforms: Uniforms;
 
+// Compare and swap values in local_data
 fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
+  //idx_before should always be < idx_after
   if (local_data[idx_after].key < local_data[idx_before].key) {
     var temp: SpatialEntry = local_data[idx_before];
     local_data[idx_before] = local_data[idx_after];
@@ -32,9 +44,12 @@ fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
   return;
 }
 
+// thread_id goes from 0 to threadsPerWorkgroup
 fn get_flip_indices(thread_id: u32, block_height: u32) -> vec2<u32> {
+  // Caculate index offset (i.e move indices into correct block)
   let block_offset: u32 = ((2 * thread_id) / block_height) * block_height;
   let half_height = block_height / 2;
+  // Calculate index spacing
   var idx: vec2<u32> = vec2<u32>(
     thread_id % half_height, block_height - (thread_id % half_height) - 1,
   );
@@ -55,26 +70,37 @@ fn get_disperse_indices(thread_id: u32, block_height: u32) -> vec2<u32> {
 }
 
 fn global_compare_and_swap(idx_before: u32, idx_after: u32) {
-  if (spatial_indices[idx_after].key < spatial_indices[idx_before].key) {
-    var temp: SpatialEntry = spatial_indices[idx_before];
-    spatial_indices[idx_before] = spatial_indices[idx_after];
-    spatial_indices[idx_after] = temp;
+  if (input_data[idx_after].key < input_data[idx_before].key) {
+    output_data[idx_before] = input_data[idx_after];
+    output_data[idx_after] = input_data[idx_before];
   } 
 }
 
-@compute @workgroup_size(256, 1, 1)
+// Constants/enum
+const ALGO_NONE = 0;
+const ALGO_LOCAL_FLIP = 1;
+const ALGO_LOCAL_DISPERSE = 2;
+const ALGO_GLOBAL_FLIP = 3;
+
+// Our compute shader will execute specified # of threads or elements / 2 threads
+@compute @workgroup_size(${workgroupSize}, 1, 1)
 fn computeMain(
   @builtin(global_invocation_id) global_id: vec3<u32>,
   @builtin(local_invocation_id) local_id: vec3<u32>,
   @builtin(workgroup_id) workgroup_id: vec3<u32>,
 ) {
 
-  let offset = 256 * 2 * workgroup_id.x;
+  let offset = ${workgroupSize} * 2 * workgroup_id.x;
+  // If we will perform a local swap, then populate the local data
   if (uniforms.algo <= 2) {
-    local_data[local_id.x * 2] = spatial_indices[offset + local_id.x * 2];
-    local_data[local_id.x * 2 + 1] = spatial_indices[offset + local_id.x * 2 + 1];
+    // Assign range of input_data to local_data.
+    // Range cannot exceed maxWorkgroupsX * 2
+    // Each thread will populate the workgroup data... (1 thread for every 2 elements)
+    local_data[local_id.x * 2] = input_data[offset + local_id.x * 2];
+    local_data[local_id.x * 2 + 1] = input_data[offset + local_id.x * 2 + 1];
   }
 
+  //...and wait for each other to finish their own bit of data population.
   workgroupBarrier();
 
   switch uniforms.algo {
@@ -99,10 +125,14 @@ fn computeMain(
     }
   }
 
+  // Ensure that all threads have swapped their own regions of data
   workgroupBarrier();
 
-  if (uniforms.algo <= 2) {
-    spatial_indices[offset + local_id.x * 2] = local_data[local_id.x * 2];
-    spatial_indices[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
+  if (uniforms.algo <= ALGO_LOCAL_DISPERSE) {
+    //Repopulate global data with local data
+    output_data[offset + local_id.x * 2] = local_data[local_id.x * 2];
+    output_data[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
   }
-}
+
+}`;
+};

@@ -117,7 +117,7 @@ SampleInitFactoryWebGPU(
       'Complete Sort': () => {
         return;
       },
-      'Sort Speed': 50,
+      'Sort Speed': 0,
     };
 
     // Initialize initial elements array

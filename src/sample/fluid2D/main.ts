@@ -225,7 +225,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   );
   console.log(randomIndices);
   device.queue.writeBuffer(
-    sortDevice.spatialIndicesBuffer,
+    sortDevice.spatialIndicesInputBuffer,
     0,
     randomIndices.buffer,
     randomIndices.byteOffset,
@@ -240,7 +240,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
   commandEncoder.copyBufferToBuffer(
-    sortDevice.spatialIndicesBuffer,
+    sortDevice.spatialIndicesOutputBuffer,
     0,
     randomIndicesStagingBuffer,
     0,
@@ -252,12 +252,17 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   {
     const output = await extractGPUData(
       randomIndicesStagingBuffer,
-      Uint32Array.BYTES_PER_ELEMENT * 3 * settings['Total Particles'],
+      Uint32Array.BYTES_PER_ELEMENT * 3 * settings['Total Particles']
     );
     data = new Uint32Array(output);
   }
 
-  console.log(data);
+  const keys = [];
+
+  for (let i = 0; i < data.length; i++) {
+    keys.push(data[i]);
+  }
+  console.log(keys);
 
   // Test sort on a randomly created set of values (program should only sort according to key element);
 
