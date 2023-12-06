@@ -35,7 +35,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     Gravity: -9.8,
     'Delta Time': 0.04,
     // The total number of particles being simulated
-    'Total Particles': 1024,
+    'Total Particles': 512,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
     // The radius of influence from the center of a particle to
@@ -218,21 +218,18 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   /* GPU SORT PIPELINE */
   const sortDevice = new SpatialInfoSort(device, settings['Total Particles']);
+  sortDevice.logSortInfo();
   const randomIndices = new Uint32Array(
     Array.from({ length: settings['Total Particles'] * 3 }, (_, i) => {
       return Math.floor(Math.random() * 10000);
     })
   );
-  console.log(randomIndices);
-  device.queue.writeBuffer(
-    sortDevice.spatialIndicesInputBuffer,
-    0,
-    randomIndices.buffer,
-    randomIndices.byteOffset,
-    randomIndices.byteLength
-  );
   const commandEncoder = device.createCommandEncoder();
-  sortDevice.computeSpatialInformation(device, commandEncoder);
+  await sortDevice.computeSpatialInformation(
+    device,
+    commandEncoder,
+    randomIndices
+  );
   const randomIndicesBufferSize =
     settings['Total Particles'] * 3 * Uint32Array.BYTES_PER_ELEMENT;
   const randomIndicesStagingBuffer = device.createBuffer({
@@ -255,6 +252,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       Uint32Array.BYTES_PER_ELEMENT * 3 * settings['Total Particles']
     );
     data = new Uint32Array(output);
+    console.log(data);
   }
 
   const keys = [];

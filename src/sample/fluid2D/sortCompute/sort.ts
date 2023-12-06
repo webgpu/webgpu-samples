@@ -20,41 +20,53 @@ type StepType =
 
 // TODO: Make sure to test this class in an arbitrary scenario before using in the fluid sim
 export class SpatialInfoSort {
-  private sortSpatialIndicesPipeline: GPUComputePipeline;
+  // Compute Resources
   private maxWorkgroupSize: number;
   private particlesToSort: number;
-  private computeSpatialOffsetsPipeline: GPUComputePipeline;
+  private workgroupsToDispatch: number;
+  // Spatial Indices GPU Buffers
+  private spatialIndicesBufferSize: number;
   public spatialIndicesInputBuffer: GPUBuffer;
   public spatialIndicesOutputBuffer: GPUBuffer;
+  public spatialIndicesStagingBuffer: GPUBuffer;
+  // Spatial Offsets GPU Buffer
   public spatialOffsetsBuffer: GPUBuffer;
-  public spatialOffsetsOutputBuffer: GPUBuffer;
+  // Algo + BlockHeight Uniforms Buffer
   private uniformsBuffer: GPUBuffer;
-  private workgroupsToDispatch: number;
+  // Bind Groups
   private storageBGCluster: BindGroupCluster;
   private uniformsBGCluster: BindGroupCluster;
+  // Pipelines
+  private sortSpatialIndicesPipeline: GPUComputePipeline;
+  private computeSpatialOffsetsPipeline: GPUComputePipeline;
 
   constructor(device: GPUDevice, numParticles: number) {
-    // Get maximum workgroup size from device
+    // Compute Resources
     this.maxWorkgroupSize = device.limits.maxComputeWorkgroupSizeX;
     this.particlesToSort = numParticles;
-    // Get value just under our workgroup count so ceil doesn't shoot up value
     const workgroupCalculation =
       (numParticles - 1) / (this.maxWorkgroupSize * 2);
     this.workgroupsToDispatch = Math.ceil(workgroupCalculation);
 
-    // Spatial Indices vec3<u32> (index, hash, key)
+    // Spatial Indices vec3<u32>(index, hash, key) GPUBuffers
+    this.spatialIndicesBufferSize =
+      Uint32Array.BYTES_PER_ELEMENT * 3 * this.particlesToSort;
     this.spatialIndicesInputBuffer = device.createBuffer({
-      size: Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles,
+      size: this.spatialIndicesBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     this.spatialIndicesOutputBuffer = device.createBuffer({
-      size: Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles,
+      size: this.spatialIndicesBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    });
+    this.spatialIndicesStagingBuffer = device.createBuffer({
+      size: this.spatialIndicesBufferSize,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
     // Spatial Offsets uint
     this.spatialOffsetsBuffer = device.createBuffer({
-      size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
+      size: Uint32Array.BYTES_PER_ELEMENT * this.particlesToSort,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
@@ -64,6 +76,8 @@ export class SpatialInfoSort {
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     });
 
+    // Bind Groups
+    // 0: indices input 1: indices output 2: offsets
     this.storageBGCluster = createBindGroupCluster({
       device: device,
       label: 'SpatialInfoSort.storage',
@@ -71,7 +85,7 @@ export class SpatialInfoSort {
       visibilities: [GPUShaderStage.COMPUTE],
       resourceTypes: ['buffer', 'buffer', 'buffer'],
       resourceLayouts: [
-        { type: 'read-only-storage' },
+        { type: 'storage' },
         { type: 'storage' },
         { type: 'storage' },
       ],
@@ -94,6 +108,7 @@ export class SpatialInfoSort {
       resources: [[{ buffer: this.uniformsBuffer }]],
     });
 
+    // Pipelines
     this.sortSpatialIndicesPipeline = device.createComputePipeline({
       label: 'SpatialInfoSort.sortSpatialIndices.computePipeline',
       layout: device.createPipelineLayout({
@@ -124,6 +139,12 @@ export class SpatialInfoSort {
     });
   }
 
+  logSortInfo() {
+    console.log(`Workgroup Size: ${this.maxWorkgroupSize}`);
+    console.log(`Sorted Particles: ${this.particlesToSort}`);
+    console.log(`Workgroups Dispatched Per Step: ${this.workgroupsToDispatch}`);
+  }
+
   resetNumWorkgroups(numParticles: number) {
     const workgroupCalculation =
       (numParticles - 1) / (this.maxWorkgroupSize * 2);
@@ -132,8 +153,24 @@ export class SpatialInfoSort {
 
   computeSpatialInformation(
     device: GPUDevice,
-    commandEncoder: GPUCommandEncoder
+    commandEncoder: GPUCommandEncoder,
+    initialValues: Uint32Array
   ) {
+    // Check if the size of the initialValues array matches our buffer
+    if (initialValues.byteLength !== this.spatialIndicesBufferSize) {
+      console.log(
+        'Incorrect arrayBuffer size. Size of spatialIndices array must be equal to Uint32Array.BytesPerElement * 3 * totalParticles'
+      );
+    }
+    // Write initial values to buffer before sort
+    device.queue.writeBuffer(
+      this.spatialIndicesInputBuffer,
+      0,
+      initialValues.buffer,
+      initialValues.byteOffset,
+      initialValues.byteLength
+    );
+
     // Set up the defaults at the beginning of an arbitrarily sized bitonic sort
     let nextBlockHeight = 2;
     let nextAlgo: StepType = 'FLIP_LOCAL';
@@ -145,8 +182,7 @@ export class SpatialInfoSort {
       new Uint32Array([StepEnum[nextAlgo], nextBlockHeight])
     );
 
-    while (highestBlockHeight < this.particlesToSort * 2) {
-      console.log(nextAlgo);
+    while (highestBlockHeight !== this.particlesToSort * 2) {
       this.sortSpatialIndices(commandEncoder);
       nextBlockHeight /= 2;
       if (nextBlockHeight === 1) {
@@ -174,7 +210,7 @@ export class SpatialInfoSort {
     this.computeSpatialOffsets(commandEncoder);
   }
 
-  private computeSpatialOffsets(commandEncoder: GPUCommandEncoder) {
+  computeSpatialOffsets(commandEncoder: GPUCommandEncoder) {
     const computeSpatialOffsetPassEncoder = commandEncoder.beginComputePass();
     computeSpatialOffsetPassEncoder.setPipeline(
       this.computeSpatialOffsetsPipeline
@@ -189,9 +225,11 @@ export class SpatialInfoSort {
     computeSpatialOffsetPassEncoder.end();
   }
 
-  private sortSpatialIndices(commandEncoder: GPUCommandEncoder) {
+  sortSpatialIndices(commandEncoder: GPUCommandEncoder) {
+    // Perform the compute Pass
     const sortSpatialIndicesComputePassEncoder =
       commandEncoder.beginComputePass();
+    // Set the resources for this pass of the compute shader
     sortSpatialIndicesComputePassEncoder.setPipeline(
       this.sortSpatialIndicesPipeline
     );
@@ -203,9 +241,18 @@ export class SpatialInfoSort {
       1,
       this.uniformsBGCluster.bindGroups[0]
     );
+    // Dispatch workgroups
     sortSpatialIndicesComputePassEncoder.dispatchWorkgroups(
       this.workgroupsToDispatch
     );
     sortSpatialIndicesComputePassEncoder.end();
+    // Copy output data back to input
+    commandEncoder.copyBufferToBuffer(
+      this.spatialIndicesOutputBuffer,
+      0,
+      this.spatialIndicesInputBuffer,
+      0,
+      this.spatialIndicesBufferSize
+    );
   }
 }

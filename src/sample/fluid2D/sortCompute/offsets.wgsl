@@ -5,8 +5,8 @@ struct SpatialEntry {
 }
 
 // Storage Buffers
-@group(0) @binding(1) var<storage, read_write> spatial_indices: array<SpatialEntry>;
-@group(0) @binding(2) var<storage, read_write> spatial_offsets: array<u32>;
+@group(0) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
+@group(0) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
 @compute @workgroup_size(256, 1, 1)
 fn computeMain(
