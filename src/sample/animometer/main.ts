@@ -167,7 +167,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   function configure() {
     const numTriangles = settings.numTriangles;
     const uniformBytes = 5 * Float32Array.BYTES_PER_ELEMENT;
-    const alignedUniformBytes = Math.ceil(uniformBytes / 256) * 256;
+    const minBufferAllignment = device.limits.minUniformBufferOffsetAlignment;
+    let alignedUniformBytes = 0;
+    const blocks = Math.ceil(uniformBytes / minBufferAllignment);
+    if (uniformBytes < minBufferAllignment) {
+      alignedUniformBytes = blocks * minBufferAllignment;
+    } else {
+      // Number of minBufferAllignment Blocks occupied by our data
+      alignedUniformBytes = blocks * blocks * minBufferAllignment;
+    }
+
     const alignedUniformFloats =
       alignedUniformBytes / Float32Array.BYTES_PER_ELEMENT;
     const uniformBuffer = device.createBuffer({
