@@ -56,6 +56,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     )
   );
 
+  console.log(device.limits.minUniformBufferOffsetAlignment);
+  console.log(device.limits.minStorageBufferOffsetAlignment);
   // Create buffer for default velocities data
   const inputVelocitiesData = new Float32Array(
     new ArrayBuffer(
@@ -224,6 +226,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       return Math.floor(Math.random() * 10000);
     })
   );
+  console.log(randomIndices);
   const commandEncoder = device.createCommandEncoder();
   await sortDevice.computeSpatialInformation(
     device,
@@ -257,9 +260,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   const keys = [];
 
-  for (let i = 0; i < data.length; i++) {
+  for (let i = 2; i < data.length; i+= 3) {
     keys.push(data[i]);
   }
+  console.log('KEYS!');
   console.log(keys);
 
   // Test sort on a randomly created set of values (program should only sort according to key element);

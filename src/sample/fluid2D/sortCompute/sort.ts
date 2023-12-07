@@ -45,7 +45,7 @@ export class SpatialInfoSort {
     this.maxWorkgroupSize = device.limits.maxComputeWorkgroupSizeX;
     this.particlesToSort = numParticles;
     const workgroupCalculation =
-      (numParticles - 1) / (this.maxWorkgroupSize * 2);
+      (this.particlesToSort - 1) / (this.maxWorkgroupSize * 2);
     this.workgroupsToDispatch = Math.ceil(workgroupCalculation);
 
     // Spatial Indices vec3<u32>(index, hash, key) GPUBuffers
@@ -73,7 +73,7 @@ export class SpatialInfoSort {
     // Uniforms (algo + blockHeight)
     this.uniformsBuffer = device.createBuffer({
       size: Uint32Array.BYTES_PER_ELEMENT * 2,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
     // Bind Groups
@@ -182,7 +182,11 @@ export class SpatialInfoSort {
       new Uint32Array([StepEnum[nextAlgo], nextBlockHeight])
     );
 
+    let step = 0;
     while (highestBlockHeight !== this.particlesToSort * 2) {
+      console.log(step);
+      step += 1;
+      const commandEncoder = device.createCommandEncoder();
       this.sortSpatialIndices(commandEncoder);
       nextBlockHeight /= 2;
       if (nextBlockHeight === 1) {
@@ -225,7 +229,7 @@ export class SpatialInfoSort {
     computeSpatialOffsetPassEncoder.end();
   }
 
-  sortSpatialIndices(commandEncoder: GPUCommandEncoder) {
+  sortSpatialIndicesDiscrete(commandEncoder: GPUCommandEncoder) {
     // Perform the compute Pass
     const sortSpatialIndicesComputePassEncoder =
       commandEncoder.beginComputePass();
@@ -255,4 +259,7 @@ export class SpatialInfoSort {
       this.spatialIndicesBufferSize
     );
   }
+
+  // TODO: Dynamic Offsets Version
+  sortSpatialIndicesComplete
 }
