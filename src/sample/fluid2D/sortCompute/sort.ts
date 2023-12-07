@@ -1,4 +1,8 @@
-import { BindGroupCluster, createBindGroupCluster } from '../utils';
+import {
+  BindGroupCluster,
+  createBindGroupCluster,
+  extractGPUData,
+} from '../utils';
 import { NaiveBitonicCompute } from './computeSort';
 import offsetsWGSL from './offsets.wgsl';
 
@@ -18,32 +22,42 @@ type StepType =
   | 'FLIP_GLOBAL'
   | 'DISPERSE_GLOBAL';
 
+const getNumSteps = (numElements: number) => {
+  const n = Math.log2(numElements);
+  return (n * (n + 1)) / 2;
+};
+
 // TODO: Make sure to test this class in an arbitrary scenario before using in the fluid sim
 export class SpatialInfoSort {
   // Compute Resources
   private maxWorkgroupSize: number;
   private particlesToSort: number;
   private workgroupsToDispatch: number;
+  private stepsInSort: number;
   // Spatial Indices GPU Buffers
   private spatialIndicesBufferSize: number;
-  public spatialIndicesInputBuffer: GPUBuffer;
-  public spatialIndicesOutputBuffer: GPUBuffer;
+  private spatialIndicesInputBuffer: GPUBuffer;
+  private spatialIndicesOutputBuffer: GPUBuffer;
   public spatialIndicesStagingBuffer: GPUBuffer;
   // Spatial Offsets GPU Buffer
   public spatialOffsetsBuffer: GPUBuffer;
   // Algo + BlockHeight Uniforms Buffer
-  private uniformsBuffer: GPUBuffer;
+  private algoStorageBuffer: GPUBuffer;
   // Bind Groups
-  private storageBGCluster: BindGroupCluster;
-  private uniformsBGCluster: BindGroupCluster;
+  private dataStorageBGCluster: BindGroupCluster;
+  private algoStorageBGCluster: BindGroupCluster;
   // Pipelines
   private sortSpatialIndicesPipeline: GPUComputePipeline;
   private computeSpatialOffsetsPipeline: GPUComputePipeline;
 
   constructor(device: GPUDevice, numParticles: number) {
     // Compute Resources
-    this.maxWorkgroupSize = device.limits.maxComputeWorkgroupSizeX;
+    this.maxWorkgroupSize = Math.min(
+      numParticles / 2,
+      device.limits.maxComputeWorkgroupSizeX
+    );
     this.particlesToSort = numParticles;
+    this.stepsInSort = getNumSteps(this.particlesToSort);
     const workgroupCalculation =
       (this.particlesToSort - 1) / (this.maxWorkgroupSize * 2);
     this.workgroupsToDispatch = Math.ceil(workgroupCalculation);
@@ -71,14 +85,15 @@ export class SpatialInfoSort {
     });
 
     // Uniforms (algo + blockHeight)
-    this.uniformsBuffer = device.createBuffer({
-      size: Uint32Array.BYTES_PER_ELEMENT * 2,
+    this.algoStorageBuffer = device.createBuffer({
+      // algo, stepBlockHeight, highestBlockHeight, dispatchSize
+      size: Uint32Array.BYTES_PER_ELEMENT * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
     // Bind Groups
     // 0: indices input 1: indices output 2: offsets
-    this.storageBGCluster = createBindGroupCluster({
+    this.dataStorageBGCluster = createBindGroupCluster({
       device: device,
       label: 'SpatialInfoSort.storage',
       bindings: [0, 1, 2],
@@ -98,14 +113,14 @@ export class SpatialInfoSort {
       ],
     });
 
-    this.uniformsBGCluster = createBindGroupCluster({
+    this.algoStorageBGCluster = createBindGroupCluster({
       device: device,
       label: 'SpatialInfoSort.uniforms',
       bindings: [0],
       visibilities: [GPUShaderStage.COMPUTE],
       resourceTypes: ['buffer'],
-      resourceLayouts: [{ type: 'uniform' }],
-      resources: [[{ buffer: this.uniformsBuffer }]],
+      resourceLayouts: [{ type: 'storage' }],
+      resources: [[{ buffer: this.algoStorageBuffer }]],
     });
 
     // Pipelines
@@ -113,8 +128,8 @@ export class SpatialInfoSort {
       label: 'SpatialInfoSort.sortSpatialIndices.computePipeline',
       layout: device.createPipelineLayout({
         bindGroupLayouts: [
-          this.storageBGCluster.bindGroupLayout,
-          this.uniformsBGCluster.bindGroupLayout,
+          this.dataStorageBGCluster.bindGroupLayout,
+          this.algoStorageBGCluster.bindGroupLayout,
         ],
       }),
       compute: {
@@ -128,7 +143,7 @@ export class SpatialInfoSort {
     this.computeSpatialOffsetsPipeline = device.createComputePipeline({
       label: 'SpatialInfoSort.computeSpatialOffsets.computePipeline',
       layout: device.createPipelineLayout({
-        bindGroupLayouts: [this.storageBGCluster.bindGroupLayout],
+        bindGroupLayouts: [this.dataStorageBGCluster.bindGroupLayout],
       }),
       compute: {
         entryPoint: 'computeMain',
@@ -140,8 +155,9 @@ export class SpatialInfoSort {
   }
 
   logSortInfo() {
-    console.log(`Workgroup Size: ${this.maxWorkgroupSize}`);
     console.log(`Sorted Particles: ${this.particlesToSort}`);
+    console.log(`Steps in Sort: ${this.stepsInSort}`);
+    console.log(`Workgroup Size: ${this.maxWorkgroupSize}`);
     console.log(`Workgroups Dispatched Per Step: ${this.workgroupsToDispatch}`);
   }
 
@@ -175,19 +191,30 @@ export class SpatialInfoSort {
     let nextBlockHeight = 2;
     let nextAlgo: StepType = 'FLIP_LOCAL';
     let highestBlockHeight = nextBlockHeight;
+    const initialAlgoInfo = new Uint32Array([
+      StepEnum[nextAlgo],
+      nextBlockHeight,
+      highestBlockHeight,
+      this.workgroupsToDispatch,
+    ]);
+    console.log(initialAlgoInfo);
     // Write defaults to buffer
     device.queue.writeBuffer(
-      this.uniformsBuffer,
+      this.algoStorageBuffer,
       0,
-      new Uint32Array([StepEnum[nextAlgo], nextBlockHeight])
+      initialAlgoInfo.buffer,
+      initialAlgoInfo.byteOffset,
+      initialAlgoInfo.byteLength
     );
 
     let step = 0;
-    while (highestBlockHeight !== this.particlesToSort * 2) {
+    // We calculate the numSteps for a single complete pass of the bitonic sort because it allows the user to better debug where in the shader (i.e in which step)
+    // something is going wrong
+    for (let i = 0; i < this.stepsInSort; i++) {
       console.log(step);
       step += 1;
       const commandEncoder = device.createCommandEncoder();
-      this.sortSpatialIndices(commandEncoder);
+      this.sortSpatialIndicesDiscrete(commandEncoder);
       nextBlockHeight /= 2;
       if (nextBlockHeight === 1) {
         highestBlockHeight *= 2;
@@ -204,14 +231,23 @@ export class SpatialInfoSort {
         nextBlockHeight > this.maxWorkgroupSize * 2
           ? (nextAlgo = 'DISPERSE_GLOBAL')
           : (nextAlgo = 'DISPERSE_LOCAL');
-        device.queue.writeBuffer(
-          this.uniformsBuffer,
-          0,
-          new Uint32Array([StepEnum[nextAlgo], nextBlockHeight])
-        );
       }
+      commandEncoder.copyBufferToBuffer(
+        this.spatialIndicesOutputBuffer,
+        0,
+        this.spatialIndicesInputBuffer,
+        0,
+        this.spatialIndicesBufferSize
+      );
+      commandEncoder.copyBufferToBuffer(
+        this.spatialIndicesInputBuffer,
+        0,
+        this.spatialIndicesStagingBuffer,
+        0,
+        this.spatialIndicesBufferSize
+      );
     }
-    this.computeSpatialOffsets(commandEncoder);
+    //this.computeSpatialOffsets(commandEncoder);
   }
 
   computeSpatialOffsets(commandEncoder: GPUCommandEncoder) {
@@ -221,12 +257,24 @@ export class SpatialInfoSort {
     );
     computeSpatialOffsetPassEncoder.setBindGroup(
       0,
-      this.storageBGCluster.bindGroups[0]
+      this.dataStorageBGCluster.bindGroups[0]
     );
     computeSpatialOffsetPassEncoder.dispatchWorkgroups(
       this.workgroupsToDispatch
     );
     computeSpatialOffsetPassEncoder.end();
+  }
+
+  async logSpatialIndices() {
+    let data: Uint32Array;
+    {
+      const output = await extractGPUData(
+        this.spatialIndicesStagingBuffer,
+        this.spatialIndicesBufferSize
+      );
+      data = new Uint32Array(output);
+      console.log(data);
+    }
   }
 
   sortSpatialIndicesDiscrete(commandEncoder: GPUCommandEncoder) {
@@ -239,27 +287,21 @@ export class SpatialInfoSort {
     );
     sortSpatialIndicesComputePassEncoder.setBindGroup(
       0,
-      this.storageBGCluster.bindGroups[0]
+      this.dataStorageBGCluster.bindGroups[0]
     );
     sortSpatialIndicesComputePassEncoder.setBindGroup(
       1,
-      this.uniformsBGCluster.bindGroups[0]
+      this.algoStorageBGCluster.bindGroups[0]
     );
     // Dispatch workgroups
     sortSpatialIndicesComputePassEncoder.dispatchWorkgroups(
       this.workgroupsToDispatch
     );
     sortSpatialIndicesComputePassEncoder.end();
-    // Copy output data back to input
-    commandEncoder.copyBufferToBuffer(
-      this.spatialIndicesOutputBuffer,
-      0,
-      this.spatialIndicesInputBuffer,
-      0,
-      this.spatialIndicesBufferSize
-    );
+    // Copy output data back to in
   }
 
-  // TODO: Dynamic Offsets Version
-  sortSpatialIndicesComplete
+  sortSpatialIndicesNonDiscrete(commandEncoder: GPUCommandEncoder) {
+    return;
+  }
 }

@@ -223,48 +223,18 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   sortDevice.logSortInfo();
   const randomIndices = new Uint32Array(
     Array.from({ length: settings['Total Particles'] * 3 }, (_, i) => {
-      return Math.floor(Math.random() * 10000);
+      if ((i + 1) % 3 === 0) {
+        return Math.floor(Math.random() * 10000);
+      } else {
+        return 0;
+      }
     })
   );
   console.log(randomIndices);
   const commandEncoder = device.createCommandEncoder();
-  await sortDevice.computeSpatialInformation(
-    device,
-    commandEncoder,
-    randomIndices
-  );
-  const randomIndicesBufferSize =
-    settings['Total Particles'] * 3 * Uint32Array.BYTES_PER_ELEMENT;
-  const randomIndicesStagingBuffer = device.createBuffer({
-    size: randomIndicesBufferSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-  });
-  commandEncoder.copyBufferToBuffer(
-    sortDevice.spatialIndicesOutputBuffer,
-    0,
-    randomIndicesStagingBuffer,
-    0,
-    randomIndicesBufferSize
-  );
+  sortDevice.computeSpatialInformation(device, commandEncoder, randomIndices);
   device.queue.submit([commandEncoder.finish()]);
-
-  let data: Uint32Array;
-  {
-    const output = await extractGPUData(
-      randomIndicesStagingBuffer,
-      Uint32Array.BYTES_PER_ELEMENT * 3 * settings['Total Particles']
-    );
-    data = new Uint32Array(output);
-    console.log(data);
-  }
-
-  const keys = [];
-
-  for (let i = 2; i < data.length; i+= 3) {
-    keys.push(data[i]);
-  }
-  console.log('KEYS!');
-  console.log(keys);
+  sortDevice.logSpatialIndices();
 
   // Test sort on a randomly created set of values (program should only sort according to key element);
 
