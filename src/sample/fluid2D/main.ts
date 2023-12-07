@@ -2,11 +2,15 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { create3DRenderPipeline } from '../normalMap/utils';
 import { createBindGroupCluster, extractGPUData } from './utils';
 import particleWGSL from './particle.wgsl';
-import commonWGSL from './common.wgsl';
 import { PositionsComputeShader } from './fluidCompute/positionsWGSL';
-import { ViscosityComputeShader } from './fluidCompute/viscosityWGSL';
 import { DensityComputeShader } from './fluidCompute/densityWGSL';
-import { SpatialInfoSort } from './sortCompute/sort';
+import {
+  createSpatialSortResource,
+  StepEnum,
+  StepType,
+} from './sortCompute/sort';
+import { sortWGSL } from './sortCompute/sortWGSL';
+import offsetsWGSL from './sortCompute/offsets.wgsl';
 // Bind Group Tier Level
 // Group 0: Changes per frame (read_write buffers, etc)
 // Group 1: Per user input (uniforms)
@@ -35,7 +39,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     Gravity: -9.8,
     'Delta Time': 0.04,
     // The total number of particles being simulated
-    'Total Particles': 512,
+    'Total Particles': 65536,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
     // The radius of influence from the center of a particle to
@@ -219,8 +223,153 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   });
 
   /* GPU SORT PIPELINE */
-  const sortDevice = new SpatialInfoSort(device, settings['Total Particles']);
-  sortDevice.logSortInfo();
+  // Create buffers, workgroup and invocation numbers
+  const sortResource = createSpatialSortResource(
+    device,
+    settings['Total Particles']
+  );
+
+  // Create spatialIndices sort pipelines
+  const sortSpatialIndicesPipeline = device.createComputePipeline({
+    label: 'SpatialInfoSort.sortSpatialIndices.computePipeline',
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        sortResource.dataStorageBGCluster.bindGroupLayout,
+        sortResource.algoStorageBGCluster.bindGroupLayout,
+      ],
+    }),
+    compute: {
+      entryPoint: 'computeMain',
+      module: device.createShaderModule({
+        code: sortWGSL(sortResource.maxWorkgroupSize),
+      }),
+    },
+  });
+
+  // Create spatialOffsets assignment pipeline
+  const computeSpatialOffsetsPipeline = device.createComputePipeline({
+    label: 'SpatialInfoSort.computeSpatialOffsets.computePipeline',
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [sortResource.dataStorageBGCluster.bindGroupLayout],
+    }),
+    compute: {
+      entryPoint: 'computeMain',
+      module: device.createShaderModule({
+        code: offsetsWGSL,
+      }),
+    },
+  });
+
+  // Process that actually executes the sort and the pipeline
+  // Either the provide the buffer with initial values, or write to it from a previous shader
+  const computeSpatialInformation = (
+    device: GPUDevice,
+    commandEncoder: GPUCommandEncoder,
+    initialValues?: Uint32Array
+  ) => {
+    // If we provide initial values to the sort
+    if (initialValues) {
+      // Check if the size of the initialValues array matches our buffer
+      if (initialValues.byteLength !== sortResource.spatialIndicesBufferSize) {
+        console.log(
+          'Incorrect arrayBuffer size. Size of spatialIndices array must be equal to Uint32Array.BytesPerElement * 3 * totalParticles'
+        );
+      }
+      // Write initial values to buffer before sort
+      device.queue.writeBuffer(
+        sortResource.spatialIndicesBuffer,
+        0,
+        initialValues.buffer,
+        initialValues.byteOffset,
+        initialValues.byteLength
+      );
+    }
+
+    // Set up the defaults at the beginning of an arbitrarily sized bitonic sort
+    // First operation is always a flip operation with a swap span of two (ie 0 -> 1 2 -> 3, etc)
+    let nextBlockHeight = 2;
+    // String that allows us to access values in StepEnum, which are then passed to our sort shader
+    let nextAlgo: StepType = 'FLIP_LOCAL';
+    // Highest Block Height is the highest swap span we've yet encountered during the sort
+    let highestBlockHeight = nextBlockHeight;
+    const initialAlgoInfo = new Uint32Array([
+      StepEnum[nextAlgo], // starts at 1
+      nextBlockHeight, // starts at 2
+      highestBlockHeight, // starts at 2
+      sortResource.workgroupsToDispatch, // particles / maxWorkgroupSize
+    ]);
+    // Write defaults algoInfo to buffer
+    device.queue.writeBuffer(
+      sortResource.algoStorageBuffer,
+      0,
+      initialAlgoInfo.buffer,
+      initialAlgoInfo.byteOffset,
+      initialAlgoInfo.byteLength
+    );
+
+    let step = 0;
+    // We calculate the numSteps for a single complete pass of the bitonic sort because it allows the user to better debug where in the shader (i.e in which step)
+    // something is going wrong
+    for (let i = 0; i < sortResource.stepsInSort; i++) {
+      console.log(step);
+      step += 1;
+      const sortSpatialIndicesComputePassEncoder =
+        commandEncoder.beginComputePass();
+      // Set the resources for this pass of the compute shader
+      sortSpatialIndicesComputePassEncoder.setPipeline(
+        sortSpatialIndicesPipeline
+      );
+      sortSpatialIndicesComputePassEncoder.setBindGroup(
+        0,
+        sortResource.dataStorageBGCluster.bindGroups[0]
+      );
+      sortSpatialIndicesComputePassEncoder.setBindGroup(
+        1,
+        sortResource.algoStorageBGCluster.bindGroups[0]
+      );
+      // Dispatch workgroups
+      sortSpatialIndicesComputePassEncoder.dispatchWorkgroups(
+        sortResource.workgroupsToDispatch
+      );
+      sortSpatialIndicesComputePassEncoder.end();
+      nextBlockHeight /= 2;
+      if (nextBlockHeight === 1) {
+        highestBlockHeight *= 2;
+        if (highestBlockHeight === settings['Total Particles'] * 2) {
+          nextAlgo = 'NONE';
+        } else if (highestBlockHeight > sortResource.maxWorkgroupSize * 2) {
+          nextAlgo = 'FLIP_GLOBAL';
+          nextBlockHeight = highestBlockHeight;
+        } else {
+          nextAlgo = 'FLIP_LOCAL';
+          nextBlockHeight = highestBlockHeight;
+        }
+      } else {
+        nextBlockHeight > sortResource.maxWorkgroupSize * 2
+          ? (nextAlgo = 'DISPERSE_GLOBAL')
+          : (nextAlgo = 'DISPERSE_LOCAL');
+      }
+      // Copy the result of the sort to the staging buffer
+      commandEncoder.copyBufferToBuffer(
+        sortResource.spatialIndicesBuffer,
+        0,
+        sortResource.spatialIndicesStagingBuffer,
+        0,
+        sortResource.spatialIndicesBufferSize
+      );
+    }
+    const computeSpatialOffsetPassEncoder = commandEncoder.beginComputePass();
+    computeSpatialOffsetPassEncoder.setPipeline(computeSpatialOffsetsPipeline);
+    computeSpatialOffsetPassEncoder.setBindGroup(
+      0,
+      sortResource.dataStorageBGCluster.bindGroups[0]
+    );
+    computeSpatialOffsetPassEncoder.dispatchWorkgroups(
+      sortResource.workgroupsToDispatch
+    );
+    computeSpatialOffsetPassEncoder.end();
+  };
+
   const randomIndices = new Uint32Array(
     Array.from({ length: settings['Total Particles'] * 3 }, (_, i) => {
       if ((i + 1) % 3 === 0) {
@@ -232,9 +381,12 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   );
   console.log(randomIndices);
   const commandEncoder = device.createCommandEncoder();
-  sortDevice.computeSpatialInformation(device, commandEncoder, randomIndices);
+  computeSpatialInformation(device, commandEncoder, randomIndices);
   device.queue.submit([commandEncoder.finish()]);
-  sortDevice.logSpatialIndices();
+  extractGPUData(
+    sortResource.spatialIndicesStagingBuffer,
+    sortResource.spatialIndicesBufferSize
+  ).then((res) => console.log(res));
 
   // Test sort on a randomly created set of values (program should only sort according to key element);
 

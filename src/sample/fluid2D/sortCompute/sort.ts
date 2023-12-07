@@ -3,10 +3,10 @@ import {
   createBindGroupCluster,
   extractGPUData,
 } from '../utils';
-import { NaiveBitonicCompute } from './computeSort';
+import { sortWGSL } from './sortWGSL';
 import offsetsWGSL from './offsets.wgsl';
 
-enum StepEnum {
+export enum StepEnum {
   NONE,
   FLIP_LOCAL,
   DISPERSE_LOCAL,
@@ -15,7 +15,7 @@ enum StepEnum {
 }
 
 // String access to StepEnum
-type StepType =
+export type StepType =
   | 'NONE'
   | 'FLIP_LOCAL'
   | 'DISPERSE_LOCAL'
@@ -25,6 +25,88 @@ type StepType =
 const getNumSteps = (numElements: number) => {
   const n = Math.log2(numElements);
   return (n * (n + 1)) / 2;
+};
+
+interface SpaitalSortResource {
+  // Compute Resources
+  maxWorkgroupSize: number;
+  stepsInSort: number;
+  workgroupsToDispatch: number;
+  // Spatial Indices GPU Buffers
+  spatialIndicesBufferSize: number;
+  spatialIndicesBuffer: GPUBuffer;
+  spatialIndicesStagingBuffer: GPUBuffer;
+  // Spatial Offsets GPU Buffer
+  spatialOffsetsBuffer: GPUBuffer;
+  // Algo + BlockHeight Uniforms Buffer
+  algoStorageBuffer: GPUBuffer;
+  // Bind Groups
+  dataStorageBGCluster: BindGroupCluster;
+  algoStorageBGCluster: BindGroupCluster;
+}
+
+export const createSpatialSortResource = (
+  device: GPUDevice,
+  numParticles: number
+): SpaitalSortResource => {
+  const workgroupCalculation =
+    (numParticles - 1) / (device.limits.maxComputeWorkgroupSizeX * 2);
+  const bufferSize = Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles;
+  const inputBuffer = device.createBuffer({
+    size: bufferSize,
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC,
+  });
+  const stagingBuffer = device.createBuffer({
+    size: bufferSize,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+  });
+
+  const offsetsBuffer = device.createBuffer({
+    size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+
+  const algoStorageBuffer = device.createBuffer({
+    // algo, stepBlockHeight, highestBlockHeight, dispatchSize
+    size: Uint32Array.BYTES_PER_ELEMENT * 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+
+  const retObject: SpaitalSortResource = {
+    maxWorkgroupSize: Math.min(
+      numParticles / 2,
+      device.limits.maxComputeWorkgroupSizeX
+    ),
+    stepsInSort: getNumSteps(numParticles),
+    workgroupsToDispatch: Math.ceil(workgroupCalculation),
+    spatialIndicesBufferSize: bufferSize,
+    spatialIndicesBuffer: inputBuffer,
+    spatialOffsetsBuffer: offsetsBuffer,
+    spatialIndicesStagingBuffer: stagingBuffer,
+    algoStorageBuffer,
+    dataStorageBGCluster: createBindGroupCluster({
+      device: device,
+      label: 'SpatialInfoSort.storage',
+      bindings: [0, 1],
+      visibilities: [GPUShaderStage.COMPUTE],
+      resourceTypes: ['buffer', 'buffer'],
+      resourceLayouts: [{ type: 'storage' }, { type: 'storage' }],
+      resources: [[{ buffer: inputBuffer }, { buffer: offsetsBuffer }]],
+    }),
+    algoStorageBGCluster: createBindGroupCluster({
+      device: device,
+      label: 'SpatialInfoSort.uniforms',
+      bindings: [0],
+      visibilities: [GPUShaderStage.COMPUTE],
+      resourceTypes: ['buffer'],
+      resourceLayouts: [{ type: 'storage' }],
+      resources: [[{ buffer: algoStorageBuffer }]],
+    }),
+  };
+  return retObject;
 };
 
 // TODO: Make sure to test this class in an arbitrary scenario before using in the fluid sim
@@ -234,13 +316,6 @@ export class SpatialInfoSort {
       }
       commandEncoder.copyBufferToBuffer(
         this.spatialIndicesOutputBuffer,
-        0,
-        this.spatialIndicesInputBuffer,
-        0,
-        this.spatialIndicesBufferSize
-      );
-      commandEncoder.copyBufferToBuffer(
-        this.spatialIndicesInputBuffer,
         0,
         this.spatialIndicesStagingBuffer,
         0,

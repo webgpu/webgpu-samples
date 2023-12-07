@@ -2,7 +2,7 @@
 // gpuSort.setBuffers(spatialIndices (VEC3 Of index, key, hash) and spatial offsets (uint))
 
 // For more on bitonic merge sort, check the bitonicSort example.
-export const NaiveBitonicCompute = (workgroupSize: number) => {
+export const sortWGSL = (workgroupSize: number) => {
   if (workgroupSize % 2 !== 0 || workgroupSize > 256) {
     workgroupSize = 256;
   }
@@ -24,7 +24,6 @@ struct SpatialEntry {
 var<workgroup> local_data: array<SpatialEntry, ${workgroupSize * 2}>;
 
 @group(0) @binding(0) var<storage, read_write> input_spatial_indices: array<SpatialEntry>;
-@group(0) @binding(1) var<storage, read_write> output_spatial_indices: array<SpatialEntry>;
 @group(1) @binding(0) var<storage, read_write> algo_info: array<AlgoInfo>;
 
 fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
