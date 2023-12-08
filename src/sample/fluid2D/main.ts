@@ -9,7 +9,7 @@ import {
   StepEnum,
   StepType,
 } from './sortCompute/sort';
-import { sortWGSL } from './sortCompute/sortWGSL';
+import sortWGSL from './sortCompute/sort.wgsl';
 import offsetsWGSL from './sortCompute/offsets.wgsl';
 // Bind Group Tier Level
 // Group 0: Changes per frame (read_write buffers, etc)
@@ -39,7 +39,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     Gravity: -9.8,
     'Delta Time': 0.04,
     // The total number of particles being simulated
-    'Total Particles': 65536,
+    'Total Particles': 512,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
     // The radius of influence from the center of a particle to
@@ -241,7 +241,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     compute: {
       entryPoint: 'computeMain',
       module: device.createShaderModule({
-        code: sortWGSL(sortResource.maxWorkgroupSize),
+        code: sortWGSL,
       }),
     },
   });
@@ -386,7 +386,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   extractGPUData(
     sortResource.spatialIndicesStagingBuffer,
     sortResource.spatialIndicesBufferSize
-  ).then((res) => console.log(res));
+  ).then((res) => console.log(new Uint32Array(res)));
 
   // Test sort on a randomly created set of values (program should only sort according to key element);
 
