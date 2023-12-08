@@ -109,4 +109,19 @@ fn computeMain(
     input_spatial_indices[offset + local_id.x * 2] = local_data[local_id.x * 2];
     input_spatial_indices[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
   }
+
+  workgroupBarrier();
+
+  if (global_id.x == (256 * algo_info[0].dispatchSize) - 1) {
+    let info = &algo_info[0];
+    (*info).stepHeight /= 2;
+    if ((*info).stepHeight == 1) {
+      let highest = (*info).highestHeight * 2;
+      (*info).highestHeight = highest;
+      (*info).stepHeight = highest;
+      (*info).algo = select(ALGO_FLIP_LOCAL, ALGO_FLIP_GLOBAL, highest > 512);
+    } else {
+      (*info).algo = select(ALGO_DISPERSE_LOCAL, ALGO_DISPERSE_GLOBAL, (*info).stepHeight > 512);
+    }
+  }
 }

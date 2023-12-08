@@ -1,17 +1,5 @@
 export const PositionsComputeShader = (workgroupSize: number) => {
   return `
-struct GeneralUniforms {
-  num_particles: u32,
-  deltaTime: f32,
-  halfBoundsX: f32,
-  halfBoundsY: f32,
-}
-
-struct ParticleUniforms {
-  damping: f32,
-  gravity: f32,
-}
-
 // Storage Buffers
 @group(0) @binding(0) var<storage, read_write> positions: array<vec2<f32>>;
 @group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;

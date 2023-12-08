@@ -28,35 +28,35 @@ _____/                      \_____*/
 
 // Distribution Functions
 fn SmoothDistribution(
-  dst: f32, 
+  dist: f32, 
   radius: f32, 
   scale: f32
 ) -> f32 {
-  if (dst > radius) {
+  if (dist > radius) {
     return 0;
   }
-  var v: f32 = radius * radius - dst * dst;
+  var v: f32 = radius * radius - dist * dist;
   return v * v * v * scale;
 }
 
 fn SpikeDistributionPower2(
-  dst: f32, 
+  dist: f32, 
   radius: f32, 
   scale: f32
 ) -> f32 { 
-  if (dst > radius) {
+  if (dist > radius) {
     return 0;
   }
-  var v: f32 = radius - dst;
+  var v: f32 = radius - dist;
   return v * v * scale;
 }
 
 fn SpikeDistributionPower2Derivative(
-  dst: f32,
+  dist: f32,
   radius: f32,
   scale: f32
 ) -> f32 {
-  if (dst >= radius) {
+  if (dist >= radius) {
     return 0;
   }
   var v: f32 = radius - dist;
@@ -64,23 +64,23 @@ fn SpikeDistributionPower2Derivative(
 }
 
 fn SpikeDistributionPower3(
-  dst: f32, 
+  dist: f32, 
   radius: f32, 
   scale: f32
 ) -> f32 {
-  if (dst > radius) {
+  if (dist > radius) {
     return 0;
   }
-  var v: f32 = radius - dst;
+  var v: f32 = radius - dist;
   return v * v * v * scale;
 }
 
 fn SpikeDistributionPower3Derivative(
-  dst: f32,
+  dist: f32,
   radius: f32,
   scale: f32
 ) -> f32 {
-  if (dst >= radius) {
+  if (dist >= radius) {
     return 0;
   }
   var v: f32 = radius - dist;
@@ -89,7 +89,7 @@ fn SpikeDistributionPower3Derivative(
 
 // Hash Functions
 // The offsets represent nine possible movements (from top to bottom)
-const offsets2D: array<vector<int, 2>, 9> = [
+const offsets2D: array<vec2<i32>, 9> = array<vec2<i32>, 9>(
   vec2<i32>(-1, 1),
   vec2<i32>(0, 1),
   vec2<i32>(1, 1),
@@ -99,11 +99,24 @@ const offsets2D: array<vector<int, 2>, 9> = [
   vec2<i32>(-1, -1),
   vec2<i32>(0, -1),
   vec2<i32>(1, -1)
-];
+);
+
+struct GeneralUniforms {
+  numParticles: u32,
+  deltaTime: f32,
+  halfBoundsX: f32,
+  halfBoundsY: f32,
+}
+
+struct ParticleUniforms {
+  damping: f32,
+  gravity: f32,
+  smoothingRadius: f32,
+}
 
 // Hash constants
-let hashK1: u32 = 15823;
-let hashK2: u32 = 9737333;
+const hashK1: u32 = 15823;
+const hashK2: u32 = 9737333;
 
 // Convert floating point position into an integer cell coordinate
 // radius represents the smoothing radius of our particle, it sphere of influence so to speak
