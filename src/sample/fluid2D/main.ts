@@ -1,8 +1,8 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { create3DRenderPipeline } from '../normalMap/utils';
 import { createBindGroupCluster, extractGPUData } from './utils';
-import particleWGSL from './particle.wgsl';
-import { PositionsComputeShader } from './fluidCompute/positionsWGSL';
+import particleWGSL from './render/particle.wgsl';
+import positionsWGSL from './fluidCompute/positions.wgsl';
 import { DensityComputeShader } from './fluidCompute/densityWGSL';
 import {
   createSpatialSortResource,
@@ -13,10 +13,6 @@ import sortWGSL from './sortCompute/sort.wgsl';
 import offsetsWGSL from './sortCompute/offsets.wgsl';
 import commonWGSL from './common.wgsl';
 import spatialHashWGSL from './fluidCompute/spatialHash.wgsl';
-// Bind Group Tier Level
-// Group 0: Changes per frame (read_write buffers, etc)
-// Group 1: Per user input (uniforms)
-// Group 2: Never changes (overrides, strictly read_only buffers)
 
 interface ComputeSpatialInformationArgs {
   device: GPUDevice;
@@ -242,7 +238,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     compute: {
       module: device.createShaderModule({
         label: 'ComputePositions.computeShader',
-        code: PositionsComputeShader(maxWorkgroupSizeX) + commonWGSL,
+        code: positionsWGSL + commonWGSL,
       }),
       entryPoint: 'computeMain',
     },
@@ -253,7 +249,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const sortResource = createSpatialSortResource({
     device,
     numParticles: settings['Total Particles'],
-    createStagingBuffers: true,
+    createStagingBuffers: false,
   });
 
   // Create spatialIndices sort pipelines
@@ -424,7 +420,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     },
   });
 
-  const randomIndices = new Uint32Array(
+  // DEBUG CODE FOR INDICES SORT AND OFFSETS CREATION
+  /*const randomIndices = new Uint32Array(
     Array.from({ length: settings['Total Particles'] * 3 }, (_, i) => {
       if ((i + 1) % 3 === 0) {
         return Math.floor(Math.random() * 100);
@@ -455,7 +452,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   extractGPUData(
     sortResource.spatialOffsetsStagingBuffer,
     sortResource.spatialOffsetsBufferSize
-  ).then((res) => console.log(new Uint32Array(res)));
+  ).then((res) => console.log(new Uint32Array(res))); */
 
   // Test sort on a randomly created set of values (program should only sort according to key element);
 
@@ -611,17 +608,23 @@ const fluidExample: () => JSX.Element = () =>
     gui: true,
     stats: true,
     sources: [
+      // Main files
       {
         name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
+      // Render files
       {
         name: './particle.wgsl',
         contents: particleWGSL,
       },
       {
-        name: './positions.wgsl',
-        contents: PositionsComputeShader(256),
+        name: './fluidCompute/positions.wgsl',
+        contents: positionsWGSL,
+      },
+      {
+        name: './fluidCompute/spatialHash.wgsl',
+        contents: spatialHashWGSL,
       },
       {
         name: './density.wgsl',

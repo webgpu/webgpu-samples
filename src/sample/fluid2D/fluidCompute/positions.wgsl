@@ -1,5 +1,3 @@
-export const PositionsComputeShader = (workgroupSize: number) => {
-  return `
 // Storage Buffers
 @group(0) @binding(0) var<storage, read_write> positions: array<vec2<f32>>;
 @group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
@@ -8,7 +6,7 @@ export const PositionsComputeShader = (workgroupSize: number) => {
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
 
-@compute @workgroup_size(${workgroupSize}, 1, 1)
+@compute @workgroup_size(256, 1, 1)
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
@@ -32,5 +30,3 @@ fn computeMain(
     (*dst_velocity).y *= -1 * particle_uniforms.damping;
   }
 }
-`;
-};
