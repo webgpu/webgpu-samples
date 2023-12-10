@@ -40,13 +40,13 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     Gravity: -9.8,
     'Delta Time': 0.04,
     // The total number of particles being simulated
-    'Total Particles': 512,
+    'Total Particles': 2048,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
     writeToDistributionBuffer: false,
     iterationsPerFrame: 1,
     // The radius of influence from the center of a particle to
-    'Smoothing Radius': 0.35,
+    'Smoothing Radius': 20,
     'Viscosity Strength': 0.06,
     'Pressure Scale': 500,
     'Near Pressure Scale': 18,
@@ -199,13 +199,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     ],
   });
 
+  const pipelineLayoutWithoutSort = [
+    particleMovementStorageBGCluster.bindGroupLayout,
+    particlePropertiesUniformsBGCluster.bindGroupLayout,
+  ];
+
   const positionsComputePipeline = device.createComputePipeline({
     label: 'ComputePositions.computePipeline',
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        particleMovementStorageBGCluster.bindGroupLayout,
-        particlePropertiesUniformsBGCluster.bindGroupLayout,
-      ],
+      bindGroupLayouts: pipelineLayoutWithoutSort,
     }),
     compute: {
       module: device.createShaderModule({
@@ -224,14 +226,22 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     createStagingBuffers: false,
   });
 
+  const pipelineLayoutOnlySort = [
+    sortResource.dataStorageBGCluster.bindGroupLayout,
+    sortResource.algoStorageBGCluster.bindGroupLayout,
+  ];
+
+  const pipelineLayoutWithSort = [
+    particleMovementStorageBGCluster.bindGroupLayout,
+    particlePropertiesUniformsBGCluster.bindGroupLayout,
+    sortResource.dataStorageBGCluster.bindGroupLayout,
+  ];
+
   // Create spatialIndices sort pipelines
   const sortSpatialIndicesPipeline = device.createComputePipeline({
     label: 'SpatialInfoSort.sortSpatialIndices.computePipeline',
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        sortResource.dataStorageBGCluster.bindGroupLayout,
-        sortResource.algoStorageBGCluster.bindGroupLayout,
-      ],
+      bindGroupLayouts: pipelineLayoutOnlySort,
     }),
     compute: {
       entryPoint: 'computeMain',
@@ -377,11 +387,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const spatialHashPipeline = device.createComputePipeline({
     label: 'ComputeSpatialHash.pipeline',
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        particleMovementStorageBGCluster.bindGroupLayout,
-        particlePropertiesUniformsBGCluster.bindGroupLayout,
-        sortResource.dataStorageBGCluster.bindGroupLayout,
-      ],
+      bindGroupLayouts: pipelineLayoutWithSort,
     }),
     compute: {
       // TODO: Remove after Chrome 121
@@ -397,11 +403,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const densityPipeline = device.createComputePipeline({
     label: 'ComputeDensity.pipeline',
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        particleMovementStorageBGCluster.bindGroupLayout,
-        particlePropertiesUniformsBGCluster.bindGroupLayout,
-        sortResource.dataStorageBGCluster.bindGroupLayout,
-      ],
+      bindGroupLayouts: pipelineLayoutWithSort,
     }),
     compute: {
       // TODO: Remove after Chrome 121
@@ -417,11 +419,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const pressurePipeline = device.createComputePipeline({
     label: 'ComputePressure.pipeline',
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        particleMovementStorageBGCluster.bindGroupLayout,
-        particlePropertiesUniformsBGCluster.bindGroupLayout,
-        sortResource.dataStorageBGCluster.bindGroupLayout,
-      ],
+      bindGroupLayouts: pipelineLayoutWithSort,
     }),
     compute: {
       // TODO: Remove after Chrome 121
@@ -437,11 +435,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const viscosityPipeline = device.createComputePipeline({
     label: 'ComputeViscosity.pipeline',
     layout: device.createPipelineLayout({
-      bindGroupLayouts: [
-        particleMovementStorageBGCluster.bindGroupLayout,
-        particlePropertiesUniformsBGCluster.bindGroupLayout,
-        sortResource.dataStorageBGCluster.bindGroupLayout,
-      ],
+      bindGroupLayouts: pipelineLayoutWithSort,
     }),
     compute: {
       // TODO: Remove after Chrome 121
@@ -452,6 +446,30 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       }),
     },
   });
+
+  const runPipeline = (
+    commandEncoder: GPUCommandEncoder,
+    pipeline: GPUComputePipeline,
+    includeSortInfo: boolean,
+  ) => {
+    const passEncoder = commandEncoder.beginComputePass();
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, particleMovementStorageBGCluster.bindGroups[0]);
+    passEncoder.setBindGroup(
+      1,
+      particlePropertiesUniformsBGCluster.bindGroups[0]
+    );
+    if (includeSortInfo) {
+      passEncoder.setBindGroup(
+        2,
+        sortResource.dataStorageBGCluster.bindGroups[0]
+      );
+    }
+    passEncoder.dispatchWorkgroups(
+      Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
+    );
+    passEncoder.end();
+  };
 
   generateParticles();
 
@@ -546,7 +564,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
         settings['Target Density'],
         settings['Pressure Scale'],
         settings['Near Pressure Scale'],
-        settings['Viscosity Strength']
+        settings['Viscosity Strength'],
       ])
     );
 
@@ -599,46 +617,16 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
     if (settings.simulate) {
       // Compute Spatial Hash (index, hash, key)
-      const computeSpatialHashEncoder = commandEncoder.beginComputePass();
-      computeSpatialHashEncoder.setPipeline(spatialHashPipeline);
-      computeSpatialHashEncoder.setBindGroup(
-        0,
-        sortResource.dataStorageBGCluster.bindGroups[0]
-      );
-      computeSpatialHashEncoder.setBindGroup(
-        1,
-        particleMovementStorageBGCluster.bindGroups[0]
-      );
-      computeSpatialHashEncoder.setBindGroup(
-        2,
-        particlePropertiesUniformsBGCluster.bindGroups[0]
-      );
-      computeSpatialHashEncoder.dispatchWorkgroups(
-        Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
-      );
-      computeSpatialHashEncoder.end();
-
+      runPipeline(commandEncoder, spatialHashPipeline, true);
       // Sort Spatial Indices (index, hash, key) and compute offsets
       computeSpatialInformation({
         device,
         commandEncoder,
       });
-
-      // Run compute shader to compute particle positions
-      const computePositionsPassEncoder = commandEncoder.beginComputePass();
-      computePositionsPassEncoder.setPipeline(positionsComputePipeline);
-      computePositionsPassEncoder.setBindGroup(
-        0,
-        particleMovementStorageBGCluster.bindGroups[0]
-      );
-      computePositionsPassEncoder.setBindGroup(
-        1,
-        particlePropertiesUniformsBGCluster.bindGroups[0]
-      );
-      computePositionsPassEncoder.dispatchWorkgroups(
-        Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
-      );
-      computePositionsPassEncoder.end();
+      runPipeline(commandEncoder, densityPipeline, true);
+      runPipeline(commandEncoder, pressurePipeline, true);
+      runPipeline(commandEncoder, viscosityPipeline, true);
+      runPipeline(commandEncoder, positionsComputePipeline, false);
     }
 
     particleRenderer.render(commandEncoder);

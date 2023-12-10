@@ -16,7 +16,7 @@ fn computeMain(
   let dst_position = &positions[global_id.x];
   let dst_velocity = &velocities[global_id.x];
   (*dst_velocity) += vec2<f32>(0.0, 1.0) * particle_uniforms.gravity;
-  (*dst_position) += (*dst_velocity);
+  (*dst_position) += (*dst_velocity) * general_uniforms.delta_time;
   if (
     abs((*dst_position).x) > general_uniforms.bounds_x
   ) {

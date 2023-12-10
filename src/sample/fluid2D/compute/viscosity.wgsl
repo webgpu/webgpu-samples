@@ -69,7 +69,7 @@ fn computeMain(
   }
 
   let velocity_address = &velocities[global_id.x];
-  let viscosity = viscosity_force * viscosity_strength;
+  let viscosity = viscosity_force * particle_uniforms.viscosity_strength * general_uniforms.delta_time;
   (*velocity_address).x = viscosity.x;
   (*velocity_address).y = viscosity.y;
 }
