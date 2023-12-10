@@ -3,7 +3,7 @@ import { create3DRenderPipeline } from '../normalMap/utils';
 import { createBindGroupCluster, extractGPUData } from './utils';
 import particleWGSL from './render/particle.wgsl';
 import positionsWGSL from './fluidCompute/positions.wgsl';
-import { DensityComputeShader } from './fluidCompute/densityWGSL';
+import densityWGSL from './fluidCompute/density.wgsl';
 import {
   createSpatialSortResource,
   StepEnum,
@@ -13,6 +13,7 @@ import sortWGSL from './sortCompute/sort.wgsl';
 import offsetsWGSL from './sortCompute/offsets.wgsl';
 import commonWGSL from './common.wgsl';
 import spatialHashWGSL from './fluidCompute/spatialHash.wgsl';
+import ParticleRenderer from './render/renderParticle';
 
 interface ComputeSpatialInformationArgs {
   device: GPUDevice;
@@ -88,8 +89,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   /* PARTICLE RENDER SHADER */
 
-  // Passes the vec3 color, vec3 position, and vec2 velocity to the fragment shader
-  // Will be used as both a read_only buffer for render shaders and a write buffer for compute
+  // These buffers will be used across our compute shaders, but need to be defined for the renderer as well
   const particlePositionsBuffer = device.createBuffer({
     size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -99,59 +99,6 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
-
-  // Passes particle_radius, canvasWidth, and canvasHeight as uniforms to vertex and fragment shaders
-  const particleDisplayUniformsBuffer = device.createBuffer({
-    size: Float32Array.BYTES_PER_ELEMENT * 3,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
-
-  // Defines a bindGroup storing the positions and velocities storage buffers of the particle display shader.
-  const particleDisplayStorageBGCluster = createBindGroupCluster({
-    device: device,
-    label: 'ParticleStorage',
-    bindings: [0, 1],
-    visibilities: [GPUShaderStage.VERTEX | GPUShaderStage.COMPUTE],
-    resourceTypes: ['buffer', 'buffer'],
-    resourceLayouts: [
-      { type: 'read-only-storage' },
-      { type: 'read-only-storage' },
-    ],
-    resources: [
-      [
-        { buffer: particlePositionsBuffer },
-        { buffer: particleVelocitiesBuffer },
-      ],
-    ],
-  });
-
-  // Defines a bindGroup storing the uniforms for the particle display shader.
-  const particleDisplayUniformsBGCluster = createBindGroupCluster({
-    device: device,
-    label: 'ParticleUniforms',
-    bindings: [0],
-    visibilities: [GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT],
-    resourceTypes: ['buffer'],
-    resourceLayouts: [{ type: 'uniform' }],
-    resources: [[{ buffer: particleDisplayUniformsBuffer }]],
-  });
-
-  // Render pipeline using instancing to render each particle as an sdf circle
-  const particleRenderPipeline = create3DRenderPipeline(
-    device,
-    'Particle',
-    [
-      particleDisplayStorageBGCluster.bindGroupLayout,
-      particleDisplayUniformsBGCluster.bindGroupLayout,
-    ],
-    particleWGSL,
-    [],
-    particleWGSL,
-    presentationFormat,
-    false,
-    'triangle-list',
-    'front'
-  );
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
@@ -163,6 +110,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       },
     ],
   };
+
+  const particleRenderer = new ParticleRenderer({
+    device,
+    numParticles: settings['Total Particles'],
+    positionsBuffer: particlePositionsBuffer,
+    velocitiesBuffer: particleVelocitiesBuffer,
+    presentationFormat,
+    _renderPassDescriptor: renderPassDescriptor,
+  });
 
   /* Various Shared Compute Shader Resources */
   const predictedPositionsBuffer = device.createBuffer({
@@ -509,16 +465,11 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       ])
     );
 
-    // Write to render uniform buffers
-    device.queue.writeBuffer(
-      particleDisplayUniformsBuffer,
-      0,
-      new Float32Array([
-        settings['Particle Radius'],
-        canvas.width,
-        canvas.height,
-      ])
-    );
+    particleRenderer.writeUniforms(device, {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      particleRadius: settings['Particle Radius']
+    });
 
     // Write initial algorithm information to algo buffer within our sort object
     device.queue.writeBuffer(
@@ -579,19 +530,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       computePositionsPassEncoder.end();
     }
 
-    const renderPassEncoder =
-      commandEncoder.beginRenderPass(renderPassDescriptor);
-    renderPassEncoder.setPipeline(particleRenderPipeline);
-    renderPassEncoder.setBindGroup(
-      0,
-      particleDisplayStorageBGCluster.bindGroups[0]
-    );
-    renderPassEncoder.setBindGroup(
-      1,
-      particleDisplayUniformsBGCluster.bindGroups[0]
-    );
-    renderPassEncoder.draw(6, settings['Total Particles'], 0, 0);
-    renderPassEncoder.end();
+    particleRenderer.render(commandEncoder);
 
     device.queue.submit([commandEncoder.finish()]);
     stats.end();
@@ -628,7 +567,7 @@ const fluidExample: () => JSX.Element = () =>
       },
       {
         name: './density.wgsl',
-        contents: DensityComputeShader(256),
+        contents: densityWGSL,
       },
     ],
     filename: __filename,

@@ -1,77 +1,86 @@
+import { create3DRenderPipeline } from '../../normalMap/utils';
 import { BindGroupCluster, createBindGroupCluster } from '../utils';
 
-import bitonicDisplay from './bitonicDisplay.frag.wgsl';
+import particleWGSL from './particle.wgsl';
 
-interface BitonicDisplayRenderArgs {
-  highlight: number;
+interface RenderArgs {
+  particleRadius: number;
+  canvasWidth: number;
+  canvasHeight: number;
 }
 
-export default class ParticleDisplayRenderer {
+interface ConstructorArgs {
+  device: GPUDevice;
+  numParticles: number;
+  presentationFormat: GPUTextureFormat;
+  _renderPassDescriptor: GPURenderPassDescriptor;
+  positionsBuffer: GPUBuffer;
+  velocitiesBuffer: GPUBuffer;
+}
+
+export default class ParticleRenderer {
   static sourceInfo = {
     name: __filename.substring(__dirname.length + 1),
     contents: __SOURCE__,
   };
 
   private renderPassDescriptor: GPURenderPassDescriptor;
+  private renderPipeline: GPURenderPipeline;
+  private renderUniforms: GPUBuffer;
+  private storageBGCluster: BindGroupCluster;
+  private uniformsBGCLuster: BindGroupCluster;
+  private particlesToRender: number;
 
-  constructor(
-    _device: GPUDevice,
-    label: string,
-    _presentationFormat: GPUTextureFormat,
-    _renderPassDescriptor: GPURenderPassDescriptor,
-    _positionsBuffer: GPUBuffer,
-    _velocitiesBuffer: GPUBuffer,
-  ) {
-    this.renderPassDescriptor = rpd;
-
-    const uniformBuffer = device.createBuffer({
-      size: Uint32Array.BYTES_PER_ELEMENT,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
+  constructor(args: ConstructorArgs) {
+    const {
+      device,
+      numParticles,
+      presentationFormat,
+      _renderPassDescriptor,
+      positionsBuffer,
+      velocitiesBuffer,
+    } = args;
+    this.particlesToRender = numParticles;
+    this.renderPassDescriptor = _renderPassDescriptor;
 
     // Passes particle_radius, canvasWidth, and canvasHeight as uniforms to vertex and fragment shaders
-    const particleDisplayUniformsBuffer = device.createBuffer({
+    this.renderUniforms = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * 3,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
     // Defines a bindGroup storing the positions and velocities storage buffers of the particle display shader.
-    const particleDisplayStorageBGCluster = createBindGroupCluster({
+    this.storageBGCluster = createBindGroupCluster({
       device: device,
       label: 'ParticleStorage',
       bindings: [0, 1],
-      visibilities: [GPUShaderStage.VERTEX | GPUShaderStage.COMPUTE],
+      visibilities: [GPUShaderStage.VERTEX],
       resourceTypes: ['buffer', 'buffer'],
       resourceLayouts: [
         { type: 'read-only-storage' },
         { type: 'read-only-storage' },
       ],
-      resources: [
-        [
-          { buffer: particlePositionsBuffer },
-          { buffer: particleVelocitiesBuffer },
-        ],
-      ],
+      resources: [[{ buffer: positionsBuffer }, { buffer: velocitiesBuffer }]],
     });
 
     // Defines a bindGroup storing the uniforms for the particle display shader.
-    const particleDisplayUniformsBGCluster = createBindGroupCluster({
+    this.uniformsBGCLuster = createBindGroupCluster({
       device: device,
       label: 'ParticleUniforms',
       bindings: [0],
-      visibilities: [GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT],
+      visibilities: [GPUShaderStage.VERTEX],
       resourceTypes: ['buffer'],
       resourceLayouts: [{ type: 'uniform' }],
-      resources: [[{ buffer: particleDisplayUniformsBuffer }]],
+      resources: [[{ buffer: this.renderUniforms }]],
     });
 
     // Render pipeline using instancing to render each particle as an sdf circle
-    const particleRenderPipeline = create3DRenderPipeline(
+    this.renderPipeline = create3DRenderPipeline(
       device,
       'Particle',
       [
-        particleDisplayStorageBGCluster.bindGroupLayout,
-        particleDisplayUniformsBGCluster.bindGroupLayout,
+        this.storageBGCluster.bindGroupLayout,
+        this.uniformsBGCLuster.bindGroupLayout,
       ],
       particleWGSL,
       [],
@@ -81,52 +90,28 @@ export default class ParticleDisplayRenderer {
       'triangle-list',
       'front'
     );
-
-    const renderPassDescriptor: GPURenderPassDescriptor = {
-      colorAttachments: [
-        {
-          view: undefined, // Assigned later
-          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-      ],
-    };
-
-    const bgCluster = createBindGroupCluster(
-      [0],
-      [GPUShaderStage.FRAGMENT],
-      ['buffer'],
-      [{ type: 'uniform' }],
-      [[{ buffer: uniformBuffer }]],
-      label,
-      device
-    );
-
-    this.currentBindGroup = bgCluster.bindGroups[0];
-
-    this.pipeline = super.create2DRenderPipeline(
-      device,
-      label,
-      [this.computeBGDescript.bindGroupLayout, bgCluster.bindGroupLayout],
-      bitonicDisplay,
-      presentationFormat
-    );
-
-    this.setArguments = (args: BitonicDisplayRenderArgs) => {
-      device.queue.writeBuffer(
-        uniformBuffer,
-        0,
-        new Uint32Array([args.highlight])
-      );
-    };
   }
 
-  startRun(commandEncoder: GPUCommandEncoder, args: BitonicDisplayRenderArgs) {
-    this.setArguments(args);
-    super.executeRun(commandEncoder, this.renderPassDescriptor, this.pipeline, [
-      this.computeBGDescript.bindGroups[0],
-      this.currentBindGroup,
-    ]);
+  writeUniforms(device: GPUDevice, args: RenderArgs) {
+    device.queue.writeBuffer(
+      this.renderUniforms,
+      0,
+      new Float32Array([
+        args.particleRadius,
+        args.canvasWidth,
+        args.canvasHeight,
+      ])
+    );
+  }
+
+  render(commandEncoder: GPUCommandEncoder) {
+    const passEncoder = commandEncoder.beginRenderPass(
+      this.renderPassDescriptor
+    );
+    passEncoder.setPipeline(this.renderPipeline);
+    passEncoder.setBindGroup(0, this.storageBGCluster.bindGroups[0]);
+    passEncoder.setBindGroup(1, this.uniformsBGCLuster.bindGroups[0]);
+    passEncoder.draw(6, this.particlesToRender, 0, 0);
+    passEncoder.end();
   }
 }

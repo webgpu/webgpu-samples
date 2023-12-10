@@ -1,5 +1,3 @@
-export const DensityComputeShader = (workgroupSize: number) => {
-  return `
 struct Density {
   densities: vec2<f32>
 }
@@ -62,7 +60,7 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
 }
 
 @compute @workgroup_size(${workgroupSize}, 1, 1)
-fn densityComputeMain( 
+fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   if (global_id.x > numParticles) {
@@ -71,5 +69,3 @@ fn densityComputeMain(
   var pos: vec2<f32> = predicted_particles[global_id.x];
   densities[global_id.x] = CalculateDensity(pos);
 }
-`
-};
