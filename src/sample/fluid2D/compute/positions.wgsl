@@ -18,15 +18,15 @@ fn computeMain(
   (*dst_velocity) += vec2<f32>(0.0, 1.0) * particle_uniforms.gravity;
   (*dst_position) += (*dst_velocity);
   if (
-    abs((*dst_position).x) > general_uniforms.halfBoundsX
+    abs((*dst_position).x) > general_uniforms.bounds_x
   ) {
-    (*dst_position).x = general_uniforms.halfBoundsX * sign((*dst_position).x);
+    (*dst_position).x = general_uniforms.bounds_x * sign((*dst_position).x);
     (*dst_velocity).x *= -1 * particle_uniforms.damping;
   }
   if (
-    abs( (*dst_position).y ) > general_uniforms.halfBoundsY
+    abs( (*dst_position).y ) > general_uniforms.bounds_y
   ) {
-    (*dst_position).y = general_uniforms.halfBoundsY * sign((*dst_position).y);
+    (*dst_position).y = general_uniforms.bounds_y * sign((*dst_position).y);
     (*dst_velocity).y *= -1 * particle_uniforms.damping;
   }
 }

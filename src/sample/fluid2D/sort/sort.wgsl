@@ -5,12 +5,6 @@ struct AlgoInfo {
   dispatchSize: u32,
 }
 
-struct SpatialEntry {
-  index: u32,
-  hash: u32,
-  key: u32
-}
-
 var<workgroup> local_data: array<SpatialEntry, 512>;
 
 @group(0) @binding(0) var<storage, read_write> input_spatial_indices: array<SpatialEntry>;

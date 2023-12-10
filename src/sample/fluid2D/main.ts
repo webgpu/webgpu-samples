@@ -1,18 +1,14 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { create3DRenderPipeline } from '../normalMap/utils';
-import { createBindGroupCluster, extractGPUData } from './utils';
-import particleWGSL from './render/particle.wgsl';
-import positionsWGSL from './fluidCompute/positions.wgsl';
-import densityWGSL from './fluidCompute/density.wgsl';
-import {
-  createSpatialSortResource,
-  StepEnum,
-  StepType,
-} from './sortCompute/sort';
-import sortWGSL from './sortCompute/sort.wgsl';
-import offsetsWGSL from './sortCompute/offsets.wgsl';
+import { createBindGroupCluster } from './utils';
+import { createSpatialSortResource, StepEnum, StepType } from './sort/types';
+import sortWGSL from './sort/sort.wgsl';
+import offsetsWGSL from './sort/offsets.wgsl';
 import commonWGSL from './common.wgsl';
-import spatialHashWGSL from './fluidCompute/spatialHash.wgsl';
+import spatialHashWGSL from './compute/spatialHash.wgsl';
+import particleWGSL from './render/particle.wgsl';
+import positionsWGSL from './compute/positions.wgsl';
+import densityWGSL from './compute/density.wgsl';
+import viscosityWGSL from './compute/viscosity.wgsl';
 import ParticleRenderer from './render/renderParticle';
 
 interface ComputeSpatialInformationArgs {
@@ -47,6 +43,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Total Particles': 512,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
+    writeToDistributionBuffer: false,
+    iterationsPerFrame: number,
     // The radius of influence from the center of a particle to
     'Smoothing Radius': 0.7,
     // The bounce dampening on a non-fluid particle
@@ -143,6 +141,12 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
 
+  // Uniforms that help define the scaling factors for smooth and spike distributions
+  const distributionUniformsBuffer = device.createBuffer({
+    size: Float32Array.BYTES_PER_ELEMENT * 5,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
   /* POSITIONS COMPUTE SHADER */
 
   // Same as particleStorageBGCluster but resources are read_write
@@ -220,7 +224,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     compute: {
       entryPoint: 'computeMain',
       module: device.createShaderModule({
-        code: sortWGSL,
+        code: sortWGSL + commonWGSL,
       }),
     },
   });
@@ -234,7 +238,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     compute: {
       entryPoint: 'computeMain',
       module: device.createShaderModule({
-        code: offsetsWGSL,
+        code: offsetsWGSL + commonWGSL,
       }),
     },
   });
@@ -371,59 +375,111 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       // TODO: Remove after Chrome 121
       entryPoint: 'computeMain',
       module: device.createShaderModule({
+        label: 'ComputeSpatialHash.shaderModule',
         code: spatialHashWGSL + commonWGSL,
       }),
     },
   });
 
-  // DEBUG CODE FOR INDICES SORT AND OFFSETS CREATION
-  /*const randomIndices = new Uint32Array(
-    Array.from({ length: settings['Total Particles'] * 3 }, (_, i) => {
-      if ((i + 1) % 3 === 0) {
-        return Math.floor(Math.random() * 100);
-      } else {
-        return 0;
-      }
-    })
-  );
-  console.log(randomIndices);
-  const commandEncoder = device.createCommandEncoder();
-  computeSpatialInformation({
-    device,
-    commandEncoder,
-    initialValues: randomIndices,
+  /* DENSITY PIPELINE */
+  const densityPipeline = device.createComputePipeline({
+    label: 'ComputeDensity.pipeline',
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        particleMovementStorageBGCluster.bindGroupLayout,
+        particlePropertiesUniformsBGCluster.bindGroupLayout,
+      ],
+    }),
+    compute: {
+      // TODO: Remove after Chrome 121
+      entryPoint: 'computeMain',
+      module: device.createShaderModule({
+        label: 'ComputeDensity.shaderModule',
+        code: densityWGSL + commonWGSL,
+      }),
+    },
   });
-  device.queue.submit([commandEncoder.finish()]);
-  extractGPUData(
-    sortResource.spatialIndicesStagingBuffer,
-    sortResource.spatialIndicesBufferSize
-  ).then((res) => {
-    const data = new Uint32Array(res);
-    const keys = [];
-    for (let i = 2; i < data.length; i += 3) {
-      keys.push(data[i]);
-    }
-    console.log(keys);
-  });
-  extractGPUData(
-    sortResource.spatialOffsetsStagingBuffer,
-    sortResource.spatialOffsetsBufferSize
-  ).then((res) => console.log(new Uint32Array(res))); */
 
-  // Test sort on a randomly created set of values (program should only sort according to key element);
+  /* PRESSURE PIPELINE */
+  const pressurePipeline = device.createComputePipeline({
+    label: 'ComputePressure.pipeline',
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        particleMovementStorageBGCluster.bindGroupLayout,
+        particlePropertiesUniformsBGCluster.bindGroupLayout,
+      ],
+    }),
+    compute: {
+      // TODO: Remove after Chrome 121
+      entryPoint: 'computeMain',
+      module: device.createShaderModule({
+        label: 'ComputePressure.shaderModule',
+        code: densityWGSL + commonWGSL,
+      }),
+    },
+  });
+
+  /* VISCOSITY PIPELINE */
+  const viscosityPipeline = device.createComputePipeline({
+    label: 'ComputeViscosity.pipeline',
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        particleMovementStorageBGCluster.bindGroupLayout,
+        particlePropertiesUniformsBGCluster.bindGroupLayout,
+      ],
+    }),
+    compute: {
+      // TODO: Remove after Chrome 121
+      entryPoint: 'computeMain',
+      module: device.createShaderModule({
+        label: 'ComputeViscosity.shaderModule',
+        code: viscosityWGSL + commonWGSL,
+      }),
+    },
+  });
 
   generateParticles();
 
-  gui.add(settings, 'simulate');
-  gui.add(settings, 'Delta Time', 0.01, 0.5).step(0.01);
-  gui.add(settings, 'Particle Radius', 0.0, 300.0).step(1.0);
-  gui.add(settings, 'Gravity', -20.0, 20.0).step(0.1);
+  const simulationFolder = gui.addFolder('Simulation');
+  simulationFolder.add(settings, 'simulate');
+  simulationFolder.add(settings, 'Delta Time', 0.01, 0.5).step(0.01);
+  simulationFolder.add(settings, 'Gravity', -20.0, 20.0).step(0.1);
+
+  const particleFolder = gui.addFolder('Particle');
+  particleFolder.add(settings, 'Particle Radius', 0.0, 300.0).step(1.0);
+  particleFolder.add(settings, 'Smoothing Radius', 0.0, 1.0).step(0.01);
   gui.add(settings, 'Damping', 0.0, 1.0).step(0.1);
+
+  const physicsFolder = gui.addFolder
 
   // Initial write to main storage buffers
   device.queue.writeBuffer(particlePositionsBuffer, 0, inputPositionsData);
   device.queue.writeBuffer(particleVelocitiesBuffer, 0, inputVelocitiesData);
   device.queue.writeBuffer(predictedPositionsBuffer, 0, inputPositionsData);
+
+  const smoothPoly6Scale =
+    4 / (Math.PI * Math.pow(settings['Smoothing Radius'], 8));
+  const spikePow3Scale =
+    10 / (Math.PI * Math.pow(settings['Smoothing Radius'], 5));
+  const spikePow2Scale =
+    6 / (Math.PI * Math.pow(settings['Smoothing Radius'], 4));
+  const spikePow3DerivativeScale =
+    30 / (Math.pow(settings['Smoothing Radius'], 5) * Math.PI);
+  const spikePow2DerivativeScale =
+    12 / (Math.pow(settings['Smoothing Radius'], 4) * Math.PI);
+
+  // Initial write to distribution uniforms
+  device.queue.writeBuffer(
+    distributionUniformsBuffer,
+    0,
+    new Float32Array([
+      smoothPoly6Scale,
+      spikePow3Scale,
+      spikePow2Scale,
+      spikePow3DerivativeScale,
+      spikePow2DerivativeScale,
+    ])
+  );
 
   // Create initial algorithmic info that begins our per frame bitonic sort
   const initialAlgoInfo = new Uint32Array([
@@ -468,7 +524,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     particleRenderer.writeUniforms(device, {
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
-      particleRadius: settings['Particle Radius']
+      particleRadius: settings['Particle Radius'],
     });
 
     // Write initial algorithm information to algo buffer within our sort object
@@ -552,18 +608,44 @@ const fluidExample: () => JSX.Element = () =>
         name: __filename.substring(__dirname.length + 1),
         contents: __SOURCE__,
       },
+      {
+        name: 'common.wgsl',
+        contents: commonWGSL,
+      },
+      {
+        name: 'utils.ts',
+        contents: require('!!raw-loader!./utils.ts').default,
+      },
       // Render files
       {
-        name: './particle.wgsl',
+        name: './render/particle.wgsl',
         contents: particleWGSL,
       },
       {
-        name: './fluidCompute/positions.wgsl',
-        contents: positionsWGSL,
+        name: './render/renderParticle.ts',
+        contents: require('!!raw-loader!./render/renderParticle.ts').default,
+      },
+      // Sort files
+      {
+        name: './sort/sort.wgsl',
+        contents: sortWGSL,
       },
       {
-        name: './fluidCompute/spatialHash.wgsl',
+        name: './sort/offsets.wgsl',
+        contents: offsetsWGSL,
+      },
+      {
+        name: './sort/types.ts',
+        contents: require('!!raw-loader!./sort/types.ts').default,
+      },
+      // Compute files
+      {
+        name: './compute/spatialHash.wgsl',
         contents: spatialHashWGSL,
+      },
+      {
+        name: './compute/positions.wgsl',
+        contents: positionsWGSL,
       },
       {
         name: './density.wgsl',

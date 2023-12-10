@@ -1,10 +1,4 @@
-import {
-  BindGroupCluster,
-  createBindGroupCluster,
-  extractGPUData,
-} from '../utils';
-import { sortWGSL } from './sortWGSL';
-import offsetsWGSL from './offsets.wgsl';
+import { BindGroupCluster, createBindGroupCluster } from '../utils';
 
 export enum StepEnum {
   NONE,

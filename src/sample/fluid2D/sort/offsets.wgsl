@@ -1,9 +1,3 @@
-struct SpatialEntry {
-  index: u32,
-  hash: u32,
-  key: u32,
-}
-
 // Storage Buffers
 @group(0) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
 @group(0) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
