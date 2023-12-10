@@ -27,42 +27,23 @@
 _____/                      \_____*/
 
 
-const PI = 3.141592653589793;
-const poly6_scale = 4 / (
-  PI * pow(particle_uniforms.smoothing_radius, 8)
-);
-const spike_pow3_scale = 10 / (
-  PI * pow(particle_uniforms.smoothing_radius, 5)
-);
-const spike_pow2_scale = 6 / (
-  PI * pow(particle_uniforms.smoothing_radius, 4)
-);
-const spike_pow3_derivative_scale = 30 / (
-  pow(particle_uniforms.smoothing_radius, 5) * PI
-);
-const spike_pow2_derivative_scale = 12 / (
-  pow(particle_uniforms.smoothing_radius, 4) * PI
-);
-
-
-
-
 // Distribution Functions
 fn SmoothDistributionPoly6(
   dist: f32, 
-  radius: f32, 
+  radius: f32,
+  scale: f32,
 ) -> f32 {
   if (dist > radius) {
     return 0;
   }
   var v: f32 = radius * radius - dist * dist;
-  return v * v * v * poly6_scale;
+  return v * v * v * scale;
 }
 
 fn SpikeDistributionPower2(
   dist: f32, 
-  radius: f32, 
-  scale: f32
+  radius: f32,
+  scale: f32,
 ) -> f32 { 
   if (dist > radius) {
     return 0;
@@ -74,7 +55,7 @@ fn SpikeDistributionPower2(
 fn SpikeDistributionPower2Derivative(
   dist: f32,
   radius: f32,
-  scale: f32
+  scale: f32,
 ) -> f32 {
   if (dist >= radius) {
     return 0;
@@ -85,8 +66,8 @@ fn SpikeDistributionPower2Derivative(
 
 fn SpikeDistributionPower3(
   dist: f32, 
-  radius: f32, 
-  scale: f32
+  radius: f32,
+  scale: f32,
 ) -> f32 {
   if (dist > radius) {
     return 0;
@@ -98,7 +79,7 @@ fn SpikeDistributionPower3(
 fn SpikeDistributionPower3Derivative(
   dist: f32,
   radius: f32,
-  scale: f32
+  scale: f32,
 ) -> f32 {
   if (dist >= radius) {
     return 0;
@@ -133,9 +114,17 @@ struct ParticleUniforms {
   gravity: f32,
   smoothing_radius: f32,
   target_density: f32,
-  pressure_multiplier: f32,
+  standard_pressure_multiplier: f32,
   near_pressure_multiplier: f32,
   viscosity_strength: f32,
+}
+
+struct DistributionUniforms {
+  poly6_scale: f32,
+  spike_pow3_scale: f32,
+  spike_pow2_scale: f32,
+  spike_pow3_derivative_scale: f32,
+  spike_pow2_derivative_scale: f32,
 }
 
 struct SpatialEntry {

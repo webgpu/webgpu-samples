@@ -1,18 +1,21 @@
 // Storage Buffers
 @group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
 
 // Uniform Buffers
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
+@group(1) @binding(2) var<uniform> distribution_uniforms: DistributionUniforms;
 
 // Sort Buffers
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
+@group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
 @compute @workgroup_size(256, 1, 1)
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  if (global_id.x >= particle_uniforms.num_particles) {
+  if (global_id.x >= general_uniforms.num_particles) {
     return;
   }
 	
@@ -29,7 +32,7 @@ fn computeMain(
     var hash: u32 = HashCell2D(origin_cell + CardinalOffsets[i]);
     var key: u32 = KeyFromHash(hash, general_uniforms.num_particles);
     // The offset into spatial_indices where the current bin starts
-    var bin_offset: u32 = SpatialOffsets[key];
+    var bin_offset: u32 = spatial_offsets[key];
     while (bin_offset < general_uniforms.num_particles) {
       // Get the (index, hash, key) for the next particle in this bin
       var spatial_info: SpatialEntry = spatial_indices[bin_offset];
@@ -61,7 +64,7 @@ fn computeMain(
       var neighbor_velocity: vec2<f32> = velocities[neighbor_particle_index];
       viscosity_force += 
         (neighbor_velocity - velocity) * 
-        SmoothDistribution(dst, particle_uniforms.smoothing_radius);
+        SmoothDistributionPoly6(dst, particle_uniforms.smoothing_radius, distribution_uniforms.poly6_scale);
     }
   }
 

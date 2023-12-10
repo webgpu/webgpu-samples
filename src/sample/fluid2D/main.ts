@@ -44,11 +44,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     // A fluid particle's display radius
     'Particle Radius': 10.0,
     writeToDistributionBuffer: false,
-    iterationsPerFrame: number,
+    iterationsPerFrame: 1,
     // The radius of influence from the center of a particle to
-    'Smoothing Radius': 0.7,
+    'Smoothing Radius': 0.35,
+    'Viscosity Strength': 0.06,
+    'Pressure Scale': 500,
+    'Near Pressure Scale': 18,
+    'Target Density': 55,
     // The bounce dampening on a non-fluid particle
-    Damping: 0.7,
+    Damping: 0.95,
     // A boolean indicating whether the simulation is in the process of resetting
     isResetting: false,
     simulate: false,
@@ -137,12 +141,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   // Simulation specific uniforms
   const particlePropertiesUniformsBuffer = device.createBuffer({
-    size: Float32Array.BYTES_PER_ELEMENT * 4,
+    // damping, gravity, smoothing_radius, target_density, standard_pressure_multiplier, near_pressure_multiplier, viscosity_strength
+    size: Float32Array.BYTES_PER_ELEMENT * 7,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
 
   // Uniforms that help define the scaling factors for smooth and spike distributions
+  // Changes whenever settings['Smoothing Radius'] changes
   const distributionUniformsBuffer = device.createBuffer({
+    // poly6_scale, spike_pow3_scale, spike_pow2_scale, spike_pow3_derivative_scale, spike_pow2_derivative_scale,
     size: Float32Array.BYTES_PER_ELEMENT * 5,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
@@ -164,10 +171,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     ],
     resources: [
       [
-        { buffer: particlePositionsBuffer },
-        { buffer: particleVelocitiesBuffer },
-        { buffer: predictedPositionsBuffer },
-        { buffer: densitiesBuffer },
+        { buffer: particlePositionsBuffer }, //0
+        { buffer: particleVelocitiesBuffer }, //1
+        { buffer: predictedPositionsBuffer }, //2
+        { buffer: densitiesBuffer }, //3
       ],
     ],
   });
@@ -175,14 +182,19 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const particlePropertiesUniformsBGCluster = createBindGroupCluster({
     device: device,
     label: 'ComputePositions.uniformsBGCluster',
-    bindings: [0, 1],
+    bindings: [0, 1, 2],
     visibilities: [GPUShaderStage.COMPUTE],
-    resourceTypes: ['buffer', 'buffer'],
-    resourceLayouts: [{ type: 'uniform' }, { type: 'uniform' }],
+    resourceTypes: ['buffer', 'buffer', 'buffer'],
+    resourceLayouts: [
+      { type: 'uniform' },
+      { type: 'uniform' },
+      { type: 'uniform' },
+    ],
     resources: [
       [
         { buffer: generalUniformsBuffer },
         { buffer: particlePropertiesUniformsBuffer },
+        { buffer: distributionUniformsBuffer },
       ],
     ],
   });
@@ -366,9 +378,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     label: 'ComputeSpatialHash.pipeline',
     layout: device.createPipelineLayout({
       bindGroupLayouts: [
-        sortResource.dataStorageBGCluster.bindGroupLayout,
         particleMovementStorageBGCluster.bindGroupLayout,
         particlePropertiesUniformsBGCluster.bindGroupLayout,
+        sortResource.dataStorageBGCluster.bindGroupLayout,
       ],
     }),
     compute: {
@@ -388,6 +400,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       bindGroupLayouts: [
         particleMovementStorageBGCluster.bindGroupLayout,
         particlePropertiesUniformsBGCluster.bindGroupLayout,
+        sortResource.dataStorageBGCluster.bindGroupLayout,
       ],
     }),
     compute: {
@@ -407,6 +420,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       bindGroupLayouts: [
         particleMovementStorageBGCluster.bindGroupLayout,
         particlePropertiesUniformsBGCluster.bindGroupLayout,
+        sortResource.dataStorageBGCluster.bindGroupLayout,
       ],
     }),
     compute: {
@@ -426,6 +440,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       bindGroupLayouts: [
         particleMovementStorageBGCluster.bindGroupLayout,
         particlePropertiesUniformsBGCluster.bindGroupLayout,
+        sortResource.dataStorageBGCluster.bindGroupLayout,
       ],
     }),
     compute: {
@@ -447,25 +462,34 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   const particleFolder = gui.addFolder('Particle');
   particleFolder.add(settings, 'Particle Radius', 0.0, 300.0).step(1.0);
-  particleFolder.add(settings, 'Smoothing Radius', 0.0, 1.0).step(0.01);
+  particleFolder
+    .add(settings, 'Smoothing Radius', 0.0, 1.0)
+    .step(0.01)
+    .onChange(() => {
+      settings.writeToDistributionBuffer = true;
+    });
   gui.add(settings, 'Damping', 0.0, 1.0).step(0.1);
 
-  const physicsFolder = gui.addFolder
+  const physicsFolder = gui.addFolder('Physics (!)');
+  physicsFolder.add(settings, 'Target Density', 1, 100);
+  physicsFolder.add(settings, 'Pressure Scale', 1, 1000);
+  physicsFolder.add(settings, 'Near Pressure Scale', 1, 50);
+  physicsFolder.add(settings, 'Viscosity Strength', 0.001, 0.1).step(0.001);
 
   // Initial write to main storage buffers
   device.queue.writeBuffer(particlePositionsBuffer, 0, inputPositionsData);
   device.queue.writeBuffer(particleVelocitiesBuffer, 0, inputVelocitiesData);
   device.queue.writeBuffer(predictedPositionsBuffer, 0, inputPositionsData);
 
-  const smoothPoly6Scale =
+  let smoothPoly6Scale =
     4 / (Math.PI * Math.pow(settings['Smoothing Radius'], 8));
-  const spikePow3Scale =
+  let spikePow3Scale =
     10 / (Math.PI * Math.pow(settings['Smoothing Radius'], 5));
-  const spikePow2Scale =
+  let spikePow2Scale =
     6 / (Math.PI * Math.pow(settings['Smoothing Radius'], 4));
-  const spikePow3DerivativeScale =
+  let spikePow3DerivativeScale =
     30 / (Math.pow(settings['Smoothing Radius'], 5) * Math.PI);
-  const spikePow2DerivativeScale =
+  let spikePow2DerivativeScale =
     12 / (Math.pow(settings['Smoothing Radius'], 4) * Math.PI);
 
   // Initial write to distribution uniforms
@@ -494,7 +518,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
     stats.begin();
 
-    // Write to uniforms buffers
+    // Write to general uniforms buffer
     device.queue.writeBuffer(
       generalUniformsBuffer,
       0,
@@ -511,6 +535,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       ])
     );
 
+    // Write to particle properties buffer
     device.queue.writeBuffer(
       particlePropertiesUniformsBuffer,
       0,
@@ -518,8 +543,38 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
         settings.Damping,
         settings.Gravity,
         settings['Smoothing Radius'],
+        settings['Target Density'],
+        settings['Pressure Scale'],
+        settings['Near Pressure Scale'],
+        settings['Viscosity Strength']
       ])
     );
+
+    // Write to distribution buffer when our smoothing radius changes
+    if (settings.writeToDistributionBuffer) {
+      smoothPoly6Scale =
+        4 / (Math.PI * Math.pow(settings['Smoothing Radius'], 8));
+      spikePow3Scale =
+        10 / (Math.PI * Math.pow(settings['Smoothing Radius'], 5));
+      spikePow2Scale =
+        6 / (Math.PI * Math.pow(settings['Smoothing Radius'], 4));
+      spikePow3DerivativeScale =
+        30 / (Math.pow(settings['Smoothing Radius'], 5) * Math.PI);
+      spikePow2DerivativeScale =
+        12 / (Math.pow(settings['Smoothing Radius'], 4) * Math.PI);
+      // I
+      device.queue.writeBuffer(
+        distributionUniformsBuffer,
+        0,
+        new Float32Array([
+          smoothPoly6Scale,
+          spikePow3Scale,
+          spikePow2Scale,
+          spikePow3DerivativeScale,
+          spikePow2DerivativeScale,
+        ])
+      );
+    }
 
     particleRenderer.writeUniforms(device, {
       canvasWidth: canvas.width,

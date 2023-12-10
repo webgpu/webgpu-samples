@@ -5,6 +5,11 @@
 // Uniform Buffers
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
+@group(1) @binding(2) var<uniform> distribution_uniforms: DistributionUniforms;
+
+// Spatial Info Buffers
+@group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
+@group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
 @compute @workgroup_size(256, 1, 1)
 fn computeMain( 
@@ -86,11 +91,11 @@ fn computeMain(
 
 			pressure_force += 
         dirToNeighbor * 
-        SpikeDistributionPower2Derivative(dst, particle_uniforms.smoothing_radius) * 
+        SpikeDistributionPower2Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_derivative_scale) * 
         shared_standard_pressure / neighbor_standard_density;
 			pressure_force += 
         dirToNeighbour * 
-        SpikeDistributionPower3Derivative(dst, particle_uniforms.smoothing_radius) * 
+        SpikeDistributionPower3Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow3_derivative_scale) * 
         shared_near_pressure / neighbor_near_density;
 		}
 	}

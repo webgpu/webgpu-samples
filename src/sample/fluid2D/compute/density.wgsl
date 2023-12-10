@@ -1,31 +1,19 @@
-fn SmoothingKernel(dst: f32, radius: f32) -> f32 {
-  var powRadius = pow(radius, 8) / 4;
-  var value: f32 = max(0, radius * radius - dst * dst);
-  return value * value * value / volume;
-}
-
-fn SmoothingKernelDerivative(dst: f32, radius: f32) -> f32 {
-  if (dst >= radius) {
-    return 0.0;
-  }
-  var f: f32 = radius * radius - dst * dst;
-  var scale = -24 / 3.1415 * pow(radius, 8);
-  return scale * dst * f * f;
-}
-
 // Storage Buffers
-@group(0) @group(2) var<storage, read_write> predicted_positions: array<vec2<f32>;
+@group(0) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read_write> densities: array<vec2<f32>>;
 
 // Uniforms
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
+@group(1) @binding(2) var<uniform> distribution_uniforms: DistributionUniforms;
 
 // Spatial Indices
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
+@group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
 // DENSITY COMPUTE SHADER
 fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
-  var origin_cell: vec2<i32> = GetCell2D(pos, particle_uniforms.smoothing_radius)
+  var origin_cell: vec2<i32> = GetCell2D(pos, particle_uniforms.smoothing_radius);
   var sqr_radius: f32 = particle_uniforms.smoothing_radius * particle_uniforms.smoothing_radius;
   var standard_density: f32 = 0.0;
   var near_density: f32 = 0.0;
@@ -64,9 +52,9 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
         continue;
       }
 
-      var dst: f32 = sqrt(sqrDstToNeighbor);
-      standard_density += SpikyDistributionPowerTwo(dst, particle_uniforms.smoothing_radius);
-      near_density += SpikyDistributionPowerThree(dst, particle_uniforms.smoothing_radius);
+      var dst: f32 = sqrt(sqr_dst);
+      standard_density += SpikeDistributionPower2(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_scale);
+      near_density += SpikeDistributionPower3(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow3_scale);
     }
   }
   return vec2<f32>(standard_density, near_density);
@@ -79,7 +67,7 @@ fn computeMain(
   if (global_id.x > general_uniforms.num_particles) {
     return;
   }
-  let pos: vec2<f32> = predicted_particles[global_id.x];
+  let pos: vec2<f32> = predicted_positions[global_id.x];
   let density = &densities[global_id.x];
   let new_density = CalculateDensity(pos);
   (*density).x = new_density.x;

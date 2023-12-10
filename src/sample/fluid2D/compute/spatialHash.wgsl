@@ -1,13 +1,14 @@
-// Spatial Sort Storage Buffers
-@group(0) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
-@group(0) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
-
 // Predicted Positions Storage Buffer
-@group(1) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
 
 // Uniforms Buffer
-@group(2) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(2) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
+@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
+@group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
+
+// Spatial Sort Buffers
+@group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
+@group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
+
 
 @compute @workgroup_size(256, 1, 1)
 fn computeMain( 
