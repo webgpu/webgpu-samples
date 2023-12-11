@@ -1,6 +1,6 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { createBindGroupCluster } from './utils';
-import { createSpatialSortResource, StepEnum, StepType } from './sort/types';
+import { createSpatialSortResource, StepEnum } from './sort/types';
 import sortWGSL from './sort/sort.wgsl';
 import offsetsWGSL from './sort/offsets.wgsl';
 import commonWGSL from './common.wgsl';
@@ -10,6 +10,7 @@ import positionsWGSL from './compute/positions.wgsl';
 import densityWGSL from './compute/density.wgsl';
 import viscosityWGSL from './compute/viscosity.wgsl';
 import pressureWGSL from './compute/pressure.wgsl';
+import externalForcesWGSL from './compute/externalForces.wgsl';
 import ParticleRenderer from './render/renderParticle';
 
 interface ComputeSpatialInformationArgs {
@@ -27,7 +28,6 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const devicePixelRatio = window.devicePixelRatio;
   canvas.width = canvas.clientWidth * devicePixelRatio;
   canvas.height = canvas.clientHeight * devicePixelRatio;
-  const aspect = canvas.width / canvas.height;
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
@@ -52,6 +52,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Pressure Scale': 500,
     'Near Pressure Scale': 18,
     'Target Density': 55,
+    stepFrame: false,
     // The bounce dampening on a non-fluid particle
     Damping: 0.95,
     // A boolean indicating whether the simulation is in the process of resetting
@@ -75,6 +76,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   );
 
   // Generate positions data and velocities data for their respective buffers
+  // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
   const generateParticles = () => {
     for (let i = 0; i < settings['Total Particles']; i++) {
       // Position
@@ -263,6 +265,12 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     sortResource.algoStorageBGCluster.bindGroupLayout,
   ];
 
+  const externalForcesPipeline = createFluidComputePipeline(
+    'ExternalForces',
+    pipelineLayoutWithoutSort,
+    externalForcesWGSL
+  );
+
   const positionsPipeline = createFluidComputePipeline(
     'ComputePositions',
     pipelineLayoutWithoutSort,
@@ -368,7 +376,14 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   generateParticles();
 
   const simulationFolder = gui.addFolder('Simulation');
-  simulationFolder.add(settings, 'simulate');
+  const simulateController = simulationFolder.add(settings, 'simulate');
+  const stepFrameController = simulationFolder
+    .add(settings, 'stepFrame')
+    .onChange(() => {
+      if (settings.stepFrame) {
+        simulateController.setValue(true);
+      }
+    });
   simulationFolder.add(settings, 'Delta Time', 0.01, 0.5).step(0.01);
   simulationFolder.add(settings, 'Gravity', -20.0, 20.0).step(0.1);
 
@@ -442,8 +457,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       4,
       new Float32Array([
         settings['Delta Time'],
-        canvas.width - settings['Particle Radius'],
-        canvas.height - settings['Particle Radius'],
+        canvas.width * 2 - settings['Particle Radius'],
+        canvas.height * 2 - settings['Particle Radius'],
       ])
     );
 
@@ -510,17 +525,20 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     const commandEncoder = device.createCommandEncoder();
 
     if (settings.simulate) {
-      // Compute Spatial Hash (index, hash, key)
+      runPipeline(commandEncoder, externalForcesPipeline, 'WITHOUT_SORT');
       runPipeline(commandEncoder, spatialHashPipeline, 'WITH_SORT');
-      // Sort Spatial Indices (index, hash, key) and compute offsets
       computeSpatialInformation({
         device,
         commandEncoder,
       });
-      runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
-      runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
-      runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
+      //runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
+      //runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
+      //runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
       runPipeline(commandEncoder, positionsPipeline, 'WITHOUT_SORT');
+      if (settings.stepFrame) {
+        stepFrameController.setValue(false);
+        simulateController.setValue(false);
+      }
     }
 
     particleRenderer.render(commandEncoder);
