@@ -9,7 +9,7 @@
 
 
 fn ExternalForces(pos: vec2<f32>, velocity: vec2<f32>) -> vec2<f32> {
-	// Gravity
+	// Currently bounds seem to work fine, but they are looping instead of bouncing
 	var gravity: vec2<f32> = vec2<f32>(0.0, particle_uniforms.gravity);
 	// Input interactions modify gravity
 	/*if (interactionInputStrength != 0) {
