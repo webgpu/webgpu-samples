@@ -1,5 +1,7 @@
 
 // Storage Buffers
+@group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
+@group(0) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
 @group(0) @binding(3) var<storage, read_write> densities: array<vec2<f32>>;
 
 // Uniform Buffers
@@ -94,7 +96,7 @@ fn computeMain(
         SpikeDistributionPower2Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_derivative_scale) * 
         shared_standard_pressure / neighbor_standard_density;
 			pressure_force += 
-        dirToNeighbour * 
+        dirToNeighbor * 
         SpikeDistributionPower3Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow3_derivative_scale) * 
         shared_near_pressure / neighbor_near_density;
 		}
@@ -104,5 +106,5 @@ fn computeMain(
   let velocity = &velocities[global_id.x];
   (*velocity).x += acceleration.x;
   (*velocity).y += acceleration.y;
-	velocities[global_id.x] += acceleration;
+	//velocities[global_id.x] += acceleration;
 }

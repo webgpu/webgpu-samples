@@ -9,6 +9,7 @@ import particleWGSL from './render/particle.wgsl';
 import positionsWGSL from './compute/positions.wgsl';
 import densityWGSL from './compute/density.wgsl';
 import viscosityWGSL from './compute/viscosity.wgsl';
+import pressureWGSL from './compute/pressure.wgsl';
 import ParticleRenderer from './render/renderParticle';
 
 interface ComputeSpatialInformationArgs {
@@ -38,7 +39,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const settings = {
     // The gravity force applied to each particle
     Gravity: -9.8,
-    'Delta Time': 0.04,
+    'Delta Time': 0.4,
     // The total number of particles being simulated
     'Total Particles': 2048,
     // A fluid particle's display radius
@@ -46,7 +47,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     writeToDistributionBuffer: false,
     iterationsPerFrame: 1,
     // The radius of influence from the center of a particle to
-    'Smoothing Radius': 20,
+    'Smoothing Radius': 0.35,
     'Viscosity Strength': 0.06,
     'Pressure Scale': 500,
     'Near Pressure Scale': 18,
@@ -59,7 +60,6 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   };
 
   /* COMPUTE SHADER RESOURCE PREPARATION */
-
   // Create buffer for default positions data
   const inputPositionsData = new Float32Array(
     new ArrayBuffer(
@@ -89,52 +89,28 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     }
   };
 
-  /* PARTICLE RENDER SHADER */
-
-  // These buffers will be used across our compute shaders, but need to be defined for the renderer as well
-  const particlePositionsBuffer = device.createBuffer({
+  const fluidStorageBufferDescriptor: GPUBufferDescriptor = {
     size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-  });
-
-  const particleVelocitiesBuffer = device.createBuffer({
-    size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-  });
-
-  const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [
-      {
-        view: undefined, // Assigned later
-        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-        loadOp: 'clear',
-        storeOp: 'store',
-      },
-    ],
   };
 
-  const particleRenderer = new ParticleRenderer({
-    device,
-    numParticles: settings['Total Particles'],
-    positionsBuffer: particlePositionsBuffer,
-    velocitiesBuffer: particleVelocitiesBuffer,
-    presentationFormat,
-    _renderPassDescriptor: renderPassDescriptor,
-  });
-
-  /* Various Shared Compute Shader Resources */
+  // Create necessary resources for shader, first storage buffers, then uniforms buffers
+  // STORAGE
+  const positionsBuffer = device.createBuffer(fluidStorageBufferDescriptor);
+  const velocitiesBuffer = device.createBuffer(fluidStorageBufferDescriptor);
   const predictedPositionsBuffer = device.createBuffer({
     size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
-
   const densitiesBuffer = device.createBuffer({
     size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
 
+  //UNIFORMS
   // General uniforms including the number of particles, deltaTime, etc
   const generalUniformsBuffer = device.createBuffer({
+    // numParticles, deltaTime, boundsX, boundsY
     size: Float32Array.BYTES_PER_ELEMENT * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
@@ -154,10 +130,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  /* POSITIONS COMPUTE SHADER */
-
-  // Same as particleStorageBGCluster but resources are read_write
-  const particleMovementStorageBGCluster = createBindGroupCluster({
+  // Bind storage buffers and uniforms buffers to their own bind groups
+  const particleStorageBGCluster = createBindGroupCluster({
     device: device,
     label: 'ComputePositions.storageBGCluster',
     bindings: [0, 1, 2, 3],
@@ -171,15 +145,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     ],
     resources: [
       [
-        { buffer: particlePositionsBuffer }, //0
-        { buffer: particleVelocitiesBuffer }, //1
+        { buffer: positionsBuffer }, //0
+        { buffer: velocitiesBuffer }, //1
         { buffer: predictedPositionsBuffer }, //2
         { buffer: densitiesBuffer }, //3
       ],
     ],
   });
 
-  const particlePropertiesUniformsBGCluster = createBindGroupCluster({
+  const particleUniformsBGCluster = createBindGroupCluster({
     device: device,
     label: 'ComputePositions.uniformsBGCluster',
     bindings: [0, 1, 2],
@@ -199,158 +173,122 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     ],
   });
 
-  const pipelineLayoutWithoutSort = [
-    particleMovementStorageBGCluster.bindGroupLayout,
-    particlePropertiesUniformsBGCluster.bindGroupLayout,
-  ];
-
-  const positionsComputePipeline = device.createComputePipeline({
-    label: 'ComputePositions.computePipeline',
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: pipelineLayoutWithoutSort,
-    }),
-    compute: {
-      module: device.createShaderModule({
-        label: 'ComputePositions.computeShader',
-        code: positionsWGSL + commonWGSL,
-      }),
-      entryPoint: 'computeMain',
-    },
-  });
-
-  /* GPU SORT PIPELINE */
-  // Create buffers, workgroup and invocation numbers
+  // Finally, last part of resource creation is creating bitonic sort resoruces
   const sortResource = createSpatialSortResource({
     device,
     numParticles: settings['Total Particles'],
     createStagingBuffers: false,
   });
 
+  // Now, we can write some utilities to create our compute pipelines
+  const createFluidComputePipeline = (
+    label: string,
+    layout: GPUBindGroupLayout[],
+    code: string
+  ) => {
+    return device.createComputePipeline({
+      label: `${label}.computePipeline}`,
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: layout,
+      }),
+      compute: {
+        // TODO: Remove after Chrome 121
+        entryPoint: 'computeMain',
+        module: device.createShaderModule({
+          label: `${label}.shaderModule`,
+          code: code + commonWGSL,
+        }),
+      },
+    });
+  };
+
+  const runPipeline = (
+    commandEncoder: GPUCommandEncoder,
+    pipeline: GPUComputePipeline,
+    layoutType: 'WITH_SORT' | 'WITHOUT_SORT' | 'SORT_ONLY'
+  ) => {
+    const passEncoder = commandEncoder.beginComputePass();
+    passEncoder.setPipeline(pipeline);
+    switch (layoutType) {
+      case 'WITH_SORT':
+        {
+          passEncoder.setBindGroup(0, particleStorageBGCluster.bindGroups[0]);
+          passEncoder.setBindGroup(1, particleUniformsBGCluster.bindGroups[0]);
+          passEncoder.setBindGroup(
+            2,
+            sortResource.dataStorageBGCluster.bindGroups[0]
+          );
+          passEncoder.dispatchWorkgroups(
+            Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
+          );
+        }
+        break;
+      case 'WITHOUT_SORT':
+        {
+          passEncoder.setBindGroup(0, particleStorageBGCluster.bindGroups[0]);
+          passEncoder.setBindGroup(1, particleUniformsBGCluster.bindGroups[0]);
+          passEncoder.dispatchWorkgroups(
+            Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
+          );
+        }
+        break;
+      case 'SORT_ONLY': {
+        passEncoder.setBindGroup(
+          0,
+          sortResource.dataStorageBGCluster.bindGroups[0]
+        );
+        passEncoder.setBindGroup(
+          1,
+          sortResource.algoStorageBGCluster.bindGroups[0]
+        );
+        passEncoder.dispatchWorkgroups(sortResource.workgroupsToDispatch);
+      }
+    }
+    passEncoder.end();
+  };
+
+  const pipelineLayoutWithoutSort = [
+    particleStorageBGCluster.bindGroupLayout,
+    particleUniformsBGCluster.bindGroupLayout,
+  ];
+
+  const pipelineLayoutWithSort = [
+    particleStorageBGCluster.bindGroupLayout,
+    particleUniformsBGCluster.bindGroupLayout,
+    sortResource.dataStorageBGCluster.bindGroupLayout,
+  ];
+
   const pipelineLayoutOnlySort = [
     sortResource.dataStorageBGCluster.bindGroupLayout,
     sortResource.algoStorageBGCluster.bindGroupLayout,
   ];
 
-  const pipelineLayoutWithSort = [
-    particleMovementStorageBGCluster.bindGroupLayout,
-    particlePropertiesUniformsBGCluster.bindGroupLayout,
-    sortResource.dataStorageBGCluster.bindGroupLayout,
-  ];
+  const positionsPipeline = createFluidComputePipeline(
+    'ComputePositions',
+    pipelineLayoutWithoutSort,
+    positionsWGSL
+  );
 
-  // Create spatialIndices sort pipelines
-  const sortSpatialIndicesPipeline = device.createComputePipeline({
-    label: 'SpatialInfoSort.sortSpatialIndices.computePipeline',
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: pipelineLayoutOnlySort,
-    }),
-    compute: {
-      entryPoint: 'computeMain',
-      module: device.createShaderModule({
-        code: sortWGSL + commonWGSL,
-      }),
-    },
-  });
+  const sortSpatialIndicesPipeline = createFluidComputePipeline(
+    `SortSpatialIndices`,
+    pipelineLayoutOnlySort,
+    sortWGSL
+  );
 
-  // Create spatialOffsets assignment pipeline
-  const computeSpatialOffsetsPipeline = device.createComputePipeline({
-    label: 'SpatialInfoSort.computeSpatialOffsets.computePipeline',
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: [sortResource.dataStorageBGCluster.bindGroupLayout],
-    }),
-    compute: {
-      entryPoint: 'computeMain',
-      module: device.createShaderModule({
-        code: offsetsWGSL + commonWGSL,
-      }),
-    },
-  });
+  const computeSpatialOffsetsPipeline = createFluidComputePipeline(
+    'ComputeSpatialOffsets',
+    [sortResource.dataStorageBGCluster.bindGroupLayout],
+    offsetsWGSL
+  );
 
   // Process that actually executes the sort and the pipeline
   // Either the provide the buffer with initial values, or write to it from a previous shader
   const computeSpatialInformation = (args: ComputeSpatialInformationArgs) => {
-    const { device, commandEncoder, initialValues } = args;
-    // If we provide initial values to the sort
-    if (initialValues) {
-      // Check if the size of the initialValues array matches our buffer
-      if (initialValues.byteLength !== sortResource.spatialIndicesBufferSize) {
-        console.log(
-          'Incorrect arrayBuffer size. Size of spatialIndices array must be equal to Uint32Array.BytesPerElement * 3 * totalParticles'
-        );
-      }
-      // Write initial values to buffer before sort
-      device.queue.writeBuffer(
-        sortResource.spatialIndicesBuffer,
-        0,
-        initialValues.buffer,
-        initialValues.byteOffset,
-        initialValues.byteLength
-      );
-    }
-
-    // Set up the defaults at the beginning of an arbitrarily sized bitonic sort
-    // First operation is always a flip operation with a swap span of two (ie 0 -> 1 2 -> 3, etc)
-    let nextBlockHeight = 2;
-    // String that allows us to access values in StepEnum, which are then passed to our sort shader
-    let nextAlgo: StepType = 'FLIP_LOCAL';
-    // Highest Block Height is the highest swap span we've yet encountered during the sort
-    let highestBlockHeight = nextBlockHeight;
-
-    if (initialValues) {
-      const initialAlgoInfo = new Uint32Array([
-        StepEnum[nextAlgo], // starts at 1
-        nextBlockHeight, // starts at 2
-        highestBlockHeight, // starts at 2
-        sortResource.workgroupsToDispatch, // particles / maxWorkgroupSize
-      ]);
-      // Write defaults algoInfo to buffer
-      device.queue.writeBuffer(
-        sortResource.algoStorageBuffer,
-        0,
-        initialAlgoInfo.buffer,
-        initialAlgoInfo.byteOffset,
-        initialAlgoInfo.byteLength
-      );
-    }
-
+    const { commandEncoder } = args;
     // We calculate the numSteps for a single complete pass of the bitonic sort because it allows the user to better debug where in the shader (i.e in which step)
     // something is going wrong
     for (let i = 0; i < sortResource.stepsInSort; i++) {
-      const sortSpatialIndicesComputePassEncoder =
-        commandEncoder.beginComputePass();
-      // Set the resources for this pass of the compute shader
-      sortSpatialIndicesComputePassEncoder.setPipeline(
-        sortSpatialIndicesPipeline
-      );
-      sortSpatialIndicesComputePassEncoder.setBindGroup(
-        0,
-        sortResource.dataStorageBGCluster.bindGroups[0]
-      );
-      sortSpatialIndicesComputePassEncoder.setBindGroup(
-        1,
-        sortResource.algoStorageBGCluster.bindGroups[0]
-      );
-      // Dispatch workgroups
-      sortSpatialIndicesComputePassEncoder.dispatchWorkgroups(
-        sortResource.workgroupsToDispatch
-      );
-      sortSpatialIndicesComputePassEncoder.end();
-      nextBlockHeight /= 2;
-      if (nextBlockHeight === 1) {
-        highestBlockHeight *= 2;
-        if (highestBlockHeight === settings['Total Particles'] * 2) {
-          nextAlgo = 'NONE';
-        } else if (highestBlockHeight > sortResource.maxWorkgroupSize * 2) {
-          nextAlgo = 'FLIP_GLOBAL';
-          nextBlockHeight = highestBlockHeight;
-        } else {
-          nextAlgo = 'FLIP_LOCAL';
-          nextBlockHeight = highestBlockHeight;
-        }
-      } else {
-        nextBlockHeight > sortResource.maxWorkgroupSize * 2
-          ? (nextAlgo = 'DISPERSE_GLOBAL')
-          : (nextAlgo = 'DISPERSE_LOCAL');
-      }
+      runPipeline(commandEncoder, sortSpatialIndicesPipeline, 'SORT_ONLY');
       if (sortResource.spatialIndicesStagingBuffer) {
         // Copy the result of the sort to the staging buffer
         commandEncoder.copyBufferToBuffer(
@@ -383,94 +321,50 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     }
   };
 
-  /* SPATIAL HASH PIPELINE */
-  const spatialHashPipeline = device.createComputePipeline({
-    label: 'ComputeSpatialHash.pipeline',
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: pipelineLayoutWithSort,
-    }),
-    compute: {
-      // TODO: Remove after Chrome 121
-      entryPoint: 'computeMain',
-      module: device.createShaderModule({
-        label: 'ComputeSpatialHash.shaderModule',
-        code: spatialHashWGSL + commonWGSL,
-      }),
-    },
-  });
+  // COMPUTE PIPELINES
+  const spatialHashPipeline = createFluidComputePipeline(
+    'ComputeSpatialHash',
+    pipelineLayoutWithSort,
+    spatialHashWGSL
+  );
+  const densityPipeline = createFluidComputePipeline(
+    'ComputeDensity',
+    pipelineLayoutWithSort,
+    densityWGSL
+  );
+  const pressurePipeline = createFluidComputePipeline(
+    'ComputePressure',
+    pipelineLayoutWithSort,
+    pressureWGSL
+  );
+  const viscosityPipeline = createFluidComputePipeline(
+    'ComputeViscosity',
+    pipelineLayoutWithSort,
+    viscosityWGSL
+  );
 
-  /* DENSITY PIPELINE */
-  const densityPipeline = device.createComputePipeline({
-    label: 'ComputeDensity.pipeline',
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: pipelineLayoutWithSort,
-    }),
-    compute: {
-      // TODO: Remove after Chrome 121
-      entryPoint: 'computeMain',
-      module: device.createShaderModule({
-        label: 'ComputeDensity.shaderModule',
-        code: densityWGSL + commonWGSL,
-      }),
-    },
-  });
-
-  /* PRESSURE PIPELINE */
-  const pressurePipeline = device.createComputePipeline({
-    label: 'ComputePressure.pipeline',
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: pipelineLayoutWithSort,
-    }),
-    compute: {
-      // TODO: Remove after Chrome 121
-      entryPoint: 'computeMain',
-      module: device.createShaderModule({
-        label: 'ComputePressure.shaderModule',
-        code: densityWGSL + commonWGSL,
-      }),
-    },
-  });
-
-  /* VISCOSITY PIPELINE */
-  const viscosityPipeline = device.createComputePipeline({
-    label: 'ComputeViscosity.pipeline',
-    layout: device.createPipelineLayout({
-      bindGroupLayouts: pipelineLayoutWithSort,
-    }),
-    compute: {
-      // TODO: Remove after Chrome 121
-      entryPoint: 'computeMain',
-      module: device.createShaderModule({
-        label: 'ComputeViscosity.shaderModule',
-        code: viscosityWGSL + commonWGSL,
-      }),
-    },
-  });
-
-  const runPipeline = (
-    commandEncoder: GPUCommandEncoder,
-    pipeline: GPUComputePipeline,
-    includeSortInfo: boolean,
-  ) => {
-    const passEncoder = commandEncoder.beginComputePass();
-    passEncoder.setPipeline(pipeline);
-    passEncoder.setBindGroup(0, particleMovementStorageBGCluster.bindGroups[0]);
-    passEncoder.setBindGroup(
-      1,
-      particlePropertiesUniformsBGCluster.bindGroups[0]
-    );
-    if (includeSortInfo) {
-      passEncoder.setBindGroup(
-        2,
-        sortResource.dataStorageBGCluster.bindGroups[0]
-      );
-    }
-    passEncoder.dispatchWorkgroups(
-      Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
-    );
-    passEncoder.end();
+  // Create particle renderer
+  const renderPassDescriptor: GPURenderPassDescriptor = {
+    colorAttachments: [
+      {
+        view: undefined, // Assigned later
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadOp: 'clear',
+        storeOp: 'store',
+      },
+    ],
   };
 
+  const particleRenderer = new ParticleRenderer({
+    device,
+    numParticles: settings['Total Particles'],
+    positionsBuffer,
+    velocitiesBuffer,
+    presentationFormat,
+    renderPassDescriptor,
+  });
+
+  // Create initial values for our storage buffers and init GUI
   generateParticles();
 
   const simulationFolder = gui.addFolder('Simulation');
@@ -495,8 +389,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   physicsFolder.add(settings, 'Viscosity Strength', 0.001, 0.1).step(0.001);
 
   // Initial write to main storage buffers
-  device.queue.writeBuffer(particlePositionsBuffer, 0, inputPositionsData);
-  device.queue.writeBuffer(particleVelocitiesBuffer, 0, inputVelocitiesData);
+  device.queue.writeBuffer(positionsBuffer, 0, inputPositionsData);
+  device.queue.writeBuffer(velocitiesBuffer, 0, inputVelocitiesData);
   device.queue.writeBuffer(predictedPositionsBuffer, 0, inputPositionsData);
 
   let smoothPoly6Scale =
@@ -525,10 +419,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   // Create initial algorithmic info that begins our per frame bitonic sort
   const initialAlgoInfo = new Uint32Array([
-    1, // starts at 1
-    2, // starts at 2
-    2, // starts at 2
-    sortResource.workgroupsToDispatch, // particles / maxWorkgroupSize
+    StepEnum['FLIP_LOCAL'], // algo
+    2, // stepHeight
+    2, // highHeight
+    sortResource.workgroupsToDispatch, // dispatchSize
   ]);
 
   async function frame() {
@@ -617,16 +511,16 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
     if (settings.simulate) {
       // Compute Spatial Hash (index, hash, key)
-      runPipeline(commandEncoder, spatialHashPipeline, true);
+      runPipeline(commandEncoder, spatialHashPipeline, 'WITH_SORT');
       // Sort Spatial Indices (index, hash, key) and compute offsets
       computeSpatialInformation({
         device,
         commandEncoder,
       });
-      runPipeline(commandEncoder, densityPipeline, true);
-      runPipeline(commandEncoder, pressurePipeline, true);
-      runPipeline(commandEncoder, viscosityPipeline, true);
-      runPipeline(commandEncoder, positionsComputePipeline, false);
+      runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
+      runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
+      runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
+      runPipeline(commandEncoder, positionsPipeline, 'WITHOUT_SORT');
     }
 
     particleRenderer.render(commandEncoder);

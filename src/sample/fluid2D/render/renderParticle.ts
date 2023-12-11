@@ -13,7 +13,7 @@ interface ConstructorArgs {
   device: GPUDevice;
   numParticles: number;
   presentationFormat: GPUTextureFormat;
-  _renderPassDescriptor: GPURenderPassDescriptor;
+  renderPassDescriptor: GPURenderPassDescriptor;
   positionsBuffer: GPUBuffer;
   velocitiesBuffer: GPUBuffer;
 }
@@ -36,12 +36,12 @@ export default class ParticleRenderer {
       device,
       numParticles,
       presentationFormat,
-      _renderPassDescriptor,
+      renderPassDescriptor,
       positionsBuffer,
       velocitiesBuffer,
     } = args;
     this.particlesToRender = numParticles;
-    this.renderPassDescriptor = _renderPassDescriptor;
+    this.renderPassDescriptor = renderPassDescriptor;
 
     // Passes particle_radius, canvasWidth, and canvasHeight as uniforms to vertex and fragment shaders
     this.renderUniforms = device.createBuffer({

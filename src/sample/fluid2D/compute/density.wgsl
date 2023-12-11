@@ -69,7 +69,7 @@ fn computeMain(
   }
   let pos: vec2<f32> = predicted_positions[global_id.x];
   let density = &densities[global_id.x];
-  let new_density = CalculateDensity(pos);
+  let new_density = CalculateDensity(predicted_positions[global_id.x]);
   (*density).x = new_density.x;
   (*density).y = new_density.y;
 }
