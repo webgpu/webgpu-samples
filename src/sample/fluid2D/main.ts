@@ -1,5 +1,5 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { createBindGroupCluster } from './utils';
+import { createBindGroupCluster, extractGPUData } from './utils';
 import { createSpatialSortResource, StepEnum } from './sort/types';
 import sortWGSL from './sort/sort.wgsl';
 import offsetsWGSL from './sort/offsets.wgsl';
@@ -36,6 +36,14 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   });
   const maxWorkgroupSizeX = device.limits.maxComputeWorkgroupSizeX;
 
+  let debugBuffer;
+
+  type DebugPropertySelect =
+    | 'Positions'
+    | 'Velocities'
+    | 'Predicted Positions'
+    | 'Densities';
+
   const settings = {
     // The gravity force applied to each particle
     Gravity: -9.8,
@@ -55,6 +63,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     stepFrame: false,
     // The bounce dampening on a non-fluid particle
     Damping: 0.95,
+    'Debug Property': 'Positions',
+    'Log Debug': () => {
+      return;
+    },
     // A boolean indicating whether the simulation is in the process of resetting
     isResetting: false,
     simulate: false,
@@ -91,22 +103,33 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     }
   };
 
-  const fluidStorageBufferDescriptor: GPUBufferDescriptor = {
-    size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  const fluidPropertyStorageBufferSize =
+    Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2;
+  const fluidPropertyStorageBufferDescriptor: GPUBufferDescriptor = {
+    size: fluidPropertyStorageBufferSize,
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC,
   };
 
   // Create necessary resources for shader, first storage buffers, then uniforms buffers
   // STORAGE
-  const positionsBuffer = device.createBuffer(fluidStorageBufferDescriptor);
-  const velocitiesBuffer = device.createBuffer(fluidStorageBufferDescriptor);
-  const predictedPositionsBuffer = device.createBuffer({
-    size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-  });
-  const densitiesBuffer = device.createBuffer({
-    size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  const positionsBuffer = device.createBuffer(
+    fluidPropertyStorageBufferDescriptor
+  );
+  const velocitiesBuffer = device.createBuffer(
+    fluidPropertyStorageBufferDescriptor
+  );
+  const predictedPositionsBuffer = device.createBuffer(
+    fluidPropertyStorageBufferDescriptor
+  );
+  const densitiesBuffer = device.createBuffer(
+    fluidPropertyStorageBufferDescriptor
+  );
+  const fluidPropertiesStagingBuffer = device.createBuffer({
+    size: fluidPropertyStorageBufferSize,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
 
   //UNIFORMS
@@ -403,6 +426,24 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   physicsFolder.add(settings, 'Near Pressure Scale', 1, 50);
   physicsFolder.add(settings, 'Viscosity Strength', 0.001, 0.1).step(0.001);
 
+  const debugFolder = gui.addFolder('Debug');
+  debugFolder.add(settings, 'Debug Property', [
+    'Positions',
+    'Velocities',
+    'Predicted Positions',
+    'Densities',
+  ] as DebugPropertySelect[]);
+  debugFolder.add(settings, 'Log Debug').onChange(() => {
+    console.log('debug');
+    extractGPUData(
+      fluidPropertiesStagingBuffer,
+      fluidPropertyStorageBufferSize
+    ).then((data) => {
+      console.log(new Float32Array(data));
+      fluidPropertiesStagingBuffer.unmap();
+    });
+  });
+
   // Initial write to main storage buffers
   device.queue.writeBuffer(positionsBuffer, 0, inputPositionsData);
   device.queue.writeBuffer(velocitiesBuffer, 0, inputVelocitiesData);
@@ -531,9 +572,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
         device,
         commandEncoder,
       });
-      //runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
-      //runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
-      //runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
+      runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
+      runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
+      runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
       runPipeline(commandEncoder, positionsPipeline, 'WITHOUT_SORT');
       if (settings.stepFrame) {
         stepFrameController.setValue(false);
@@ -542,6 +583,53 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     }
 
     particleRenderer.render(commandEncoder);
+
+    switch (settings['Debug Property'] as DebugPropertySelect) {
+      case 'Positions':
+        {
+          commandEncoder.copyBufferToBuffer(
+            positionsBuffer,
+            0,
+            fluidPropertiesStagingBuffer,
+            0,
+            fluidPropertyStorageBufferSize
+          );
+        }
+        break;
+      case 'Velocities':
+        {
+          commandEncoder.copyBufferToBuffer(
+            velocitiesBuffer,
+            0,
+            fluidPropertiesStagingBuffer,
+            0,
+            fluidPropertyStorageBufferSize
+          );
+        }
+        break;
+      case 'Densities':
+        {
+          commandEncoder.copyBufferToBuffer(
+            densitiesBuffer,
+            0,
+            fluidPropertiesStagingBuffer,
+            0,
+            fluidPropertyStorageBufferSize
+          );
+        }
+        break;
+      case 'Predicted Positions':
+        {
+          commandEncoder.copyBufferToBuffer(
+            predictedPositionsBuffer,
+            0,
+            fluidPropertiesStagingBuffer,
+            0,
+            fluidPropertyStorageBufferSize
+          );
+        }
+        break;
+    }
 
     device.queue.submit([commandEncoder.finish()]);
     stats.end();

@@ -45,5 +45,5 @@ fn computeMain(
 
 	let prediction_factor: f32 = 3.0 / 120.0;
   //let predicted_position = &predicted_positions[global_id.x];
-  predicted_positions[global_id.x] = positions[global_id.x] + velocities[global_id.x];
+  predicted_positions[global_id.x] += positions[global_id.x] + velocities[global_id.x];
 }

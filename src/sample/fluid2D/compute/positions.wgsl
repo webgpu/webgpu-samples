@@ -29,6 +29,6 @@ fn computeMain(
     return;
   }
   let dst_position = &positions[global_id.x];
-  (*dst_position) = velocities[global_id.x] * general_uniforms.delta_time;
+  (*dst_position) += velocities[global_id.x] * general_uniforms.delta_time;
   HandleCollision(global_id.x);
 }
