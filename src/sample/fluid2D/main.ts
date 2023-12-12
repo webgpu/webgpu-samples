@@ -19,6 +19,8 @@ interface ComputeSpatialInformationArgs {
   initialValues?: Uint32Array;
 }
 
+type SimulateState = 'PAUSE' | 'RUN' | 'RESET';
+
 const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   // Get device specific resources and constants
   const adapter = await navigator.gpu.requestAdapter();
@@ -36,13 +38,13 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   });
   const maxWorkgroupSizeX = device.limits.maxComputeWorkgroupSizeX;
 
-  let debugBuffer;
-
   type DebugPropertySelect =
     | 'Positions'
     | 'Velocities'
     | 'Predicted Positions'
-    | 'Densities';
+    | 'Densities'
+    | 'Spatial Indices'
+    | 'Spatial Offsets';
 
   const settings = {
     // The gravity force applied to each particle
@@ -67,6 +69,13 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Log Debug': () => {
       return;
     },
+    'Log Dispatch Info': () => {
+      return;
+    },
+    'Reset Particles': () => {
+      return;
+    },
+    'Simulate State': 'PAUSE',
     // A boolean indicating whether the simulation is in the process of resetting
     isResetting: false,
     simulate: false,
@@ -103,6 +112,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     }
   };
 
+  // Positions, velocities, predicted_positions, and densities each represented by vec2<f32>
   const fluidPropertyStorageBufferSize =
     Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2;
   const fluidPropertyStorageBufferDescriptor: GPUBufferDescriptor = {
@@ -199,10 +209,12 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   });
 
   // Finally, last part of resource creation is creating bitonic sort resoruces
+  // Note that our bitonic sort will execute fewer workgroups than our other pipelines
+  // Since each invocation of the bitonic shader covers two elements
   const sortResource = createSpatialSortResource({
     device,
     numParticles: settings['Total Particles'],
-    createStagingBuffers: false,
+    createStagingBuffers: true,
   });
 
   // Now, we can write some utilities to create our compute pipelines
@@ -230,7 +242,11 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const runPipeline = (
     commandEncoder: GPUCommandEncoder,
     pipeline: GPUComputePipeline,
-    layoutType: 'WITH_SORT' | 'WITHOUT_SORT' | 'SORT_ONLY'
+    layoutType:
+      | 'WITH_SORT'
+      | 'WITHOUT_SORT'
+      | 'SORT_ONLY_INDICES'
+      | 'SORT_ONLY_OFFSETS'
   ) => {
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(pipeline);
@@ -257,17 +273,32 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
           );
         }
         break;
-      case 'SORT_ONLY': {
-        passEncoder.setBindGroup(
-          0,
-          sortResource.dataStorageBGCluster.bindGroups[0]
-        );
-        passEncoder.setBindGroup(
-          1,
-          sortResource.algoStorageBGCluster.bindGroups[0]
-        );
-        passEncoder.dispatchWorkgroups(sortResource.workgroupsToDispatch);
-      }
+      case 'SORT_ONLY_INDICES':
+        {
+          passEncoder.setBindGroup(
+            0,
+            sortResource.dataStorageBGCluster.bindGroups[0]
+          );
+          passEncoder.setBindGroup(
+            1,
+            sortResource.algoStorageBGCluster.bindGroups[0]
+          );
+          passEncoder.dispatchWorkgroups(
+            sortResource.spatialIndicesWorkloadSize
+          );
+        }
+        break;
+      case 'SORT_ONLY_OFFSETS':
+        {
+          passEncoder.setBindGroup(
+            0,
+            sortResource.dataStorageBGCluster.bindGroups[0]
+          );
+          passEncoder.dispatchWorkgroups(
+            sortResource.spatialOffsetsWorkloadSize
+          );
+        }
+        break;
     }
     passEncoder.end();
   };
@@ -319,7 +350,11 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     // We calculate the numSteps for a single complete pass of the bitonic sort because it allows the user to better debug where in the shader (i.e in which step)
     // something is going wrong
     for (let i = 0; i < sortResource.stepsInSort; i++) {
-      runPipeline(commandEncoder, sortSpatialIndicesPipeline, 'SORT_ONLY');
+      runPipeline(
+        commandEncoder,
+        sortSpatialIndicesPipeline,
+        'SORT_ONLY_INDICES'
+      );
       if (sortResource.spatialIndicesStagingBuffer) {
         // Copy the result of the sort to the staging buffer
         commandEncoder.copyBufferToBuffer(
@@ -331,16 +366,11 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
         );
       }
     }
-    const computeSpatialOffsetPassEncoder = commandEncoder.beginComputePass();
-    computeSpatialOffsetPassEncoder.setPipeline(computeSpatialOffsetsPipeline);
-    computeSpatialOffsetPassEncoder.setBindGroup(
-      0,
-      sortResource.dataStorageBGCluster.bindGroups[0]
+    runPipeline(
+      commandEncoder,
+      computeSpatialOffsetsPipeline,
+      'SORT_ONLY_OFFSETS'
     );
-    computeSpatialOffsetPassEncoder.dispatchWorkgroups(
-      sortResource.workgroupsToDispatch
-    );
-    computeSpatialOffsetPassEncoder.end();
     if (sortResource.spatialOffsetsStagingBuffer) {
       commandEncoder.copyBufferToBuffer(
         sortResource.spatialOffsetsBuffer,
@@ -399,7 +429,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   generateParticles();
 
   const simulationFolder = gui.addFolder('Simulation');
-  const simulateController = simulationFolder.add(settings, 'simulate');
+  const simulateController = simulationFolder
+    .add(settings, 'simulate')
+    .onChange(() => {
+      if (settings.simulate) {
+        (settings['Simulate State'] as SimulateState) = 'RUN';
+        return;
+      }
+      (settings['Simulate State'] as SimulateState) = 'PAUSE';
+    });
   const stepFrameController = simulationFolder
     .add(settings, 'stepFrame')
     .onChange(() => {
@@ -432,16 +470,59 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Velocities',
     'Predicted Positions',
     'Densities',
+    'Spatial Offsets',
+    'Spatial Indices',
   ] as DebugPropertySelect[]);
   debugFolder.add(settings, 'Log Debug').onChange(() => {
-    console.log('debug');
-    extractGPUData(
-      fluidPropertiesStagingBuffer,
-      fluidPropertyStorageBufferSize
-    ).then((data) => {
-      console.log(new Float32Array(data));
-      fluidPropertiesStagingBuffer.unmap();
-    });
+    console.log(settings['Debug Property']);
+    switch (settings['Debug Property'] as DebugPropertySelect) {
+      case 'Spatial Offsets':
+        {
+          extractGPUData(
+            sortResource.spatialOffsetsStagingBuffer,
+            sortResource.spatialOffsetsBufferSize
+          ).then((data) => {
+            console.log(new Float32Array(data));
+            sortResource.spatialOffsetsStagingBuffer.unmap();
+          });
+        }
+        break;
+      case 'Spatial Indices':
+        {
+          extractGPUData(
+            sortResource.spatialIndicesStagingBuffer,
+            sortResource.spatialIndicesBufferSize
+          ).then((data) => {
+            console.log(new Float32Array(data));
+            sortResource.spatialIndicesStagingBuffer.unmap();
+          });
+        }
+        break;
+      default:
+        {
+          extractGPUData(
+            fluidPropertiesStagingBuffer,
+            fluidPropertyStorageBufferSize
+          ).then((data) => {
+            console.log(new Float32Array(data));
+            fluidPropertiesStagingBuffer.unmap();
+          });
+        }
+        break;
+    }
+  });
+  debugFolder.add(settings, 'Log Dispatch Info').onChange(() => {
+    console.log(
+      `Invocations Per Workgroup: ${
+        device.limits.maxComputeWorkgroupSizeX
+      }\nWorkgroups Per Particle Property Calc: ${
+        settings['Total Particles'] / 256
+      }\nWorkgroups Per Spatial Indices Sort: ${
+        sortResource.spatialIndicesWorkloadSize
+      }\nWorkgroups Per Spatial Offsets Calc: ${
+        sortResource.spatialOffsetsWorkloadSize
+      }`
+    );
   });
 
   // Initial write to main storage buffers
@@ -478,7 +559,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     StepEnum['FLIP_LOCAL'], // algo
     2, // stepHeight
     2, // highHeight
-    sortResource.workgroupsToDispatch, // dispatchSize
+    sortResource.spatialIndicesWorkloadSize, // dispatchSize
   ]);
 
   async function frame() {
@@ -563,18 +644,20 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       .getCurrentTexture()
       .createView();
 
+    if (settings['Simulate State'] === 'RESET')
+
     const commandEncoder = device.createCommandEncoder();
 
-    if (settings.simulate) {
+    if (settings['Simulate State'] === 'RUN') {
       runPipeline(commandEncoder, externalForcesPipeline, 'WITHOUT_SORT');
       runPipeline(commandEncoder, spatialHashPipeline, 'WITH_SORT');
-      computeSpatialInformation({
+      /*computeSpatialInformation({
         device,
         commandEncoder,
       });
       runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
       runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
-      runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
+      runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT'); */
       runPipeline(commandEncoder, positionsPipeline, 'WITHOUT_SORT');
       if (settings.stepFrame) {
         stepFrameController.setValue(false);
@@ -627,6 +710,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
             0,
             fluidPropertyStorageBufferSize
           );
+        }
+        break;
+      default:
+        {
         }
         break;
     }
