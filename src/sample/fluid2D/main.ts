@@ -13,12 +13,6 @@ import pressureWGSL from './compute/pressure.wgsl';
 import externalForcesWGSL from './compute/externalForces.wgsl';
 import ParticleRenderer from './render/renderParticle';
 
-interface ComputeSpatialInformationArgs {
-  device: GPUDevice;
-  commandEncoder: GPUCommandEncoder;
-  initialValues?: Uint32Array;
-}
-
 type SimulateState = 'PAUSE' | 'RUN' | 'RESET';
 
 const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
@@ -211,11 +205,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   // Finally, last part of resource creation is creating bitonic sort resoruces
   // Note that our bitonic sort will execute fewer workgroups than our other pipelines
   // Since each invocation of the bitonic shader covers two elements
-  const sortResource = createSpatialSortResource({
+  const sortResource = createSpatialSortResource(
     device,
-    numParticles: settings['Total Particles'],
-    createStagingBuffers: true,
-  });
+    settings['Total Particles']
+  );
 
   // Now, we can write some utilities to create our compute pipelines
   const createFluidComputePipeline = (
@@ -303,6 +296,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     passEncoder.end();
   };
 
+  // Compute pipeline Layouts
   const pipelineLayoutWithoutSort = [
     particleStorageBGCluster.bindGroupLayout,
     particleUniformsBGCluster.bindGroupLayout,
@@ -319,74 +313,26 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     sortResource.algoStorageBGCluster.bindGroupLayout,
   ];
 
+  // Compute Pipelines
   const externalForcesPipeline = createFluidComputePipeline(
     'ExternalForces',
     pipelineLayoutWithoutSort,
     externalForcesWGSL
   );
-
-  const positionsPipeline = createFluidComputePipeline(
-    'ComputePositions',
-    pipelineLayoutWithoutSort,
-    positionsWGSL
+  const spatialHashPipeline = createFluidComputePipeline(
+    'ComputeSpatialHash',
+    pipelineLayoutWithSort,
+    spatialHashWGSL
   );
-
   const sortSpatialIndicesPipeline = createFluidComputePipeline(
     `SortSpatialIndices`,
     pipelineLayoutOnlySort,
     sortWGSL
   );
-
   const computeSpatialOffsetsPipeline = createFluidComputePipeline(
     'ComputeSpatialOffsets',
     [sortResource.dataStorageBGCluster.bindGroupLayout],
     offsetsWGSL
-  );
-
-  // Process that actually executes the sort and the pipeline
-  // Either the provide the buffer with initial values, or write to it from a previous shader
-  const computeSpatialInformation = (args: ComputeSpatialInformationArgs) => {
-    const { commandEncoder } = args;
-    // We calculate the numSteps for a single complete pass of the bitonic sort because it allows the user to better debug where in the shader (i.e in which step)
-    // something is going wrong
-    for (let i = 0; i < sortResource.stepsInSort; i++) {
-      runPipeline(
-        commandEncoder,
-        sortSpatialIndicesPipeline,
-        'SORT_ONLY_INDICES'
-      );
-      if (sortResource.spatialIndicesStagingBuffer) {
-        // Copy the result of the sort to the staging buffer
-        commandEncoder.copyBufferToBuffer(
-          sortResource.spatialIndicesBuffer,
-          0,
-          sortResource.spatialIndicesStagingBuffer,
-          0,
-          sortResource.spatialIndicesBufferSize
-        );
-      }
-    }
-    runPipeline(
-      commandEncoder,
-      computeSpatialOffsetsPipeline,
-      'SORT_ONLY_OFFSETS'
-    );
-    if (sortResource.spatialOffsetsStagingBuffer) {
-      commandEncoder.copyBufferToBuffer(
-        sortResource.spatialOffsetsBuffer,
-        0,
-        sortResource.spatialOffsetsStagingBuffer,
-        0,
-        Uint32Array.BYTES_PER_ELEMENT * settings['Total Particles']
-      );
-    }
-  };
-
-  // COMPUTE PIPELINES
-  const spatialHashPipeline = createFluidComputePipeline(
-    'ComputeSpatialHash',
-    pipelineLayoutWithSort,
-    spatialHashWGSL
   );
   const densityPipeline = createFluidComputePipeline(
     'ComputeDensity',
@@ -404,7 +350,13 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     viscosityWGSL
   );
 
-  // Create particle renderer
+  const positionsPipeline = createFluidComputePipeline(
+    'ComputePositions',
+    pipelineLayoutWithoutSort,
+    positionsWGSL
+  );
+
+  // Render Pipeline
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
@@ -645,7 +597,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       .createView();
 
     if (settings['Simulate State'] === 'RESET') {
-      device.qu
+      //device.qu
     }
 
     const commandEncoder = device.createCommandEncoder();
@@ -653,10 +605,18 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     if (settings['Simulate State'] === 'RUN') {
       runPipeline(commandEncoder, externalForcesPipeline, 'WITHOUT_SORT');
       runPipeline(commandEncoder, spatialHashPipeline, 'WITH_SORT');
-      /*computeSpatialInformation({
-        device,
+      /*for (let i = 0; i < sortResource.stepsInSort; i++) {
+        runPipeline(
+          commandEncoder,
+          sortSpatialIndicesPipeline,
+          'SORT_ONLY_INDICES'
+        );
+      }
+      runPipeline(
         commandEncoder,
-      });
+        computeSpatialOffsetsPipeline,
+        'SORT_ONLY_OFFSETS'
+      ); 
       runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
       runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
       runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT'); */
@@ -714,8 +674,26 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
           );
         }
         break;
-      default:
+      case 'Spatial Indices':
         {
+          commandEncoder.copyBufferToBuffer(
+            sortResource.spatialIndicesBuffer,
+            0,
+            sortResource.spatialIndicesStagingBuffer,
+            0,
+            sortResource.spatialIndicesBufferSize
+          );
+        }
+        break;
+      case 'Spatial Offsets':
+        {
+          commandEncoder.copyBufferToBuffer(
+            sortResource.spatialOffsetsBuffer,
+            0,
+            sortResource.spatialOffsetsStagingBuffer,
+            0,
+            sortResource.spatialOffsetsBufferSize
+          );
         }
         break;
     }

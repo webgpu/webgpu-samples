@@ -15,14 +15,14 @@ fn computeMain(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
 	// Reset spatial offsets
-	spatial_offsets[global_id.x] = 20;
+	spatial_offsets[global_id.x] = global_id.x;
 	// Update index buffer
-	var index: u32 = global_id.x;
+	/*var index: u32 = global_id.x;
 	var cell: vec2<i32> = GetCell2D(predicted_positions[global_id.x], particle_uniforms.smoothing_radius);
 	var hash: u32 = HashCell2D(cell);
 	var key: u32 = KeyFromHash(hash, general_uniforms.num_particles);
   let spatial_entry = &spatial_indices[global_id.x];
-  (*spatial_entry).index = 2;
+  (*spatial_entry).index = global_id.x;
   (*spatial_entry).hash = hash;
-  (*spatial_entry).key = key;
+  (*spatial_entry).key = key; */
 }
