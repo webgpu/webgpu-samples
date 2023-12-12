@@ -644,7 +644,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       .getCurrentTexture()
       .createView();
 
-    if (settings['Simulate State'] === 'RESET')
+    if (settings['Simulate State'] === 'RESET') {
+      device.qu
+    }
 
     const commandEncoder = device.createCommandEncoder();
 
