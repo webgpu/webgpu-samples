@@ -215,50 +215,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     initialParticleData[4 * i + 3] = 2 * (Math.random() - 0.5) * 0.1;
   }
 
-  // const particleBuffers: GPUBuffer[] = new Array(2);
-  // const particleBindGroups: GPUBindGroup[] = new Array(2);
-  // for (let i = 0; i < 2; ++i) {
-  //   particleBuffers[i] = device.createBuffer({
-  //     size: initialParticleData.byteLength,
-  //     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
-  //     mappedAtCreation: true,
-  //   });
-  //   new Float32Array(particleBuffers[i].getMappedRange()).set(
-  //     initialParticleData
-  //   );
-  //   particleBuffers[i].unmap();
-  // }
-  //
-  // for (let i = 0; i < 2; ++i) {
-  //   particleBindGroups[i] = device.createBindGroup({
-  //     layout: computePipeline.getBindGroupLayout(0),
-  //     entries: [
-  //       {
-  //         binding: 0,
-  //         resource: {
-  //           buffer: simParamBuffer,
-  //         },
-  //       },
-  //       {
-  //         binding: 1,
-  //         resource: {
-  //           buffer: particleBuffers[i],
-  //           offset: 0,
-  //           size: initialParticleData.byteLength,
-  //         },
-  //       },
-  //       {
-  //         binding: 2,
-  //         resource: {
-  //           buffer: particleBuffers[(i + 1) % 2],
-  //           offset: 0,
-  //           size: initialParticleData.byteLength,
-  //         },
-  //       },
-  //     ],
-  //   });
-  // }
-
   const particleBuffer: GPUBuffer = device.createBuffer({
     size: initialParticleData.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
