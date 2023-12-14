@@ -25,7 +25,7 @@ fn computeMain(
   var sqr_radius: f32 = particle_uniforms.smoothing_radius * particle_uniforms.smoothing_radius;
 
   var viscosity_force = vec2<f32>(0.0, 0.0);
-  var velocity: vec2<f32> = velocities[global_id.x];
+  let current_velocity: vec2<f32> = velocities[global_id.x];
 
   for (var i: u32 = 0; i < 9; i++) {
     // In each iteration, get the key and hash of either the current area or the 8 cardinal surrounding areas
@@ -63,13 +63,12 @@ fn computeMain(
       var dst: f32 = sqrt(sqr_dst);
       var neighbor_velocity: vec2<f32> = velocities[neighbor_particle_index];
       viscosity_force += 
-        (neighbor_velocity - velocity) * 
+        (neighbor_velocity - current_velocity) * 
         SmoothDistributionPoly6(dst, particle_uniforms.smoothing_radius, distribution_uniforms.poly6_scale);
     }
   }
 
-  let velocity_address = &velocities[global_id.x];
+  let new_velocity = &velocities[global_id.x];
   let viscosity = viscosity_force * particle_uniforms.viscosity_strength * general_uniforms.delta_time;
-  (*velocity_address).x = viscosity.x;
-  (*velocity_address).y = viscosity.y;
+  velocities[global_id.x] += viscosity;
 }

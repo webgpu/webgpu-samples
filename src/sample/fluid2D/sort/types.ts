@@ -26,12 +26,10 @@ interface SpaitalSortResource {
   stepsInSort: number;
   // Spatial Indices GPU Buffers
   spatialIndicesBuffer: GPUBuffer;
-  spatialIndicesBufferSize: number;
   spatialIndicesStagingBuffer: GPUBuffer;
   spatialIndicesWorkloadSize: number;
-  // Spatial Offsets GPU Buffer
+  // Spatial Offsets GPU Buffers
   spatialOffsetsBuffer: GPUBuffer;
-  spatialOffsetsBufferSize: number;
   spatialOffsetsStagingBuffer: GPUBuffer;
   spatialOffsetsWorkloadSize: number;
   // Algo + BlockHeight Uniforms Buffer
@@ -45,51 +43,48 @@ export const createSpatialSortResource = (
   device: GPUDevice,
   numParticles: number
 ): SpaitalSortResource => {
-  // Max workgroups * 2
+  // Spatial Indices Calculations
   const spatialIndicesWorkloadSize = Math.ceil(
     (numParticles - 1) / (device.limits.maxComputeWorkgroupSizeX * 2)
   );
+  const spatialIndicesBuffer = device.createBuffer({
+    size: Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles,
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC,
+  });
+  const spatialIndicesStagingBuffer = device.createBuffer({
+    size: Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+  });
+  // Spatial Offsets Calculations
   const spatialOffsetsWorkloadSize =
     numParticles / device.limits.maxComputeWorkgroupSizeX;
-  const spatialIndicesBufferSize =
-    Float32Array.BYTES_PER_ELEMENT * 3 * numParticles;
-  const spatialOffsetsBufferSize = Uint32Array.BYTES_PER_ELEMENT * numParticles;
-  const bufferUsage =
-    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
-
-  const spatialIndicesBuffer = device.createBuffer({
-    size: spatialIndicesBufferSize,
-    usage: bufferUsage,
-  });
-
   const spatialOffsetsBuffer = device.createBuffer({
-    size: spatialOffsetsBufferSize,
-    usage: bufferUsage,
+    size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC,
   });
-
+  const spatialOffsetsStagingBuffer = device.createBuffer({
+    size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+  });
+  // Algo Information Buffer
   const algoStorageBuffer = device.createBuffer({
     // algo, stepBlockHeight, highestBlockHeight, dispatchSize
     size: Uint32Array.BYTES_PER_ELEMENT * 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
 
-  const spatialIndicesStagingBuffer = device.createBuffer({
-    size: spatialIndicesBufferSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-  });
-  const spatialOffsetsStagingBuffer = device.createBuffer({
-    size: spatialOffsetsBufferSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-  });
-
   const retObject: SpaitalSortResource = {
     stepsInSort: getNumSteps(numParticles),
     spatialIndicesBuffer,
-    spatialIndicesBufferSize,
     spatialIndicesWorkloadSize,
     spatialIndicesStagingBuffer,
     spatialOffsetsBuffer,
-    spatialOffsetsBufferSize,
     spatialOffsetsWorkloadSize,
     spatialOffsetsStagingBuffer,
     algoStorageBuffer,

@@ -5,13 +5,14 @@ import sortWGSL from './sort/sort.wgsl';
 import offsetsWGSL from './sort/offsets.wgsl';
 import commonWGSL from './common.wgsl';
 import spatialHashWGSL from './compute/spatialHash.wgsl';
-import particleWGSL from './render/particle.wgsl';
+import renderParticleWGSL from './render/renderParticle.wgsl';
+import renderDensityWGSL from './render/renderDensity.wgsl';
 import positionsWGSL from './compute/positions.wgsl';
 import densityWGSL from './compute/density.wgsl';
 import viscosityWGSL from './compute/viscosity.wgsl';
 import pressureWGSL from './compute/pressure.wgsl';
 import externalForcesWGSL from './compute/externalForces.wgsl';
-import ParticleRenderer from './render/renderParticle';
+import ParticleRenderer, { ParticleRenderMode } from './render/render';
 
 type SimulateState = 'PAUSE' | 'RUN' | 'RESET';
 
@@ -45,7 +46,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     Gravity: -9.8,
     'Delta Time': 0.4,
     // The total number of particles being simulated
-    'Total Particles': 2048,
+    'Total Particles': 4096,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
     writeToDistributionBuffer: false,
@@ -66,12 +67,21 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Log Dispatch Info': () => {
       return;
     },
+    'Log Distribution Scales': () => {
+      return;
+    },
     'Reset Particles': () => {
       return;
     },
     'Simulate State': 'PAUSE',
+    'Render Mode': 'STANDARD',
     // A boolean indicating whether the simulation is in the process of resetting
     isResetting: false,
+    smoothPoly6Scale: 4 / (Math.PI * Math.pow(0.35, 8)),
+    spikePow3Scale: 10 / (Math.PI * Math.pow(0.35, 5)),
+    spikePow2Scale: 6 / (Math.PI * Math.pow(0.35, 4)),
+    spikePow3DerScale: 30 / (Math.pow(0.35, 5) * Math.PI),
+    spikePow2DerScale: 12 / (Math.pow(0.35, 4) * Math.PI),
     simulate: false,
   };
 
@@ -373,12 +383,16 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     numParticles: settings['Total Particles'],
     positionsBuffer,
     velocitiesBuffer,
+    densitiesBuffer,
     presentationFormat,
     renderPassDescriptor,
   });
 
   // Create initial values for our storage buffers and init GUI
   generateParticles();
+
+  const renderModes: ParticleRenderMode[] = ['STANDARD', 'DENSITY'];
+  gui.add(settings, 'Render Mode', renderModes);
 
   const simulationFolder = gui.addFolder('Simulation');
   const simulateController = simulationFolder
@@ -403,10 +417,19 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const particleFolder = gui.addFolder('Particle');
   particleFolder.add(settings, 'Particle Radius', 0.0, 300.0).step(1.0);
   particleFolder
-    .add(settings, 'Smoothing Radius', 0.0, 1.0)
+    .add(settings, 'Smoothing Radius', 0.1, 20.0)
     .step(0.01)
     .onChange(() => {
-      settings.writeToDistributionBuffer = true;
+      settings.smoothPoly6Scale =
+        4 / (Math.PI * Math.pow(settings['Smoothing Radius'], 8));
+      settings.spikePow3Scale =
+        10 / (Math.PI * Math.pow(settings['Smoothing Radius'], 5));
+      settings.spikePow2Scale =
+        6 / (Math.PI * Math.pow(settings['Smoothing Radius'], 4));
+      settings.spikePow3DerScale =
+        30 / (Math.pow(settings['Smoothing Radius'], 5) * Math.PI);
+      settings.spikePow2DerScale =
+        12 / (Math.pow(settings['Smoothing Radius'], 4) * Math.PI);
     });
   gui.add(settings, 'Damping', 0.0, 1.0).step(0.1);
 
@@ -432,9 +455,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
         {
           extractGPUData(
             sortResource.spatialOffsetsStagingBuffer,
-            sortResource.spatialOffsetsBufferSize
+            sortResource.spatialOffsetsBuffer.size
           ).then((data) => {
-            console.log(new Float32Array(data));
+            console.log(new Uint32Array(data));
             sortResource.spatialOffsetsStagingBuffer.unmap();
           });
         }
@@ -443,9 +466,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
         {
           extractGPUData(
             sortResource.spatialIndicesStagingBuffer,
-            sortResource.spatialIndicesBufferSize
+            sortResource.spatialIndicesBuffer.size
           ).then((data) => {
-            console.log(new Float32Array(data));
+            console.log(new Uint32Array(data));
             sortResource.spatialIndicesStagingBuffer.unmap();
           });
         }
@@ -476,35 +499,16 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       }`
     );
   });
+  debugFolder.add(settings, 'Log Distribution Scales').onChange(() => {
+    console.log(
+      `Smooth Poly 6 Scale: ${settings.smoothPoly6Scale}\nSpike Pow 3 Scale: ${settings.spikePow3Scale}\nSpike Pow 3 Derivative Scale: ${settings.spikePow3DerScale}\nSpike Pow 2 Scale:${settings.spikePow2Scale}\nSpike Pow 2 Derivative Scale:${settings.spikePow2DerScale}`
+    );
+  });
 
-  // Initial write to main storage buffers
+  // Initial 'write to main storage buffers
   device.queue.writeBuffer(positionsBuffer, 0, inputPositionsData);
   device.queue.writeBuffer(velocitiesBuffer, 0, inputVelocitiesData);
   device.queue.writeBuffer(predictedPositionsBuffer, 0, inputPositionsData);
-
-  let smoothPoly6Scale =
-    4 / (Math.PI * Math.pow(settings['Smoothing Radius'], 8));
-  let spikePow3Scale =
-    10 / (Math.PI * Math.pow(settings['Smoothing Radius'], 5));
-  let spikePow2Scale =
-    6 / (Math.PI * Math.pow(settings['Smoothing Radius'], 4));
-  let spikePow3DerivativeScale =
-    30 / (Math.pow(settings['Smoothing Radius'], 5) * Math.PI);
-  let spikePow2DerivativeScale =
-    12 / (Math.pow(settings['Smoothing Radius'], 4) * Math.PI);
-
-  // Initial write to distribution uniforms
-  device.queue.writeBuffer(
-    distributionUniformsBuffer,
-    0,
-    new Float32Array([
-      smoothPoly6Scale,
-      spikePow3Scale,
-      spikePow2Scale,
-      spikePow3DerivativeScale,
-      spikePow2DerivativeScale,
-    ])
-  );
 
   // Create initial algorithmic info that begins our per frame bitonic sort
   const initialAlgoInfo = new Uint32Array([
@@ -531,8 +535,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       4,
       new Float32Array([
         settings['Delta Time'],
-        canvas.width * 2 - settings['Particle Radius'],
-        canvas.height * 2 - settings['Particle Radius'],
+        canvas.width * 2,
+        canvas.height * 2,
       ])
     );
 
@@ -551,36 +555,24 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       ])
     );
 
-    // Write to distribution buffer when our smoothing radius changes
-    if (settings.writeToDistributionBuffer) {
-      smoothPoly6Scale =
-        4 / (Math.PI * Math.pow(settings['Smoothing Radius'], 8));
-      spikePow3Scale =
-        10 / (Math.PI * Math.pow(settings['Smoothing Radius'], 5));
-      spikePow2Scale =
-        6 / (Math.PI * Math.pow(settings['Smoothing Radius'], 4));
-      spikePow3DerivativeScale =
-        30 / (Math.pow(settings['Smoothing Radius'], 5) * Math.PI);
-      spikePow2DerivativeScale =
-        12 / (Math.pow(settings['Smoothing Radius'], 4) * Math.PI);
-      // I
-      device.queue.writeBuffer(
-        distributionUniformsBuffer,
-        0,
-        new Float32Array([
-          smoothPoly6Scale,
-          spikePow3Scale,
-          spikePow2Scale,
-          spikePow3DerivativeScale,
-          spikePow2DerivativeScale,
-        ])
-      );
-    }
+    // Write to distribution uniforms buffer
+    device.queue.writeBuffer(
+      distributionUniformsBuffer,
+      0,
+      new Float32Array([
+        settings.smoothPoly6Scale,
+        settings.spikePow3Scale,
+        settings.spikePow2Scale,
+        settings.spikePow3DerScale,
+        settings.spikePow2DerScale,
+      ])
+    );
 
     particleRenderer.writeUniforms(device, {
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
       particleRadius: settings['Particle Radius'],
+      targetDensity: settings['Target Density'],
     });
 
     // Write initial algorithm information to algo buffer within our sort object
@@ -605,7 +597,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     if (settings['Simulate State'] === 'RUN') {
       runPipeline(commandEncoder, externalForcesPipeline, 'WITHOUT_SORT');
       runPipeline(commandEncoder, spatialHashPipeline, 'WITH_SORT');
-      /*for (let i = 0; i < sortResource.stepsInSort; i++) {
+      for (let i = 0; i < sortResource.stepsInSort; i++) {
         runPipeline(
           commandEncoder,
           sortSpatialIndicesPipeline,
@@ -616,10 +608,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
         commandEncoder,
         computeSpatialOffsetsPipeline,
         'SORT_ONLY_OFFSETS'
-      ); 
+      );
       runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
       runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
-      runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT'); */
+      runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
       runPipeline(commandEncoder, positionsPipeline, 'WITHOUT_SORT');
       if (settings.stepFrame) {
         stepFrameController.setValue(false);
@@ -627,7 +619,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       }
     }
 
-    particleRenderer.render(commandEncoder);
+    particleRenderer.render(commandEncoder, settings['Render Mode']);
 
     switch (settings['Debug Property'] as DebugPropertySelect) {
       case 'Positions':
@@ -637,7 +629,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
             0,
             fluidPropertiesStagingBuffer,
             0,
-            fluidPropertyStorageBufferSize
+            positionsBuffer.size
           );
         }
         break;
@@ -681,7 +673,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
             0,
             sortResource.spatialIndicesStagingBuffer,
             0,
-            sortResource.spatialIndicesBufferSize
+            sortResource.spatialIndicesBuffer.size
           );
         }
         break;
@@ -692,7 +684,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
             0,
             sortResource.spatialOffsetsStagingBuffer,
             0,
-            sortResource.spatialOffsetsBufferSize
+            sortResource.spatialOffsetsBuffer.size
           );
         }
         break;
@@ -728,12 +720,16 @@ const fluidExample: () => JSX.Element = () =>
       },
       // Render files
       {
-        name: './render/particle.wgsl',
-        contents: particleWGSL,
+        name: './render/renderParticle.wgsl',
+        contents: renderParticleWGSL,
       },
       {
-        name: './render/renderParticle.ts',
-        contents: require('!!raw-loader!./render/renderParticle.ts').default,
+        name: './render/renderDensity.wgsl',
+        contents: renderDensityWGSL,
+      },
+      {
+        name: './render/render.ts',
+        contents: require('!!raw-loader!./render/render.ts').default,
       },
       // Sort files
       {

@@ -13,6 +13,14 @@
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
 @group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
+fn PressureFromDensity(density: f32) -> f32 {
+  return (density - particle_uniforms.target_density) * particle_uniforms.standard_pressure_multiplier;
+}
+
+fn NearPressureFromDensity(density: f32) -> f32 {
+  return density * particle_uniforms.near_pressure_multiplier;
+}
+
 @compute @workgroup_size(256, 1, 1)
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
@@ -23,10 +31,16 @@ fn computeMain(
   }
 
 	var standard_density: f32 = densities[global_id.x].x;
+  if (standard_density == 0) {
+    return;
+  }
 	var near_density: f32 = densities[global_id.x].y;
+  if (near_density == 0) { 
+    return;
+  }
   // Initial pressure calculated by getting the scaled difference between our density and the target density
-	var standard_pressure: f32 = (standard_density - particle_uniforms.target_density) * particle_uniforms.standard_pressure_multiplier;
-	var near_pressure: f32 = particle_uniforms.near_pressure_multiplier * near_density;
+	var standard_pressure: f32 = PressureFromDensity(standard_density);
+	var near_pressure: f32 = NearPressureFromDensity(near_density);
 	var pressure_force: vec2<f32> = vec2<f32>(0.0, 0.0);
 	
 	var pos: vec2<f32> = predicted_positions[global_id.x];
@@ -56,14 +70,14 @@ fn computeMain(
       }
 
       // Get index of our neighboring particle
-			var neighbor_particle_index: u32 = spatial_info.index;
+			var neighbor_index: u32 = spatial_info.index;
 			// Skip when the neighboring particle is the current particle (when CardinalOffsets[i] = vec2<f32>(0.0, 0.0))
-			if (neighbor_particle_index == global_id.x) {
+			if (neighbor_index == global_id.x) {
         continue;
       }
 
       // Get the position of the neighboring particle at 'neighbor_particle_index'
-			var neighbor_pos: vec2<f32> = predicted_positions[neighbor_particle_index];
+			var neighbor_pos: vec2<f32> = predicted_positions[neighbor_index];
       // Calculate distance between neighbor particle and original particle
 			var neighbor_offset: vec2<f32> = neighbor_pos - pos;
 			var sqr_dst: f32 = dot(neighbor_offset, neighbor_offset);
@@ -81,30 +95,29 @@ fn computeMain(
         dst > 0
       );
 
-			var neighbor_standard_density: f32 = densities[neighbor_particle_index].x;
-			var neighbor_near_density: f32 = densities[neighbor_particle_index].y;
-			var neighbor_standard_pressure: f32 = 
-        (neighbor_standard_density - particle_uniforms.target_density) * particle_uniforms.standard_pressure_multiplier;
-			var neighbor_near_pressure: f32 = 
-        particle_uniforms.near_pressure_multiplier * neighbor_near_density;
+      // Access the density and pressure of the neighboring particle
+			var neighbor_standard_density: f32 = densities[neighbor_index].x;
+			var neighbor_near_density: f32 = densities[neighbor_index].y;
+			var neighbor_standard_pressure: f32 = PressureFromDensity(neighbor_standard_density);
+			var neighbor_near_pressure: f32 = NearPressureFromDensity(neighbor_near_density);
+      //Calculate the average pressure between the two particles
+			var average_standard_pressure: f32 = (standard_pressure + neighbor_standard_pressure) * 0.5;
+			var average_near_pressure: f32 = (near_pressure + neighbor_near_pressure) * 0.5;
 
-			var shared_standard_pressure: f32 = (standard_pressure + neighbor_standard_pressure) * 0.5;
-			var shared_near_pressure: f32 = (near_pressure + neighbor_near_pressure) * 0.5;
+      // Property of the particle calculated as such
+      // Sum of that property across a range of particles * mass (constant 1) / density * our distribution function
+      // For optimization purposes, we perform all our multiplicative calculations in the loop, then apply our mass / density
+      // Once we have performed all our sum and multiplication operations
 
-			pressure_force += 
-        dirToNeighbor * 
-        SpikeDistributionPower2Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_derivative_scale) * 
-        shared_standard_pressure / neighbor_standard_density;
-			pressure_force += 
-        dirToNeighbor * 
-        SpikeDistributionPower3Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow3_derivative_scale) * 
-        shared_near_pressure / neighbor_near_density;
+      // density slopes, how fast is the density of our particle changing at this distance from the particle's center?
+      let standard_density_slope = SpikeDistributionPower2Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_derivative_scale);
+      let near_density_slope = SpikeDistributionPower3Derivative(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow3_derivative_scale);
+			pressure_force += dirToNeighbor * standard_density_slope * average_standard_pressure / neighbor_standard_density;
+			pressure_force += dirToNeighbor * near_density_slope * average_near_pressure / neighbor_near_density;
 		}
 	}
 
 	let acceleration: vec2<f32> = pressure_force / standard_density;
   let velocity = &velocities[global_id.x];
-  (*velocity).x += acceleration.x;
-  (*velocity).y += acceleration.y;
-	//velocities[global_id.x] += acceleration;
+  (*velocity) += acceleration * general_uniforms.delta_time;
 }

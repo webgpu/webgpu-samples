@@ -1,13 +1,17 @@
 import { create3DRenderPipeline } from '../../normalMap/utils';
 import { BindGroupCluster, createBindGroupCluster } from '../utils';
 
-import particleWGSL from './particle.wgsl';
+import renderParticleWGSL from './renderParticle.wgsl';
+import renderDensityWGSL from './renderDensity.wgsl';
 
 interface RenderArgs {
   particleRadius: number;
   canvasWidth: number;
   canvasHeight: number;
+  targetDensity: number;
 }
+
+export type ParticleRenderMode = 'STANDARD' | 'DENSITY';
 
 interface ConstructorArgs {
   device: GPUDevice;
@@ -16,6 +20,7 @@ interface ConstructorArgs {
   renderPassDescriptor: GPURenderPassDescriptor;
   positionsBuffer: GPUBuffer;
   velocitiesBuffer: GPUBuffer;
+  densitiesBuffer: GPUBuffer;
 }
 
 export default class ParticleRenderer {
@@ -25,7 +30,8 @@ export default class ParticleRenderer {
   };
 
   private renderPassDescriptor: GPURenderPassDescriptor;
-  private renderPipeline: GPURenderPipeline;
+  private renderStandardPipeline: GPURenderPipeline;
+  private renderDensityPipeline: GPURenderPipeline;
   private renderUniforms: GPUBuffer;
   private storageBGCluster: BindGroupCluster;
   private uniformsBGCLuster: BindGroupCluster;
@@ -39,13 +45,14 @@ export default class ParticleRenderer {
       renderPassDescriptor,
       positionsBuffer,
       velocitiesBuffer,
+      densitiesBuffer,
     } = args;
     this.particlesToRender = numParticles;
     this.renderPassDescriptor = renderPassDescriptor;
 
     // Passes particle_radius, canvasWidth, and canvasHeight as uniforms to vertex and fragment shaders
     this.renderUniforms = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * 3,
+      size: Float32Array.BYTES_PER_ELEMENT * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -53,14 +60,21 @@ export default class ParticleRenderer {
     this.storageBGCluster = createBindGroupCluster({
       device: device,
       label: 'ParticleStorage',
-      bindings: [0, 1],
+      bindings: [0, 1, 2],
       visibilities: [GPUShaderStage.VERTEX],
-      resourceTypes: ['buffer', 'buffer'],
+      resourceTypes: ['buffer', 'buffer', 'buffer'],
       resourceLayouts: [
         { type: 'read-only-storage' },
         { type: 'read-only-storage' },
+        { type: 'read-only-storage' },
       ],
-      resources: [[{ buffer: positionsBuffer }, { buffer: velocitiesBuffer }]],
+      resources: [
+        [
+          { buffer: positionsBuffer },
+          { buffer: velocitiesBuffer },
+          { buffer: densitiesBuffer },
+        ],
+      ],
     });
 
     // Defines a bindGroup storing the uniforms for the particle display shader.
@@ -68,23 +82,39 @@ export default class ParticleRenderer {
       device: device,
       label: 'ParticleUniforms',
       bindings: [0],
-      visibilities: [GPUShaderStage.VERTEX],
+      visibilities: [GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT],
       resourceTypes: ['buffer'],
       resourceLayouts: [{ type: 'uniform' }],
       resources: [[{ buffer: this.renderUniforms }]],
     });
 
     // Render pipeline using instancing to render each particle as an sdf circle
-    this.renderPipeline = create3DRenderPipeline(
+    this.renderStandardPipeline = create3DRenderPipeline(
       device,
-      'Particle',
+      'RenderParticle',
       [
         this.storageBGCluster.bindGroupLayout,
         this.uniformsBGCLuster.bindGroupLayout,
       ],
-      particleWGSL,
+      renderParticleWGSL,
       [],
-      particleWGSL,
+      renderParticleWGSL,
+      presentationFormat,
+      false,
+      'triangle-list',
+      'front'
+    );
+
+    this.renderDensityPipeline = create3DRenderPipeline(
+      device,
+      'RenderDensity',
+      [
+        this.storageBGCluster.bindGroupLayout,
+        this.uniformsBGCLuster.bindGroupLayout,
+      ],
+      renderDensityWGSL,
+      [],
+      renderDensityWGSL,
       presentationFormat,
       false,
       'triangle-list',
@@ -100,15 +130,27 @@ export default class ParticleRenderer {
         args.particleRadius,
         args.canvasWidth,
         args.canvasHeight,
+        args.targetDensity,
       ])
     );
   }
 
-  render(commandEncoder: GPUCommandEncoder) {
+  render(commandEncoder: GPUCommandEncoder, renderMode: ParticleRenderMode) {
     const passEncoder = commandEncoder.beginRenderPass(
       this.renderPassDescriptor
     );
-    passEncoder.setPipeline(this.renderPipeline);
+    switch (renderMode) {
+      case 'STANDARD':
+        {
+          passEncoder.setPipeline(this.renderStandardPipeline);
+        }
+        break;
+      case 'DENSITY':
+        {
+          passEncoder.setPipeline(this.renderDensityPipeline);
+        }
+        break;
+    }
     passEncoder.setBindGroup(0, this.storageBGCluster.bindGroups[0]);
     passEncoder.setBindGroup(1, this.uniformsBGCLuster.bindGroups[0]);
     passEncoder.draw(6, this.particlesToRender, 0, 0);

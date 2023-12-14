@@ -40,9 +40,9 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
       }
 
       // Get index of our neighboring particle
-      var neighbor_particle_index: u32 = spatial_info.index;
-      // Get the position of the neighboring particle at 'neighbor_particle_index'
-      var neighbor_pos: vec2<f32> = predicted_positions[neighbor_particle_index];
+      var neighbor_index: u32 = spatial_info.index;
+      // Get the position of the neighboring particle at 'neighbor_index'
+      var neighbor_pos: vec2<f32> = predicted_positions[neighbor_index];
       // Calculate distance between neighbor particle and original particle
       var neighbor_offset: vec2<f32> = neighbor_pos - pos;
       var sqr_dst: f32 = dot(neighbor_offset, neighbor_offset);
@@ -53,6 +53,7 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
       }
 
       var dst: f32 = sqrt(sqr_dst);
+      // The density of a fluid within a given area is just the sum of its influences within that area
       standard_density += SpikeDistributionPower2(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_scale);
       near_density += SpikeDistributionPower3(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow3_scale);
     }
@@ -68,8 +69,5 @@ fn computeMain(
     return;
   }
   let pos: vec2<f32> = predicted_positions[global_id.x];
-  let density = &densities[global_id.x];
-  let new_density = CalculateDensity(predicted_positions[global_id.x]);
-  (*density).x = new_density.x;
-  (*density).y = new_density.y;
+  densities[global_id.x] = CalculateDensity(pos);
 }

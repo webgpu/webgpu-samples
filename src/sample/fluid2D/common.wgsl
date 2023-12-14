@@ -27,41 +27,21 @@
 _____/                      \_____*/
 
 
+// General formula for each of these distributions is as follows:
+// If the point falls within the range of the particle's sphere of influence (i.e smoothing radius)
+// then calculate an influence value, else return 0
+
 // Distribution Functions
 fn SmoothDistributionPoly6(
   dist: f32, 
   radius: f32,
   scale: f32,
 ) -> f32 {
-  if (dist > radius) {
-    return 0;
+  if (dist < radius) {
+    var v: f32 = radius * radius - dist * dist;
+    return v * v * v * scale;
   }
-  var v: f32 = radius * radius - dist * dist;
-  return v * v * v * scale;
-}
-
-fn SpikeDistributionPower2(
-  dist: f32, 
-  radius: f32,
-  scale: f32,
-) -> f32 { 
-  if (dist > radius) {
-    return 0;
-  }
-  var v: f32 = radius - dist;
-  return v * v * scale;
-}
-
-fn SpikeDistributionPower2Derivative(
-  dist: f32,
-  radius: f32,
-  scale: f32,
-) -> f32 {
-  if (dist >= radius) {
-    return 0;
-  }
-  var v: f32 = radius - dist;
-  return -v * scale;
+  return 0;
 }
 
 fn SpikeDistributionPower3(
@@ -69,23 +49,48 @@ fn SpikeDistributionPower3(
   radius: f32,
   scale: f32,
 ) -> f32 {
-  if (dist > radius) {
-    return 0;
+  if (dist < radius) {
+    var v: f32 = radius - dist;
+    return v * v * v * scale;
   }
-  var v: f32 = radius - dist;
-  return v * v * v * scale;
+  return 0;
 }
 
+fn SpikeDistributionPower2(
+  dist: f32, 
+  radius: f32,
+  scale: f32,
+) -> f32 { 
+  if (dist < radius) {
+    var v: f32 = radius - dist;
+    return v * v * scale;
+  }
+  return 0;
+}
+
+// -v applied to scale because the derivative of (s - x) with respect to x is -1
 fn SpikeDistributionPower3Derivative(
   dist: f32,
   radius: f32,
   scale: f32,
 ) -> f32 {
-  if (dist >= radius) {
-    return 0;
+  if (dist <= radius) {
+    var v: f32 = radius - dist;
+    return -v * v * scale;
   }
-  var v: f32 = radius - dist;
-  return -v * v * scale;
+  return 0;
+}
+
+fn SpikeDistributionPower2Derivative(
+  dist: f32,
+  radius: f32,
+  scale: f32,
+) -> f32 {
+  if (dist <= radius) {
+    var v: f32 = radius - dist;
+    return -v * scale;
+  }
+  return 0;
 }
 
 // Hash Functions
