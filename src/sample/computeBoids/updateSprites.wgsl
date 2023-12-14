@@ -11,20 +11,16 @@ struct SimParams {
   rule2Scale : f32,
   rule3Scale : f32,
 }
-struct Particles {
-  particles : array<Particle>,
-}
 @binding(0) @group(0) var<uniform> params : SimParams;
-@binding(1) @group(0) var<storage, read> particlesA : Particles;
-@binding(2) @group(0) var<storage, read_write> particlesB : Particles;
+@binding(1) @group(0) var<storage, read_write> particles : array<Particle>;
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var index = GlobalInvocationID.x;
 
-  var vPos = particlesA.particles[index].pos;
-  var vVel = particlesA.particles[index].vel;
+  var vPos = particles[index].pos;
+  var vVel = particles[index].vel;
   var cMass = vec2(0.0);
   var cVel = vec2(0.0);
   var colVel = vec2(0.0);
@@ -33,13 +29,13 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var pos : vec2<f32>;
   var vel : vec2<f32>;
 
-  for (var i = 0u; i < arrayLength(&particlesA.particles); i++) {
+  for (var i = 0u; i < arrayLength(&particles); i++) {
     if (i == index) {
       continue;
     }
 
-    pos = particlesA.particles[i].pos.xy;
-    vel = particlesA.particles[i].vel.xy;
+    pos = particles[i].pos.xy;
+    vel = particles[i].vel.xy;
     if (distance(pos, vPos) < params.rule1Distance) {
       cMass += pos;
       cMassCount++;
@@ -78,6 +74,6 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     vPos.y = -1.0;
   }
   // Write back
-  particlesB.particles[index].pos = vPos;
-  particlesB.particles[index].vel = vVel;
+  particles[index].pos = vPos;
+  particles[index].vel = vVel;
 }

@@ -215,51 +215,80 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     initialParticleData[4 * i + 3] = 2 * (Math.random() - 0.5) * 0.1;
   }
 
-  const particleBuffers: GPUBuffer[] = new Array(2);
-  const particleBindGroups: GPUBindGroup[] = new Array(2);
-  for (let i = 0; i < 2; ++i) {
-    particleBuffers[i] = device.createBuffer({
-      size: initialParticleData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
-      mappedAtCreation: true,
-    });
-    new Float32Array(particleBuffers[i].getMappedRange()).set(
-      initialParticleData
-    );
-    particleBuffers[i].unmap();
-  }
+  // const particleBuffers: GPUBuffer[] = new Array(2);
+  // const particleBindGroups: GPUBindGroup[] = new Array(2);
+  // for (let i = 0; i < 2; ++i) {
+  //   particleBuffers[i] = device.createBuffer({
+  //     size: initialParticleData.byteLength,
+  //     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
+  //     mappedAtCreation: true,
+  //   });
+  //   new Float32Array(particleBuffers[i].getMappedRange()).set(
+  //     initialParticleData
+  //   );
+  //   particleBuffers[i].unmap();
+  // }
+  //
+  // for (let i = 0; i < 2; ++i) {
+  //   particleBindGroups[i] = device.createBindGroup({
+  //     layout: computePipeline.getBindGroupLayout(0),
+  //     entries: [
+  //       {
+  //         binding: 0,
+  //         resource: {
+  //           buffer: simParamBuffer,
+  //         },
+  //       },
+  //       {
+  //         binding: 1,
+  //         resource: {
+  //           buffer: particleBuffers[i],
+  //           offset: 0,
+  //           size: initialParticleData.byteLength,
+  //         },
+  //       },
+  //       {
+  //         binding: 2,
+  //         resource: {
+  //           buffer: particleBuffers[(i + 1) % 2],
+  //           offset: 0,
+  //           size: initialParticleData.byteLength,
+  //         },
+  //       },
+  //     ],
+  //   });
+  // }
 
-  for (let i = 0; i < 2; ++i) {
-    particleBindGroups[i] = device.createBindGroup({
-      layout: computePipeline.getBindGroupLayout(0),
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: simParamBuffer,
-          },
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: particleBuffers[i],
-            offset: 0,
-            size: initialParticleData.byteLength,
-          },
-        },
-        {
-          binding: 2,
-          resource: {
-            buffer: particleBuffers[(i + 1) % 2],
-            offset: 0,
-            size: initialParticleData.byteLength,
-          },
-        },
-      ],
-    });
-  }
+  const particleBuffer: GPUBuffer = device.createBuffer({
+    size: initialParticleData.byteLength,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
+    mappedAtCreation: true,
+  });
+  new Float32Array(particleBuffer.getMappedRange()).set(
+    initialParticleData
+  );
+  particleBuffer.unmap();
 
-  let t = 0;
+  const particleBindGroup: GPUBindGroup = device.createBindGroup({
+    layout: computePipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: simParamBuffer,
+        },
+      },
+      {
+        binding: 1,
+        resource: {
+          buffer: particleBuffer,
+          offset: 0,
+          size: initialParticleData.byteLength,
+        },
+      }
+    ],
+  });
+
   let computePassDurationSum = 0;
   let renderPassDurationSum = 0;
   let timerSamples = 0;
@@ -277,14 +306,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         computePassDescriptor
       );
       passEncoder.setPipeline(computePipeline);
-      passEncoder.setBindGroup(0, particleBindGroups[t % 2]);
+      passEncoder.setBindGroup(0, particleBindGroup);
       passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64));
       passEncoder.end();
     }
     {
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
       passEncoder.setPipeline(renderPipeline);
-      passEncoder.setVertexBuffer(0, particleBuffers[(t + 1) % 2]);
+      passEncoder.setVertexBuffer(0, particleBuffer);
       passEncoder.setVertexBuffer(1, spriteVertexBuffer);
       passEncoder.draw(3, numParticles, 0, 0);
       passEncoder.end();
@@ -346,7 +375,6 @@ spare readback buffers:    ${spareResultBuffers.length}`;
       });
     }
 
-    ++t;
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
