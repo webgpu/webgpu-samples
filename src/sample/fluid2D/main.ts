@@ -1,5 +1,9 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { createBindGroupCluster, extractGPUData } from './utils';
+import {
+  createBindGroupCluster,
+  extractGPUData,
+  generateParticleData,
+} from './utils';
 import { createSpatialSortResource, StepEnum } from './sort/types';
 import sortWGSL from './sort/sort.wgsl';
 import offsetsWGSL from './sort/offsets.wgsl';
@@ -13,6 +17,7 @@ import viscosityWGSL from './compute/viscosity.wgsl';
 import pressureWGSL from './compute/pressure.wgsl';
 import externalForcesWGSL from './compute/externalForces.wgsl';
 import ParticleRenderer, { ParticleRenderMode } from './render/render';
+import Input, { createInputHandler } from '../cameras/input';
 
 type SimulateState = 'PAUSE' | 'RUN' | 'RESET';
 
@@ -32,6 +37,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     alphaMode: 'premultiplied',
   });
   const maxWorkgroupSizeX = device.limits.maxComputeWorkgroupSizeX;
+  const inputHandler = createInputHandler(window, canvas);
 
   type DebugPropertySelect =
     | 'Positions'
@@ -49,6 +55,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Total Particles': 4096,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
+    zoomScaleX: 1 / canvas.width,
+    zoomScaleY: 1 / canvas.height,
+    cameraOffset: 0,
     writeToDistributionBuffer: false,
     iterationsPerFrame: 1,
     // The radius of influence from the center of a particle to
@@ -85,36 +94,20 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     simulate: false,
   };
 
-  /* COMPUTE SHADER RESOURCE PREPARATION */
-  // Create buffer for default positions data
-  const inputPositionsData = new Float32Array(
-    new ArrayBuffer(
-      settings['Total Particles'] * 2 * Float32Array.BYTES_PER_ELEMENT
-    )
-  );
-
-  // Create buffer for default velocities data
-  const inputVelocitiesData = new Float32Array(
-    new ArrayBuffer(
-      settings['Total Particles'] * 2 * Float32Array.BYTES_PER_ELEMENT
-    )
-  );
-
-  // Generate positions data and velocities data for their respective buffers
-  // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
-  const generateParticles = () => {
-    for (let i = 0; i < settings['Total Particles']; i++) {
-      // Position
-      inputPositionsData[i * 2 + 0] =
-        -canvas.width + Math.random() * (canvas.width * 2);
-      inputPositionsData[i * 2 + 1] =
-        -canvas.height + Math.random() * (canvas.height * 2);
-
-      // Velocity
-      inputVelocitiesData[i * 2 + 0] = 0;
-      inputVelocitiesData[i * 2 + 1] = 0;
+  const updateCamera2D = (deltaTime: number, input: Input) => {
+    if (input.digital.forward) {
+      console.log(settings.zoomScaleX);
+      settings.zoomScaleX *= 1.001;
+      settings.zoomScaleY *= 1.001;
+    }
+    if (input.digital.backward) {
+      console.log(settings.zoomScaleX);
+      settings.zoomScaleX *= 0.999;
+      settings.zoomScaleY *= 0.999;
     }
   };
+
+  /* COMPUTE SHADER RESOURCE PREPARATION */
 
   // Positions, velocities, predicted_positions, and densities each represented by vec2<f32>
   const fluidPropertyStorageBufferSize =
@@ -389,7 +382,15 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   });
 
   // Create initial values for our storage buffers and init GUI
-  generateParticles();
+  // Generate positions data and velocities data for their respective buffers
+  // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
+  const { inputPositions, inputVelocities } = generateParticleData(
+    settings['Total Particles'],
+    -canvas.width,
+    -canvas.height,
+    2 * canvas.width,
+    2 * canvas.height
+  );
 
   const renderModes: ParticleRenderMode[] = ['STANDARD', 'DENSITY'];
   gui.add(settings, 'Render Mode', renderModes);
@@ -506,9 +507,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   });
 
   // Initial 'write to main storage buffers
-  device.queue.writeBuffer(positionsBuffer, 0, inputPositionsData);
-  device.queue.writeBuffer(velocitiesBuffer, 0, inputVelocitiesData);
-  device.queue.writeBuffer(predictedPositionsBuffer, 0, inputPositionsData);
+  device.queue.writeBuffer(positionsBuffer, 0, inputPositions);
+  device.queue.writeBuffer(velocitiesBuffer, 0, inputVelocities);
+  device.queue.writeBuffer(predictedPositionsBuffer, 0, inputPositions);
 
   // Create initial algorithmic info that begins our per frame bitonic sort
   const initialAlgoInfo = new Uint32Array([
@@ -520,6 +521,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   async function frame() {
     if (!pageState.active) return;
+    updateCamera2D(settings['Delta Time'], inputHandler());
 
     stats.begin();
 
@@ -569,8 +571,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     );
 
     particleRenderer.writeUniforms(device, {
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
+      zoomScaleX: settings.zoomScaleX,
+      zoomScaleY: settings.zoomScaleY,
       particleRadius: settings['Particle Radius'],
       targetDensity: settings['Target Density'],
     });

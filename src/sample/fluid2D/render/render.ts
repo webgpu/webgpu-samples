@@ -6,8 +6,8 @@ import renderDensityWGSL from './renderDensity.wgsl';
 
 interface RenderArgs {
   particleRadius: number;
-  canvasWidth: number;
-  canvasHeight: number;
+  zoomScaleX: number;
+  zoomScaleY: number;
   targetDensity: number;
 }
 
@@ -50,7 +50,7 @@ export default class ParticleRenderer {
     this.particlesToRender = numParticles;
     this.renderPassDescriptor = renderPassDescriptor;
 
-    // Passes particle_radius, canvasWidth, and canvasHeight as uniforms to vertex and fragment shaders
+    // Passes particle_radius, zoomScaleX, and zoomScaleY as uniforms to vertex and fragment shaders
     this.renderUniforms = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -128,8 +128,8 @@ export default class ParticleRenderer {
       0,
       new Float32Array([
         args.particleRadius,
-        args.canvasWidth,
-        args.canvasHeight,
+        args.zoomScaleX,
+        args.zoomScaleY,
         args.targetDensity,
       ])
     );

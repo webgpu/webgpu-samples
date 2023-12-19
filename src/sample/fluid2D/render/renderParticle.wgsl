@@ -8,10 +8,10 @@ struct VertexOutput {
   @location(0) v_uv: vec2<f32>,
 }
 
-struct ParticleUniforms {
+struct RenderUniforms {
   radius: f32,
-  canvas_width: f32,
-  canvas_height: f32,
+  zoom_scale_x: f32,
+  zoom_scale_y: f32,
 }
 
 fn sdfCircle(p: vec2<f32>, r: f32) -> f32 {
@@ -23,7 +23,7 @@ fn sdfCircle(p: vec2<f32>, r: f32) -> f32 {
 @group(0) @binding(1) var<storage, read> input_velocities: array<vec2<f32>>;
 
 // Uniform Buffers
-@group(1) @binding(0) var<uniform> particle_uniforms: ParticleUniforms;
+@group(1) @binding(0) var<uniform> uniforms: RenderUniforms;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -48,13 +48,13 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   );
 
   //Convert position and offset to canvasSpace
-  var posCS = pos[input.VertexIndex] / vec2<f32>(particle_uniforms.canvas_width, particle_uniforms.canvas_height);
+  var posCS = pos[input.VertexIndex] * vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
   var offset = input_positions[input.InstanceIndex];
-  var offsetCS = offset / vec2<f32>(particle_uniforms.canvas_width, particle_uniforms.canvas_height);
+  var offsetCS = offset * vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
 
   //ballUniforms.radius should be clamped to the height
   output.Position = vec4<f32>(
-    posCS * particle_uniforms.radius + offsetCS, 
+    posCS * uniforms.radius + offsetCS, 
     0.0, 
     1.0
   );

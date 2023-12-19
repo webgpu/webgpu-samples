@@ -1,3 +1,4 @@
+// WEBGPU SPECIFIC UTILS
 type BindGroupBindingLayout =
   | GPUBufferBindingLayout
   | GPUTextureBindingLayout
@@ -104,9 +105,47 @@ export const typeArrayBuffer = (
 
 export const extractGPUData = async (
   stagingBuffer: GPUBuffer,
-  srcBufferSize: number,
+  srcBufferSize: number
 ) => {
   await stagingBuffer.mapAsync(GPUMapMode.READ, 0, srcBufferSize);
   const copyBuffer = stagingBuffer.getMappedRange(0, srcBufferSize);
   return copyBuffer.slice(0, srcBufferSize);
 };
+
+// SPH FLUID SPECIFIC UTILS
+export const generateParticleData = (
+  numParticles: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): {
+  inputPositions: Float32Array;
+  inputVelocities: Float32Array;
+} => {
+  const inputPositions = new Float32Array(
+    new ArrayBuffer(numParticles * 2 * Float32Array.BYTES_PER_ELEMENT)
+  );
+  // Create buffer for default velocities data
+  const inputVelocities = new Float32Array(
+    new ArrayBuffer(numParticles * 2 * Float32Array.BYTES_PER_ELEMENT)
+  );
+
+  // Generate positions data and velocities data for their respective buffers
+  // Positions are set between position x to x + w, y to y + h
+  for (let i = 0; i < numParticles; i++) {
+    // Position
+    inputPositions[i * 2 + 0] = x + Math.random() * w;
+    inputPositions[i * 2 + 1] = y + Math.random() * h;
+
+    // Velocity
+    inputVelocities[i * 2 + 0] = 0;
+    inputVelocities[i * 2 + 1] = 0;
+  }
+  return {
+    inputPositions,
+    inputVelocities,
+  };
+};
+
+// Camera Utils
