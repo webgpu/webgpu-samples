@@ -48,8 +48,8 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   );
 
   //Convert position and offset to canvasSpace
-  var posCS = pos[input.VertexIndex] * vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
-  var offset = input_positions[input.InstanceIndex];
+  let posCS = pos[input.VertexIndex] * vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
+  let offset = input_positions[input.InstanceIndex];
   var offsetCS = offset * vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
 
   //ballUniforms.radius should be clamped to the height
