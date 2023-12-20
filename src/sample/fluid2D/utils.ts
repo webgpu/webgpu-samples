@@ -131,6 +131,9 @@ export const generateParticleData = (
     new ArrayBuffer(numParticles * 2 * Float32Array.BYTES_PER_ELEMENT)
   );
 
+  const boundsX = w;
+  const boundsY = h;
+
   // Generate positions data and velocities data for their respective buffers
   // Positions are set between position x to x + w, y to y + h
   for (let i = 0; i < numParticles; i++) {
@@ -142,10 +145,55 @@ export const generateParticleData = (
     inputVelocities[i * 2 + 0] = 0;
     inputVelocities[i * 2 + 1] = 0;
   }
+
   return {
     inputPositions,
     inputVelocities,
   };
 };
 
-// Camera Utils
+export interface DistributionSettings {
+  poly6Scale: number;
+  spikyGradScale: number;
+  spikyLapacianScale: number;
+  srSquared: number;
+  massPoly6: number;
+  selfDensity: number;
+}
+
+// Distributions from this link
+// https://matthias-research.github.io/pages/publications/sca03.pdf
+export const calculateDistributionScales = (
+  smoothingRadius: number,
+  mass: number,
+) => {
+  const pow6 = Math.pow(smoothingRadius, 6);
+  const pow9 = Math.pow(smoothingRadius, 9);
+  const poly6Scale = 315.0 / (64.0 * Math.PI * pow9);
+  const spikyGradScale = -45.0 / (Math.PI * pow6);
+  const spikyLapacianScale = 45.0 / (Math.PI * pow6);
+  const srSquared = smoothingRadius * smoothingRadius;
+  const massPoly6 = mass * poly6Scale;
+  const selfDensity = massPoly6 * pow6;
+  return {
+    poly6Scale,
+    spikyGradScale,
+    spikyLapacianScale,
+    srSquared,
+    massPoly6,
+    selfDensity,
+  }
+};
+
+// Main.ts utils
+export type DebugPropertySelect =
+  | 'Positions'
+  | 'Velocities'
+  | 'Predicted Positions'
+  | 'Densities'
+  | 'Spatial Indices'
+  | 'Spatial Offsets';
+
+export type SimulateState = 'PAUSE' | 'RUN' | 'RESET';
+
+

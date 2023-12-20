@@ -3,6 +3,10 @@ import {
   createBindGroupCluster,
   extractGPUData,
   generateParticleData,
+  SimulateState,
+  DebugPropertySelect,
+  DistributionSettings,
+  calculateDistributionScales,
 } from './utils';
 import { createSpatialSortResource, StepEnum } from './sort/types';
 import sortWGSL from './sort/sort.wgsl';
@@ -18,8 +22,6 @@ import pressureWGSL from './compute/pressure.wgsl';
 import externalForcesWGSL from './compute/externalForces.wgsl';
 import ParticleRenderer, { ParticleRenderMode } from './render/render';
 import Input, { createInputHandler } from '../cameras/input';
-
-type SimulateState = 'PAUSE' | 'RUN' | 'RESET';
 
 const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   // Get device specific resources and constants
@@ -39,34 +41,39 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   const maxWorkgroupSizeX = device.limits.maxComputeWorkgroupSizeX;
   const inputHandler = createInputHandler(window, canvas);
 
-  type DebugPropertySelect =
-    | 'Positions'
-    | 'Velocities'
-    | 'Predicted Positions'
-    | 'Densities'
-    | 'Spatial Indices'
-    | 'Spatial Offsets';
+  // Bounds are somewhat odd, in the sense that dimensions are centered at 0,0, so canvas actually goes from -canvas.width to canvas.width
+  const boundsSettings = {
+    boundsX: 200 * 2,
+    boundsY: 200 * 2,
+  };
+
+  const frameSettings = {
+    deltaTime: 0.03,
+    iterationsPerFrame: 1,
+    stepFrame: false,
+    simulate: false,
+  };
+
+  const cameraSettings = {
+    zoomScaleX: 1 / (boundsSettings.boundsX * 0.5),
+    zoomScaleY: 1 / (boundsSettings.boundsY * 0.5),
+  };
 
   const settings = {
     // The gravity force applied to each particle
     Gravity: -9.8,
-    'Delta Time': 0.4,
     // The total number of particles being simulated
     'Total Particles': 4096,
     // A fluid particle's display radius
     'Particle Radius': 10.0,
-    zoomScaleX: 1 / canvas.width,
-    zoomScaleY: 1 / canvas.height,
     cameraOffset: 0,
     writeToDistributionBuffer: false,
-    iterationsPerFrame: 1,
     // The radius of influence from the center of a particle to
     'Smoothing Radius': 0.35,
     'Viscosity Strength': 0.06,
     'Pressure Scale': 500,
     'Near Pressure Scale': 18,
     'Target Density': 55,
-    stepFrame: false,
     // The bounce dampening on a non-fluid particle
     Damping: 0.95,
     'Debug Property': 'Positions',
@@ -85,25 +92,24 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     'Simulate State': 'PAUSE',
     'Render Mode': 'STANDARD',
     // A boolean indicating whether the simulation is in the process of resetting
-    isResetting: false,
     smoothPoly6Scale: 4 / (Math.PI * Math.pow(0.35, 8)),
     spikePow3Scale: 10 / (Math.PI * Math.pow(0.35, 5)),
     spikePow2Scale: 6 / (Math.PI * Math.pow(0.35, 4)),
     spikePow3DerScale: 30 / (Math.pow(0.35, 5) * Math.PI),
     spikePow2DerScale: 12 / (Math.pow(0.35, 4) * Math.PI),
-    simulate: false,
   };
+
+  const distributionSettings: DistributionSettings =
+    calculateDistributionScales(settings['Smoothing Radius'], 1.0);
 
   const updateCamera2D = (deltaTime: number, input: Input) => {
     if (input.digital.forward) {
-      console.log(settings.zoomScaleX);
-      settings.zoomScaleX *= 1.001;
-      settings.zoomScaleY *= 1.001;
+      cameraSettings.zoomScaleX *= 1.001;
+      cameraSettings.zoomScaleY *= 1.001;
     }
     if (input.digital.backward) {
-      console.log(settings.zoomScaleX);
-      settings.zoomScaleX *= 0.999;
-      settings.zoomScaleY *= 0.999;
+      cameraSettings.zoomScaleX *= 0.999;
+      cameraSettings.zoomScaleY *= 0.999;
     }
   };
 
@@ -386,10 +392,10 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
   // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
   const { inputPositions, inputVelocities } = generateParticleData(
     settings['Total Particles'],
-    -canvas.width,
-    -canvas.height,
-    2 * canvas.width,
-    2 * canvas.height
+    -boundsSettings.boundsX / 2,
+    -boundsSettings.boundsY / 2,
+    boundsSettings.boundsX,
+    boundsSettings.boundsY
   );
 
   const renderModes: ParticleRenderMode[] = ['STANDARD', 'DENSITY'];
@@ -397,22 +403,22 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   const simulationFolder = gui.addFolder('Simulation');
   const simulateController = simulationFolder
-    .add(settings, 'simulate')
+    .add(frameSettings, 'simulate')
     .onChange(() => {
-      if (settings.simulate) {
+      if (frameSettings.simulate) {
         (settings['Simulate State'] as SimulateState) = 'RUN';
         return;
       }
       (settings['Simulate State'] as SimulateState) = 'PAUSE';
     });
   const stepFrameController = simulationFolder
-    .add(settings, 'stepFrame')
+    .add(frameSettings, 'stepFrame')
     .onChange(() => {
-      if (settings.stepFrame) {
+      if (frameSettings.stepFrame) {
         simulateController.setValue(true);
       }
     });
-  simulationFolder.add(settings, 'Delta Time', 0.01, 0.5).step(0.01);
+  simulationFolder.add(frameSettings, 'deltaTime', 0.01, 0.5).step(0.01);
   simulationFolder.add(settings, 'Gravity', -20.0, 20.0).step(0.1);
 
   const particleFolder = gui.addFolder('Particle');
@@ -521,7 +527,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
 
   async function frame() {
     if (!pageState.active) return;
-    updateCamera2D(settings['Delta Time'], inputHandler());
+    updateCamera2D(frameSettings.deltaTime, inputHandler());
 
     stats.begin();
 
@@ -536,9 +542,9 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       generalUniformsBuffer,
       4,
       new Float32Array([
-        settings['Delta Time'],
-        canvas.width * 2,
-        canvas.height * 2,
+        frameSettings.deltaTime,
+        boundsSettings.boundsX,
+        boundsSettings.boundsY,
       ])
     );
 
@@ -571,8 +577,8 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
     );
 
     particleRenderer.writeUniforms(device, {
-      zoomScaleX: settings.zoomScaleX,
-      zoomScaleY: settings.zoomScaleY,
+      zoomScaleX: cameraSettings.zoomScaleX,
+      zoomScaleY: cameraSettings.zoomScaleY,
       particleRadius: settings['Particle Radius'],
       targetDensity: settings['Target Density'],
     });
@@ -615,7 +621,7 @@ const init: SampleInit = async ({ pageState, gui, canvas, stats }) => {
       runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
       runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
       runPipeline(commandEncoder, positionsPipeline, 'WITHOUT_SORT');
-      if (settings.stepFrame) {
+      if (frameSettings.stepFrame) {
         stepFrameController.setValue(false);
         simulateController.setValue(false);
       }
