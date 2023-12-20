@@ -7,6 +7,7 @@ import {
   DebugPropertySelect,
   DistributionSettings,
   calculateDistributionScales,
+  SpatialIndicesDebugPropertySelect,
 } from './utils';
 import { SampleInitFactoryWebGPU } from '../bitonicSort/utils';
 import { createSpatialSortResource, StepEnum } from './sort/types';
@@ -56,6 +57,17 @@ SampleInitFactoryWebGPU(
       zoomScaleY: 1 / (boundsSettings.boundsY * 0.5),
     };
 
+    const sphSettings = {
+      mass: 0.02,
+      restingDensity: 1000,
+      gasConst: 1,
+      viscosity: 1.04,
+      // The radius of a particle's influence from its center to its edge
+      smoothingRadius: 0.15,
+      gravity: -9.8,
+      surfaceTension: 0.2,
+    };
+
     const settings = {
       // The gravity force applied to each particle
       Gravity: -9.8,
@@ -65,8 +77,6 @@ SampleInitFactoryWebGPU(
       'Particle Radius': 2,
       cameraOffset: 0,
       writeToDistributionBuffer: false,
-      // The radius of influence from the center of a particle to
-      'Smoothing Radius': 0.35,
       'Viscosity Strength': 0.06,
       'Pressure Scale': 500,
       'Near Pressure Scale': 18,
@@ -97,7 +107,7 @@ SampleInitFactoryWebGPU(
     };
 
     const distributionSettings: DistributionSettings =
-      calculateDistributionScales(settings['Smoothing Radius'], 1.0);
+      calculateDistributionScales(sphSettings.smoothingRadius, 1.0);
 
     const updateCamera2D = (deltaTime: number, input: Input) => {
       if (input.digital.forward) {
@@ -158,7 +168,7 @@ SampleInitFactoryWebGPU(
     });
 
     // Uniforms that help define the scaling factors for smooth and spike distributions
-    // Changes whenever settings['Smoothing Radius'] changes
+    // Changes whenever sphSettings.smoothingRadius changes
     const distributionUniformsBuffer = device.createBuffer({
       // poly6_scale, spike_pow3_scale, spike_pow2_scale, spike_pow3_derivative_scale, spike_pow2_derivative_scale,
       size: Float32Array.BYTES_PER_ELEMENT * 5,
@@ -429,19 +439,19 @@ SampleInitFactoryWebGPU(
     const particleFolder = gui.addFolder('Particle');
     particleFolder.add(settings, 'Particle Radius', 0.0, 300.0).step(1.0);
     particleFolder
-      .add(settings, 'Smoothing Radius', 0.1, 20.0)
+      .add(sphSettings, 'smoothingRadius', 0.1, 20.0)
       .step(0.01)
       .onChange(() => {
         settings.smoothPoly6Scale =
-          4 / (Math.PI * Math.pow(settings['Smoothing Radius'], 8));
+          4 / (Math.PI * Math.pow(sphSettings.smoothingRadius, 8));
         settings.spikePow3Scale =
-          10 / (Math.PI * Math.pow(settings['Smoothing Radius'], 5));
+          10 / (Math.PI * Math.pow(sphSettings.smoothingRadius, 5));
         settings.spikePow2Scale =
-          6 / (Math.PI * Math.pow(settings['Smoothing Radius'], 4));
+          6 / (Math.PI * Math.pow(sphSettings.smoothingRadius, 4));
         settings.spikePow3DerScale =
-          30 / (Math.pow(settings['Smoothing Radius'], 5) * Math.PI);
+          30 / (Math.pow(sphSettings.smoothingRadius, 5) * Math.PI);
         settings.spikePow2DerScale =
-          12 / (Math.pow(settings['Smoothing Radius'], 4) * Math.PI);
+          12 / (Math.pow(sphSettings.smoothingRadius, 4) * Math.PI);
       });
     gui.add(settings, 'Damping', 0.0, 1.0).step(0.1);
 
@@ -459,6 +469,9 @@ SampleInitFactoryWebGPU(
       'Densities',
       'Spatial Offsets',
       'Spatial Indices',
+      'Spatial Indices (Idx)',
+      'Spatial Indices (Hash)',
+      'Spatial Indices (Key)',
     ] as DebugPropertySelect[]);
     debugFolder.add(settings, 'Log Debug').onChange(() => {
       console.log(settings['Debug Property']);
@@ -475,12 +488,51 @@ SampleInitFactoryWebGPU(
           }
           break;
         case 'Spatial Indices':
+        case 'Spatial Indices (Idx)':
+        case 'Spatial Indices (Hash)':
+        case 'Spatial Indices (Key)':
           {
             extractGPUData(
               sortResource.spatialIndicesStagingBuffer,
               sortResource.spatialIndicesBuffer.size
             ).then((data) => {
-              console.log(new Uint32Array(data));
+              const arr = new Uint32Array(data);
+              switch (
+                settings['Debug Property'] as SpatialIndicesDebugPropertySelect
+              ) {
+                case 'Spatial Indices':
+                  {
+                    console.log(arr);
+                  }
+                  break;
+                case 'Spatial Indices (Idx)':
+                  {
+                    const output = [];
+                    for (let i = 0; i < arr.length; i += 3) {
+                      output.push(arr[i]);
+                    }
+                    console.log(output);
+                  }
+                  break;
+                case 'Spatial Indices (Hash)':
+                  {
+                    const output = [];
+                    for (let i = 1; i < arr.length; i += 3) {
+                      output.push(arr[i]);
+                    }
+                    console.log(output);
+                  }
+                  break;
+                case 'Spatial Indices (Key)':
+                  {
+                    const output = [];
+                    for (let i = 2; i < arr.length; i += 3) {
+                      output.push(arr[i]);
+                    }
+                    console.log(output);
+                  }
+                  break;
+              }
               sortResource.spatialIndicesStagingBuffer.unmap();
             });
           }
@@ -560,7 +612,7 @@ SampleInitFactoryWebGPU(
         new Float32Array([
           settings.Damping,
           settings.Gravity,
-          settings['Smoothing Radius'],
+          sphSettings.smoothingRadius,
           settings['Target Density'],
           settings['Pressure Scale'],
           settings['Near Pressure Scale'],
@@ -680,6 +732,9 @@ SampleInitFactoryWebGPU(
           }
           break;
         case 'Spatial Indices':
+        case 'Spatial Indices (Hash)':
+        case 'Spatial Indices (Key)':
+        case 'Spatial Indices (Idx)':
           {
             commandEncoder.copyBufferToBuffer(
               sortResource.spatialIndicesBuffer,
@@ -730,6 +785,7 @@ const fluidExample: () => JSX.Element = () =>
       },
       {
         name: 'utils.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./utils.ts').default,
       },
       // Render files
@@ -743,6 +799,7 @@ const fluidExample: () => JSX.Element = () =>
       },
       {
         name: './render/render.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./render/render.ts').default,
       },
       // Sort files
@@ -756,6 +813,7 @@ const fluidExample: () => JSX.Element = () =>
       },
       {
         name: './sort/types.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./sort/types.ts').default,
       },
       // Compute files

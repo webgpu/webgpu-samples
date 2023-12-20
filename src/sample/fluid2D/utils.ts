@@ -165,7 +165,7 @@ export interface DistributionSettings {
 // https://matthias-research.github.io/pages/publications/sca03.pdf
 export const calculateDistributionScales = (
   smoothingRadius: number,
-  mass: number,
+  mass: number
 ) => {
   const pow6 = Math.pow(smoothingRadius, 6);
   const pow9 = Math.pow(smoothingRadius, 9);
@@ -182,18 +182,22 @@ export const calculateDistributionScales = (
     srSquared,
     massPoly6,
     selfDensity,
-  }
+  };
 };
 
 // Main.ts utils
+export type SpatialIndicesDebugPropertySelect =
+  | 'Spatial Indices'
+  | 'Spatial Indices (Idx)'
+  | 'Spatial Indices (Hash)'
+  | 'Spatial Indices (Key)';
+
 export type DebugPropertySelect =
   | 'Positions'
   | 'Velocities'
   | 'Predicted Positions'
   | 'Densities'
-  | 'Spatial Indices'
+  | SpatialIndicesDebugPropertySelect
   | 'Spatial Offsets';
 
 export type SimulateState = 'PAUSE' | 'RUN' | 'RESET';
-
-
