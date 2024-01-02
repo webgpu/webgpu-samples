@@ -10,19 +10,14 @@ import {
   SpatialIndicesDebugPropertySelect,
 } from './utils';
 import { SampleInitFactoryWebGPU } from '../bitonicSort/utils';
-import { createSpatialSortResource, StepEnum } from './sort/types';
-import sortWGSL from './sort/sort.wgsl';
-import offsetsWGSL from './sort/offsets.wgsl';
+import { createSpatialSortResource, StepEnum } from './fluidSort/types';
+import * as FluidCompute from './fluidCompute';
+import sortWGSL from './fluidSort/sort.wgsl';
+import offsetsWGSL from './fluidSort/offsets.wgsl';
 import commonWGSL from './common.wgsl';
-import spatialHashWGSL from './computeLague/spatialHash.wgsl';
-import renderParticleWGSL from './render/renderParticle.wgsl';
-import renderDensityWGSL from './render/renderDensity.wgsl';
-import positionsWGSL from './computeLague/positions.wgsl';
-import densityWGSL from './computeLague/density.wgsl';
-import viscosityWGSL from './computeLague/viscosity.wgsl';
-import pressureWGSL from './computeLague/pressure.wgsl';
-import externalForcesWGSL from './computeLague/externalForces.wgsl';
-import ParticleRenderer, { ParticleRenderMode } from './render/render';
+import renderParticleWGSL from './fluidRender/renderParticle.wgsl';
+import renderDensityWGSL from './fluidRender/renderDensity.wgsl';
+import ParticleRenderer, { ParticleRenderMode } from './fluidRender/render';
 import Input, { createInputHandler } from '../cameras/input';
 
 let init: SampleInit;
@@ -341,12 +336,12 @@ SampleInitFactoryWebGPU(
     const externalForcesPipeline = createFluidComputePipeline(
       'ExternalForces',
       pipelineLayoutWithoutSort,
-      externalForcesWGSL
+      FluidCompute.externalForcesShader
     );
     const spatialHashPipeline = createFluidComputePipeline(
       'ComputeSpatialHash',
       pipelineLayoutWithSort,
-      spatialHashWGSL
+      FluidCompute.spatialHashShader
     );
     const sortSpatialIndicesPipeline = createFluidComputePipeline(
       `SortSpatialIndices`,
@@ -361,23 +356,23 @@ SampleInitFactoryWebGPU(
     const densityPipeline = createFluidComputePipeline(
       'ComputeDensity',
       pipelineLayoutWithSort,
-      densityWGSL
+      FluidCompute.densityShader
     );
     const pressurePipeline = createFluidComputePipeline(
       'ComputePressure',
       pipelineLayoutWithSort,
-      pressureWGSL
+      FluidCompute.pressureShader
     );
     const viscosityPipeline = createFluidComputePipeline(
       'ComputeViscosity',
       pipelineLayoutWithSort,
-      viscosityWGSL
+      FluidCompute.viscosityShader
     );
 
     const positionsPipeline = createFluidComputePipeline(
       'ComputePositions',
       pipelineLayoutWithoutSort,
-      positionsWGSL
+      FluidCompute.positionsShader
     );
 
     // Render Pipeline
@@ -790,44 +785,61 @@ const fluidExample: () => JSX.Element = () =>
       },
       // Render files
       {
-        name: './render/renderParticle.wgsl',
+        name: './fluidRender/renderParticle.wgsl',
         contents: renderParticleWGSL,
       },
       {
-        name: './render/renderDensity.wgsl',
+        name: './fluidRender/renderDensity.wgsl',
         contents: renderDensityWGSL,
       },
       {
-        name: './render/render.ts',
+        name: './fluidRender/render.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        contents: require('!!raw-loader!./render/render.ts').default,
+        contents: require('!!raw-loader!./fluidRender/render.ts').default,
       },
       // Sort files
       {
-        name: './sort/sort.wgsl',
+        name: './fluidSort/sort.wgsl',
         contents: sortWGSL,
       },
       {
-        name: './sort/offsets.wgsl',
+        name: './fluidSort/offsets.wgsl',
         contents: offsetsWGSL,
       },
       {
-        name: './sort/types.ts',
+        name: './fluidSort/types.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        contents: require('!!raw-loader!./sort/types.ts').default,
+        contents: require('!!raw-loader!./fluidSort/types.ts').default,
       },
       // Compute files
       {
-        name: './computeLague/spatialHash.wgsl',
-        contents: spatialHashWGSL,
+        name: './fluidCompute/externalForces.wgsl',
+        contents: FluidCompute.externalForcesShader,
       },
       {
-        name: './computeLague/positions.wgsl',
-        contents: positionsWGSL,
+        name: './fluidCompute/spatialHash.wgsl',
+        contents: FluidCompute.spatialHashShader,
       },
       {
-        name: './density.wgsl',
-        contents: densityWGSL,
+        name: './fluidCompute/density.wgsl',
+        contents: FluidCompute.densityShader,
+      },
+      {
+        name: './fluidCompute/pressure.wgsl',
+        contents: FluidCompute.pressureShader,
+      },
+      {
+        name: './fluidCompute/viscosity.wgsl',
+        contents: FluidCompute.viscosityShader,
+      },
+      {
+        name: './fluidCompute/positions.wgsl',
+        contents: FluidCompute.positionsShader,
+      },
+      {
+        name: './fluidCompute/index.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        contents: require('!!raw-loader!./fluidCompute/index.ts').default,
       },
     ],
     filename: __filename,
