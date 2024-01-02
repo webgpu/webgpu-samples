@@ -10,7 +10,10 @@
   max-width: 600px;
 }
 
+
+
 nav.sourceFileNav ul {
+  box-sizing: border-box;
   list-style-type: none;
   padding: 0;
   margin: 0;
@@ -22,6 +25,32 @@ nav.sourceFileNav li {
   margin: 0;
   padding: 0;
   transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer {
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar {
+  display: inline;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  height: 7px;
+  width: 10px;
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar-thumb {
+  background: rgb(167, 167, 167);
+  height: 5px;
+  border-radius: 20px;
+  -webkit-box-shadow: inset 0 0 10px rgb(45, 33, 33);
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0);
 }
 
 nav.sourceFileNav li a {

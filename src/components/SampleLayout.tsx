@@ -229,23 +229,25 @@ const SampleLayout: React.FunctionComponent<
       </div>
       <div>
         <nav className={styles.sourceFileNav}>
-          <ul>
-            {sources.map((src, i) => {
-              return (
-                <li key={i}>
-                  <a
-                    href={`#${src.name}`}
-                    data-active={activeHash == src.name}
-                    onClick={() => {
-                      setActiveHash(src.name);
-                    }}
-                  >
-                    {src.name}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+          <div className={styles.sourceFileScrollContainer}>
+            <ul>
+              {sources.map((src, i) => {
+                return (
+                  <li key={i}>
+                    <a
+                      href={`#${src.name}`}
+                      data-active={activeHash == src.name}
+                      onClick={() => {
+                        setActiveHash(src.name);
+                      }}
+                    >
+                      {src.name}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </nav>
         {sources.map((src, i) => {
           return (
