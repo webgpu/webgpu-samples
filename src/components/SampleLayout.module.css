@@ -30,6 +30,7 @@ nav.sourceFileNav li {
 nav.sourceFileNav div.sourceFileScrollContainer {
   white-space: nowrap;
   overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar {
