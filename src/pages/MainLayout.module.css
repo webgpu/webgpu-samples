@@ -43,6 +43,7 @@
 }
 
 .panel .panelContents {
+  display: block;
   transition: max-height 0s;
   overflow: none;
   max-height: 100vh;
