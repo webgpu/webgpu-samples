@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useRef, useEffect} from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
@@ -22,7 +22,40 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   const router = useRouter();
   const samplesNames = Object.keys(pages);
 
-  const [listExpanded, setListExpanded] = useState<boolean>(false);
+  const panelContentsRef = useRef<HTMLDivElement>(null);
+  const prevWindowWidth = useRef<number>(0);
+
+  useEffect(() => {
+    const resizeListener = () => {
+      if (window.innerWidth > 768) {
+        prevWindowWidth.current = window.innerWidth;
+        panelContentsRef.current.style.maxHeight =
+          panelContentsRef.current.scrollHeight + 'px';
+      }
+      if (window.innerWidth <= 768 && prevWindowWidth.current > 768) {
+        panelContentsRef.current.style.maxHeight = '0px';
+      }
+    };
+    window.addEventListener('resize', resizeListener);
+    prevWindowWidth.current = window.innerWidth;
+    return () => {
+      window.removeEventListener('resize', resizeListener);
+    };
+  }, []);
+
+  const toggelPanelContents = () => {
+    if (panelContentsRef.current) {
+      if (panelContentsRef.current.style.maxHeight === '0px') {
+        panelContentsRef.current.style.maxHeight =
+          panelContentsRef.current.scrollHeight + 16 + 'px';
+        panelContentsRef.current.style.overflow = 'none';
+      } else {
+        panelContentsRef.current.style.maxHeight = '0px';
+        panelContentsRef.current.style.overflow = 'hidden';
+      }
+      console.log(panelContentsRef.current.style.maxHeight);
+    }
+  };
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
   if (oldPathSyntaxMatch) {
@@ -45,20 +78,18 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         />
       </Head>
       <div className={styles.wrapper}>
-        <nav
-          className={`${styles.panel} ${styles.container}`}
-          data-expanded={listExpanded}
-        >
+        <nav className={`${styles.panel} ${styles.container}`}>
           <h1>
             <Link href="/">{title}</Link>
             <div
               className={styles.expand}
               onClick={() => {
-                setListExpanded(!listExpanded);
+                //setListExpanded(!listExpanded);
+                toggelPanelContents();
               }}
             ></div>
           </h1>
-          <div className={styles.panelContents}>
+          <div className={styles.panelContents} ref={panelContentsRef}>
             <a href={`https://github.com/${process.env.REPOSITORY_NAME}`}>
               Github
             </a>
@@ -81,7 +112,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     <Link
                       href={`/samples/${slug}`}
                       onClick={() => {
-                        setListExpanded(false);
+                        toggelPanelContents();
                       }}
                     >
                       {slug}

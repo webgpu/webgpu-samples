@@ -18,7 +18,9 @@
 }
 
 .exampleList {
-  padding: 0
+  padding: 0;
+  margin-block-start: 16px;
+  margin-block-end: 16px;
 }
 
 .exampleList li {
@@ -55,12 +57,11 @@
     height: auto;
   }
 
-  .panel[data-expanded=false] .panelContents {
-    display: none;
-  }
-
-  .panel[data-expanded=true] .panelContents {
+  .panelContents {
     display: block;
+    transition: max-height 0.3s ease-out;
+    overflow: hidden;
+    max-height: 0px;
   }
 
   .expand {
