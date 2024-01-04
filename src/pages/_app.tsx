@@ -33,12 +33,15 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         prevWindowWidth.current = window.innerWidth;
         panelContentsRef.current.style.maxHeight =
           panelContentsRef.current.scrollHeight + 'px';
+        // Prevent visible height change on resize behind window.innerWidth > 768
+        panelContentsRef.current.style.transition = 'max-height 0s';
       }
       // Else when the window resizes to less than 768 pixels
       // and we haven't already gone under 768 pixels on the previous resize,
       // then set the height of panelContents to 0.
       if (window.innerWidth <= 768 && prevWindowWidth.current > 768) {
         panelContentsRef.current.style.maxHeight = '0px';
+        panelContentsRef.current.style.transition = 'max-height 0.3s ease-out';
       }
     };
     window.addEventListener('resize', resizeListener);
