@@ -43,9 +43,10 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
     };
   }, []);
 
-  const toggelPanelContents = () => {
+  const stylePanelOnExpand = () => {
     if (panelContentsRef.current) {
       if (panelContentsRef.current.style.maxHeight === '0px') {
+        // Scroll height + marginBlockEnd of 16
         panelContentsRef.current.style.maxHeight =
           panelContentsRef.current.scrollHeight + 16 + 'px';
         panelContentsRef.current.style.overflow = 'none';
@@ -54,6 +55,13 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         panelContentsRef.current.style.overflow = 'hidden';
       }
       console.log(panelContentsRef.current.style.maxHeight);
+    }
+  };
+
+  const stylePanelOnLink = () => {
+    if (window.innerWidth <= 768) {
+      panelContentsRef.current.style.maxHeight = '0px';
+      panelContentsRef.current.style.overflow = 'hidden';
     }
   };
 
@@ -84,8 +92,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             <div
               className={styles.expand}
               onClick={() => {
-                //setListExpanded(!listExpanded);
-                toggelPanelContents();
+                stylePanelOnExpand();
               }}
             ></div>
           </h1>
@@ -112,7 +119,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     <Link
                       href={`/samples/${slug}`}
                       onClick={() => {
-                        toggelPanelContents();
+                        stylePanelOnLink();
                       }}
                     >
                       {slug}
