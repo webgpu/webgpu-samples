@@ -142,6 +142,10 @@ struct SpatialEntry {
 const hashK1: u32 = 15823;
 const hashK2: u32 = 9737333;
 
+const densityWeightConstant = 0.00497359197162172924277761760539;
+const spikyGradient = -0.09947183943243458485555235210782;
+const viscLaplacian = 0.39788735772973833942220940843129;
+
 // Convert floating point position into an integer cell coordinate
 // radius represents the smoothing radius of our particle, it sphere of influence so to speak
 // position 256, 38 with smoothingRadius of 10 will return Cell Coordinate (25, 3);

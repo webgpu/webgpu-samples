@@ -27,6 +27,14 @@ type PipelineBGLayoutType =
   | 'SORT_ONLY_WITH_ALGO_INFO'
   | 'SORT_ONLY_WITHOUT_ALGO_INFO';
 
+const particleMass = 2.0;
+const viscosity = 200;
+const gasConstant = 2000;
+const restDensity = 300;
+const boundDamping = -0.5;
+// Both smoothingRadius and visual radius
+const radius = 2;
+
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({
