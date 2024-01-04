@@ -14,11 +14,18 @@ import { createSpatialSortResource, StepEnum } from './fluidSort/types';
 import * as FluidCompute from './fluidCompute';
 import sortWGSL from './fluidSort/sort.wgsl';
 import offsetsWGSL from './fluidSort/offsets.wgsl';
+import clearOffsetsWGSL from './fluidSort/clearOffsets.wgsl';
 import commonWGSL from './common.wgsl';
 import renderParticleWGSL from './fluidRender/renderParticle.wgsl';
 import renderDensityWGSL from './fluidRender/renderDensity.wgsl';
 import ParticleRenderer, { ParticleRenderMode } from './fluidRender/render';
 import Input, { createInputHandler } from '../cameras/input';
+
+type PipelineBGLayoutType =
+  | 'WITH_SORT'
+  | 'WITHOUT_SORT'
+  | 'SORT_ONLY_WITH_ALGO_INFO'
+  | 'SORT_ONLY_WITHOUT_ALGO_INFO';
 
 let init: SampleInit;
 SampleInitFactoryWebGPU(
@@ -248,11 +255,7 @@ SampleInitFactoryWebGPU(
     const runPipeline = (
       commandEncoder: GPUCommandEncoder,
       pipeline: GPUComputePipeline,
-      layoutType:
-        | 'WITH_SORT'
-        | 'WITHOUT_SORT'
-        | 'SORT_ONLY_INDICES'
-        | 'SORT_ONLY_OFFSETS'
+      layoutType: PipelineBGLayoutType
     ) => {
       const passEncoder = commandEncoder.beginComputePass();
       passEncoder.setPipeline(pipeline);
@@ -285,7 +288,7 @@ SampleInitFactoryWebGPU(
             );
           }
           break;
-        case 'SORT_ONLY_INDICES':
+        case 'SORT_ONLY_WITH_ALGO_INFO':
           {
             passEncoder.setBindGroup(
               0,
@@ -316,20 +319,31 @@ SampleInitFactoryWebGPU(
     };
 
     // Compute pipeline Layouts
+
+    // Standard pipeline layout of storage and uniform buffers
+    // without any of the sort resources.
     const pipelineLayoutWithoutSort = [
       particleStorageBGCluster.bindGroupLayout,
       particleUniformsBGCluster.bindGroupLayout,
     ];
 
+    // Standard pipeline layout of storage and uniform buffers
+    // with the sort data resources.
     const pipelineLayoutWithSort = [
       particleStorageBGCluster.bindGroupLayout,
       particleUniformsBGCluster.bindGroupLayout,
       sortResource.dataStorageBGCluster.bindGroupLayout,
     ];
 
-    const pipelineLayoutOnlySort = [
+    // Only the sort resources alongside sort algorithm info.
+    const pipelineLayoutSortOnlyWithAlgoInfo = [
       sortResource.dataStorageBGCluster.bindGroupLayout,
       sortResource.algoStorageBGCluster.bindGroupLayout,
+    ];
+
+    // Only the sort resources themselves (i.e spatialIndices and spatialOffsets)
+    const pipelineLayoutSortOnlyWithoutAlgoInfo = [
+      sortResource.dataStorageBGCluster.bindGroupLayout,
     ];
 
     // Compute Pipelines
@@ -338,6 +352,11 @@ SampleInitFactoryWebGPU(
       pipelineLayoutWithoutSort,
       FluidCompute.externalForcesShader
     );
+    const clearSpatialOffsetsPipeline = createFluidComputePipeline(
+      'ClearSpatialOffsets',
+      pipelineLayoutSortOnlyWithoutAlgoInfo,
+      clearOffsetsWGSL
+    );
     const spatialHashPipeline = createFluidComputePipeline(
       'ComputeSpatialHash',
       pipelineLayoutWithSort,
@@ -345,12 +364,12 @@ SampleInitFactoryWebGPU(
     );
     const sortSpatialIndicesPipeline = createFluidComputePipeline(
       `SortSpatialIndices`,
-      pipelineLayoutOnlySort,
+      pipelineLayoutSortOnlyWithAlgoInfo,
       sortWGSL
     );
     const computeSpatialOffsetsPipeline = createFluidComputePipeline(
       'ComputeSpatialOffsets',
-      [sortResource.dataStorageBGCluster.bindGroupLayout],
+      pipelineLayoutSortOnlyWithoutAlgoInfo,
       offsetsWGSL
     );
     const densityPipeline = createFluidComputePipeline(
@@ -655,19 +674,28 @@ SampleInitFactoryWebGPU(
       const commandEncoder = device.createCommandEncoder();
 
       if (settings['Simulate State'] === 'RUN') {
+        // Calculate external forces
         runPipeline(commandEncoder, externalForcesPipeline, 'WITHOUT_SORT');
+        // Clear the spatialOffsets so our spatialHash can execute properly
+        // TODO: Does this need to be its own pipeline?
+        runPipeline(
+          commandEncoder,
+          clearSpatialOffsetsPipeline,
+          'SORT_ONLY_WITHOUT_ALGO_INFO'
+        );
+        // Calculate the cell index hash for each particle
         runPipeline(commandEncoder, spatialHashPipeline, 'WITH_SORT');
         for (let i = 0; i < sortResource.stepsInSort; i++) {
           runPipeline(
             commandEncoder,
             sortSpatialIndicesPipeline,
-            'SORT_ONLY_INDICES'
+            'SORT_ONLY_WITH_ALGO_INFO'
           );
         }
         runPipeline(
           commandEncoder,
           computeSpatialOffsetsPipeline,
-          'SORT_ONLY_OFFSETS'
+          'SORT_ONLY_WITHOUT_ALGO_INFO'
         );
         runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
         runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');

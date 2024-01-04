@@ -7,12 +7,15 @@
 
 // Spatial Sort Buffers
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
+@group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
 
 @compute @workgroup_size(256, 1, 1)
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
+	// Reset spatial offsets
+	spatial_offsets[global_id.x] = 0;
 	// Update index buffer
 	var index: u32 = global_id.x;
 	var cell: vec2<i32> = GetCell2D(predicted_positions[global_id.x], particle_uniforms.smoothing_radius);
