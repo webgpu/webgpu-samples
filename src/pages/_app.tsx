@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
@@ -21,6 +21,18 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
 }) => {
   const router = useRouter();
   const samplesNames = Object.keys(pages);
+
+  useEffect(() => {
+    const resizeListener = () => {
+      if (window.innerWidth > 768) {
+        panelRef.current.setAttribute('data-expanded', 'false')
+      }
+    };
+    window.addEventListener('resize', resizeListener);
+    return () => {
+      window.removeEventListener('resize', resizeListener);
+    };
+  }, []);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const setDataExpanded = () => {
