@@ -49,7 +49,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   }, []);
 
   // Style .panelContents when clicking the expand icon.
-  const stylePanelOnExpand = () => {
+  const stylePanelContentsOnExpand = () => {
     if (panelContentsRef.current) {
       if (panelContentsRef.current.style.maxHeight === '0px') {
         // Scroll height + marginBlockEnd of 16
@@ -65,7 +65,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   };
 
   //Style .panelContents when clicking on a link.
-  const stylePanelOnLink = () => {
+  const stylePanelContentsOnLink = () => {
     // Only hide the panelContents when our window size is less than 768 pixels.
     // Otherwise maintain the current layout of panelContents.
     if (window.innerWidth <= 768) {
@@ -101,7 +101,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             <div
               className={styles.expand}
               onClick={() => {
-                stylePanelOnExpand();
+                stylePanelContentsOnExpand();
               }}
             ></div>
           </h1>
@@ -128,7 +128,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     <Link
                       href={`/samples/${slug}`}
                       onClick={() => {
-                        stylePanelOnLink();
+                        stylePanelContentsOnLink();
                       }}
                     >
                       {slug}
