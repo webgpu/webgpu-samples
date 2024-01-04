@@ -42,6 +42,12 @@
   background-size: cover;
 }
 
+.panel .panelContents {
+  transition: max-height 0s;
+  overflow: none;
+  max-height: 100vh;
+}
+
 @media only screen and (max-width: 768px) {
   /* More padding on mobile for easier touch screen use */
   .exampleLink {
@@ -57,11 +63,19 @@
     height: auto;
   }
 
-  .panelContents {
+  .panel .panelContents {
     display: block;
     transition: max-height 0.3s ease-out;
     overflow: hidden;
     max-height: 0px;
+  }
+
+  .panel[data-expanded='false'] .panelContents {
+    max-height: 0vh;
+  }
+
+  .panel[data-expanded='true'] .panelContents {
+    max-height: 100vh;
   }
 
   .expand {

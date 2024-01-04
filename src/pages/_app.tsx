@@ -22,59 +22,20 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   const router = useRouter();
   const samplesNames = Object.keys(pages);
 
-  const panelContentsRef = useRef<HTMLDivElement>(null);
-  const prevWindowWidth = useRef<number>(0);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const resizeListener = () => {
-      // Whenever the window expands to greater than 768 pixels,
-      // set the panelContents to their maximum height.
-      if (window.innerWidth > 768) {
-        prevWindowWidth.current = window.innerWidth;
-        panelContentsRef.current.style.maxHeight =
-          panelContentsRef.current.scrollHeight + 'px';
-        // Prevent visible height change on resize behind window.innerWidth > 768
-        panelContentsRef.current.style.transition = 'max-height 0s';
-      }
-      // Else when the window resizes to less than 768 pixels
-      // and we haven't already gone under 768 pixels on the previous resize,
-      // then set the height of panelContents to 0.
-      if (window.innerWidth <= 768 && prevWindowWidth.current > 768) {
-        panelContentsRef.current.style.maxHeight = '0px';
-        panelContentsRef.current.style.transition = 'max-height 0.3s ease-out';
-      }
-    };
-    window.addEventListener('resize', resizeListener);
-    prevWindowWidth.current = window.innerWidth;
-    return () => {
-      window.removeEventListener('resize', resizeListener);
-    };
-  }, []);
-
-  // Style .panelContents when clicking the expand icon.
   const stylePanelContentsOnExpand = () => {
-    if (panelContentsRef.current) {
-      if (panelContentsRef.current.style.maxHeight === '0px') {
-        // Scroll height + marginBlockEnd of 16
-        panelContentsRef.current.style.maxHeight =
-          panelContentsRef.current.scrollHeight + 16 + 'px';
-        panelContentsRef.current.style.overflow = 'none';
-      } else {
-        panelContentsRef.current.style.maxHeight = '0px';
-        panelContentsRef.current.style.overflow = 'hidden';
-      }
-      console.log(panelContentsRef.current.style.maxHeight);
+    if (panelRef.current) {
+      console.log(panelRef.current.getAttribute('data-expanded'));
+      panelRef.current.getAttribute('data-expanded') === 'true'
+        ? panelRef.current.setAttribute('data-expanded', 'false')
+        : panelRef.current.setAttribute('data-expanded', 'true');
     }
   };
 
   //Style .panelContents when clicking on a link.
   const stylePanelContentsOnLink = () => {
-    // Only hide the panelContents when our window size is less than 768 pixels.
-    // Otherwise maintain the current layout of panelContents.
-    if (window.innerWidth <= 768) {
-      panelContentsRef.current.style.maxHeight = '0px';
-      panelContentsRef.current.style.overflow = 'hidden';
-    }
+    panelRef.current.setAttribute('data-expanded', 'false');
   };
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
@@ -98,7 +59,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         />
       </Head>
       <div className={styles.wrapper}>
-        <nav className={`${styles.panel} ${styles.container}`}>
+        <nav className={`${styles.panel} ${styles.container}`} ref={panelRef}>
           <h1>
             <Link href="/">{title}</Link>
             <div
@@ -108,7 +69,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
               }}
             ></div>
           </h1>
-          <div className={styles.panelContents} ref={panelContentsRef}>
+          <div className={styles.panelContents}>
             <a href={`https://github.com/${process.env.REPOSITORY_NAME}`}>
               Github
             </a>
