@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useRef, useEffect} from 'react';
+import { useRef, useEffect } from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
@@ -27,11 +27,16 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
 
   useEffect(() => {
     const resizeListener = () => {
+      // Whenever the window expands to greater than 768 pixels,
+      // set the panelContents to their maximum height.
       if (window.innerWidth > 768) {
         prevWindowWidth.current = window.innerWidth;
         panelContentsRef.current.style.maxHeight =
           panelContentsRef.current.scrollHeight + 'px';
       }
+      // Else when the window resizes to less than 768 pixels
+      // and we haven't already gone under 768 pixels on the previous resize,
+      // then set the height of panelContents to 0.
       if (window.innerWidth <= 768 && prevWindowWidth.current > 768) {
         panelContentsRef.current.style.maxHeight = '0px';
       }
@@ -43,6 +48,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
     };
   }, []);
 
+  // Style .panelContents when clicking the expand icon.
   const stylePanelOnExpand = () => {
     if (panelContentsRef.current) {
       if (panelContentsRef.current.style.maxHeight === '0px') {
@@ -58,7 +64,10 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
     }
   };
 
+  //Style .panelContents when clicking on a link.
   const stylePanelOnLink = () => {
+    // Only hide the panelContents when our window size is less than 768 pixels.
+    // Otherwise maintain the current layout of panelContents.
     if (window.innerWidth <= 768) {
       panelContentsRef.current.style.maxHeight = '0px';
       panelContentsRef.current.style.overflow = 'hidden';
