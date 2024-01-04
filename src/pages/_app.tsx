@@ -23,19 +23,13 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   const samplesNames = Object.keys(pages);
 
   const panelRef = useRef<HTMLDivElement>(null);
-
-  const stylePanelContentsOnExpand = () => {
+  const setDataExpanded = () => {
     if (panelRef.current) {
       console.log(panelRef.current.getAttribute('data-expanded'));
       panelRef.current.getAttribute('data-expanded') === 'true'
         ? panelRef.current.setAttribute('data-expanded', 'false')
         : panelRef.current.setAttribute('data-expanded', 'true');
     }
-  };
-
-  //Style .panelContents when clicking on a link.
-  const stylePanelContentsOnLink = () => {
-    panelRef.current.setAttribute('data-expanded', 'false');
   };
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
@@ -65,7 +59,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             <div
               className={styles.expand}
               onClick={() => {
-                stylePanelContentsOnExpand();
+                setDataExpanded();
               }}
             ></div>
           </h1>
@@ -92,7 +86,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     <Link
                       href={`/samples/${slug}`}
                       onClick={() => {
-                        stylePanelContentsOnLink();
+                        setDataExpanded();
                       }}
                     >
                       {slug}
