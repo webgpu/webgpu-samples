@@ -25,7 +25,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   useEffect(() => {
     const resizeListener = () => {
       if (window.innerWidth > 768) {
-        panelRef.current.setAttribute('data-expanded', 'false')
+        panelRef.current.setAttribute('data-expanded', 'false');
       }
     };
     window.addEventListener('resize', resizeListener);
