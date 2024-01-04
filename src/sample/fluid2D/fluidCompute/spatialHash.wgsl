@@ -13,6 +13,10 @@
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
+  // NOTE 2002 code uses different GetCell code that takes into account both radius and boxSize
+  // position.x + halfBoxSize / smoothingRadius, position.y + halfBoxSize / smoothingRadius
+  // They also make the smoothingRadius and visual radius the same, but tomAYto tomAHto
+  // Fundamentally the code is mostly the same
 	// Update index buffer
 	var index: u32 = global_id.x;
 	var cell: vec2<i32> = GetCell2D(predicted_positions[global_id.x], particle_uniforms.smoothing_radius);

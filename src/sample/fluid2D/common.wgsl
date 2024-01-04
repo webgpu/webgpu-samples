@@ -161,3 +161,5 @@ fn KeyFromHash(hash: u32, tableSize: u32) -> u32 {
   return hash % tableSize;
 }
 
+// 2002 Code has a particleCellIndices 
+
