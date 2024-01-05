@@ -1,98 +1,3 @@
-/* Replicates a Gaussian distribution */
-/*
-                     ______
-                   /        \
-                /             \
-              /                 \                   
-           /                     \                      
-         /                         \                               
-       /                            \                            
-      /                              \                                       
-     /                                \                                          
-----/                                  \________ */
-
-/* Spike Distribution */
-/*
-                /\       
-               /  \        
-              /    \       
-             /      \      
-            /        \     
-           /          \    
-          /            \   
-         /              \  
-        /                \ 
-       /                  \
-      /                    \
-_____/                      \_____*/
-
-
-// General formula for each of these distributions is as follows:
-// If the point falls within the range of the particle's sphere of influence (i.e smoothing radius)
-// then calculate an influence value, else return 0
-
-// Distribution Functions
-fn SmoothDistributionPoly6(
-  dist: f32, 
-  radius: f32,
-  scale: f32,
-) -> f32 {
-  if (dist < radius) {
-    var v: f32 = radius * radius - dist * dist;
-    return v * v * v * scale;
-  }
-  return 0;
-}
-
-fn SpikeDistributionPower3(
-  dist: f32, 
-  radius: f32,
-  scale: f32,
-) -> f32 {
-  if (dist < radius) {
-    var v: f32 = radius - dist;
-    return v * v * v * scale;
-  }
-  return 0;
-}
-
-fn SpikeDistributionPower2(
-  dist: f32, 
-  radius: f32,
-  scale: f32,
-) -> f32 { 
-  if (dist < radius) {
-    var v: f32 = radius - dist;
-    return v * v * scale;
-  }
-  return 0;
-}
-
-// -v applied to scale because the derivative of (s - x) with respect to x is -1
-fn SpikeDistributionPower3Derivative(
-  dist: f32,
-  radius: f32,
-  scale: f32,
-) -> f32 {
-  if (dist <= radius) {
-    var v: f32 = radius - dist;
-    return -v * v * scale;
-  }
-  return 0;
-}
-
-fn SpikeDistributionPower2Derivative(
-  dist: f32,
-  radius: f32,
-  scale: f32,
-) -> f32 {
-  if (dist <= radius) {
-    var v: f32 = radius - dist;
-    return -v * scale;
-  }
-  return 0;
-}
-
 // Hash Functions
 // The offsets represent nine possible movements (from top to bottom)
 const CardinalOffsets: array<vec2<i32>, 9> = array<vec2<i32>, 9>(
@@ -114,24 +19,6 @@ struct GeneralUniforms {
   bounds_y: f32,
 }
 
-struct ParticleUniforms {
-  damping: f32,
-  gravity: f32,
-  smoothing_radius: f32,
-  target_density: f32,
-  standard_pressure_multiplier: f32,
-  near_pressure_multiplier: f32,
-  viscosity_strength: f32,
-}
-
-struct DistributionUniforms {
-  poly6_scale: f32,
-  spike_pow3_scale: f32,
-  spike_pow2_scale: f32,
-  spike_pow3_derivative_scale: f32,
-  spike_pow2_derivative_scale: f32,
-}
-
 struct SpatialEntry {
   index: u32,
   hash: u32,
@@ -142,9 +29,25 @@ struct SpatialEntry {
 const hashK1: u32 = 15823;
 const hashK2: u32 = 9737333;
 
-const densityWeightConstant = 0.00497359197162172924277761760539;
-const spikyGradient = -0.09947183943243458485555235210782;
-const viscLaplacian = 0.39788735772973833942220940843129;
+// Solver Constants from https://lucasschuermann.com/writing/implementing-sph-in-2d
+const GRAVITY = vec2<f32>(0.0, -10.0);
+const REST_DENSITY = 300.0;
+const GAS_CONSTANT = 2000.0;
+const SMOOTHING_RADIUS = 16.0;
+const SMOOTHING_RADIUS_SQR = 256.0;
+const MASS = 2.5;
+const VISCOSITY = 200.0;
+const DELTA_TIME = 0.0007;
+
+// Kernel constants from https://lucasschuermann.com/writing/implementing-sph-in-2d
+const POLY6 = 4.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 8.0));
+const SPIKY_GRADIENT = -10.0 / (3.141592653 * POW(SMOOTHING_RADIUS, 5.0));
+const VISCOSITY_LAPACIAN = 40.0 / (3.141592653 * POW(SMOOTHING_RADIUS, 5.0));
+
+
+const DENSITY_WEIGHT_CONSTANT = 0.00497359197162172924277761760539;
+const SPIKY_GRADIENT_CONSTANT = -0.09947183943243458485555235210782;
+const VISC_LAPASIAN_CONSTANT = 0.39788735772973833942220940843129;
 
 // Convert floating point position into an integer cell coordinate
 // radius represents the smoothing radius of our particle, it sphere of influence so to speak

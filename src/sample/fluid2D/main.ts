@@ -35,6 +35,10 @@ const boundDamping = -0.5;
 // Both smoothingRadius and visual radius
 const radius = 2;
 
+// SPH Fluids
+// A continuous material such as a fluid is represented by discrete particles (i.e the fluid is 'discretized')
+// A discrete particle's properties influence other particles' properties through kernel functions
+
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({
