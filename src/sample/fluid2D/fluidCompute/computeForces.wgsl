@@ -12,6 +12,11 @@
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
+  let pos = positions[global_id.x];
+  let dst2 = densities[global_id.x] * densities[global_id.x];
+  let mass2 = PARTICLE_MASS * PARTICLE_MASS;
+  var pressure = vec2<f32>(0.0, 0.0);
+  var viscosity = vec2<f32>(0.0, 0.0);
   let velocity: vec2<f32> = velocities[global_id.x] + (current_forces[global_id.x] / PARTICLE_MASS);
   positions[global_id.x] += velocity;
   // Do bounds checks

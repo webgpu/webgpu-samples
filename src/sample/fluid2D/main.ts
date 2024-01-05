@@ -145,20 +145,49 @@ SampleInitFactoryWebGPU(
 
     // Create necessary resources for shader, first storage buffers, then uniforms buffers
     // STORAGE
-    const positionsBuffer = device.createBuffer(
-      fluidPropertyStorageBufferDescriptor
-    );
-    const velocitiesBuffer = device.createBuffer(
-      fluidPropertyStorageBufferDescriptor
-    );
-    const predictedPositionsBuffer = device.createBuffer(
-      fluidPropertyStorageBufferDescriptor
-    );
-    const densitiesBuffer = device.createBuffer(
-      fluidPropertyStorageBufferDescriptor
-    );
-    const fluidPropertiesStagingBuffer = device.createBuffer({
-      size: fluidPropertyStorageBufferSize,
+    const positionsBuffer = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
+    });
+    const velocitiesBuffer = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
+    });
+    const currentForcesBuffer = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
+    });
+    const pressuresBuffer = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'],
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
+    });
+    const densitiesBuffer = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'],
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
+    });
+    // Staging buffer for positionsBuffer, velocitiesBuffer, and currentForcesBuffer.
+    const particleStatingBufferVec2 = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    // Staging buffer for pressuresBuffer, densitiesBuffer.
+    const particleStatingBufferVec1 = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'],
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
@@ -170,28 +199,13 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    // Simulation specific uniforms
-    const particlePropertiesUniformsBuffer = device.createBuffer({
-      // damping, gravity, smoothing_radius, target_density, standard_pressure_multiplier, near_pressure_multiplier, viscosity_strength
-      size: Float32Array.BYTES_PER_ELEMENT * 7,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
-    });
-
-    // Uniforms that help define the scaling factors for smooth and spike distributions
-    // Changes whenever sphSettings.smoothingRadius changes
-    const distributionUniformsBuffer = device.createBuffer({
-      // poly6_scale, spike_pow3_scale, spike_pow2_scale, spike_pow3_derivative_scale, spike_pow2_derivative_scale,
-      size: Float32Array.BYTES_PER_ELEMENT * 5,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
     //SPHSettings sphSettings(0.02f, 1000, 1, 1.04f, 0.15f, -9.8f, 0.2f);
 
     // Bind storage buffers and uniforms buffers to their own bind groups
     const particleStorageBGCluster = createBindGroupCluster({
       device: device,
-      label: 'ComputePositions.storageBGCluster',
-      bindings: [0, 1, 2, 3],
+      label: 'ParticleStorage.bgCluster',
+      bindings: [0, 1, 2, 3, 4],
       visibilities: [GPUShaderStage.COMPUTE],
       resourceTypes: ['buffer', 'buffer', 'buffer', 'buffer'],
       resourceLayouts: [
@@ -202,37 +216,31 @@ SampleInitFactoryWebGPU(
       ],
       resources: [
         [
-          { buffer: positionsBuffer }, //0
-          { buffer: velocitiesBuffer }, //1
-          { buffer: predictedPositionsBuffer }, //2
-          { buffer: densitiesBuffer }, //3
+          // @group(0) @binding(0)
+          { buffer: positionsBuffer },
+          // @group(0) @binding(1)
+          { buffer: velocitiesBuffer },
+          // @group(0) @binding(2)
+          { buffer: currentForcesBuffer },
+          // @group(0) @binding(3)
+          { buffer: densitiesBuffer },
+          // @group(0) @binding(4)
+          { buffer: pressuresBuffer },
         ],
       ],
     });
 
     const particleUniformsBGCluster = createBindGroupCluster({
       device: device,
-      label: 'ComputePositions.uniformsBGCluster',
-      bindings: [0, 1, 2],
+      label: 'ParticleUniforms.bgCluster',
+      bindings: [0],
       visibilities: [GPUShaderStage.COMPUTE],
-      resourceTypes: ['buffer', 'buffer', 'buffer'],
-      resourceLayouts: [
-        { type: 'uniform' },
-        { type: 'uniform' },
-        { type: 'uniform' },
-      ],
-      resources: [
-        [
-          { buffer: generalUniformsBuffer },
-          { buffer: particlePropertiesUniformsBuffer },
-          { buffer: distributionUniformsBuffer },
-        ],
-      ],
+      resourceTypes: ['buffer'],
+      resourceLayouts: [{ type: 'uniform' }],
+      // @group(1) @binding(0)
+      resources: [[{ buffer: generalUniformsBuffer }]],
     });
 
-    // Finally, last part of resource creation is creating bitonic sort resoruces
-    // Note that our bitonic sort will execute fewer workgroups than our other pipelines
-    // Since each invocation of the bitonic shader covers two elements
     const sortResource = createSpatialSortResource(
       device,
       settings['Total Particles']
