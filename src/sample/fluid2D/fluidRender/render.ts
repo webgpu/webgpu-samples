@@ -2,7 +2,6 @@ import { create3DRenderPipeline } from '../../normalMap/utils';
 import { BindGroupCluster, createBindGroupCluster } from '../utils';
 
 import renderParticleWGSL from './renderParticle.wgsl';
-import renderDensityWGSL from './renderDensity.wgsl';
 
 interface RenderArgs {
   particleRadius: number;
@@ -31,7 +30,6 @@ export default class ParticleRenderer {
 
   private renderPassDescriptor: GPURenderPassDescriptor;
   private renderStandardPipeline: GPURenderPipeline;
-  private renderDensityPipeline: GPURenderPipeline;
   private renderUniforms: GPUBuffer;
   private storageBGCluster: BindGroupCluster;
   private uniformsBGCLuster: BindGroupCluster;
@@ -99,22 +97,6 @@ export default class ParticleRenderer {
       renderParticleWGSL,
       [],
       renderParticleWGSL,
-      presentationFormat,
-      false,
-      'triangle-list',
-      'front'
-    );
-
-    this.renderDensityPipeline = create3DRenderPipeline(
-      device,
-      'RenderDensity',
-      [
-        this.storageBGCluster.bindGroupLayout,
-        this.uniformsBGCLuster.bindGroupLayout,
-      ],
-      renderDensityWGSL,
-      [],
-      renderDensityWGSL,
       presentationFormat,
       false,
       'triangle-list',

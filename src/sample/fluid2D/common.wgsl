@@ -1,4 +1,4 @@
-// The offsets represent nine possible movements (from top to bottom)
+// The offsets represent nine (TODO: eight?) possible movements (from top to bottom)
 const CardinalOffsets: array<vec2<i32>, 9> = array<vec2<i32>, 9>(
   vec2<i32>(-1, 1),
   vec2<i32>(0, 1),
@@ -63,14 +63,18 @@ fn GetCell2D(position: vec2<f32>, cell_size: f32) -> vec2<i32> {
 // least numerically insane way to assign each cell a unique number
 // Dimensions needs to be greater than the max value of cell.x or cell.y
 // Avoid this collision scenario (2, 1) -> 12 (12, 0) -> 12
-fn SimpleHash2D(cell: vec2<i32>, bounds_min: i32) -> i32 {
+fn SimpleHash2D(cell: vec2<i32>, bounds_min: i32,) -> i32 {
   // Adjust only if there are negative cell values
   let x = cell.x + abs(min(bounds_min, 0));
   let y = cell.y + abs(min(bounds_min, 0));
-  cell.x + cell.y * grid_dim;
+  return x + y *
 }
 
 // Hash cell coordinate to a single unsigned integer
+// Although this is technically a more robust hashing solution,
+// For the sake of simplicity and clarity to the user, 
+// we use a hash capped to the grid's dimensions to make the hash tables
+// more readable
 fn HashCell2D(cell: vec2<i32>) -> u32 {
   let a : u32 = u32(cell.x) * hashK1;
   let b : u32 = u32(cell.y) * hashK2;

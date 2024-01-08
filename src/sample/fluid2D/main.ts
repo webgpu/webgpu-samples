@@ -42,14 +42,6 @@ SampleInitFactoryWebGPU(
     const maxWorkgroupSizeX = device.limits.maxComputeWorkgroupSizeX;
     const inputHandler = createInputHandler(window, canvas);
 
-    // Bounds are somewhat odd, in the sense that dimensions are centered at 0,0, so canvas actually goes from -canvas.width to canvas.width
-    const boundsSettings = {
-      // Width and height of bounds (always square for simplicity)
-      boundsDim: 400,
-      boundsMin: -200,
-      boundsMax: 200,
-    };
-
     const frameSettings = {
       deltaTime: 0.03,
       iterationsPerFrame: 1,
@@ -57,17 +49,12 @@ SampleInitFactoryWebGPU(
       simulate: false,
     };
 
-    const cameraSettings = {
-      zoomScaleX: 1 / (boundsSettings.boundsDim * 0.5),
-      zoomScaleY: 1 / (boundsSettings.boundsDim * 0.5),
-    };
-
     const settings = {
       // The total number of particles being simulated
-      'Total Particles': 4096,
-      // A fluid particle's display radius
-      'Particle Radius': 2,
-      cameraOffset: 0,
+      totalParticles: 4096,
+      // A fluid particle's display and smoothing radius
+      particleRadius: 1,
+      cellSize: 2,
       writeToDistributionBuffer: false,
       'Debug Property': 'Positions',
       'Log Debug': () => {
@@ -76,6 +63,24 @@ SampleInitFactoryWebGPU(
       'Log Dispatch Info': () => {
         return;
       },
+    };
+
+    // Bounds are somewhat odd, in the sense that dimensions are centered at 0,0, so canvas actually goes from -canvas.width to canvas.width
+    const boundsSettings = {
+      // Width and height of the simulation bounding box
+      boundsDim: 200,
+      // Min x and y coordinate of our bounding box
+      boundsMin: -100,
+      // Max x and y coordinate of our bounding box
+      boundsMax: 100,
+      // Number of cells in our hash grid
+      gridNumCells: (200 / settings.cellSize) * (200 / settings.cellSize),
+    };
+
+    const cameraSettings = {
+      zoomScaleX: 1 / (boundsSettings.boundsDim * 0.5),
+      zoomScaleY: 1 / (boundsSettings.boundsDim * 0.5),
+      cameraOffset: 0,
     };
 
     const updateCamera2D = (deltaTime: number, input: Input) => {
@@ -91,49 +96,42 @@ SampleInitFactoryWebGPU(
 
     /* COMPUTE SHADER RESOURCE PREPARATION */
     // STORAGE
+    const debuggableStorageUsage =
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC;
     const positionsBuffer = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.COPY_SRC,
+      size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles * 2,
+      usage: debuggableStorageUsage,
     });
     const velocitiesBuffer = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.COPY_SRC,
+      size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles * 2,
+      usage: debuggableStorageUsage,
     });
     const currentForcesBuffer = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.COPY_SRC,
+      size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles * 2,
+      usage: debuggableStorageUsage,
     });
     const pressuresBuffer = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'],
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.COPY_SRC,
+      size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles,
+      usage: debuggableStorageUsage,
     });
     const densitiesBuffer = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'],
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.COPY_SRC,
+      size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles,
+      usage: debuggableStorageUsage,
+    });
+    const hashBuffer = device.createBuffer({
+      size: boundsSettings.gridNumCells * Float32Array.BYTES_PER_ELEMENT,
+      usage: debuggableStorageUsage,
     });
     // Staging buffer for positionsBuffer, velocitiesBuffer, and currentForcesBuffer.
     const particleStatingBufferVec2 = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
+      size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles * 2,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
     // Staging buffer for pressuresBuffer, densitiesBuffer.
     const particleStatingBufferVec1 = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'],
+      size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
@@ -189,7 +187,7 @@ SampleInitFactoryWebGPU(
 
     const sortResource = createSpatialSortResource(
       device,
-      settings['Total Particles']
+      settings.totalParticles
     );
 
     // Now, we can write some utilities to create our compute pipelines
@@ -234,7 +232,7 @@ SampleInitFactoryWebGPU(
               sortResource.dataStorageBGCluster.bindGroups[0]
             );
             passEncoder.dispatchWorkgroups(
-              Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
+              Math.ceil(settings.totalParticles / maxWorkgroupSizeX)
             );
           }
           break;
@@ -246,7 +244,7 @@ SampleInitFactoryWebGPU(
               particleUniformsBGCluster.bindGroups[0]
             );
             passEncoder.dispatchWorkgroups(
-              Math.ceil(settings['Total Particles'] / maxWorkgroupSizeX)
+              Math.ceil(settings.totalParticles / maxWorkgroupSizeX)
             );
           }
           break;
@@ -370,7 +368,7 @@ SampleInitFactoryWebGPU(
 
     const particleRenderer = new ParticleRenderer({
       device,
-      numParticles: settings['Total Particles'],
+      numParticles: settings.totalParticles,
       positionsBuffer,
       velocitiesBuffer,
       densitiesBuffer,
@@ -382,7 +380,7 @@ SampleInitFactoryWebGPU(
     // Generate positions data and velocities data for their respective buffers
     // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
     const { inputPositions, inputVelocities } = generateParticleData(
-      settings['Total Particles'],
+      settings.totalParticles,
       -boundsSettings.boundsMin,
       -boundsSettings.boundsMin,
       boundsSettings.boundsDim,
@@ -491,7 +489,7 @@ SampleInitFactoryWebGPU(
           {
             extractGPUData(
               particleStatingBufferVec2,
-              Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2
+              Float32Array.BYTES_PER_ELEMENT * settings.totalParticles * 2
             ).then((data) => {
               console.log(new Float32Array(data));
               particleStatingBufferVec2.unmap();
@@ -502,7 +500,7 @@ SampleInitFactoryWebGPU(
         case 'Densities': {
           extractGPUData(
             particleStatingBufferVec1,
-            Float32Array.BYTES_PER_ELEMENT * settings['Total Particles']
+            Float32Array.BYTES_PER_ELEMENT * settings.totalParticles
           ).then((data) => {
             console.log(new Float32Array(data));
             particleStatingBufferVec1.unmap();
@@ -515,7 +513,7 @@ SampleInitFactoryWebGPU(
         `Invocations Per Workgroup: ${
           device.limits.maxComputeWorkgroupSizeX
         }\nWorkgroups Per Particle Property Calc: ${
-          settings['Total Particles'] / 256
+          settings.totalParticles / 256
         }\nWorkgroups Per Spatial Indices Sort: ${
           sortResource.spatialIndicesWorkloadSize
         }\nWorkgroups Per Spatial Offsets Calc: ${
@@ -547,7 +545,7 @@ SampleInitFactoryWebGPU(
       device.queue.writeBuffer(
         generalUniformsBuffer,
         0,
-        new Uint32Array([settings['Total Particles']])
+        new Uint32Array([settings.totalParticles])
       );
 
       device.queue.writeBuffer(
@@ -563,7 +561,7 @@ SampleInitFactoryWebGPU(
       particleRenderer.writeUniforms(device, {
         zoomScaleX: cameraSettings.zoomScaleX,
         zoomScaleY: cameraSettings.zoomScaleY,
-        particleRadius: settings['Particle Radius'],
+        particleRadius: settings.particleRadius,
         targetDensity: settings['Target Density'],
       });
 
@@ -713,10 +711,6 @@ const fluidExample: () => JSX.Element = () =>
       {
         name: './fluidRender/renderParticle.wgsl',
         contents: renderParticleWGSL,
-      },
-      {
-        name: './fluidRender/renderDensity.wgsl',
-        contents: renderDensityWGSL,
       },
       {
         name: './fluidRender/render.ts',
