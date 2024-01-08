@@ -115,10 +115,10 @@ export const extractGPUData = async (
 // SPH FLUID SPECIFIC UTILS
 export const generateParticleData = (
   numParticles: number,
-  x: number,
-  y: number,
-  w: number,
-  h: number
+  x_start: number,
+  y_start: number,
+  width: number,
+  height: number
 ): {
   inputPositions: Float32Array;
   inputVelocities: Float32Array;
@@ -130,16 +130,12 @@ export const generateParticleData = (
   const inputVelocities = new Float32Array(
     new ArrayBuffer(numParticles * 2 * Float32Array.BYTES_PER_ELEMENT)
   );
-
-  const boundsX = w;
-  const boundsY = h;
-
   // Generate positions data and velocities data for their respective buffers
   // Positions are set between position x to x + w, y to y + h
   for (let i = 0; i < numParticles; i++) {
     // Position
-    inputPositions[i * 2 + 0] = x + Math.random() * w;
-    inputPositions[i * 2 + 1] = y + Math.random() * h;
+    inputPositions[i * 2 + 0] = x_start + Math.random() * width;
+    inputPositions[i * 2 + 1] = y_start + Math.random() * height;
 
     // Velocity
     inputVelocities[i * 2 + 0] = 0;
@@ -161,30 +157,6 @@ export interface DistributionSettings {
   selfDensity: number;
 }
 
-// Distributions from this link
-// https://matthias-research.github.io/pages/publications/sca03.pdf
-export const calculateDistributionScales = (
-  smoothingRadius: number,
-  mass: number
-) => {
-  const pow6 = Math.pow(smoothingRadius, 6);
-  const pow9 = Math.pow(smoothingRadius, 9);
-  const poly6Scale = 315.0 / (64.0 * Math.PI * pow9);
-  const spikyGradScale = -45.0 / (Math.PI * pow6);
-  const spikyLapacianScale = 45.0 / (Math.PI * pow6);
-  const srSquared = smoothingRadius * smoothingRadius;
-  const massPoly6 = mass * poly6Scale;
-  const selfDensity = massPoly6 * pow6;
-  return {
-    poly6Scale,
-    spikyGradScale,
-    spikyLapacianScale,
-    srSquared,
-    massPoly6,
-    selfDensity,
-  };
-};
-
 // Main.ts utils
 export type SpatialIndicesDebugPropertySelect =
   | 'Spatial Indices'
@@ -195,7 +167,8 @@ export type SpatialIndicesDebugPropertySelect =
 export type DebugPropertySelect =
   | 'Positions'
   | 'Velocities'
-  | 'Predicted Positions'
+  | 'Current Forces'
+  | 'Pressures'
   | 'Densities'
   | SpatialIndicesDebugPropertySelect
   | 'Spatial Offsets';

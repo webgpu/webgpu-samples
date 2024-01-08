@@ -135,22 +135,11 @@ export default class ParticleRenderer {
     );
   }
 
-  render(commandEncoder: GPUCommandEncoder, renderMode: ParticleRenderMode) {
+  render(commandEncoder: GPUCommandEncoder) {
     const passEncoder = commandEncoder.beginRenderPass(
       this.renderPassDescriptor
     );
-    switch (renderMode) {
-      case 'STANDARD':
-        {
-          passEncoder.setPipeline(this.renderStandardPipeline);
-        }
-        break;
-      case 'DENSITY':
-        {
-          passEncoder.setPipeline(this.renderDensityPipeline);
-        }
-        break;
-    }
+    passEncoder.setPipeline(this.renderStandardPipeline);
     passEncoder.setBindGroup(0, this.storageBGCluster.bindGroups[0]);
     passEncoder.setBindGroup(1, this.uniformsBGCLuster.bindGroups[0]);
     passEncoder.draw(6, this.particlesToRender, 0, 0);

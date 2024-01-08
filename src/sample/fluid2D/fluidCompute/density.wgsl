@@ -4,8 +4,6 @@
 
 // Uniforms
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
-@group(1) @binding(2) var<uniform> distribution_uniforms: DistributionUniforms;
 
 // Spatial Indices
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
@@ -14,7 +12,6 @@
 // DENSITY COMPUTE SHADER
 fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
   var origin_cell: vec2<i32> = GetCell2D(pos, particle_uniforms.smoothing_radius);
-  var sqr_radius: f32 = particle_uniforms.smoothing_radius * particle_uniforms.smoothing_radius;
   var standard_density: f32 = 0.0;
   var near_density: f32 = 0.0;
 
@@ -48,7 +45,7 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
       var sqr_dst: f32 = dot(neighbor_offset, neighbor_offset);
       // Determine whether the neighbor particle is within the particle's region of influence, as specified by the smoothing radius
       // We compare against squared radius due to optimize against the cost of the sqrt call
-      if (sqr_dst > sqr_radius) {
+      if (sqr_dst > SMOOTHING_RADIUS_SQR) {
         continue;
       }
 

@@ -5,8 +5,6 @@ import {
   generateParticleData,
   SimulateState,
   DebugPropertySelect,
-  DistributionSettings,
-  calculateDistributionScales,
   SpatialIndicesDebugPropertySelect,
 } from './utils';
 import { SampleInitFactoryWebGPU } from '../bitonicSort/utils';
@@ -18,7 +16,7 @@ import clearOffsetsWGSL from './fluidSort/clearOffsets.wgsl';
 import commonWGSL from './common.wgsl';
 import renderParticleWGSL from './fluidRender/renderParticle.wgsl';
 import renderDensityWGSL from './fluidRender/renderDensity.wgsl';
-import ParticleRenderer, { ParticleRenderMode } from './fluidRender/render';
+import ParticleRenderer from './fluidRender/render';
 import Input, { createInputHandler } from '../cameras/input';
 
 type PipelineBGLayoutType =
@@ -27,18 +25,9 @@ type PipelineBGLayoutType =
   | 'SORT_ONLY_WITH_ALGO_INFO'
   | 'SORT_ONLY_WITHOUT_ALGO_INFO';
 
-const particleMass = 2.0;
-const viscosity = 200;
-const gasConstant = 2000;
-const restDensity = 300;
-const boundDamping = -0.5;
-// Both smoothingRadius and visual radius
-const radius = 2;
-
 // SPH Fluids
 // A continuous material such as a fluid is represented by discrete particles (i.e the fluid is 'discretized')
 // A discrete particle's properties influence other particles' properties through kernel functions
-
 let init: SampleInit;
 SampleInitFactoryWebGPU(
   async ({
@@ -55,8 +44,10 @@ SampleInitFactoryWebGPU(
 
     // Bounds are somewhat odd, in the sense that dimensions are centered at 0,0, so canvas actually goes from -canvas.width to canvas.width
     const boundsSettings = {
-      boundsX: 200 * 2,
-      boundsY: 200 * 2,
+      // Width and height of bounds (always square for simplicity)
+      boundsDim: 400,
+      boundsMin: -200,
+      boundsMax: 200,
     };
 
     const frameSettings = {
@@ -67,36 +58,17 @@ SampleInitFactoryWebGPU(
     };
 
     const cameraSettings = {
-      zoomScaleX: 1 / (boundsSettings.boundsX * 0.5),
-      zoomScaleY: 1 / (boundsSettings.boundsY * 0.5),
-    };
-
-    const sphSettings = {
-      mass: 0.02,
-      restingDensity: 1000,
-      gasConst: 1,
-      viscosity: 1.04,
-      // The radius of a particle's influence from its center to its edge
-      smoothingRadius: 0.15,
-      gravity: -9.8,
-      surfaceTension: 0.2,
+      zoomScaleX: 1 / (boundsSettings.boundsDim * 0.5),
+      zoomScaleY: 1 / (boundsSettings.boundsDim * 0.5),
     };
 
     const settings = {
-      // The gravity force applied to each particle
-      Gravity: -9.8,
       // The total number of particles being simulated
       'Total Particles': 4096,
       // A fluid particle's display radius
       'Particle Radius': 2,
       cameraOffset: 0,
       writeToDistributionBuffer: false,
-      'Viscosity Strength': 0.06,
-      'Pressure Scale': 500,
-      'Near Pressure Scale': 18,
-      'Target Density': 55,
-      // The bounce dampening on a non-fluid particle
-      Damping: 0.95,
       'Debug Property': 'Positions',
       'Log Debug': () => {
         return;
@@ -104,24 +76,7 @@ SampleInitFactoryWebGPU(
       'Log Dispatch Info': () => {
         return;
       },
-      'Log Distribution Scales': () => {
-        return;
-      },
-      'Reset Particles': () => {
-        return;
-      },
-      'Simulate State': 'PAUSE',
-      'Render Mode': 'STANDARD',
-      // A boolean indicating whether the simulation is in the process of resetting
-      smoothPoly6Scale: 4 / (Math.PI * Math.pow(0.35, 8)),
-      spikePow3Scale: 10 / (Math.PI * Math.pow(0.35, 5)),
-      spikePow2Scale: 6 / (Math.PI * Math.pow(0.35, 4)),
-      spikePow3DerScale: 30 / (Math.pow(0.35, 5) * Math.PI),
-      spikePow2DerScale: 12 / (Math.pow(0.35, 4) * Math.PI),
     };
-
-    const distributionSettings: DistributionSettings =
-      calculateDistributionScales(sphSettings.smoothingRadius, 1.0);
 
     const updateCamera2D = (deltaTime: number, input: Input) => {
       if (input.digital.forward) {
@@ -135,19 +90,6 @@ SampleInitFactoryWebGPU(
     };
 
     /* COMPUTE SHADER RESOURCE PREPARATION */
-
-    // Positions, velocities, predicted_positions, and densities each represented by vec2<f32>
-    const fluidPropertyStorageBufferSize =
-      Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2;
-    const fluidPropertyStorageBufferDescriptor: GPUBufferDescriptor = {
-      size: fluidPropertyStorageBufferSize,
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.COPY_SRC,
-    };
-
-    // Create necessary resources for shader, first storage buffers, then uniforms buffers
     // STORAGE
     const positionsBuffer = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2,
@@ -323,7 +265,7 @@ SampleInitFactoryWebGPU(
             );
           }
           break;
-        case 'SORT_ONLY_OFFSETS':
+        case 'SORT_ONLY_WITHOUT_ALGO_INFO':
           {
             passEncoder.setBindGroup(
               0,
@@ -441,14 +383,11 @@ SampleInitFactoryWebGPU(
     // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
     const { inputPositions, inputVelocities } = generateParticleData(
       settings['Total Particles'],
-      -boundsSettings.boundsX / 2,
-      -boundsSettings.boundsY / 2,
-      boundsSettings.boundsX,
-      boundsSettings.boundsY
+      -boundsSettings.boundsMin,
+      -boundsSettings.boundsMin,
+      boundsSettings.boundsDim,
+      boundsSettings.boundsDim
     );
-
-    const renderModes: ParticleRenderMode[] = ['STANDARD', 'DENSITY'];
-    gui.add(settings, 'Render Mode', renderModes);
 
     const simulationFolder = gui.addFolder('Simulation');
     const simulateController = simulationFolder
@@ -468,38 +407,13 @@ SampleInitFactoryWebGPU(
         }
       });
     simulationFolder.add(frameSettings, 'deltaTime', 0.01, 0.5).step(0.01);
-    simulationFolder.add(settings, 'Gravity', -20.0, 20.0).step(0.1);
-
-    const particleFolder = gui.addFolder('Particle');
-    particleFolder.add(settings, 'Particle Radius', 0.0, 300.0).step(1.0);
-    particleFolder
-      .add(sphSettings, 'smoothingRadius', 0.1, 20.0)
-      .step(0.01)
-      .onChange(() => {
-        settings.smoothPoly6Scale =
-          4 / (Math.PI * Math.pow(sphSettings.smoothingRadius, 8));
-        settings.spikePow3Scale =
-          10 / (Math.PI * Math.pow(sphSettings.smoothingRadius, 5));
-        settings.spikePow2Scale =
-          6 / (Math.PI * Math.pow(sphSettings.smoothingRadius, 4));
-        settings.spikePow3DerScale =
-          30 / (Math.pow(sphSettings.smoothingRadius, 5) * Math.PI);
-        settings.spikePow2DerScale =
-          12 / (Math.pow(sphSettings.smoothingRadius, 4) * Math.PI);
-      });
-    gui.add(settings, 'Damping', 0.0, 1.0).step(0.1);
-
-    const physicsFolder = gui.addFolder('Physics (!)');
-    physicsFolder.add(settings, 'Target Density', 1, 100);
-    physicsFolder.add(settings, 'Pressure Scale', 1, 1000);
-    physicsFolder.add(settings, 'Near Pressure Scale', 1, 50);
-    physicsFolder.add(settings, 'Viscosity Strength', 0.001, 0.1).step(0.001);
 
     const debugFolder = gui.addFolder('Debug');
     debugFolder.add(settings, 'Debug Property', [
       'Positions',
       'Velocities',
-      'Predicted Positions',
+      'Current Forces',
+      'Pressures',
       'Densities',
       'Spatial Offsets',
       'Spatial Indices',
@@ -571,17 +485,29 @@ SampleInitFactoryWebGPU(
             });
           }
           break;
-        default:
+        case 'Positions':
+        case 'Velocities':
+        case 'Current Forces':
           {
             extractGPUData(
-              fluidPropertiesStagingBuffer,
-              fluidPropertyStorageBufferSize
+              particleStatingBufferVec2,
+              Float32Array.BYTES_PER_ELEMENT * settings['Total Particles'] * 2
             ).then((data) => {
               console.log(new Float32Array(data));
-              fluidPropertiesStagingBuffer.unmap();
+              particleStatingBufferVec2.unmap();
             });
           }
           break;
+        case 'Pressures':
+        case 'Densities': {
+          extractGPUData(
+            particleStatingBufferVec1,
+            Float32Array.BYTES_PER_ELEMENT * settings['Total Particles']
+          ).then((data) => {
+            console.log(new Float32Array(data));
+            particleStatingBufferVec1.unmap();
+          });
+        }
       }
     });
     debugFolder.add(settings, 'Log Dispatch Info').onChange(() => {
@@ -597,16 +523,11 @@ SampleInitFactoryWebGPU(
         }`
       );
     });
-    debugFolder.add(settings, 'Log Distribution Scales').onChange(() => {
-      console.log(
-        `Smooth Poly 6 Scale: ${settings.smoothPoly6Scale}\nSpike Pow 3 Scale: ${settings.spikePow3Scale}\nSpike Pow 3 Derivative Scale: ${settings.spikePow3DerScale}\nSpike Pow 2 Scale:${settings.spikePow2Scale}\nSpike Pow 2 Derivative Scale:${settings.spikePow2DerScale}`
-      );
-    });
 
     // Initial 'write to main storage buffers
     device.queue.writeBuffer(positionsBuffer, 0, inputPositions);
+    console.log(inputPositions);
     device.queue.writeBuffer(velocitiesBuffer, 0, inputVelocities);
-    device.queue.writeBuffer(predictedPositionsBuffer, 0, inputPositions);
 
     // Create initial algorithmic info that begins our per frame bitonic sort
     const initialAlgoInfo = new Uint32Array([
@@ -634,36 +555,8 @@ SampleInitFactoryWebGPU(
         4,
         new Float32Array([
           frameSettings.deltaTime,
-          boundsSettings.boundsX,
-          boundsSettings.boundsY,
-        ])
-      );
-
-      // Write to particle properties buffer
-      device.queue.writeBuffer(
-        particlePropertiesUniformsBuffer,
-        0,
-        new Float32Array([
-          settings.Damping,
-          settings.Gravity,
-          sphSettings.smoothingRadius,
-          settings['Target Density'],
-          settings['Pressure Scale'],
-          settings['Near Pressure Scale'],
-          settings['Viscosity Strength'],
-        ])
-      );
-
-      // Write to distribution uniforms buffer
-      device.queue.writeBuffer(
-        distributionUniformsBuffer,
-        0,
-        new Float32Array([
-          settings.smoothPoly6Scale,
-          settings.spikePow3Scale,
-          settings.spikePow2Scale,
-          settings.spikePow3DerScale,
-          settings.spikePow2DerScale,
+          boundsSettings.boundsDim,
+          boundsSettings.boundsDim,
         ])
       );
 
@@ -686,10 +579,6 @@ SampleInitFactoryWebGPU(
       renderPassDescriptor.colorAttachments[0].view = context
         .getCurrentTexture()
         .createView();
-
-      if (settings['Simulate State'] === 'RESET') {
-        //device.qu
-      }
 
       const commandEncoder = device.createCommandEncoder();
 
@@ -727,7 +616,7 @@ SampleInitFactoryWebGPU(
         }
       }
 
-      particleRenderer.render(commandEncoder, settings['Render Mode']);
+      particleRenderer.render(commandEncoder);
 
       switch (settings['Debug Property'] as DebugPropertySelect) {
         case 'Positions':
@@ -735,7 +624,7 @@ SampleInitFactoryWebGPU(
             commandEncoder.copyBufferToBuffer(
               positionsBuffer,
               0,
-              fluidPropertiesStagingBuffer,
+              particleStatingBufferVec2,
               0,
               positionsBuffer.size
             );
@@ -746,9 +635,9 @@ SampleInitFactoryWebGPU(
             commandEncoder.copyBufferToBuffer(
               velocitiesBuffer,
               0,
-              fluidPropertiesStagingBuffer,
+              particleStatingBufferVec2,
               0,
-              fluidPropertyStorageBufferSize
+              velocitiesBuffer.size
             );
           }
           break;
@@ -757,20 +646,9 @@ SampleInitFactoryWebGPU(
             commandEncoder.copyBufferToBuffer(
               densitiesBuffer,
               0,
-              fluidPropertiesStagingBuffer,
+              particleStatingBufferVec1,
               0,
-              fluidPropertyStorageBufferSize
-            );
-          }
-          break;
-        case 'Predicted Positions':
-          {
-            commandEncoder.copyBufferToBuffer(
-              predictedPositionsBuffer,
-              0,
-              fluidPropertiesStagingBuffer,
-              0,
-              fluidPropertyStorageBufferSize
+              densitiesBuffer.size
             );
           }
           break;
