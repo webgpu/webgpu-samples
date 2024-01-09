@@ -17,6 +17,7 @@ import commonWGSL from './common.wgsl';
 import renderParticleWGSL from './fluidRender/renderParticle.wgsl';
 import ParticleRenderer from './fluidRender/render';
 import Input, { createInputHandler } from '../cameras/input';
+import HashGridRenderer from './gridRender/render';
 
 type PipelineBGLayoutType =
   | 'WITH_SORT'
@@ -365,12 +366,20 @@ SampleInitFactoryWebGPU(
       ],
     };
 
+    // Shaders rendering the discrete fluid particles
     const particleRenderer = new ParticleRenderer({
       device,
       numParticles: settings.totalParticles,
       positionsBuffer,
       velocitiesBuffer,
       densitiesBuffer,
+      presentationFormat,
+      renderPassDescriptor,
+    });
+
+    // Shader rendering the particle hash grid
+    const hashGridRenderer = new HashGridRenderer({
+      device,
       presentationFormat,
       renderPassDescriptor,
     });
