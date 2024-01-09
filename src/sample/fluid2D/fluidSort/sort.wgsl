@@ -7,11 +7,11 @@ struct AlgoInfo {
 
 var<workgroup> local_data: array<SpatialEntry, 512>;
 
-@group(0) @binding(0) var<storage, read_write> input_spatial_indices: array<SpatialEntry>;
+@group(0) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
 @group(1) @binding(0) var<storage, read_write> algo_info: array<AlgoInfo>;
 
 fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
-  if (local_data[idx_after].key < local_data[idx_before].key) {
+  if (local_data[idx_after].hash < local_data[idx_before].hash) {
     var temp: SpatialEntry = local_data[idx_before];
     local_data[idx_before] = local_data[idx_after];
     local_data[idx_after] = temp;
@@ -42,9 +42,9 @@ fn get_disperse_indices(thread_id: u32, block_height: u32) -> vec2<u32> {
 }
 
 fn global_compare_and_swap(idx_before: u32, idx_after: u32) {
-  if (input_spatial_indices[idx_after].key < input_spatial_indices[idx_before].key) {
-    input_spatial_indices[idx_before] = input_spatial_indices[idx_after];
-    input_spatial_indices[idx_after] = input_spatial_indices[idx_before];
+  if (spatial_indices[idx_after].hash < spatial_indices[idx_before].hash) {
+    spatial_indices[idx_before] = spatial_indices[idx_after];
+    spatial_indices[idx_after] = spatial_indices[idx_before];
   } 
 }
 
@@ -63,30 +63,30 @@ fn computeMain(
   let offset = 256 * 2 * workgroup_id.x;
   // If we will perform a local swap, then populate the local data
   if (algo_info[0].algo <= 2) {
-    // Assign range of input_data to local_data.
+    // Assign a range of data within input data to local workgroup data
     // Range cannot exceed maxWorkgroupsX * 2
     // Each thread will populate the workgroup data... (1 thread for every 2 elements)
-    local_data[local_id.x * 2] = input_spatial_indices[offset + local_id.x * 2];
-    local_data[local_id.x * 2 + 1] = input_spatial_indices[offset + local_id.x * 2 + 1];
+    local_data[local_id.x * 2] = spatial_indices[offset + local_id.x * 2];
+    local_data[local_id.x * 2 + 1] = spatial_indices[offset + local_id.x * 2 + 1];
   }
 
   //...and wait for each other to finish their own bit of data population.
   workgroupBarrier();
 
   switch algo_info[0].algo {
-    case 1: { // Local Flip
+    case ALGO_FLIP_LOCAL: { // 1
       let idx = get_flip_indices(local_id.x, algo_info[0].stepHeight);
       local_compare_and_swap(idx.x, idx.y);
     } 
-    case 2: { // Local Disperse
+    case ALGO_DISPERSE_LOCAL: { // 2
       let idx = get_disperse_indices(local_id.x, algo_info[0].stepHeight);
       local_compare_and_swap(idx.x, idx.y);
     } 
-    case 3: { // Global Flip
+    case ALGO_FLIP_GLOBAL: { // 3
       let idx = get_flip_indices(global_id.x, algo_info[0].stepHeight);
       global_compare_and_swap(idx.x, idx.y);
     }
-    case 4: { 
+    case ALGO_DISPERSE_GLOBAL: { // 4
       let idx = get_disperse_indices(global_id.x, algo_info[0].stepHeight);
       global_compare_and_swap(idx.x, idx.y);
     }
@@ -100,8 +100,8 @@ fn computeMain(
 
   if (algo_info[0].algo <= ALGO_DISPERSE_LOCAL) {
     //Repopulate global data with local data
-    input_spatial_indices[offset + local_id.x * 2] = local_data[local_id.x * 2];
-    input_spatial_indices[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
+    spatial_indices[offset + local_id.x * 2] = local_data[local_id.x * 2];
+    spatial_indices[offset + local_id.x * 2 + 1] = local_data[local_id.x * 2 + 1];
   }
 
   workgroupBarrier();

@@ -11,22 +11,27 @@ const CardinalOffsets: array<vec2<i32>, 9> = array<vec2<i32>, 9>(
   vec2<i32>(1, -1)
 );
 
-struct GeneralUniforms {
+struct Uniforms {
+  // Number of particles in the simulation
   num_particles: u32,
+  // Fixed time step
   delta_time: f32,
-  bounds_x: f32,
-  bounds_y: f32,
+  // Width and height of the bounding box
+  bounds_size: f32,
+  // Minimum x, y position in the bounding_box,
+  bounds_min: f32,
+  // Width / height of a single cell within the simulation box
+  cell_size: f32,
+  // Number of cells along any axis
+  cells_per_axis: f32,
 }
 
 struct SpatialEntry {
+  // The global_id.x index of the particle
   index: u32,
+  // The hash of the cell that contains the particle
   hash: u32,
-  key: u32,
 }
-
-// Hash constants
-const hashK1: u32 = 15823;
-const hashK2: u32 = 9737333;
 
 // Solver Constants from https://lucasschuermann.com/writing/implementing-sph-in-2d
 const GRAVITY = vec2<f32>(0.0, -9.8);
@@ -34,7 +39,7 @@ const REST_DENSITY = 300.0;
 const GAS_CONSTANT = 2000.0;
 // For now, smoothing radius and visual radius should be the same to decrease confusion
 const RADIUS = 1;
-const RADIUS_SQR = 256.0;
+const RADIUS_SQR = 1;
 const MASS = 2.5;
 const MASS_SQR = 6.25;
 const VISCOSITY = 200.0;
@@ -42,8 +47,8 @@ const DELTA_TIME = 0.0007;
 
 // Kernel constants from https://lucasschuermann.com/writing/implementing-sph-in-2d
 const POLY6 = 4.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 8.0));
-const SPIKY_GRADIENT = -10.0 / (3.141592653 * POW(SMOOTHING_RADIUS, 5.0));
-const VISCOSITY_LAPACIAN = 40.0 / (3.141592653 * POW(SMOOTHING_RADIUS, 5.0));
+const SPIKY_GRADIENT = -10.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 5.0));
+const VISCOSITY_LAPACIAN = 40.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 5.0));
 
 
 const DENSITY_WEIGHT_CONSTANT = 0.00497359197162172924277761760539;
@@ -63,11 +68,11 @@ fn GetCell2D(position: vec2<f32>, cell_size: f32) -> vec2<i32> {
 // least numerically insane way to assign each cell a unique number
 // Dimensions needs to be greater than the max value of cell.x or cell.y
 // Avoid this collision scenario (2, 1) -> 12 (12, 0) -> 12
-fn SimpleHash2D(cell: vec2<i32>, bounds_min: i32,) -> i32 {
+fn SimpleHash2D(cell: vec2<i32>, grid_dim: i32) -> i32 {
   // Adjust only if there are negative cell values
-  let x = cell.x + abs(min(bounds_min, 0));
-  let y = cell.y + abs(min(bounds_min, 0));
-  return x + y *
+  let x = cell.x + abs(min(-grid_dim * 0.5, 0));
+  let y = cell.y + abs(min(-grid_dim * 0.5, 0));
+  return x + y * grid_dim;
 }
 
 // Hash cell coordinate to a single unsigned integer

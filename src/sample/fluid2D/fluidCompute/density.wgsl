@@ -16,7 +16,7 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
   var near_density: f32 = 0.0;
 
   for (var i = 0; i < 9; i++) {
-    // In each iteration, get the key and hash of either the current area or the 8 cardinal surrounding areas
+    // In each iteration, get the key and hash of the eight surrounding cells
     var hash: u32 = HashCell2D(origin_cell + CardinalOffsets[i]);
     var key: u32 = KeyFromHash(hash, general_uniforms.num_particles);
     // Access the offset into the bin that the neighbor particle exists in

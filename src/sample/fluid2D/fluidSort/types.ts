@@ -48,14 +48,14 @@ export const createSpatialSortResource = (
     (numParticles - 1) / (device.limits.maxComputeWorkgroupSizeX * 2)
   );
   const spatialIndicesBuffer = device.createBuffer({
-    size: Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles,
+    size: Uint32Array.BYTES_PER_ELEMENT * 2 * numParticles,
     usage:
       GPUBufferUsage.STORAGE |
       GPUBufferUsage.COPY_DST |
       GPUBufferUsage.COPY_SRC,
   });
   const spatialIndicesStagingBuffer = device.createBuffer({
-    size: Uint32Array.BYTES_PER_ELEMENT * 3 * numParticles,
+    size: Uint32Array.BYTES_PER_ELEMENT * 2 * numParticles,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
   // Spatial Offsets Calculations

@@ -15,7 +15,6 @@ import offsetsWGSL from './fluidSort/offsets.wgsl';
 import clearOffsetsWGSL from './fluidSort/clearOffsets.wgsl';
 import commonWGSL from './common.wgsl';
 import renderParticleWGSL from './fluidRender/renderParticle.wgsl';
-import renderDensityWGSL from './fluidRender/renderDensity.wgsl';
 import ParticleRenderer from './fluidRender/render';
 import Input, { createInputHandler } from '../cameras/input';
 
@@ -54,8 +53,11 @@ SampleInitFactoryWebGPU(
       totalParticles: 4096,
       // A fluid particle's display and smoothing radius
       particleRadius: 1,
-      cellSize: 2,
-      writeToDistributionBuffer: false,
+      // Width and height of the simulation bounding box
+      boundingBoxSize: 200,
+      // Min x and y coordinate of our bounding box
+      boundsMin: -100,
+      // boundsMax = boundsMin + boundingBoxSize
       'Debug Property': 'Positions',
       'Log Debug': () => {
         return;
@@ -64,22 +66,19 @@ SampleInitFactoryWebGPU(
         return;
       },
     };
-
-    // Bounds are somewhat odd, in the sense that dimensions are centered at 0,0, so canvas actually goes from -canvas.width to canvas.width
-    const boundsSettings = {
-      // Width and height of the simulation bounding box
-      boundsDim: 200,
-      // Min x and y coordinate of our bounding box
-      boundsMin: -100,
-      // Max x and y coordinate of our bounding box
-      boundsMax: 100,
+    // Diameter of a particle * 2;
+    const cellSize = settings.particleRadius * 2 * 2;
+    const cellsPerAxis = (settings.boundingBoxSize / cellSize) * (settings.boundingBoxSize / cellSize);
+    const cellSettings = {
       // Number of cells in our hash grid
-      gridNumCells: (200 / settings.cellSize) * (200 / settings.cellSize),
+      cellsPerAxis,
+      cellSize,
     };
 
+
     const cameraSettings = {
-      zoomScaleX: 1 / (boundsSettings.boundsDim * 0.5),
-      zoomScaleY: 1 / (boundsSettings.boundsDim * 0.5),
+      zoomScaleX: 1 / (settings.boundingBoxSize * 0.5),
+      zoomScaleY: 1 / (settings.boundingBoxSize * 0.5),
       cameraOffset: 0,
     };
 
@@ -138,8 +137,8 @@ SampleInitFactoryWebGPU(
     //UNIFORMS
     // General uniforms including the number of particles, deltaTime, etc
     const generalUniformsBuffer = device.createBuffer({
-      // numParticles, deltaTime, boundsX, boundsY
-      size: Float32Array.BYTES_PER_ELEMENT * 4,
+      // numParticles, deltaTime, boundingBoxSize, 
+      size: Float32Array.BYTES_PER_ELEMENT * 6,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -381,10 +380,10 @@ SampleInitFactoryWebGPU(
     // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
     const { inputPositions, inputVelocities } = generateParticleData(
       settings.totalParticles,
-      -boundsSettings.boundsMin,
-      -boundsSettings.boundsMin,
-      boundsSettings.boundsDim,
-      boundsSettings.boundsDim
+      -settings.boundsMin,
+      -settings.boundsMin,
+      settings.boundingBoxSize,
+      settings.boundingBoxSize
     );
 
     const simulationFolder = gui.addFolder('Simulation');
@@ -553,8 +552,10 @@ SampleInitFactoryWebGPU(
         4,
         new Float32Array([
           frameSettings.deltaTime,
-          boundsSettings.boundsDim,
-          boundsSettings.boundsDim,
+          settings.boundingBoxSize,
+          settings.boundsMin,
+          cellSettings.cellSize,
+          cellSettings.cellsPerAxis,
         ])
       );
 
