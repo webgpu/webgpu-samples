@@ -160,9 +160,7 @@ export interface DistributionSettings {
 // Main.ts utils
 export type SpatialIndicesDebugPropertySelect =
   | 'Spatial Indices'
-  | 'Spatial Indices (Idx)'
   | 'Spatial Indices (Hash)'
-  | 'Spatial Indices (Key)';
 
 export type DebugPropertySelect =
   | 'Positions'

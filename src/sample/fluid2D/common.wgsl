@@ -1,3 +1,5 @@
+/* DEFINITIONS */
+
 // The offsets represent nine (TODO: eight?) possible movements (from top to bottom)
 const CardinalOffsets: array<vec2<i32>, 9> = array<vec2<i32>, 9>(
   vec2<i32>(-1, 1),
@@ -44,16 +46,9 @@ const MASS = 2.5;
 const MASS_SQR = 6.25;
 const VISCOSITY = 200.0;
 const DELTA_TIME = 0.0007;
+const PI = 3.14159265;
 
-// Kernel constants from https://lucasschuermann.com/writing/implementing-sph-in-2d
-const POLY6 = 4.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 8.0));
-const SPIKY_GRADIENT = -10.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 5.0));
-const VISCOSITY_LAPACIAN = 40.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 5.0));
-
-
-const DENSITY_WEIGHT_CONSTANT = 0.00497359197162172924277761760539;
-const SPIKY_GRADIENT_CONSTANT = -0.09947183943243458485555235210782;
-const VISC_LAPASIAN_CONSTANT = 0.39788735772973833942220940843129;
+/* HASH FUNCTIONS */
 
 // Convert floating point position into an integer cell coordinate
 // Each cell is twice the length of our particle's smoothing radius,
@@ -90,3 +85,27 @@ fn HashCell2D(cell: vec2<i32>) -> u32 {
 fn KeyFromHash(hash: u32, tableSize: u32) -> u32 {
   return hash % tableSize;
 }
+
+/* DISTRIBUTION FUNCTIONS / CONSTANTS */
+
+fn SmoothKernel(dst: f32) -> f32 {
+  let x = 1.0 - dst / RADIUS_SQR;
+  return 315.0 / (64.0 * PI * RADIUS3) * x * x * x;
+}
+
+fn Spike2Kernel(dst: f32) -> f32 {
+  
+}
+
+// Kernel constants from https://lucasschuermann.com/writing/implementing-sph-in-2d
+const POLY6 = 4.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 8.0));
+const SPIKY_GRADIENT = -10.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 5.0));
+const VISCOSITY_LAPACIAN = 40.0 / (3.141592653 * pow(SMOOTHING_RADIUS, 5.0));
+
+
+const DENSITY_WEIGHT_CONSTANT = 0.00497359197162172924277761760539;
+const SPIKY_GRADIENT_CONSTANT = -0.09947183943243458485555235210782;
+const VISC_LAPASIAN_CONSTANT = 0.39788735772973833942220940843129;
+
+
+

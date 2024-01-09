@@ -1,9 +1,9 @@
 // Storage Buffers
-@group(0) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
+@group(0) @binding(0) var<storage, read_write> predicted_positions: array<vec2<f32>>;
 @group(0) @binding(3) var<storage, read_write> densities: array<vec2<f32>>;
 
 // Uniforms
-@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
+@group(1) @binding(0) var<uniform> uniforms: Uniforms;
 
 // Spatial Indices
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
@@ -11,29 +11,25 @@
 
 // DENSITY COMPUTE SHADER
 fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
-  var origin_cell: vec2<i32> = GetCell2D(pos, particle_uniforms.smoothing_radius);
+  var origin_cell: vec2<i32> = GetCell2D(pos, uniforms.cell_size);
   var standard_density: f32 = 0.0;
-  var near_density: f32 = 0.0;
 
+  // For each neighboring cell in all eight cardinal directions
   for (var i = 0; i < 9; i++) {
-    // In each iteration, get the key and hash of the eight surrounding cells
-    var hash: u32 = HashCell2D(origin_cell + CardinalOffsets[i]);
-    var key: u32 = KeyFromHash(hash, general_uniforms.num_particles);
+    // In each iteration, get the cell hash of the surrounding cells
+    var hash: u32 = SimpleHash2D(origin_cell + CardinalOffsets[i]);
+    var key: u32 = KeyFromHash(hash, uniforms.num_particles);
     // Access the offset into the bin that the neighbor particle exists in
     var bin_offset = spatial_offsets[key];
     // Go to every particle within the current bin/area
-    while (bin_offset < general_uniforms.num_particles) {
+    while (bin_offset < uniforms.num_particles) {
       // Get the (index, hash, key) for the next particle in this bin
       var spatial_info: SpatialEntry = spatial_indices[bin_offset];
       // We increment through the current bin till we account for all the bin's elements and exit
       bin_offset++;
-      // If the area of the current particle is not the current area we are evaluating, break the while loop 
-      if (spatial_info.key != key) {
-        break;
-      }
-      // TODO: Consider whether this is needed
+      // If we exit into a new cell, exit the loop
       if (spatial_info.hash != hash) {
-        continue;
+        break;
       }
 
       // Get index of our neighboring particle
@@ -51,8 +47,7 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
 
       var dst: f32 = sqrt(sqr_dst);
       // The density of a fluid within a given area is just the sum of its influences within that area
-      standard_density += SpikeDistributionPower2(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_scale);
-      near_density += SpikeDistributionPower3(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow3_scale);
+      //standard_density += SpikeDistributionPower2(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_scale);
     }
   }
   return vec2<f32>(standard_density, near_density);
@@ -62,9 +57,9 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  if (global_id.x > general_uniforms.num_particles) {
+  if (global_id.x > uniforms.num_particles) {
     return;
   }
-  let pos: vec2<f32> = predicted_positions[global_id.x];
+  let pos: vec2<f32> = positions[global_id.x];
   densities[global_id.x] = CalculateDensity(pos);
 }

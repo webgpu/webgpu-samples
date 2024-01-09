@@ -1,12 +1,8 @@
 // Storage Buffers
+@group(0) @binding(0) var<storage, read_write> positions: array<vec2<f32>>;
 @group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
-@group(0) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
-
 // Uniform Buffers
-@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
-@group(1) @binding(2) var<uniform> distribution_uniforms: DistributionUniforms;
-
+@group(1) @binding(0) var<uniform> uniforms: Uniforms;
 // Sort Buffers
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
 @group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
@@ -15,14 +11,14 @@
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  if (global_id.x >= general_uniforms.num_particles) {
+  if (global_id.x >= uniforms.num_particles) {
     return;
   }
 	
   // Get the predicted position of the current particle
 	var pos: vec2<f32> = predicted_positions[global_id.x];
-  var origin_cell: vec2<i32> = GetCell2D(pos, particle_uniforms.smoothing_radius);
-  var sqr_radius: f32 = particle_uniforms.smoothing_radius * particle_uniforms.smoothing_radius;
+  var origin_cell: vec2<i32> = GetCell2D(pos, uniforms.cell_size);
+  var sqr_radius: f32 = RADIUS * RADIUS;
 
   var viscosity_force = vec2<f32>(0.0, 0.0);
   let current_velocity: vec2<f32> = velocities[global_id.x];
@@ -30,10 +26,10 @@ fn computeMain(
   for (var i: u32 = 0; i < 9; i++) {
     // In each iteration, get the key and hash of either the current area or the 8 cardinal surrounding areas
     var hash: u32 = HashCell2D(origin_cell + CardinalOffsets[i]);
-    var key: u32 = KeyFromHash(hash, general_uniforms.num_particles);
+    var key: u32 = KeyFromHash(hash, uniforms.num_particles);
     // The offset into spatial_indices where the current bin starts
     var bin_offset: u32 = spatial_offsets[key];
-    while (bin_offset < general_uniforms.num_particles) {
+    while (bin_offset < uniforms.num_particles) {
       // Get the (index, hash, key) for the next particle in this bin
       var spatial_info: SpatialEntry = spatial_indices[bin_offset];
       // We increment through the current bin till we account for all the bins elements and exit
@@ -69,6 +65,6 @@ fn computeMain(
   }
 
   let new_velocity = &velocities[global_id.x];
-  let viscosity = viscosity_force * particle_uniforms.viscosity_strength * general_uniforms.delta_time;
+  let viscosity = viscosity_force * particle_uniforms.viscosity_strength * uniforms.delta_time;
   velocities[global_id.x] += viscosity;
 }

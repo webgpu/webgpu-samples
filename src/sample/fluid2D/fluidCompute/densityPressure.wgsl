@@ -3,7 +3,6 @@
 
 // Uniforms Buffer
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
 
 // Spatial Sort Buffers
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
@@ -18,7 +17,7 @@ fn computeMain(
 	spatial_offsets[global_id.x] = 0;
 	// Update index buffer
 	var index: u32 = global_id.x;
-	var cell: vec2<i32> = GetCell2D(predicted_positions[global_id.x], particle_uniforms.smoothing_radius);
+	var cell: vec2<i32> = GetCell2D(predicted_positions[global_id.x], uniforms.cell_size);
 	var hash: u32 = HashCell2D(cell);
 	var key: u32 = KeyFromHash(hash, general_uniforms.num_particles);
   let spatial_entry = &spatial_indices[global_id.x];

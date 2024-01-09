@@ -3,8 +3,7 @@
 @group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
 
 // Uniform Buffers
-@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
+@group(1) @binding(0) var<uniform> uniforms: Uniforms;
 
 fn HandleCollision(id: u32) {
   let dst_position = &positions[id];

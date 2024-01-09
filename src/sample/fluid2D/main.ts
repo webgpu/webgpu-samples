@@ -41,6 +41,7 @@ SampleInitFactoryWebGPU(
     const maxWorkgroupSizeX = device.limits.maxComputeWorkgroupSizeX;
     const inputHandler = createInputHandler(window, canvas);
 
+    // Settings specifically related to controlling execution, if necessary
     const frameSettings = {
       deltaTime: 0.03,
       iterationsPerFrame: 1,
@@ -68,21 +69,23 @@ SampleInitFactoryWebGPU(
     };
     // Diameter of a particle * 2;
     const cellSize = settings.particleRadius * 2 * 2;
-    const cellsPerAxis = (settings.boundingBoxSize / cellSize) * (settings.boundingBoxSize / cellSize);
+    const cellsPerAxis =
+      (settings.boundingBoxSize / cellSize) *
+      (settings.boundingBoxSize / cellSize);
     const cellSettings = {
       // Number of cells in our hash grid
       cellsPerAxis,
       cellSize,
     };
 
-
+    // Camera/zoom settings
     const cameraSettings = {
       zoomScaleX: 1 / (settings.boundingBoxSize * 0.5),
       zoomScaleY: 1 / (settings.boundingBoxSize * 0.5),
       cameraOffset: 0,
     };
 
-    const updateCamera2D = (deltaTime: number, input: Input) => {
+    const updateCamera2D = (input: Input) => {
       if (input.digital.forward) {
         cameraSettings.zoomScaleX *= 1.001;
         cameraSettings.zoomScaleY *= 1.001;
@@ -119,10 +122,6 @@ SampleInitFactoryWebGPU(
       size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles,
       usage: debuggableStorageUsage,
     });
-    const hashBuffer = device.createBuffer({
-      size: boundsSettings.gridNumCells * Float32Array.BYTES_PER_ELEMENT,
-      usage: debuggableStorageUsage,
-    });
     // Staging buffer for positionsBuffer, velocitiesBuffer, and currentForcesBuffer.
     const particleStatingBufferVec2 = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * settings.totalParticles * 2,
@@ -150,8 +149,9 @@ SampleInitFactoryWebGPU(
       label: 'ParticleStorage.bgCluster',
       bindings: [0, 1, 2, 3, 4],
       visibilities: [GPUShaderStage.COMPUTE],
-      resourceTypes: ['buffer', 'buffer', 'buffer', 'buffer'],
+      resourceTypes: ['buffer', 'buffer', 'buffer', 'buffer', 'buffer'],
       resourceLayouts: [
+        { type: 'storage' },
         { type: 'storage' },
         { type: 'storage' },
         { type: 'storage' },
@@ -414,12 +414,9 @@ SampleInitFactoryWebGPU(
       'Densities',
       'Spatial Offsets',
       'Spatial Indices',
-      'Spatial Indices (Idx)',
       'Spatial Indices (Hash)',
-      'Spatial Indices (Key)',
     ] as DebugPropertySelect[]);
     debugFolder.add(settings, 'Log Debug').onChange(() => {
-      console.log(settings['Debug Property']);
       switch (settings['Debug Property'] as DebugPropertySelect) {
         case 'Spatial Offsets':
           {
@@ -433,9 +430,7 @@ SampleInitFactoryWebGPU(
           }
           break;
         case 'Spatial Indices':
-        case 'Spatial Indices (Idx)':
         case 'Spatial Indices (Hash)':
-        case 'Spatial Indices (Key)':
           {
             extractGPUData(
               sortResource.spatialIndicesStagingBuffer,
@@ -450,28 +445,10 @@ SampleInitFactoryWebGPU(
                     console.log(arr);
                   }
                   break;
-                case 'Spatial Indices (Idx)':
-                  {
-                    const output = [];
-                    for (let i = 0; i < arr.length; i += 3) {
-                      output.push(arr[i]);
-                    }
-                    console.log(output);
-                  }
-                  break;
                 case 'Spatial Indices (Hash)':
                   {
                     const output = [];
-                    for (let i = 1; i < arr.length; i += 3) {
-                      output.push(arr[i]);
-                    }
-                    console.log(output);
-                  }
-                  break;
-                case 'Spatial Indices (Key)':
-                  {
-                    const output = [];
-                    for (let i = 2; i < arr.length; i += 3) {
+                    for (let i = 1; i < arr.length; i += 2) {
                       output.push(arr[i]);
                     }
                     console.log(output);
@@ -536,7 +513,7 @@ SampleInitFactoryWebGPU(
 
     async function frame() {
       if (!pageState.active) return;
-      updateCamera2D(frameSettings.deltaTime, inputHandler());
+      updateCamera2D(inputHandler());
 
       stats.begin();
 
@@ -653,8 +630,6 @@ SampleInitFactoryWebGPU(
           break;
         case 'Spatial Indices':
         case 'Spatial Indices (Hash)':
-        case 'Spatial Indices (Key)':
-        case 'Spatial Indices (Idx)':
           {
             commandEncoder.copyBufferToBuffer(
               sortResource.spatialIndicesBuffer,

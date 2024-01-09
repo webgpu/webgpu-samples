@@ -1,13 +1,11 @@
 
 // Storage Buffers
+@group(0) @binding(0) var<storage, read_write> positions: array<vec2<f32>>;
 @group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
-@group(0) @binding(2) var<storage, read_write> predicted_positions: array<vec2<f32>>;
 @group(0) @binding(3) var<storage, read_write> densities: array<vec2<f32>>;
 
 // Uniform Buffers
-@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(1) @binding(1) var<uniform> particle_uniforms: ParticleUniforms;
-@group(1) @binding(2) var<uniform> distribution_uniforms: DistributionUniforms;
+@group(1) @binding(0) var<uniform> uniforms: Uniforms;
 
 // Spatial Info Buffers
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
@@ -26,7 +24,7 @@ fn computeMain(
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
   // TODO: Might not need this if our particles will always be 256 alligned...
-	if (global_id.x >= general_uniforms.num_particles) {
+	if (global_id.x >= uniforms.num_particles) {
     return;
   }
 
@@ -44,29 +42,24 @@ fn computeMain(
 	var pressure_force: vec2<f32> = vec2<f32>(0.0, 0.0);
 	
 	var pos: vec2<f32> = predicted_positions[global_id.x];
-	var origin_cell: vec2<i32> = GetCell2D(pos, particle_uniforms.smoothing_radius);
-	var sqr_radius: f32 = particle_uniforms.smoothing_radius * particle_uniforms.smoothing_radius;
+	var origin_cell: vec2<i32> = GetCell2D(pos, uniforms.cell_size);
+	var sqr_radius: f32 = RADIUS * RADIUS;
 
 	for (var i = 0; i < 9; i++) {
     // In each iteration, get the key and hash of either the current area or the 8 cardinal surrounding areas
 		var hash: u32 = HashCell2D(origin_cell + CardinalOffsets[i]);
-		var key: u32 = KeyFromHash(hash, general_uniforms.num_particles);
     // Access the offset into the bin that the neighbor particle exists in
-		var bin_offset: u32 = spatial_offsets[key];
+		var bin_offset: u32 = spatial_offsets[hash];
 
     // Go to every particle within the current bin/area
-		while (bin_offset < general_uniforms.num_particles) {
+		while (bin_offset < uniforms.num_particles) {
       // Get the (index, hash, key) for the next particle in this bin
 			var spatial_info: SpatialEntry = spatial_indices[bin_offset];
       // We increment through the current bin till we account for all the bin's elements and exit
 			bin_offset++;
-			// Exit if no longer looking at correct bin
-			if (spatial_info.key != key) {
-        break;
-      } 
 			// Skip if hash does not match
 			if (spatial_info.hash != hash) {
-        continue;
+        break;
       }
 
       // Get index of our neighboring particle
@@ -77,7 +70,7 @@ fn computeMain(
       }
 
       // Get the position of the neighboring particle at 'neighbor_particle_index'
-			var neighbor_pos: vec2<f32> = predicted_positions[neighbor_index];
+			var neighbor_pos: vec2<f32> = positions[neighbor_index];
       // Calculate distance between neighbor particle and original particle
 			var neighbor_offset: vec2<f32> = neighbor_pos - pos;
 			var sqr_dst: f32 = dot(neighbor_offset, neighbor_offset);
@@ -119,5 +112,5 @@ fn computeMain(
 
 	let acceleration: vec2<f32> = pressure_force / standard_density;
   let velocity = &velocities[global_id.x];
-  (*velocity) += acceleration * general_uniforms.delta_time;
+  (*velocity) += acceleration * uniforms.delta_time;
 }

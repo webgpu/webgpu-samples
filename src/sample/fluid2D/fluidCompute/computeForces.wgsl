@@ -6,7 +6,7 @@
 @group(0) @binding(4) var<storage, read_write> pressures: array<f32>;
 
 // Uniforms Buffer
-@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
+@group(1) @binding(0) var<uniform> uniforms: Uniforms;
 
 @compute @workgroup_size(256, 1, 1)
 fn computeMain( 
