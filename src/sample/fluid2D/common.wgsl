@@ -37,15 +37,20 @@ struct SpatialEntry {
 
 // Solver Constants from https://lucasschuermann.com/writing/implementing-sph-in-2d
 const GRAVITY = vec2<f32>(0.0, -9.8);
-const REST_DENSITY = 300.0;
+const REST_DENSITY = 2.0;
+//const REST_DENSITY = 300.0;
 const GAS_CONSTANT = 2000.0;
+const VISCOSITY_COEFFICIENT = 0.25;
 // For now, smoothing radius and visual radius should be the same to decrease confusion
-const RADIUS = 1;
-const RADIUS_SQR = 1;
+const RADIUS = 1.0;
+const RADIUS2 = 1.0;
+const RADIUS3 = 1.0;
+const RADIUS4 = 1.0;
+const RADIUS5 = 1.0
 const MASS = 2.5;
-const MASS_SQR = 6.25;
+const MASS2 = 6.25;
 const VISCOSITY = 200.0;
-const DELTA_TIME = 0.0007;
+const DT = 0.0007;
 const PI = 3.14159265;
 
 /* HASH FUNCTIONS */
@@ -93,8 +98,21 @@ fn SmoothKernel(dst: f32) -> f32 {
   return 315.0 / (64.0 * PI * RADIUS3) * x * x * x;
 }
 
-fn Spike2Kernel(dst: f32) -> f32 {
-  
+// Doyub Kim page 130
+fn SpikyKernelFirstDerivative(dst: f32) -> f32 {
+  let x = 1.0 - dst / RADIUS;
+  return -45.0 / ( PI * RADIUS4 ) * x * x;
+}
+
+// Doyub Kim page 130
+fn SpikyKernelSecondDerivative(dst: f32) -> f32 {
+  let x = 1.0 - dst / RADIUS;
+  return 90.0 / ( PI * RADIUS5 ) * x;
+}
+
+// Doyub Kim page 130
+fn SpikyKernelGradient(dst: f32, dir: vec2<f32>) -> vec2<f32> {
+  return dir * SpikyKernelFirstDerivative(dst);
 }
 
 // Kernel constants from https://lucasschuermann.com/writing/implementing-sph-in-2d

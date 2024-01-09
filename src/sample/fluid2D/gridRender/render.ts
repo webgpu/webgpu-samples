@@ -34,7 +34,7 @@ export default class HashGridRenderer {
 
     // Passes particle_radius, zoomScaleX, and zoomScaleY as uniforms to vertex and fragment shaders
     this.renderUniforms = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * 2,
+      size: Float32Array.BYTES_PER_ELEMENT * 5,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 

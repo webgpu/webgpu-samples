@@ -7,16 +7,15 @@ import {
   DebugPropertySelect,
   SpatialIndicesDebugPropertySelect,
 } from './utils';
-import { SampleInitFactoryWebGPU } from '../bitonicSort/utils';
-import { createSpatialSortResource, StepEnum } from './fluidSort/types';
-import * as FluidCompute from './fluidCompute';
-import sortWGSL from './fluidSort/sort.wgsl';
-import offsetsWGSL from './fluidSort/offsets.wgsl';
-import clearOffsetsWGSL from './fluidSort/clearOffsets.wgsl';
-import commonWGSL from './common.wgsl';
-import renderParticleWGSL from './fluidRender/renderParticle.wgsl';
-import ParticleRenderer from './fluidRender/render';
+// Input and WebGPU utils
 import Input, { createInputHandler } from '../cameras/input';
+import { SampleInitFactoryWebGPU } from '../bitonicSort/utils';
+// Render and compute pipelines resources
+import * as FluidSort from './fluidSort';
+import * as FluidCompute from './fluidCompute';
+import * as FluidRender from './fluidRender';
+import commonWGSL from './common.wgsl';
+
 import HashGridRenderer from './gridRender/render';
 
 type PipelineBGLayoutType =
@@ -67,6 +66,7 @@ SampleInitFactoryWebGPU(
       'Log Dispatch Info': () => {
         return;
       },
+      showGrid: false,
     };
     // Diameter of a particle * 2;
     const cellSize = settings.particleRadius * 2 * 2;
@@ -185,7 +185,7 @@ SampleInitFactoryWebGPU(
       resources: [[{ buffer: generalUniformsBuffer }]],
     });
 
-    const sortResource = createSpatialSortResource(
+    const sortResource = FluidSort.createSpatialSortResource(
       device,
       settings.totalParticles
     );
@@ -307,51 +307,48 @@ SampleInitFactoryWebGPU(
     ];
 
     // Compute Pipelines
-    const externalForcesPipeline = createFluidComputePipeline(
-      'ExternalForces',
-      pipelineLayoutWithoutSort,
-      FluidCompute.externalForcesShader
-    );
+
+    // First clear all spatial/hash grid info, as we will recalculate a particle's cell hash each frame
     const clearSpatialOffsetsPipeline = createFluidComputePipeline(
-      'ClearSpatialOffsets',
+      'ClearOldSpatialOffsets',
       pipelineLayoutSortOnlyWithoutAlgoInfo,
-      clearOffsetsWGSL
+      FluidSort.clearOffsetsShader
     );
+    // Calculate the hash of the containier cell of each particle
     const spatialHashPipeline = createFluidComputePipeline(
       'ComputeSpatialHash',
       pipelineLayoutWithSort,
       FluidCompute.spatialHashShader
     );
+    // Sort each particle by its position within the hash grid in ascending order
     const sortSpatialIndicesPipeline = createFluidComputePipeline(
       `SortSpatialIndices`,
       pipelineLayoutSortOnlyWithAlgoInfo,
-      sortWGSL
+      FluidSort.sortSpatialIndicesShader
     );
-    const computeSpatialOffsetsPipeline = createFluidComputePipeline(
-      'ComputeSpatialOffsets',
+    // Compute the particle index offset where a current cell's particles begin to appear within spatial indices
+    const offsetsFromSpatialIndicesPipeline = createFluidComputePipeline(
+      'ComputeNewSpatialOffsets',
       pipelineLayoutSortOnlyWithoutAlgoInfo,
-      offsetsWGSL
+      FluidSort.offsetsFromSortedIndicesShader
     );
-    const densityPipeline = createFluidComputePipeline(
-      'ComputeDensity',
+    // Compute density and pressure
+    const densityPressurePipeline = createFluidComputePipeline(
+      'ComputeDensityPressure',
       pipelineLayoutWithSort,
-      FluidCompute.densityShader
+      FluidCompute.densityPressureShader,
     );
-    const pressurePipeline = createFluidComputePipeline(
-      'ComputePressure',
-      pipelineLayoutWithSort,
-      FluidCompute.pressureShader
-    );
+    // Compute viscosity and pressure gradient from density and pressure
     const viscosityPipeline = createFluidComputePipeline(
       'ComputeViscosity',
       pipelineLayoutWithSort,
       FluidCompute.viscosityShader
     );
-
-    const positionsPipeline = createFluidComputePipeline(
-      'ComputePositions',
+    // Combine density, pressure, etc forces with gravity and bounds forces to compute final position
+    const combineForcesPipeline = createFluidComputePipeline(
+      'ComputeCombinedForces',
       pipelineLayoutWithoutSort,
-      FluidCompute.positionsShader
+      FluidCompute.combineForcesShader,
     );
 
     // Render Pipeline
@@ -367,7 +364,7 @@ SampleInitFactoryWebGPU(
     };
 
     // Shaders rendering the discrete fluid particles
-    const particleRenderer = new ParticleRenderer({
+    const particleRenderer = new FluidRender.ParticleRenderer({
       device,
       numParticles: settings.totalParticles,
       positionsBuffer,
@@ -415,6 +412,7 @@ SampleInitFactoryWebGPU(
     simulationFolder.add(frameSettings, 'deltaTime', 0.01, 0.5).step(0.01);
 
     const debugFolder = gui.addFolder('Debug');
+    debugFolder.add(settings, 'showGrid');
     debugFolder.add(settings, 'Debug Property', [
       'Positions',
       'Velocities',
@@ -514,7 +512,7 @@ SampleInitFactoryWebGPU(
 
     // Create initial algorithmic info that begins our per frame bitonic sort
     const initialAlgoInfo = new Uint32Array([
-      StepEnum['FLIP_LOCAL'], // algo
+      FluidSort.StepEnum['FLIP_LOCAL'], // algo
       2, // stepHeight
       2, // highHeight
       sortResource.spatialIndicesWorkloadSize, // dispatchSize
@@ -522,11 +520,12 @@ SampleInitFactoryWebGPU(
 
     async function frame() {
       if (!pageState.active) return;
+      // CPU Update
       updateCamera2D(inputHandler());
 
       stats.begin();
 
-      // Write to general uniforms buffer
+      // Write to general uniforms buffers in main, particleRenderer, and hashGridRenderer
       device.queue.writeBuffer(
         generalUniformsBuffer,
         0,
@@ -552,6 +551,14 @@ SampleInitFactoryWebGPU(
         targetDensity: settings['Target Density'],
       });
 
+      hashGridRenderer.writeUniforms(device, {
+        zoomScaleX: cameraSettings.zoomScaleX,
+        zoomScaleY: cameraSettings.zoomScaleY,
+        boundingBoxWidth: settings.boundingBoxSize,
+        boundingBoxHeight: settings.boundingBoxSize,
+        cellSize: 4,
+      });
+
       // Write initial algorithm information to algo buffer within our sort object
       device.queue.writeBuffer(
         sortResource.algoStorageBuffer,
@@ -569,7 +576,7 @@ SampleInitFactoryWebGPU(
 
       if (settings['Simulate State'] === 'RUN') {
         // Calculate external forces
-        runPipeline(commandEncoder, externalForcesPipeline, 'WITHOUT_SORT');
+        //runPipeline(commandEncoder, externalForcesPipeline, 'WITHOUT_SORT');
         // Clear the spatialOffsets so our spatialHash can execute properly
         // TODO: Does this need to be its own pipeline?
         runPipeline(
@@ -588,13 +595,12 @@ SampleInitFactoryWebGPU(
         }
         runPipeline(
           commandEncoder,
-          computeSpatialOffsetsPipeline,
+          offsetsFromSpatialIndicesPipeline,
           'SORT_ONLY_WITHOUT_ALGO_INFO'
         );
-        runPipeline(commandEncoder, densityPipeline, 'WITH_SORT');
-        runPipeline(commandEncoder, pressurePipeline, 'WITH_SORT');
+        runPipeline(commandEncoder, densityPressurePipeline, 'WITH_SORT');
         runPipeline(commandEncoder, viscosityPipeline, 'WITH_SORT');
-        runPipeline(commandEncoder, positionsPipeline, 'WITHOUT_SORT');
+        runPipeline(commandEncoder, combineForcesPipeline, 'WITHOUT_SORT');
         if (frameSettings.stepFrame) {
           stepFrameController.setValue(false);
           simulateController.setValue(false);
@@ -602,6 +608,9 @@ SampleInitFactoryWebGPU(
       }
 
       particleRenderer.render(commandEncoder);
+      if (settings.showGrid) {
+        hashGridRenderer.render(commandEncoder);
+      }
 
       switch (settings['Debug Property'] as DebugPropertySelect) {
         case 'Positions':
@@ -692,59 +701,50 @@ const fluidExample: () => JSX.Element = () =>
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./utils.ts').default,
       },
-      // Render files
-      {
-        name: './fluidRender/renderParticle.wgsl',
-        contents: renderParticleWGSL,
-      },
+      // FluidRender files
       {
         name: './fluidRender/render.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./fluidRender/render.ts').default,
       },
-      // Sort files
       {
-        name: './fluidSort/sort.wgsl',
-        contents: sortWGSL,
+        name: './fluidRender/renderParticle.wgsl',
+        contents: FluidRender.renderParticleShader,
       },
-      {
-        name: './fluidSort/offsets.wgsl',
-        contents: offsetsWGSL,
-      },
+      // FluidSort files
       {
         name: './fluidSort/types.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./fluidSort/types.ts').default,
       },
-      // Compute files
       {
-        name: './fluidCompute/externalForces.wgsl',
-        contents: FluidCompute.externalForcesShader,
+        name: './fluidSort/clearOffsets.wgsl',
+        contents: FluidSort.clearOffsetsShader,
       },
+      {
+        name: './fluidSort/sort.wgsl',
+        contents: FluidSort.sortSpatialIndicesShader,
+      },
+      {
+        name: './fluidSort/offsets.wgsl',
+        contents: FluidSort.offsetsFromSortedIndicesShader,
+      },
+      // FluidCompute files
       {
         name: './fluidCompute/spatialHash.wgsl',
         contents: FluidCompute.spatialHashShader,
       },
       {
-        name: './fluidCompute/density.wgsl',
-        contents: FluidCompute.densityShader,
-      },
-      {
-        name: './fluidCompute/pressure.wgsl',
-        contents: FluidCompute.pressureShader,
+        name: './fluidCompute/densityPressure.wgsl',
+        contents: FluidCompute.densityPressureShader,
       },
       {
         name: './fluidCompute/viscosity.wgsl',
         contents: FluidCompute.viscosityShader,
       },
       {
-        name: './fluidCompute/positions.wgsl',
-        contents: FluidCompute.positionsShader,
-      },
-      {
-        name: './fluidCompute/index.ts',
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        contents: require('!!raw-loader!./fluidCompute/index.ts').default,
+        name: './fluidCompute/combineForces.wgsl',
+        contents: FluidCompute.combineForcesShader,
       },
     ],
     filename: __filename,

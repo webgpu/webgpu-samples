@@ -28,10 +28,10 @@ fn sdfCircle(p: vec2<f32>, r: f32) -> f32 {
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
 
-  let half_width = bb_width * 0.5;
-  let half_height = bb_height * 0.5;
+  let half_width = uniforms.bb_width * 0.5;
+  let half_height = uniforms.bb_height * 0.5;
 
-  const pos = array(
+  let pos = array(
     vec2( half_width,  half_height),
     vec2(-half_width, -half_height),
     vec2(-half_width,  half_height),
@@ -40,7 +40,7 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
     vec2(-half_width, -half_height),
   );
 
-  const uv = array(
+  let uv = array(
     vec2( half_width,  -half_height),
     vec2(-half_width, half_height),
     vec2(-half_width,  -half_height),

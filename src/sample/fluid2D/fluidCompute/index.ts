@@ -1,15 +1,11 @@
 import spatialHashWGSL from './spatialHash.wgsl';
-import positionsWGSL from './positions.wgsl';
-import densityWGSL from './density.wgsl';
+import densityPressureWGSL from './densityPressure.wgsl';
 import viscosityWGSL from './viscosity.wgsl';
-import pressureWGSL from './pressure.wgsl';
-import externalForcesWGSL from './externalForces.wgsl';
+import combineForcesWGSL from './combineForces.wgsl';
 
 export {
   spatialHashWGSL as spatialHashShader,
-  positionsWGSL as positionsShader,
-  densityWGSL as densityShader,
+  densityPressureWGSL as densityPressureShader,
   viscosityWGSL as viscosityShader,
-  pressureWGSL as pressureShader,
-  externalForcesWGSL as externalForcesShader,
+  combineForcesWGSL as combineForcesShader,
 };
