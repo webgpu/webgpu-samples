@@ -1,6 +1,7 @@
 // Storage Buffers
+@group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
 @group(0) @binding(2) var<storage, read_write> current_forces: array<vec2<f32>>;
-@group(0) @binding(3) var<storage, read_write> densities: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read_write> densities: array<f32>;
 
 // Uniforms
 @group(1) @binding(0) var<uniform> uniforms: Uniforms;
@@ -10,10 +11,11 @@
 @group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
 // DENSITY COMPUTE SHADER
-fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
+fn CalculateForces(pos: vec2<f32>) -> vec2<f32> {
   // Calculate the cell of the hash grid where the currently positioned particle is located
   let origin_cell: vec2<i32> = GetCell2D(pos, uniforms.cell_size);
   let current_density_2 = densities[global_id.x] * densities[global_id.x];
+  let force = &current_forces[global_id.x];
   var standard_density: f32 = 0.0;
 
   // For each neighboring cell in all eight cardinal directions
@@ -44,35 +46,33 @@ fn CalculateDensity(pos: vec2<f32>) -> vec2<f32> {
       // Calculate distance between neighbor particle and original particle
       var dst_to_neighbor: vec2<f32> = neighbor_pos - pos;
       // Calculate square magnitude of dst_to_neighbor vector
-      var sqr_mag: f32 = dot(dst_to_neighbor, dst_to_neighbor);
+      var sqr_dst: f32 = dot(dst_to_neighbor, dst_to_neighbor);
       // Determine whether the neighbor particle is within the particle's region of influence, as specified by the smoothing radius
       // We compare against squared radius due to optimize against the cost of the sqrt call
       if (sqr_dst > RADIUS2) {
         continue;
       }
       // If we are within smoothing radius, then perform square root call to get dst_to_neighbor magnitude
-      var mag: f32 = sqrt(sqr_dst);
+      var dst: f32 = sqrt(sqr_dst);
       // Calculate direction/unit vector of dst_to_neighbor
-      var dir: vec2<f32> = dst_to_neighbor / mag;
+      var dir: vec2<f32> = dst_to_neighbor / dst;
 
       // Pressure graident (Doyub Kim pg. 136)
-      let force = &current_forces[global_id.x];
+      
       let neighbor_density_2 = densities[neighbor_index] * densities[neighbor_index];
 
       // Calculate the pressure gradient force
       // (cite github.com/Gornhoth/Unity-Smoothed-Particle, cited from Kim Doyub)
       (*force) -= MASS2 * (
         pressures[global_id.x] / current_density_2 + pressures[neighbor_index] / neighbor_density_2
-      ) * SpikyKernelGradient(mag, dir);
+      ) * SpikyKernelGradient(dst, dir);
 
-      (*force) += VISCOSITY_COEFFICIENT
-
-      current_forces[glboal_id.x]
-      // The density of a fluid within a given area is just the sum of its influences within that area
-      //standard_density += SpikeDistributionPower2(dst, particle_uniforms.smoothing_radius, distribution_uniforms.spike_pow2_scale);
+      (*force) += VISCOSITY_COEFFICIENT * MASS2 * (
+        velocities[neighbor_index] - velocities[global_id.x]
+      ) / densities[neighbor_index] * SpikyKernelSecondDerivative(dst);
     }
   }
-  return vec2<f32>(standard_density, near_density);
+  (*force) += GRAVITY;
 }
 
 @compute @workgroup_size(256, 1, 1)
@@ -83,5 +83,5 @@ fn computeMain(
     return;
   }
   let pos: vec2<f32> = positions[global_id.x];
-  densities[global_id.x] = CalculateDensity(pos);
+  CalculateForces(pos);
 }
