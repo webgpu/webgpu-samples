@@ -10,7 +10,9 @@
   max-width: 600px;
 }
 
-
+nav.sourceFileNav {
+  position: relative;
+}
 
 nav.sourceFileNav ul {
   box-sizing: border-box;
@@ -25,6 +27,41 @@ nav.sourceFileNav li {
   margin: 0;
   padding: 0;
   transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+nav.sourceFileNav::before {
+  content: '';
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  width: 30px;
+  height: 37px;
+  top: 15px;
+  left: 0px;
+  pointer-events: none;
+}
+
+nav.sourceFileNav[data-left=true]::before {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), transparent);
+}
+
+nav.sourceFileNav::after {
+  content: '';
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 30px;
+  height: 37px;
+  top: 15px;
+  right: 0px;
+  pointer-events: none;
+}
+
+nav.sourceFileNav[data-right=true]::after {
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.35), transparent);
 }
 
 nav.sourceFileNav div.sourceFileScrollContainer {
