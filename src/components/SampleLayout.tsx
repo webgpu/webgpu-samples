@@ -77,6 +77,7 @@ const SampleLayout: React.FunctionComponent<
   }>
 > = (props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const navRef = useRef<HTMLDivElement | null>(null);
   const sources = useMemo(
     () =>
       props.sources.map(({ name, contents }) => {
@@ -228,24 +229,43 @@ const SampleLayout: React.FunctionComponent<
         <canvas ref={canvasRef}></canvas>
       </div>
       <div>
-        <nav className={styles.sourceFileNav}>
-          <ul>
-            {sources.map((src, i) => {
-              return (
-                <li key={i}>
-                  <a
-                    href={`#${src.name}`}
-                    data-active={activeHash == src.name}
-                    onClick={() => {
-                      setActiveHash(src.name);
-                    }}
-                  >
-                    {src.name}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+        <nav className={styles.sourceFileNav} ref={navRef}>
+          <div
+            className={styles.sourceFileScrollContainer}
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              const scrollRight =
+                element.scrollWidth - element.clientWidth - element.scrollLeft;
+              if (element.scrollLeft > 25) {
+                navRef.current.setAttribute('data-left', 'true');
+              } else {
+                navRef.current.setAttribute('data-left', 'false');
+              }
+              if (scrollRight > 25) {
+                navRef.current.setAttribute('data-right', 'true');
+              } else {
+                navRef.current.setAttribute('data-right', 'false');
+              }
+            }}
+          >
+            <ul>
+              {sources.map((src, i) => {
+                return (
+                  <li key={i}>
+                    <a
+                      href={`#${src.name}`}
+                      data-active={activeHash == src.name}
+                      onClick={() => {
+                        setActiveHash(src.name);
+                      }}
+                    >
+                      {src.name}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </nav>
         {sources.map((src, i) => {
           return (
