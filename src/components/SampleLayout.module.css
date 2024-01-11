@@ -74,13 +74,13 @@ nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar {
   display: inline;
   margin-top: 10px;
   margin-bottom: 10px;
-  height: 7px;
+  height: 11px;
   width: 10px;
 }
 
 nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar-thumb {
-  background: rgb(167, 167, 167);
-  height: 5px;
+  background: rgb(200, 200, 200);
+  height: 4px;
   border-radius: 20px;
   -webkit-box-shadow: inset 0px 0px 10px rgb(45, 33, 33);
   border: 0.5px solid transparent;
