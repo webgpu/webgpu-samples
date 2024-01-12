@@ -7,7 +7,8 @@ interface RenderArgs {
   particleRadius: number;
   zoomScaleX: number;
   zoomScaleY: number;
-  targetDensity: number;
+  boundingBoxSize: number;
+  cameraOffset: number;
 }
 
 export type ParticleRenderMode = 'STANDARD' | 'DENSITY';
@@ -50,7 +51,7 @@ export default class ParticleRenderer {
 
     // Passes particle_radius, zoomScaleX, and zoomScaleY as uniforms to vertex and fragment shaders
     this.renderUniforms = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * 4,
+      size: Float32Array.BYTES_PER_ELEMENT * 5,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -112,7 +113,8 @@ export default class ParticleRenderer {
         args.particleRadius,
         args.zoomScaleX,
         args.zoomScaleY,
-        args.targetDensity,
+        args.boundingBoxSize,
+        args.cameraOffset,
       ])
     );
   }

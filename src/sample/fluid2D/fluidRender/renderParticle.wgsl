@@ -12,6 +12,8 @@ struct RenderUniforms {
   radius: f32,
   zoom_scale_x: f32,
   zoom_scale_y: f32,
+  bounding_box_size: f32,
+  camera_offset: f32,
 }
 
 fn sdfCircle(p: vec2<f32>, r: f32) -> f32 {
@@ -48,13 +50,19 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   );
 
   //Convert position and offset to canvasSpace
-  let posCS = pos[input.VertexIndex] * vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
-  let offset = input_positions[input.InstanceIndex];
-  var offsetCS = offset * vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
-
+  let zoomScale = vec2<f32>(uniforms.zoom_scale_x, uniforms.zoom_scale_y);
+  let posCS = pos[input.VertexIndex] * zoomScale;
+  let particleOffset = input_positions[input.InstanceIndex];
+  let particleOffsetCS = particleOffset * zoomScale;
+  let cameraOffset = vec2<f32>(
+    uniforms.bounding_box_size * 0.5,
+    uniforms.bounding_box_size * 0.5,
+  ) + vec2<f32>(uniforms.camera_offset, 0.0);
+  let cameraOffsetCS = cameraOffset * zoomScale;
   //ballUniforms.radius should be clamped to the height
   output.Position = vec4<f32>(
-    posCS * uniforms.radius + offsetCS, 
+    //Subtract by 1.0, 1.0 to make origin lower left corner of canvas
+    posCS * uniforms.radius + particleOffsetCS - cameraOffsetCS, 
     0.0, 
     1.0
   );

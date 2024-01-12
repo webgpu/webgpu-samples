@@ -17,6 +17,7 @@ import * as FluidRender from './fluidRender';
 import commonWGSL from './common.wgsl';
 
 import HashGridRenderer from './gridRender/render';
+import { GetCell2DCPU, SimpleHash2D } from './fluidSort/cpuSort';
 
 type PipelineBGLayoutType =
   | 'WITH_SORT'
@@ -57,8 +58,10 @@ SampleInitFactoryWebGPU(
       // Width and height of the simulation bounding box
       boundingBoxSize: 400,
       // Min x and y coordinate of our bounding box
-      boundsMin: -200,
+      boundsMin: 0,
       lineWidth: 0.1,
+      currentCell: `x: 0, y: 0`,
+      currentCellHash: '0',
       // boundsMax = boundsMin + boundingBoxSize
       'Debug Property': 'Positions',
       'Log Debug': () => {
@@ -82,7 +85,7 @@ SampleInitFactoryWebGPU(
     const cameraSettings = {
       zoomScaleX: 1 / (settings.boundingBoxSize * 0.5),
       zoomScaleY: 1 / (settings.boundingBoxSize * 0.5),
-      cameraOffset: 0,
+      cameraOffset: 0.0,
     };
 
     const updateCamera2D = (input: Input) => {
@@ -93,6 +96,18 @@ SampleInitFactoryWebGPU(
       if (input.digital.backward) {
         cameraSettings.zoomScaleX *= 0.999;
         cameraSettings.zoomScaleY *= 0.999;
+      }
+      if (input.digital.left) {
+        cameraSettings.cameraOffset = Math.max(
+          cameraSettings.cameraOffset - 0.5,
+          -settings.boundingBoxSize
+        );
+      }
+      if (input.digital.right) {
+        cameraSettings.cameraOffset = Math.min(
+          cameraSettings.cameraOffset + 0.5,
+          settings.boundingBoxSize
+        );
       }
     };
 
@@ -505,6 +520,28 @@ SampleInitFactoryWebGPU(
         }`
       );
     });
+    const currentCellController = debugFolder.add(settings, 'currentCell');
+    const currentCellHashController = debugFolder.add(
+      settings,
+      'currentCellHash'
+    );
+
+    canvas.addEventListener('mousemove', (event) => {
+      const currWidth = canvas.getBoundingClientRect().width;
+      const currHeight = canvas.getBoundingClientRect().height;
+      const canvasToBoundingBoxX = currWidth / settings.boundingBoxSize;
+      const canvasToBoundingBoxY = currHeight / settings.boundingBoxSize;
+      const mouseToBoundingBoxX = event.offsetX * canvasToBoundingBoxX;
+      const mouseToBoundingBoxY = event.offsetY * canvasToBoundingBoxY;
+      const cell = {
+        x: Math.floor(mouseToBoundingBoxX / cellSettings.cellSize),
+        y: Math.floor(mouseToBoundingBoxY / cellSettings.cellSize),
+      }
+      currentCellController.setValue(`x: ${cell.x}, y: ${cell.y}`);
+      currentCellHashController.setValue(
+        `${SimpleHash2D(cell, cellSettings.cellsPerAxis)}`
+      );
+    });
 
     // Initial 'write to main storage buffers
     device.queue.writeBuffer(positionsBuffer, 0, inputPositions);
@@ -552,7 +589,8 @@ SampleInitFactoryWebGPU(
         zoomScaleX: cameraSettings.zoomScaleX,
         zoomScaleY: cameraSettings.zoomScaleY,
         particleRadius: settings.particleRadius,
-        targetDensity: settings['Target Density'],
+        boundingBoxSize: settings.boundingBoxSize,
+        cameraOffset: cameraSettings.cameraOffset,
       });
 
       hashGridRenderer.writeUniforms(device, {
