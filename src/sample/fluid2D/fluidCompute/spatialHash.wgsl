@@ -13,8 +13,7 @@ fn computeMain(
 	var index: u32 = global_id.x;
 	var cell: vec2<i32> = GetCell2D(positions[global_id.x], uniforms.cell_size);
   // Reminder: SimpleHash only works if dimensions are properly calculated
-	var hash: u32 = SimpleHash2D(cell, );
-	var key: u32 = KeyFromHash(hash, uniforms.num_particles);
+	var hash: u32 = SimpleHash2D(cell, uniforms.cells_per_axis);
   let spatial_entry = &spatial_indices[global_id.x];
   (*spatial_entry).index = index;
   (*spatial_entry).hash = hash;

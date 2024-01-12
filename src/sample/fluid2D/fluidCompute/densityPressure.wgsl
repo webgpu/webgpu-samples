@@ -10,21 +10,28 @@
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
 @group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
-// DENSITY COMPUTE SHADER
-fn CalculateDensityPressure(pos: vec2<f32>) -> vec2<f32> {
+// DENSITY PRESSURE COMPUTE SHADER
+@compute @workgroup_size(256, 1, 1)
+fn computeMain( 
+  @builtin(global_invocation_id) global_id: vec3<u32>,
+) {
+  if (global_id.x > uniforms.num_particles) {
+    return;
+  }
+  let pos: vec2<f32> = positions[global_id.x];
   var origin_cell: vec2<i32> = GetCell2D(pos, uniforms.cell_size);
   var kernel_sum = 0.0;
 
   // For each neighboring cell in all eight cardinal directions
   for (var i = 0; i < 9; i++) {
     // In each iteration, get the cell hash of the surrounding cells
-    var hash: u32 = SimpleHash2D(origin_cell + CardinalOffsets[i]);
+    var hash: u32 = SimpleHash2D(origin_cell + CardinalOffsets[i], uniforms.cells_per_axis);
     // Access the offset into our spatial_indices array that starts the area where we represent particles in the neighboring cell
     var bin_offset = spatial_offsets[hash];
     // Access every individual particle within the neighboring cell to account for its accumulated density
     // If too many particles are being considered within a single cell, it may be prudent to adjust the cell size
     while (bin_offset < uniforms.num_particles) {
-      // Get the (index, hash, key) for the next particle in this bin
+      // Get the index and hash for the next particle in this bin
       var spatial_info: SpatialEntry = spatial_indices[bin_offset];
       // We increment through the current bin till we account for all the bin's elements and exit
       bin_offset++;
@@ -56,17 +63,6 @@ fn CalculateDensityPressure(pos: vec2<f32>) -> vec2<f32> {
   let density = &densities[global_id.x];
   let pressure = &pressures[global_id.x];
   let new_density = kernel_sum * MASS + 0.0000001;
-  (*density) = new_density
+  (*density) = new_density;
   (*pressure) = GAS_CONSTANT * (new_density - REST_DENSITY);
-}
-
-@compute @workgroup_size(256, 1, 1)
-fn computeMain( 
-  @builtin(global_invocation_id) global_id: vec3<u32>,
-) {
-  if (global_id.x > uniforms.num_particles) {
-    return;
-  }
-  let pos: vec2<f32> = positions[global_id.x];
-  CalculateDensityPressure(pos);
 }

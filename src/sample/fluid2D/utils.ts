@@ -132,9 +132,12 @@ export const generateParticleData = (
   );
   // Generate positions data and velocities data for their respective buffers
   // Positions are set between position x to x + w, y to y + h
+  console.log(x_start);
   for (let i = 0; i < numParticles; i++) {
     // Position
-    inputPositions[i * 2 + 0] = x_start + Math.random() * width;
+    const new_x = x_start + Math.random() * width;
+    console.log(new_x);
+    inputPositions[i * 2 + 0] = new_x;
     inputPositions[i * 2 + 1] = y_start + Math.random() * height;
 
     // Velocity

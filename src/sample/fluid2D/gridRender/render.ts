@@ -3,12 +3,27 @@ import { BindGroupCluster, createBindGroupCluster } from '../utils';
 
 import renderGridWGSL from './renderGrid.wgsl';
 
+/*struct Uniforms {
+  // Bounding Box Width
+  bb_width: f32,
+  bb_height: f32,
+  zoom_scale_x: f32,
+  zoom_scale_y: f32,
+  cell_size: f32,
+  line_width: f32,
+  canvas_width: f32,
+  canvas_height: f32,
+} */
+
 interface RenderArgs {
   boundingBoxWidth: number;
   boundingBoxHeight: number;
   zoomScaleX: number;
   zoomScaleY: number;
   cellSize: number;
+  lineWidth: number;
+  canvasWidth: number;
+  canvasHeight: number;
 }
 
 interface ConstructorArgs {
@@ -34,7 +49,7 @@ export default class HashGridRenderer {
 
     // Passes particle_radius, zoomScaleX, and zoomScaleY as uniforms to vertex and fragment shaders
     this.renderUniforms = device.createBuffer({
-      size: Float32Array.BYTES_PER_ELEMENT * 5,
+      size: Float32Array.BYTES_PER_ELEMENT * 8,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -74,6 +89,9 @@ export default class HashGridRenderer {
         args.zoomScaleX,
         args.zoomScaleY,
         args.cellSize,
+        args.lineWidth,
+        args.canvasWidth,
+        args.canvasHeight,
       ])
     );
   }

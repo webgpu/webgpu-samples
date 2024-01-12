@@ -15,14 +15,57 @@ struct Uniforms {
   zoom_scale_x: f32,
   zoom_scale_y: f32,
   cell_size: f32,
+  line_width: f32,
+  canvas_width: f32,
+  canvas_height: f32,
 }
 
 fn sdfCircle(p: vec2<f32>, r: f32) -> f32 {
   return length(p)-r;
 }
 
+/*fn inverseLerp(val: f32, minValue: f32, maxValue: f32) -> f32 {
+  return (val - minValue) / (maxValue - minValue);
+}
+
+fn remap(val: f32, inMin: f32, inMax: f32, outMin: f32, outMax: f32) -> f32 {
+  let t = inverseLerp(v, inMin, inMax);
+  return mix(outMin, outMax, t);
+}
+
+fn BackgroundColor() {
+  let dist_from_center = length(abs(input.v_uv - 0.5));
+  return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+} */
+
 // Uniform Buffers
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
+fn drawGrid(
+  uv: vec2<f32>,
+  color: vec3<f32>, 
+  line_color: vec3<f32>,
+  line_width: f32,
+  cell_spacing: f32,
+) -> vec3<f32> {
+  let center: vec2<f32> = vec2<f32>(uv.x - 0.5, uv.y - 0.5);
+  let resolution = vec2<f32>(uniforms.canvas_width, uniforms.canvas_height);
+  var cells = abs(
+    fract(
+      center * resolution / vec2<f32>(cell_spacing, cell_spacing)
+    ) - 0.5
+  );
+  let dstToEdge = (0.5 - max(cells.x, cells.y)) * cell_spacing;
+  let lines = smoothstep(0.0, line_width, dstToEdge);
+  let new_color = mix(
+    line_color, color, lines
+  );
+  return new_color;
+}
+
+const RED = vec3<f32>(255.0, 0.0, 0.0);
+const BLACK = vec3<f32>(0.0, 0.0, 0.0);
+const WHITE = vec3<f32>(255.0, 255.0, 255.0);
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -64,5 +107,12 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
-  return vec4<f32>(0.0, 255.0, 0.0, 1.0);
+  let color: vec3<f32> = drawGrid(
+    input.v_uv,
+    vec3<f32>(255.0, 0.0, 0.0),
+    vec3<f32>(0.0, 255.0, 0.0),
+    uniforms.line_width,
+    uniforms.cell_size,
+  );
+  return vec4<f32>(color, 0.0);
 }

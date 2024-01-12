@@ -12,7 +12,7 @@
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  let velocity: vec2<f32> = velocities[global_id.x] + (current_forces[global_id.x] / PARTICLE_MASS);
+  let velocity: vec2<f32> = velocities[global_id.x] + (current_forces[global_id.x] / MASS);
   positions[global_id.x] += velocity;
   // Do bounds checks
   velocities[global_id.x] = velocity;

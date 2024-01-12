@@ -8,14 +8,6 @@ export enum StepEnum {
   DISPERSE_GLOBAL,
 }
 
-// String access to StepEnum
-export type StepType =
-  | 'NONE'
-  | 'FLIP_LOCAL'
-  | 'DISPERSE_LOCAL'
-  | 'FLIP_GLOBAL'
-  | 'DISPERSE_GLOBAL';
-
 const getNumSteps = (numElements: number) => {
   const n = Math.log2(numElements);
   return (n * (n + 1)) / 2;

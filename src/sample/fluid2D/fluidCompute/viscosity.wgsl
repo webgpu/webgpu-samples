@@ -1,7 +1,9 @@
 // Storage Buffers
+@group(0) @binding(0) var<storage, read_write> positions: array<vec2<f32>>;
 @group(0) @binding(1) var<storage, read_write> velocities: array<vec2<f32>>;
 @group(0) @binding(2) var<storage, read_write> current_forces: array<vec2<f32>>;
 @group(0) @binding(3) var<storage, read_write> densities: array<f32>;
+@group(0) @binding(4) var<storage, read_write> pressures: array<f32>;
 
 // Uniforms
 @group(1) @binding(0) var<uniform> uniforms: Uniforms;
@@ -10,8 +12,15 @@
 @group(2) @binding(0) var<storage, read_write> spatial_indices: array<SpatialEntry>;
 @group(2) @binding(1) var<storage, read_write> spatial_offsets: array<u32>;
 
-// DENSITY COMPUTE SHADER
-fn CalculateForces(pos: vec2<f32>) -> vec2<f32> {
+//VISCOSITY COMPUTE SHADER
+@compute @workgroup_size(256, 1, 1)
+fn computeMain( 
+  @builtin(global_invocation_id) global_id: vec3<u32>,
+) {
+  if (global_id.x > uniforms.num_particles) {
+    return;
+  }
+  let pos: vec2<f32> = positions[global_id.x];
   // Calculate the cell of the hash grid where the currently positioned particle is located
   let origin_cell: vec2<i32> = GetCell2D(pos, uniforms.cell_size);
   let current_density_2 = densities[global_id.x] * densities[global_id.x];
@@ -21,7 +30,7 @@ fn CalculateForces(pos: vec2<f32>) -> vec2<f32> {
   // For each neighboring cell in all eight cardinal directions
   for (var i = 0; i < 9; i++) {
     // In each iteration, get the cell hash of the surrounding cells
-    var hash: u32 = SimpleHash2D(origin_cell + CardinalOffsets[i]);
+    var hash: u32 = SimpleHash2D(origin_cell + CardinalOffsets[i], uniforms.cells_per_axis);
     // Access the offset into our spatial_indices array that starts the area where we represent particles in the neighboring cell
     var bin_offset = spatial_offsets[hash];
     // Access every individual particle within the neighboring cell to account for its accumulated density
@@ -73,15 +82,4 @@ fn CalculateForces(pos: vec2<f32>) -> vec2<f32> {
     }
   }
   (*force) += GRAVITY;
-}
-
-@compute @workgroup_size(256, 1, 1)
-fn computeMain( 
-  @builtin(global_invocation_id) global_id: vec3<u32>,
-) {
-  if (global_id.x > uniforms.num_particles) {
-    return;
-  }
-  let pos: vec2<f32> = positions[global_id.x];
-  CalculateForces(pos);
 }

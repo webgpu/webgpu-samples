@@ -55,9 +55,10 @@ SampleInitFactoryWebGPU(
       // A fluid particle's display and smoothing radius
       particleRadius: 1,
       // Width and height of the simulation bounding box
-      boundingBoxSize: 200,
+      boundingBoxSize: 400,
       // Min x and y coordinate of our bounding box
-      boundsMin: -100,
+      boundsMin: -200,
+      lineWidth: 0.1,
       // boundsMax = boundsMin + boundingBoxSize
       'Debug Property': 'Positions',
       'Log Debug': () => {
@@ -386,8 +387,8 @@ SampleInitFactoryWebGPU(
     // Positions are set between -canvas.width, -canvas.height and canvas.width, canvas.height
     const { inputPositions, inputVelocities } = generateParticleData(
       settings.totalParticles,
-      -settings.boundsMin,
-      -settings.boundsMin,
+      settings.boundsMin,
+      settings.boundsMin,
       settings.boundingBoxSize,
       settings.boundingBoxSize
     );
@@ -413,6 +414,7 @@ SampleInitFactoryWebGPU(
 
     const debugFolder = gui.addFolder('Debug');
     debugFolder.add(settings, 'showGrid');
+    debugFolder.add(settings, 'lineWidth', 0.01, 1.0).step(0.01);
     debugFolder.add(settings, 'Debug Property', [
       'Positions',
       'Velocities',
@@ -557,6 +559,9 @@ SampleInitFactoryWebGPU(
         boundingBoxWidth: settings.boundingBoxSize,
         boundingBoxHeight: settings.boundingBoxSize,
         cellSize: 4,
+        lineWidth: settings.lineWidth,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
       });
 
       // Write initial algorithm information to algo buffer within our sort object
@@ -609,7 +614,7 @@ SampleInitFactoryWebGPU(
 
       particleRenderer.render(commandEncoder);
       if (settings.showGrid) {
-        hashGridRenderer.render(commandEncoder);
+        //hashGridRenderer.render(commandEncoder);
       }
 
       switch (settings['Debug Property'] as DebugPropertySelect) {
