@@ -26,6 +26,8 @@ struct Uniforms {
   cell_size: f32,
   // Number of cells along any axis
   cells_per_axis: f32,
+  /// EPSILON Value
+  eps: f32,
 }
 
 struct SpatialEntry {

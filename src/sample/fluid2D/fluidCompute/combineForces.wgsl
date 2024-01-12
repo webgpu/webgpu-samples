@@ -8,14 +8,29 @@
 // Uniforms Buffer
 @group(1) @binding(0) var<uniform> uniforms: Uniforms;
 
+fn HandleCollision(id: u32) {
+  let dst_position = &positions[id];
+  let dst_velocity = &velocities[id];
+  let half_size = vec2<f32>(uniforms.bounds_size * 0.5, uniforms.bounds_size * 0.5);
+  let edge_dst = half_size - abs((*dst_position));
+  if (edge_dst.x <= 0) {
+    (*dst_position).x = half_size.x * sign((*dst_position).x);
+    (*dst_velocity).x *= -1 * 0.5;
+  }
+  if (edge_dst.y <= 0) {
+    (*dst_position).y = half_size.y * sign((*dst_position).y);
+    (*dst_velocity).y *= -1 * 0.5;
+  }
+}
+
 @compute @workgroup_size(256, 1, 1)
 fn computeMain( 
   @builtin(global_invocation_id) global_id: vec3<u32>,
 ) {
-  let velocity: vec2<f32> = velocities[global_id.x] + (current_forces[global_id.x] / MASS);
-  positions[global_id.x] += velocity;
-  // Do bounds checks
-  velocities[global_id.x] = velocity;
+  let new_velocity = velocities[global_id.x] + uniforms.delta_time * current_forces[global_id.x] / MASS;
+  velocities[global_id.x] = new_velocity;
+  positions[global_id.x] += uniforms.delta_time * new_velocity;
+  HandleCollision(global_id.x);
 }
 
 /*

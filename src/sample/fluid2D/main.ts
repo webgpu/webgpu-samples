@@ -136,8 +136,8 @@ SampleInitFactoryWebGPU(
     //UNIFORMS
     // General uniforms including the number of particles, deltaTime, etc
     const generalUniformsBuffer = device.createBuffer({
-      // numParticles, deltaTime, boundingBoxSize, 
-      size: Float32Array.BYTES_PER_ELEMENT * 6,
+      // numParticles, deltaTime, boundingBoxSize, boundingBoxMin, cellSize, cellsPerAxis, epsillon
+      size: Float32Array.BYTES_PER_ELEMENT * 7,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -544,6 +544,7 @@ SampleInitFactoryWebGPU(
           settings.boundsMin,
           cellSettings.cellSize,
           cellSettings.cellsPerAxis,
+          Number.EPSILON,
         ])
       );
 
