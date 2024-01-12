@@ -43,8 +43,9 @@ fn get_disperse_indices(thread_id: u32, block_height: u32) -> vec2<u32> {
 
 fn global_compare_and_swap(idx_before: u32, idx_after: u32) {
   if (spatial_indices[idx_after].hash < spatial_indices[idx_before].hash) {
+    var temp: SpatialEntry = spatial_indices[idx_before];
     spatial_indices[idx_before] = spatial_indices[idx_after];
-    spatial_indices[idx_after] = spatial_indices[idx_before];
+    spatial_indices[idx_after] = temp;
   } 
 }
 
@@ -74,19 +75,19 @@ fn computeMain(
   workgroupBarrier();
 
   switch algo_info[0].algo {
-    case ALGO_FLIP_LOCAL: { // 1
+    case 1: { // 1
       let idx = get_flip_indices(local_id.x, algo_info[0].stepHeight);
       local_compare_and_swap(idx.x, idx.y);
     } 
-    case ALGO_DISPERSE_LOCAL: { // 2
+    case 2: { // 2
       let idx = get_disperse_indices(local_id.x, algo_info[0].stepHeight);
       local_compare_and_swap(idx.x, idx.y);
     } 
-    case ALGO_FLIP_GLOBAL: { // 3
+    case 3: { // 3
       let idx = get_flip_indices(global_id.x, algo_info[0].stepHeight);
       global_compare_and_swap(idx.x, idx.y);
     }
-    case ALGO_DISPERSE_GLOBAL: { // 4
+    case 4: { // 4
       let idx = get_disperse_indices(global_id.x, algo_info[0].stepHeight);
       global_compare_and_swap(idx.x, idx.y);
     }

@@ -71,9 +71,7 @@ SampleInitFactoryWebGPU(
     };
     // Diameter of a particle * 2;
     const cellSize = settings.particleRadius * 2 * 2;
-    const cellsPerAxis =
-      (settings.boundingBoxSize / cellSize) *
-      (settings.boundingBoxSize / cellSize);
+    const cellsPerAxis = settings.boundingBoxSize / cellSize;
     const cellSettings = {
       // Number of cells in our hash grid
       cellsPerAxis,
@@ -188,7 +186,8 @@ SampleInitFactoryWebGPU(
 
     const sortResource = FluidSort.createSpatialSortResource(
       device,
-      settings.totalParticles
+      settings.totalParticles,
+      cellsPerAxis * cellsPerAxis
     );
 
     // Now, we can write some utilities to create our compute pipelines
@@ -519,6 +518,8 @@ SampleInitFactoryWebGPU(
       2, // highHeight
       sortResource.spatialIndicesWorkloadSize, // dispatchSize
     ]);
+
+    console.log(sortResource.stepsInSort);
 
     async function frame() {
       if (!pageState.active) return;

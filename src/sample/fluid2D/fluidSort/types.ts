@@ -31,9 +31,18 @@ interface SpaitalSortResource {
   algoStorageBGCluster: BindGroupCluster;
 }
 
+/**
+ * @param {GPUDevice} device - The binding value of each resource in the bind group.
+ * @param {number} numParticles - The number of particles being simulated
+ * NOTE: Using this for spatial offsets is very brittle, and will increase your memory requirement depending on the number of cells needed.
+ * However, for now in lieu of dealing with hash keys, I am using this method for now to prevent hash collisions
+ * @param {totalCellsInHashGrid} resourceTypes - The total number of hash grid cells.
+ * @returns {BindGroupsObjectsAndLayout} An object containing an array of bindGroups and the bindGroupLayout they implement.
+ */
 export const createSpatialSortResource = (
   device: GPUDevice,
-  numParticles: number
+  numParticles: number,
+  totalCellsInHashGrid: number,
 ): SpaitalSortResource => {
   // Spatial Indices Calculations
   const spatialIndicesWorkloadSize = Math.ceil(
@@ -53,15 +62,26 @@ export const createSpatialSortResource = (
   // Spatial Offsets Calculations
   const spatialOffsetsWorkloadSize =
     numParticles / device.limits.maxComputeWorkgroupSizeX;
-  const spatialOffsetsBuffer = device.createBuffer({
+  /*const spatialOffsetsBuffer = device.createBuffer({
     size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
+    usage:
+      GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST |
+      GPUBufferUsage.COPY_SRC,
+  }); 
+  const spatialOffsetsStagingBuffer = device.createBuffer({
+    size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+  }); */
+  const spatialOffsetsBuffer = device.createBuffer({
+    size: Uint32Array.BYTES_PER_ELEMENT * totalCellsInHashGrid,
     usage:
       GPUBufferUsage.STORAGE |
       GPUBufferUsage.COPY_DST |
       GPUBufferUsage.COPY_SRC,
   });
   const spatialOffsetsStagingBuffer = device.createBuffer({
-    size: Uint32Array.BYTES_PER_ELEMENT * numParticles,
+    size: Uint32Array.BYTES_PER_ELEMENT * totalCellsInHashGrid,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
   // Algo Information Buffer
