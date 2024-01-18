@@ -23,3 +23,11 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   output.world_pos = input.position.xyz;
   return output;
 }
+
+@fragment
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+  var normal = normalize(cross(
+    dpdx(input.world_pos), dpdy(input.world_pos)
+  ));
+  return vec4<f32>((normal + 1.0) * 0.5, 1.0);
+}

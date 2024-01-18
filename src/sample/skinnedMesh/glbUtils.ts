@@ -350,6 +350,7 @@ export class GLTFPrimitive {
         },
       ],
     };
+    console.log(vertexState);
 
     const fragmentState: GPUFragmentState = {
       // Shader info
@@ -392,11 +393,6 @@ export class GLTFPrimitive {
     renderPassEncoder.setPipeline(this.renderPipeline);
     renderPassEncoder.setBindGroup(0, uniformsBG);
 
-    // Apply the accessor's byteOffset here to handle both global and interleaved
-    // offsets for the buffer. Setting the offset here allows handling both cases,
-    // with the downside that we must repeatedly bind the same buffer at different
-    // offsets if we're dealing with interleaved attributes.
-    // Since we only handle positions at the moment, this isn't a problem.
     renderPassEncoder.setVertexBuffer(
       0,
       this.attributeMap['POSITION'].view.gpuBuffer,
@@ -605,31 +601,33 @@ type TempReturn = {
   nodes: Node[];
 };
 
-// Upload a GLB model and return it
+// Upload a GLB model, parse its JSON and Binary components, and create the requisite GPU resources
+// to render them. NOTE: Not extensible to all GLTF contexts at this point in time
 export const convertGLBToJSONAndBinary = async (
   buffer: ArrayBuffer,
   device: GPUDevice
 ): Promise<TempReturn> => {
+  // Binary GLTF layout: https://cdn.willusher.io/webgpu-0-to-gltf/glb-layout.svg
   const jsonHeader = new DataView(buffer, 0, 20);
   validateGLBHeader(jsonHeader);
 
+  // Length of the jsonChunk found at jsonHeader[12 - 15]
+  const jsonChunkLength = jsonHeader.getUint32(12, true);
+
   // Parse the JSON chunk of the glB file to a JSON object
   const jsonChunk: GlTf = JSON.parse(
-    new TextDecoder('utf-8').decode(
-      new Uint8Array(buffer, 20, jsonHeader.getUint32(12, true))
-    )
+    new TextDecoder('utf-8').decode(new Uint8Array(buffer, 20, jsonChunkLength))
   );
 
-  const binaryHeader = new Uint32Array(
-    buffer,
-    20 + jsonHeader.getUint32(12, true),
-    2
-  );
+  console.log(jsonChunk);
+
+  // Binary data located after jsonChunk
+  const binaryHeader = new Uint32Array(buffer, 20 + jsonChunkLength, 2);
   validateBinaryHeader(binaryHeader);
 
   const binaryChunk = new GLTFBuffer(
     buffer,
-    28 + jsonHeader.getUint32(12, true),
+    28 + jsonChunkLength,
     binaryHeader[0]
   );
 
