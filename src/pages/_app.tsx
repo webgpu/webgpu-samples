@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useRef, useEffect, useMemo, memo, useState } from 'react';
+import { useMemo, memo, useState } from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
