@@ -1,15 +1,15 @@
 /* eslint-disable prettier/prettier */
 export const gridVertices = new Float32Array([
-  0,  1, 1, 1,  // 0
-  0, -1, 1, 1,  // 1
-  2,  1, 1, 1,  // 2
-  2, -1, 1, 1,  // 3
-  4,  1, 1, 1,  // 4
-  4, -1, 1, 1,  // 5
-  6,  1, 1, 1,  // 6
-  6, -1, 1, 1,  // 7
-  8,  1, 1, 1,  // 8
-  8, -1, 1, 1  // 9
+  0,  1,  // 0
+  0, -1,  // 1
+  2,  1,  // 2
+  2, -1,  // 3
+  4,  1,  // 4
+  4, -1,  // 5
+  6,  1,  // 6
+  6, -1,  // 7
+  8,  1,  // 8
+  8, -1, // 9
 ]);
 
 // Representing the indice of four bones that can influence each vertex
@@ -39,6 +39,13 @@ export const gridBoneWeights = new Float32Array([
   1, 0, 0, 0,  // 8
   1, 0, 0, 0,  // 9
 ]);
+
+
+/* 0 -> 2 -> 4 -> 6 -> 8
+|    |     |    |    |
+1 -> 3 -> 5 -> 7 -> 9
+*/
+
 
 export const gridIndices = new Uint16Array([
   0, 1,

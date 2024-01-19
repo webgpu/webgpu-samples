@@ -1,6 +1,7 @@
 import { Mat4 } from 'wgpu-matrix';
 
-/* https://github.com/bwasty/gltf-loader-ts/blob/master/source/gltf.ts */
+/* Sourced from https://github.com/bwasty/gltf-loader-ts/blob/master/source/gltf.ts */
+/* License for use can be found here: https://github.com/bwasty/gltf-loader-ts/blob/master/LICENSE */
 export type GlTfId = number;
 /**
  * Indices of those attributes that deviate from their initialization value.

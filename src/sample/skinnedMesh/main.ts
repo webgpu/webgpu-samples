@@ -5,7 +5,8 @@ import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
 import { mat4, vec3 } from 'wgpu-matrix';
 import { createBindGroupCluster } from '../bitonicSort/utils';
-import { createSkinnedGridBuffers, createSkinnedGridRenderPipeline } from './boneGridUtils';
+import { createSkinnedGridBuffers, createSkinnedGridRenderPipeline } from './gridUtils';
+import { gridIndices } from './gridData';
 //import {ArcballCamera} from 'arcball_camera'
 
 const MAT4X4_BYTES = 64;
@@ -41,6 +42,7 @@ const init: SampleInit = async ({
     object: 'Whale'
   };
 
+  gui.add(settings, 'object', ['Whale', 'Skinned Grid']);
   gui.add(settings, 'cameraX', -5, 5).step(0.1);
   gui.add(settings, 'cameraY', -5, 5).step(0.1);
   gui.add(settings, 'cameraZ', -100, 0).step(0.1);
@@ -49,7 +51,7 @@ const init: SampleInit = async ({
   // Create global resources
   const depthTexture = device.createTexture({
     size: [canvas.width, canvas.height],
-    format: 'depth24plus-stencil8',
+    format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
@@ -113,12 +115,23 @@ const init: SampleInit = async ({
 
   // Global Calc
   const aspect = canvas.width / canvas.height;
-  const projectionMatrix = mat4.perspective(
+  const perspectiveProjection = mat4.perspective(
     (2 * Math.PI) / 5,
     aspect,
     0.1,
     100.0
   );
+
+  const orthographicProjection = mat4.ortho(
+    -20, 20, -10, 10, -100, 100
+  );
+
+  function getProjectionMatrix() {
+    if (settings.object !== 'Skinned Grid') {
+      return perspectiveProjection as Float32Array;
+    }
+    return orthographicProjection as Float32Array;
+  }
 
   function getViewMatrix() {
     const viewMatrix = mat4.identity();
@@ -134,10 +147,8 @@ const init: SampleInit = async ({
     return modelMatrix as Float32Array;
   }
 
-  // Skinned Grid Calc
-  
-
-  const renderPassDescriptor: GPURenderPassDescriptor = {
+  // Pass Descriptor for GLTFs
+  const gltfRenderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
         view: undefined, // Assigned later
@@ -152,29 +163,40 @@ const init: SampleInit = async ({
       depthLoadOp: "clear",
       depthClearValue: 1.0,
       depthStoreOp: "store",
-      stencilLoadOp: "clear",
-      stencilClearValue: 0,
-      stencilStoreOp: "store"
+      //stencilLoadOp: "clear",
+      //stencilClearValue: 0,
+      //stencilStoreOp: "store"
     },
   };
 
-  console.log(projectionMatrix);
+  // Pass descriptor for grid with no depth testing
+  const skinnedGridRenderPassDescriptor: GPURenderPassDescriptor = {
+    colorAttachments: [
+      {
+        view: undefined, // Assigned later
+
+        clearValue: { r: 0.3, g: 0.3, b: 0.3, a: 1.0 },
+        loadOp: 'clear',
+        storeOp: 'store',
+      },
+    ],
+  }
 
 
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 
-    const modelMatrix = getModelMatrix();
-
+    const projectionMatrix = getProjectionMatrix();
     const viewMatrix = getViewMatrix();
+    const modelMatrix = getModelMatrix();
 
     device.queue.writeBuffer(
       cameraBuffer,
       0,
-      (projectionMatrix as Float32Array).buffer,
-      (projectionMatrix as Float32Array).byteOffset,
-      (projectionMatrix as Float32Array).byteLength
+      projectionMatrix.buffer,
+      projectionMatrix.byteOffset,
+      projectionMatrix.byteLength
     );
 
     device.queue.writeBuffer(
@@ -197,24 +219,32 @@ const init: SampleInit = async ({
       device.queue
     }
     
-    renderPassDescriptor.colorAttachments[0].view = context
+    gltfRenderPassDescriptor.colorAttachments[0].view = context
+      .getCurrentTexture()
+      .createView();
+    
+    skinnedGridRenderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
 
     const commandEncoder = device.createCommandEncoder();
-    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     if (settings.object === 'Whale') {
+      const passEncoder = commandEncoder.beginRenderPass(gltfRenderPassDescriptor);
       //mesh.render(passEncoder, bgDescriptor.bindGroups[0]);
       whaleScene.meshes[0].render(passEncoder, cameraBGCluster.bindGroups[0]);
+      passEncoder.end();
     } else {
+      const passEncoder = commandEncoder.beginRenderPass(skinnedGridRenderPassDescriptor);
       passEncoder.setPipeline(skinnedGridPipeline);
+      passEncoder.setBindGroup(0, cameraBGCluster.bindGroups[0]);
+      passEncoder.setBindGroup(1, skinnedGridBoneBGCluster.bindGroups[0]);
       passEncoder.setVertexBuffer(0, skinnedGridBuffers.vertPositions);
       passEncoder.setVertexBuffer(1, skinnedGridBuffers.boneIndices);
       passEncoder.setVertexBuffer(2, skinnedGridBuffers.boneWeights);
       passEncoder.setIndexBuffer(skinnedGridBuffers.vertIndices, 'uint16');
-      passEncoder.drawIndexed(skinnedGridBuffers.vertIndices.size / Uint16Array.BYTES_PER_ELEMENT);
+      passEncoder.drawIndexed(gridIndices.length, 1);
+      passEncoder.end();
     }
-    passEncoder.end();
 
     device.queue.submit([commandEncoder.finish()]);
 
@@ -235,6 +265,16 @@ const skinnedMesh: () => JSX.Element = () =>
         contents: __SOURCE__,
       },
       {
+        name: './gridData.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        contents: require('!!raw-loader!./gridData.ts').default,
+      },
+      {
+        name: './gridUtils.ts',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        contents: require('!!raw-loader!./gridUtils.ts').default,
+      },
+      {
         name: './gltf.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./gltf.ts').default,
@@ -248,10 +288,6 @@ const skinnedMesh: () => JSX.Element = () =>
         name: './gltf.wgsl',
         contents: gltfWGSL
       },
-      {
-        name: './grid.wgsl',
-        contents: gridWGSL,
-      }, 
     ],
     filename: __filename,
   });
