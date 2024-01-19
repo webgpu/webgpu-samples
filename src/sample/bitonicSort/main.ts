@@ -513,7 +513,6 @@ SampleInitFactoryWebGPU(
         sizeLimitController.domElement.style.pointerEvents = 'auto';
         // Create new config key for current element + size limit configuration
         const currConfigKey = `${settings['Total Elements']} ${settings['Size Limit']}`;
-        console.log(currConfigKey);
         // If configKey doesn't exist in the map, create it.
         if (!settings.configToCompleteSwapsMap[currConfigKey]) {
           settings.configToCompleteSwapsMap[currConfigKey] = {
@@ -552,9 +551,7 @@ SampleInitFactoryWebGPU(
           },
         });
         // Create new config key for current element + size limit configuration
-        // Create new config key for current element + size limit configuration
         const currConfigKey = `${settings['Total Elements']} ${settings['Size Limit']}`;
-        console.log(currConfigKey);
         // If configKey doesn't exist in the map, create it.
         if (!settings.configToCompleteSwapsMap[currConfigKey]) {
           settings.configToCompleteSwapsMap[currConfigKey] = {
@@ -796,7 +793,6 @@ SampleInitFactoryWebGPU(
             // and x 'Size Limit', which will allow us to calculate the average time of all sorts executed with this specific
             // configuration of compute resources
             settings.configToCompleteSwapsMap[settings.configKey].sorts += 1;
-            console.log(settings.configToCompleteSwapsMap);
           } else if (highestBlockHeight > settings['Workgroup Size'] * 2) {
             // The next cycle's maximum swap span exceeds the range of a single workgroup, so our next flip will operate on global indices.
             nextStepController.setValue('FLIP_GLOBAL');
@@ -894,11 +890,9 @@ SampleInitFactoryWebGPU(
           stepTimeController.setValue(`${newStepTime.toFixed(5)}ms`);
           sortTimeController.setValue(`${newSortTime.toFixed(5)}ms`);
           // Calculate new average sort upon end of final execution step of a full bitonic sort.
-          console.log(highestBlockHeight);
           if (highestBlockHeight === settings['Total Elements'] * 2) {
             // Lock off access to this larger if block..not best architected solution but eh
             highestBlockHeight *= 2;
-            console.log(highestBlockHeight);
             settings.configToCompleteSwapsMap[settings.configKey].time +=
               newSortTime;
             const averageSortTime =
