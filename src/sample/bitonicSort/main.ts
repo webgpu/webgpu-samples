@@ -30,6 +30,17 @@ type StepType =
 
 type DisplayType = 'Elements' | 'Swap Highlight';
 
+interface ConfigInfo {
+  // Number of sorts executed under a given elements + size limit config
+  sorts: number;
+  // Total collective time taken to execute each complete sort under this config
+  time: number;
+}
+
+interface StringKeyToNumber {
+  [key: string]: ConfigInfo;
+}
+
 // Gui settings object
 interface SettingsInterface {
   'Total Elements': number;
@@ -56,8 +67,13 @@ interface SettingsInterface {
   'Auto Sort Speed': number;
   'Display Mode': DisplayType;
   'Total Swaps': number;
+  stepTime: number;
+  'Step Time': string;
   sortTime: number;
   'Sort Time': string;
+  'Average Sort Time': string;
+  configToCompleteSwapsMap: StringKeyToNumber;
+  configKey: string;
 }
 
 const getNumSteps = (numElements: number) => {
@@ -115,12 +131,12 @@ SampleInitFactoryWebGPU(
 
     const settings: SettingsInterface = {
       // TOTAL ELEMENT AND GRID SETTINGS
-      // The number of elements to be sorted. Must equal gridWidth * gridHeight || Workgroup Size * Workgroups * 2
+      // The number of elements to be sorted. Must equal gridWidth * gridHeight || Workgroup Size * Workgroups * 2.
       // When changed, all relevant values within the settings object are reset to their defaults at the beginning of a sort with n elements.
       'Total Elements': maxElements,
-      // width of screen in cells
+      // The width of the screen in cells.
       'Grid Width': defaultGridWidth,
-      // height of screen in cells
+      // The height of the screen in cells.
       'Grid Height': defaultGridHeight,
       // Grid Dimensions as string
       'Grid Dimensions': `${defaultGridWidth}x${defaultGridHeight}`,
@@ -178,13 +194,32 @@ SampleInitFactoryWebGPU(
       },
       // The speed at which each step of the bitonic sort will be executed after 'Auto Sort' has been called.
       'Auto Sort Speed': 50,
+
       // MISCELLANEOUS SETTINGS
       'Display Mode': 'Elements',
       // An atomic value representing the total number of swap operations executed over the course of the bitonic sort.
       'Total Swaps': 0,
-      // Time taken to sort in seconds (not nanoseconds!). If timestep query feature is not available then this will remain 0.
+
+      // TIMESTAMP SETTINGS
+      // NOTE: Timestep values below all are calculated in terms of milliseconds rather than the nanoseconds a timestamp query set usually outputs.
+      // Time taken to execute the previous step of the bitonic sort in milliseconds
+      'Step Time': '0ms',
+      stepTime: 0,
+      // Total taken to colletively execute each step of the complete bitonic sort, represented in milliseconds.
       'Sort Time': '0ms',
       sortTime: 0,
+      // Average time taken to complete a bitonic sort with the current combination of n 'Total Elements' and x 'Size Limit'
+      'Average Sort Time': '0ms',
+      // A string to number map that maps a string representation of the current 'Total Elements' + 'Size Limit' configuration to a number
+      // representing the total number of sorts that have been executed under that same configuration.
+      configToCompleteSwapsMap: {
+        '8192 256': {
+          sorts: 0,
+          time: 0,
+        },
+      },
+      // Current key into configToCompleteSwapsMap
+      configKey: '8192 256',
     };
 
     // Initialize initial elements array
@@ -300,6 +335,18 @@ SampleInitFactoryWebGPU(
       'BitonicDisplay'
     );
 
+    const resetTimeInfo = () => {
+      settings.stepTime = 0;
+      settings.sortTime = 0;
+      stepTimeController.setValue('0ms');
+      sortTimeController.setValue(`0ms`);
+      const nanCheck =
+        settings.configToCompleteSwapsMap[settings.configKey].time /
+        settings.configToCompleteSwapsMap[settings.configKey].sorts;
+      const ast = nanCheck ? nanCheck : 0;
+      averageSortTimeController.setValue(`${ast.toFixed(5)}ms`);
+    };
+
     const resetExecutionInformation = () => {
       // The workgroup size is either elements / 2 or Size Limit
       workgroupSizeController.setValue(
@@ -346,8 +393,6 @@ SampleInitFactoryWebGPU(
       computePassEncoder.end();
       device.queue.submit([commandEncoder.finish()]);
       totalSwapsController.setValue(0);
-      sortTimeController.setValue(`0ms`);
-      settings.sortTime = 0;
 
       highestBlockHeight = 2;
     };
@@ -466,10 +511,24 @@ SampleInitFactoryWebGPU(
         endSortInterval();
         resizeElementArray();
         sizeLimitController.domElement.style.pointerEvents = 'auto';
+        // Create new config key for current element + size limit configuration
+        const currConfigKey = `${settings['Total Elements']} ${settings['Size Limit']}`;
+        console.log(currConfigKey);
+        // If configKey doesn't exist in the map, create it.
+        if (!settings.configToCompleteSwapsMap[currConfigKey]) {
+          settings.configToCompleteSwapsMap[currConfigKey] = {
+            sorts: 0,
+            time: 0,
+          };
+        }
+        settings.configKey = currConfigKey;
+        resetTimeInfo();
       });
     const sizeLimitController = computeResourcesFolder
       .add(settings, 'Size Limit', sizeLimitOptions)
       .onChange(() => {
+        // Change total workgroups per step and size of a workgroup based on arbitrary constraint
+        // imposed by size limit.
         const constraint = Math.min(
           settings['Total Elements'] / 2,
           settings['Size Limit']
@@ -478,6 +537,7 @@ SampleInitFactoryWebGPU(
           (settings['Total Elements'] - 1) / (settings['Size Limit'] * 2);
         workgroupSizeController.setValue(constraint);
         workgroupsPerStepController.setValue(Math.ceil(workgroupsPerStep));
+        // Apply new compute resources values to the sort's compute pipeline
         computePipeline = computePipeline = device.createComputePipeline({
           layout: device.createPipelineLayout({
             bindGroupLayouts: [computeBGCluster.bindGroupLayout],
@@ -491,6 +551,19 @@ SampleInitFactoryWebGPU(
             entryPoint: 'computeMain',
           },
         });
+        // Create new config key for current element + size limit configuration
+        // Create new config key for current element + size limit configuration
+        const currConfigKey = `${settings['Total Elements']} ${settings['Size Limit']}`;
+        console.log(currConfigKey);
+        // If configKey doesn't exist in the map, create it.
+        if (!settings.configToCompleteSwapsMap[currConfigKey]) {
+          settings.configToCompleteSwapsMap[currConfigKey] = {
+            sorts: 0,
+            time: 0,
+          };
+        }
+        settings.configKey = currConfigKey;
+        resetTimeInfo();
       });
     const workgroupSizeController = computeResourcesFolder.add(
       settings,
@@ -500,6 +573,7 @@ SampleInitFactoryWebGPU(
       settings,
       'Workgroups Per Step'
     );
+
     computeResourcesFolder.open();
 
     // Folder with functions that control the execution of the sort
@@ -514,6 +588,7 @@ SampleInitFactoryWebGPU(
       endSortInterval();
       randomizeElementArray();
       resetExecutionInformation();
+      resetTimeInfo();
       // Unlock workgroup size limit controller since sort has stopped
       sizeLimitController.domElement.style.pointerEvents = 'auto';
     });
@@ -566,9 +641,14 @@ SampleInitFactoryWebGPU(
       settings,
       'Next Swap Span'
     );
-    const sortTimeController = executionInformationFolder.add(
+
+    // Timestamp information for Chrome 121+ or other compatible browsers
+    const timestampFolder = gui.addFolder('Timestamp Info (Chrome 121+)');
+    const stepTimeController = timestampFolder.add(settings, 'Step Time');
+    const sortTimeController = timestampFolder.add(settings, 'Sort Time');
+    const averageSortTimeController = timestampFolder.add(
       settings,
-      'Sort Time'
+      'Average Sort Time'
     );
 
     // Adjust styles of Function List Elements within GUI
@@ -610,7 +690,9 @@ SampleInitFactoryWebGPU(
     workgroupSizeController.domElement.style.pointerEvents = 'none';
     gridDimensionsController.domElement.style.pointerEvents = 'none';
     totalSwapsController.domElement.style.pointerEvents = 'none';
+    stepTimeController.domElement.style.pointerEvents = 'none';
     sortTimeController.domElement.style.pointerEvents = 'none';
+    averageSortTimeController.domElement.style.pointerEvents = 'none';
     gui.width = 325;
 
     let highestBlockHeight = 2;
@@ -657,7 +739,7 @@ SampleInitFactoryWebGPU(
       });
       if (
         settings.executeStep &&
-        highestBlockHeight !== settings['Total Elements'] * 2
+        highestBlockHeight < settings['Total Elements'] * 2
       ) {
         let computePassEncoder: GPUComputePassEncoder;
         if (timestampQueryAvailable) {
@@ -705,9 +787,16 @@ SampleInitFactoryWebGPU(
           // The next cycle's flip operation will have a maximum swap span 2 times that of the previous cycle
           highestBlockHeight *= 2;
           if (highestBlockHeight === settings['Total Elements'] * 2) {
-            // The next cycle's maximum swap span exceeds the total number of elements. Thus, the sort is over.
+            // The next cycle's maximum swap span exceeds the total number of elements. Therefore, the sort is over.
+            // Accordingly, there will be no next step.
             nextStepController.setValue('NONE');
+            // And if there is no next step, then there are no swaps, and no block range within which two elements are swapped.
             nextBlockHeightController.setValue(0);
+            // Finally, with our sort completed, we can increment the number of total completed sorts executed with n 'Total Elements'
+            // and x 'Size Limit', which will allow us to calculate the average time of all sorts executed with this specific
+            // configuration of compute resources
+            settings.configToCompleteSwapsMap[settings.configKey].sorts += 1;
+            console.log(settings.configToCompleteSwapsMap);
           } else if (highestBlockHeight > settings['Workgroup Size'] * 2) {
             // The next cycle's maximum swap span exceeds the range of a single workgroup, so our next flip will operate on global indices.
             nextStepController.setValue('FLIP_GLOBAL');
@@ -743,7 +832,10 @@ SampleInitFactoryWebGPU(
       }
       device.queue.submit([commandEncoder.finish()]);
 
-      if (settings.executeStep) {
+      if (
+        settings.executeStep &&
+        highestBlockHeight < settings['Total Elements'] * 4
+      ) {
         // Copy GPU element data to CPU
         await elementsStagingBuffer.mapAsync(
           GPUMapMode.READ,
@@ -792,11 +884,30 @@ SampleInitFactoryWebGPU(
           const copyTimestampResult = new BigInt64Array(
             timestampQueryResultBuffer.getMappedRange()
           );
-          const newSortTime =
-            settings.sortTime +
+          // Calculate new step, sort, and average sort times
+          const newStepTime =
             Number(copyTimestampResult[1] - copyTimestampResult[0]) / 1000000;
+          const newSortTime = settings.sortTime + newStepTime;
+          // Apply calculated times to settings object as both number and 'ms' appended string
+          settings.stepTime = newStepTime;
           settings.sortTime = newSortTime;
+          stepTimeController.setValue(`${newStepTime.toFixed(5)}ms`);
           sortTimeController.setValue(`${newSortTime.toFixed(5)}ms`);
+          // Calculate new average sort upon end of final execution step of a full bitonic sort.
+          console.log(highestBlockHeight);
+          if (highestBlockHeight === settings['Total Elements'] * 2) {
+            // Lock off access to this larger if block..not best architected solution but eh
+            highestBlockHeight *= 2;
+            console.log(highestBlockHeight);
+            settings.configToCompleteSwapsMap[settings.configKey].time +=
+              newSortTime;
+            const averageSortTime =
+              settings.configToCompleteSwapsMap[settings.configKey].time /
+              settings.configToCompleteSwapsMap[settings.configKey].sorts;
+            averageSortTimeController.setValue(
+              `${averageSortTime.toFixed(5)}ms`
+            );
+          }
           timestampQueryResultBuffer.unmap();
           // Get correct range of data from CPU copy of GPU Data
         }
