@@ -52,10 +52,12 @@ interface SettingsInterface {
   'Randomize Values': () => void;
   'Execute Sort Step': () => void;
   'Log Elements': () => void;
-  'Complete Sort': () => void;
-  'Sort Speed': number;
+  'Auto Sort': () => void;
+  'Auto Sort Speed': number;
   'Display Mode': DisplayType;
   'Total Swaps': number;
+  sortTime: number;
+  'Sort Time': string;
 }
 
 const getNumSteps = (numElements: number) => {
@@ -65,8 +67,34 @@ const getNumSteps = (numElements: number) => {
 
 let init: SampleInit;
 SampleInitFactoryWebGPU(
-  async ({ pageState, device, gui, presentationFormat, context, canvas }) => {
+  async ({
+    pageState,
+    device,
+    gui,
+    presentationFormat,
+    context,
+    canvas,
+    timestampQueryAvailable,
+  }) => {
     const maxInvocationsX = device.limits.maxComputeWorkgroupSizeX;
+
+    let querySet: GPUQuerySet;
+    let timestampQueryResolveBuffer: GPUBuffer;
+    let timestampQueryResultBuffer: GPUBuffer;
+    console.log(timestampQueryAvailable);
+    if (timestampQueryAvailable) {
+      querySet = device.createQuerySet({ type: 'timestamp', count: 2 });
+      timestampQueryResolveBuffer = device.createBuffer({
+        // 2 timestamps * BigInt size for nanoseconds
+        size: 2 * BigInt64Array.BYTES_PER_ELEMENT,
+        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+      });
+      timestampQueryResultBuffer = device.createBuffer({
+        // 2 timestamps * BigInt size for nanoseconds
+        size: 2 * BigInt64Array.BYTES_PER_ELEMENT,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+      });
+    }
 
     const totalElementOptions = [];
     const maxElements = maxInvocationsX * 32;
@@ -145,17 +173,19 @@ SampleInitFactoryWebGPU(
       'Log Elements': () => {
         return;
       },
-      // A function that automatically executes each step of the bitonic sort at an interval determined by 'Sort Speed'
-      'Complete Sort': () => {
+      // A function that automatically executes each step of the bitonic sort at an interval determined by 'Auto Sort Speed'
+      'Auto Sort': () => {
         return;
       },
-      // The speed at which each step of the bitonic sort will be executed after 'Complete Sort' has been called.
-      'Sort Speed': 50,
-
+      // The speed at which each step of the bitonic sort will be executed after 'Auto Sort' has been called.
+      'Auto Sort Speed': 50,
       // MISCELLANEOUS SETTINGS
       'Display Mode': 'Elements',
       // An atomic value representing the total number of swap operations executed over the course of the bitonic sort.
       'Total Swaps': 0,
+      // Time taken to sort in seconds (not nanoseconds!). If timestep query feature is not available then this will remain 0.
+      'Sort Time': '0s',
+      sortTime: 0,
     };
 
     // Initialize initial elements array
@@ -317,6 +347,8 @@ SampleInitFactoryWebGPU(
       computePassEncoder.end();
       device.queue.submit([commandEncoder.finish()]);
       totalSwapsController.setValue(0);
+      sortTimeController.setValue(`0s`);
+      settings.sortTime = 0;
 
       highestBlockHeight = 2;
     };
@@ -401,29 +433,29 @@ SampleInitFactoryWebGPU(
       }
     };
 
-    let completeSortIntervalID: ReturnType<typeof setInterval> | null = null;
+    let autoSortIntervalID: ReturnType<typeof setInterval> | null = null;
     const endSortInterval = () => {
-      if (completeSortIntervalID !== null) {
-        clearInterval(completeSortIntervalID);
-        completeSortIntervalID = null;
+      if (autoSortIntervalID !== null) {
+        clearInterval(autoSortIntervalID);
+        autoSortIntervalID = null;
       }
     };
     const startSortInterval = () => {
-      const currentIntervalSpeed = settings['Sort Speed'];
-      completeSortIntervalID = setInterval(() => {
+      const currentIntervalSpeed = settings['Auto Sort Speed'];
+      autoSortIntervalID = setInterval(() => {
         if (settings['Next Step'] === 'NONE') {
-          clearInterval(completeSortIntervalID);
-          completeSortIntervalID = null;
+          clearInterval(autoSortIntervalID);
+          autoSortIntervalID = null;
           sizeLimitController.domElement.style.pointerEvents = 'auto';
         }
-        if (settings['Sort Speed'] !== currentIntervalSpeed) {
-          clearInterval(completeSortIntervalID);
-          completeSortIntervalID = null;
+        if (settings['Auto Sort Speed'] !== currentIntervalSpeed) {
+          clearInterval(autoSortIntervalID);
+          autoSortIntervalID = null;
           startSortInterval();
         }
         settings.executeStep = true;
         setSwappedCell();
-      }, settings['Sort Speed']);
+      }, settings['Auto Sort Speed']);
     };
 
     // At top level, information about resources used to execute the compute shader
@@ -473,7 +505,6 @@ SampleInitFactoryWebGPU(
 
     // Folder with functions that control the execution of the sort
     const controlFolder = gui.addFolder('Sort Controls');
-    controlFolder.add(settings, 'Sort Speed', 50, 1000).step(50);
     controlFolder.add(settings, 'Execute Sort Step').onChange(() => {
       // Size Limit locked upon sort
       sizeLimitController.domElement.style.pointerEvents = 'none';
@@ -490,11 +521,12 @@ SampleInitFactoryWebGPU(
     controlFolder
       .add(settings, 'Log Elements')
       .onChange(() => console.log(elements));
-    controlFolder.add(settings, 'Complete Sort').onChange(() => {
+    controlFolder.add(settings, 'Auto Sort').onChange(() => {
       // Invocation Limit locked upon sort
       sizeLimitController.domElement.style.pointerEvents = 'none';
       startSortInterval();
     });
+    controlFolder.add(settings, 'Auto Sort Speed', 50, 1000).step(50);
     controlFolder.open();
 
     // Information about grid display
@@ -534,6 +566,10 @@ SampleInitFactoryWebGPU(
     const nextBlockHeightController = executionInformationFolder.add(
       settings,
       'Next Swap Span'
+    );
+    const sortTimeController = executionInformationFolder.add(
+      settings,
+      'Sort Time'
     );
 
     // Adjust styles of Function List Elements within GUI
@@ -575,6 +611,7 @@ SampleInitFactoryWebGPU(
     workgroupSizeController.domElement.style.pointerEvents = 'none';
     gridDimensionsController.domElement.style.pointerEvents = 'none';
     totalSwapsController.domElement.style.pointerEvents = 'none';
+    sortTimeController.domElement.style.pointerEvents = 'none';
     gui.width = 325;
 
     let highestBlockHeight = 2;
@@ -623,11 +660,39 @@ SampleInitFactoryWebGPU(
         settings.executeStep &&
         highestBlockHeight !== settings['Total Elements'] * 2
       ) {
-        const computePassEncoder = commandEncoder.beginComputePass();
+        let computePassEncoder: GPUComputePassEncoder;
+        if (timestampQueryAvailable) {
+          computePassEncoder = commandEncoder.beginComputePass({
+            timestampWrites: {
+              querySet,
+              beginningOfPassWriteIndex: 0,
+              endOfPassWriteIndex: 1,
+            },
+          });
+        } else {
+          computePassEncoder = commandEncoder.beginComputePass();
+        }
         computePassEncoder.setPipeline(computePipeline);
         computePassEncoder.setBindGroup(0, computeBGCluster.bindGroups[0]);
         computePassEncoder.dispatchWorkgroups(settings['Workgroups Per Step']);
         computePassEncoder.end();
+        // Resolve time passed in between beginning and end of computePass
+        if (timestampQueryAvailable) {
+          commandEncoder.resolveQuerySet(
+            querySet,
+            0,
+            2,
+            timestampQueryResolveBuffer,
+            0
+          );
+          commandEncoder.copyBufferToBuffer(
+            timestampQueryResolveBuffer,
+            0,
+            timestampQueryResultBuffer,
+            0,
+            2 * BigInt64Array.BYTES_PER_ELEMENT
+          );
+        }
         settings['Step Index'] = settings['Step Index'] + 1;
         currentStepController.setValue(
           `${settings['Step Index']} of ${settings['Total Steps']}`
@@ -700,7 +765,6 @@ SampleInitFactoryWebGPU(
           0,
           Uint32Array.BYTES_PER_ELEMENT
         );
-        // Get correct range of data from CPU copy of GPU Data
         const elementsData = copyElementsBuffer.slice(
           0,
           Uint32Array.BYTES_PER_ELEMENT * settings['Total Elements']
@@ -717,6 +781,27 @@ SampleInitFactoryWebGPU(
         // Elements output becomes elements input, swap accumulate
         elements = elementsOutput;
         setSwappedCell();
+
+        // Handle timestamp query stuff
+        if (timestampQueryAvailable) {
+          // Copy timestamp query result buffer data to CPU
+          await timestampQueryResultBuffer.mapAsync(
+            GPUMapMode.READ,
+            0,
+            2 * BigInt64Array.BYTES_PER_ELEMENT
+          );
+          const copyTimestampResult = new BigInt64Array(
+            timestampQueryResultBuffer.getMappedRange()
+          );
+          const newSortTime =
+            settings.sortTime +
+            Number(copyTimestampResult[1] - copyTimestampResult[0]) /
+              1000000000;
+          settings.sortTime = newSortTime;
+          sortTimeController.setValue(`${newSortTime}s`);
+          timestampQueryResultBuffer.unmap();
+          // Get correct range of data from CPU copy of GPU Data
+        }
       }
       settings.executeStep = false;
       requestAnimationFrame(frame);
