@@ -796,7 +796,7 @@ SampleInitFactoryWebGPU(
             settings.sortTime +
             Number(copyTimestampResult[1] - copyTimestampResult[0]) / 1000000;
           settings.sortTime = newSortTime;
-          sortTimeController.setValue(`${newSortTime}ms`);
+          sortTimeController.setValue(`${newSortTime.toFixed(5)}ms`);
           timestampQueryResultBuffer.unmap();
           // Get correct range of data from CPU copy of GPU Data
         }
