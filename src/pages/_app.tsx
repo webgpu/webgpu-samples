@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo, memo, useState } from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
@@ -21,28 +21,11 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
 }) => {
   const router = useRouter();
   const samplesNames = Object.keys(pages);
+  const [listExpanded, setListExpanded] = useState<boolean>(false);
 
-  useEffect(() => {
-    const resizeListener = () => {
-      if (window.innerWidth > 768) {
-        panelRef.current.setAttribute('data-expanded', 'false');
-      }
-    };
-    window.addEventListener('resize', resizeListener);
-    return () => {
-      window.removeEventListener('resize', resizeListener);
-    };
-  }, []);
-
-  const panelRef = useRef<HTMLDivElement>(null);
-  const setDataExpanded = () => {
-    if (panelRef.current) {
-      console.log(panelRef.current.getAttribute('data-expanded'));
-      panelRef.current.getAttribute('data-expanded') === 'true'
-        ? panelRef.current.setAttribute('data-expanded', 'false')
-        : panelRef.current.setAttribute('data-expanded', 'true');
-    }
-  };
+  const ComponentMemo = useMemo(() => {
+    return memo(Component);
+  }, [Component]);
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
   if (oldPathSyntaxMatch) {
@@ -65,13 +48,16 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
         />
       </Head>
       <div className={styles.wrapper}>
-        <nav className={`${styles.panel} ${styles.container}`} ref={panelRef}>
+        <nav
+          className={`${styles.panel} ${styles.container}`}
+          data-expanded={listExpanded}
+        >
           <h1>
             <Link href="/">{title}</Link>
             <div
               className={styles.expand}
               onClick={() => {
-                setDataExpanded();
+                setListExpanded(!listExpanded);
               }}
             ></div>
           </h1>
@@ -98,7 +84,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                     <Link
                       href={`/samples/${slug}`}
                       onClick={() => {
-                        setDataExpanded();
+                        setListExpanded(false);
                       }}
                     >
                       {slug}
@@ -124,7 +110,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             </ul>
           </div>
         </nav>
-        <Component {...pageProps} />
+        <ComponentMemo {...pageProps} />
       </div>
     </>
   );
