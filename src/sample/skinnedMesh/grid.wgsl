@@ -15,6 +15,10 @@ struct CameraUniforms {
   modelMatrix: mat4x4f,
 }
 
+// When these matrices are passed to this vertex shader,
+// they are first multiplied by the inverse bind pose
+// to only reflect their influence relative to the origin
+
 struct BoneUniforms {
   bones: array<mat4x4<f32>, 4>,
 }
@@ -54,3 +58,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
   return vec4<f32>(255.0, 0.0, 1.0, 1.0);
   //return vec4<f32>((normal + 1.0) * 0.5, 1.0);
 }
+
+// Bind Pose: where was a matrix before it was used to influence vertices
+// Use inverse of original head matrix can be used to subtract out extra stuff
+// W

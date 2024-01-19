@@ -3,13 +3,19 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { convertGLBToJSONAndBinary } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
-import { mat4, vec3 } from 'wgpu-matrix';
+import { Mat4, mat4, vec3 } from 'wgpu-matrix';
 import { createBindGroupCluster } from '../bitonicSort/utils';
 import { createSkinnedGridBuffers, createSkinnedGridRenderPipeline } from './gridUtils';
 import { gridIndices } from './gridData';
 //import {ArcballCamera} from 'arcball_camera'
 
 const MAT4X4_BYTES = 64;
+
+interface BoneObject {
+  transforms: Mat4[];
+  bindPoses: Mat4[];
+  uniforms: Mat4[];
+}
 
 const init: SampleInit = async ({
   canvas,
@@ -43,8 +49,8 @@ const init: SampleInit = async ({
   };
 
   gui.add(settings, 'object', ['Whale', 'Skinned Grid']);
-  gui.add(settings, 'cameraX', -5, 5).step(0.1);
-  gui.add(settings, 'cameraY', -5, 5).step(0.1);
+  gui.add(settings, 'cameraX', -10, 10).step(0.1);
+  gui.add(settings, 'cameraY', -10, 10).step(0.1);
   gui.add(settings, 'cameraZ', -100, 0).step(0.1);
   gui.add(settings, 'objectScale', 0.01, 10).step(0.01);
 
@@ -89,8 +95,9 @@ const init: SampleInit = async ({
   );
 
   // Create grid resources
-  const skinnedGridBuffers = createSkinnedGridBuffers(device);
-  const skinnedGridBoneBuffer = device.createBuffer({
+  const skinnedGridVertexBuffers = createSkinnedGridBuffers(device);
+  const skinnedGridBoneArrayBuffer = new Float32Array(4 * 16);
+  const skinnedGridBoneUniformBuffer = device.createBuffer({
     // 4 4x4 matrices, one for each bone
     size: MAT4X4_BYTES * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -100,7 +107,7 @@ const init: SampleInit = async ({
     [GPUShaderStage.VERTEX],
     ['buffer'],
     [{type: 'uniform'}],
-    [[{buffer: skinnedGridBoneBuffer}]],
+    [[{buffer: skinnedGridBoneUniformBuffer}]],
     'Bone',
     device
   );
@@ -135,7 +142,7 @@ const init: SampleInit = async ({
 
   function getViewMatrix() {
     const viewMatrix = mat4.identity();
-    mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX, settings.cameraY, settings.cameraZ), viewMatrix);
+    mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX * settings.objectScale, settings.cameraY * settings.objectScale, settings.cameraZ), viewMatrix);
     return viewMatrix as Float32Array;
   }
 
@@ -143,7 +150,9 @@ const init: SampleInit = async ({
     const modelMatrix = mat4.identity();
     const scaleVector = vec3.fromValues(settings.objectScale, settings.objectScale, settings.objectScale);
     mat4.scale(modelMatrix, scaleVector, modelMatrix);
-    mat4.rotateY(modelMatrix, Date.now() / 1000 * 0.5, modelMatrix);
+    if (settings.object === 'Whale') {
+      mat4.rotateY(modelMatrix, Date.now() / 1000 * 0.5, modelMatrix);
+    }
     return modelMatrix as Float32Array;
   }
 
@@ -180,6 +189,40 @@ const init: SampleInit = async ({
         storeOp: 'store',
       },
     ],
+  }
+
+  const computeBoneMatrices = (boneTranslations: Mat4[], angle: number) => {
+    let m = m4.identity();
+    mat4.rotateZ(m, angle, boneTranslations[0])
+  }
+
+  const createBoneObject = (arrayBuffer: Float32Array, numBones: number): BoneObject => {
+    // Initial bone transformation
+    const transforms: Mat4[] = [];
+    // Bone bind poses
+    const bindPoses: Mat4[] = [];
+    // Bone after transform and inverse bind pose has been applied
+    const uniforms: Mat4[] = [];
+    for (let i= 0; i < numBones; i++) {
+      transforms.push(mat4.identity());
+      bindPoses.push(mat4.identity());
+      // Why is byte offset in btyes but length is in elements : (
+      const boneArrayBufferView = new Float32Array(skinnedGridBoneArrayBuffer.buffer, i * 4 * 16, 16);
+      console.log(boneArrayBufferView.length)
+      uniforms.push(boneArrayBufferView)
+    }
+
+    return {
+      transforms,
+      bindPoses,
+      uniforms,
+    }
+  }
+
+  const skinnedGridBoneObject = createBoneObject(skinnedGridBoneArrayBuffer, 4);
+
+  const computeBoneMatrices = () => {
+
   }
 
 
@@ -238,10 +281,10 @@ const init: SampleInit = async ({
       passEncoder.setPipeline(skinnedGridPipeline);
       passEncoder.setBindGroup(0, cameraBGCluster.bindGroups[0]);
       passEncoder.setBindGroup(1, skinnedGridBoneBGCluster.bindGroups[0]);
-      passEncoder.setVertexBuffer(0, skinnedGridBuffers.vertPositions);
-      passEncoder.setVertexBuffer(1, skinnedGridBuffers.boneIndices);
-      passEncoder.setVertexBuffer(2, skinnedGridBuffers.boneWeights);
-      passEncoder.setIndexBuffer(skinnedGridBuffers.vertIndices, 'uint16');
+      passEncoder.setVertexBuffer(0, skinnedGridVertexBuffers.vertPositions);
+      passEncoder.setVertexBuffer(1, skinnedGridVertexBuffers.boneIndices);
+      passEncoder.setVertexBuffer(2, skinnedGridVertexBuffers.boneWeights);
+      passEncoder.setIndexBuffer(skinnedGridVertexBuffers.vertIndices, 'uint16');
       passEncoder.drawIndexed(gridIndices.length, 1);
       passEncoder.end();
     }
