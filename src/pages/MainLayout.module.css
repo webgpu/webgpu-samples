@@ -18,7 +18,9 @@
 }
 
 .exampleList {
-  padding: 0
+  padding: 0;
+  margin-block-start: 16px;
+  margin-block-end: 16px;
 }
 
 .exampleList li {
@@ -40,6 +42,13 @@
   background-size: cover;
 }
 
+.panel .panelContents {
+  display: block;
+  transition: max-height 0s;
+  overflow: none;
+  max-height: 100vh;
+}
+
 @media only screen and (max-width: 768px) {
   /* More padding on mobile for easier touch screen use */
   .exampleLink {
@@ -55,12 +64,19 @@
     height: auto;
   }
 
-  .panel[data-expanded=false] .panelContents {
-    display: none;
+  .panel .panelContents {
+    display: block;
+    transition: max-height 0.3s ease-out;
+    overflow: hidden;
+    max-height: 0px;
   }
 
-  .panel[data-expanded=true] .panelContents {
-    display: block;
+  .panel[data-expanded='false'] .panelContents {
+    max-height: 0vh;
+  }
+
+  .panel[data-expanded='true'] .panelContents {
+    max-height: 100vh;
   }
 
   .expand {

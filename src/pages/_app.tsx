@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { AppProps } from 'next/app';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useMemo, memo, useState } from 'react';
 
 import './styles.css';
 import styles from './MainLayout.module.css';
@@ -21,8 +21,11 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
 }) => {
   const router = useRouter();
   const samplesNames = Object.keys(pages);
-
   const [listExpanded, setListExpanded] = useState<boolean>(false);
+
+  const ComponentMemo = useMemo(() => {
+    return memo(Component);
+  }, [Component]);
 
   const oldPathSyntaxMatch = router.asPath.match(/(\?wgsl=[01])#(\S+)/);
   if (oldPathSyntaxMatch) {
@@ -107,7 +110,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             </ul>
           </div>
         </nav>
-        <Component {...pageProps} />
+        <ComponentMemo {...pageProps} />
       </div>
     </>
   );
