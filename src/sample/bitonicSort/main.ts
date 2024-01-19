@@ -81,7 +81,6 @@ SampleInitFactoryWebGPU(
     let querySet: GPUQuerySet;
     let timestampQueryResolveBuffer: GPUBuffer;
     let timestampQueryResultBuffer: GPUBuffer;
-    console.log(timestampQueryAvailable);
     if (timestampQueryAvailable) {
       querySet = device.createQuerySet({ type: 'timestamp', count: 2 });
       timestampQueryResolveBuffer = device.createBuffer({
@@ -184,7 +183,7 @@ SampleInitFactoryWebGPU(
       // An atomic value representing the total number of swap operations executed over the course of the bitonic sort.
       'Total Swaps': 0,
       // Time taken to sort in seconds (not nanoseconds!). If timestep query feature is not available then this will remain 0.
-      'Sort Time': '0s',
+      'Sort Time': '0ms',
       sortTime: 0,
     };
 
@@ -347,7 +346,7 @@ SampleInitFactoryWebGPU(
       computePassEncoder.end();
       device.queue.submit([commandEncoder.finish()]);
       totalSwapsController.setValue(0);
-      sortTimeController.setValue(`0s`);
+      sortTimeController.setValue(`0ms`);
       settings.sortTime = 0;
 
       highestBlockHeight = 2;
@@ -795,10 +794,9 @@ SampleInitFactoryWebGPU(
           );
           const newSortTime =
             settings.sortTime +
-            Number(copyTimestampResult[1] - copyTimestampResult[0]) /
-              1000000000;
+            Number(copyTimestampResult[1] - copyTimestampResult[0]) / 1000000;
           settings.sortTime = newSortTime;
-          sortTimeController.setValue(`${newSortTime}s`);
+          sortTimeController.setValue(`${newSortTime}ms`);
           timestampQueryResultBuffer.unmap();
           // Get correct range of data from CPU copy of GPU Data
         }
