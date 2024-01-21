@@ -14,6 +14,7 @@ const MAT4X4_BYTES = 64;
 interface BoneObject {
   transforms: Mat4[];
   bindPoses: Mat4[];
+  bindPosesInv: Mat4[];
   uniforms: Mat4[];
 }
 
@@ -191,12 +192,19 @@ const init: SampleInit = async ({
     ],
   }
 
-  const computeBoneMatrices = (boneTranslations: Mat4[], angle: number) => {
-    let m = m4.identity();
-    mat4.rotateZ(m, angle, boneTranslations[0])
+  const computeBoneMatrices = (boneTransforms: Mat4[], angle: number) => {
+    const m = mat4.identity();
+    mat4.rotateZ(m, angle, boneTransforms[0]);
+    mat4.translate(boneTransforms[0], vec3.create(4, 0, 0), m);
+    mat4.rotateZ(m, angle, boneTransforms[1]);
+    mat4.translate(boneTransforms[1], vec3.create(4, 0, 0), m);
+    mat4.rotateZ(m, angle, boneTransforms[2]);
+    
   }
 
-  const createBoneObject = (arrayBuffer: Float32Array, numBones: number): BoneObject => {
+  // Create a group of bones
+  // Each index associates an actual bone to its transforms, bindPoses, uniforms, etc
+  const createBoneCollection = (arrayBuffer: Float32Array, numBones: number): BoneObject => {
     // Initial bone transformation
     const transforms: Mat4[] = [];
     // Bone bind poses
@@ -212,28 +220,44 @@ const init: SampleInit = async ({
       uniforms.push(boneArrayBufferView)
     }
 
+    // Get initial bind pose positions
+    computeBoneMatrices(bindPoses, 0);
+    const bindPosesInv = bindPoses.map((bindPose) => {
+      return mat4.inverse(bindPose)
+    });
+
+
     return {
       transforms,
       bindPoses,
+      bindPosesInv,
       uniforms,
     }
   }
 
-  const skinnedGridBoneObject = createBoneObject(skinnedGridBoneArrayBuffer, 4);
-
-  const computeBoneMatrices = () => {
-
-  }
-
+  const gridBoneCollection = createBoneCollection(skinnedGridBoneArrayBuffer, 4);
+  console.log(gridBoneCollection.uniforms);
 
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
 
+    // Calculate camera matrices
     const projectionMatrix = getProjectionMatrix();
     const viewMatrix = getViewMatrix();
     const modelMatrix = getModelMatrix();
 
+    // Calculate bone transformation
+    const t = Date.now() / 1000;
+    const angle = Math.sin(t) * 0.8;
+    // Compute Transforms when angle is applied
+    computeBoneMatrices(gridBoneCollection.transforms, angle);
+    gridBoneCollection.transforms.forEach((boneTransform, idx) => {
+      // Apply inverseBindPose to normal transform to get transform passed to our uniforms
+      mat4.multiply(boneTransform, gridBoneCollection.bindPosesInv[idx], gridBoneCollection.uniforms[idx])
+    })
+
+    // Write to global camera buffer
     device.queue.writeBuffer(
       cameraBuffer,
       0,
@@ -257,6 +281,11 @@ const init: SampleInit = async ({
       modelMatrix.byteOffset,
       modelMatrix.byteLength
     )
+
+    // Write to skinned grid bone uniform buffer
+    for (let i = 0; i < gridBoneCollection.uniforms.length; i++) {
+      device.queue.writeBuffer(skinnedGridBoneUniformBuffer, 0, gridBoneCollection.uniforms[0] as Float32Array)
+    }
 
     if (settings.object === 'Skinned Grid') {
       device.queue

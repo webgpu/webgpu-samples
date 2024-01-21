@@ -42,8 +42,8 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   bones += bone2 * position * input.bone_weight[2];
   bones += bone3 * position * input.bone_weight[3];
   // Transform by viewproj matrix
-  //output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * bones;
-  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * position;
+  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * bones;
+  //output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * position;
   //Get unadjusted world coordinates
   output.world_pos = position.xyz;
   return output;
