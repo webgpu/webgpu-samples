@@ -20,7 +20,8 @@ struct CameraUniforms {
 // to only reflect their influence relative to the origin
 
 struct BoneUniforms {
-  bones: array<mat4x4<f32>, 4>,
+  // B0, B1, B2, B3
+  bones: array<mat4x4<f32>, 5>,
 }
 
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;

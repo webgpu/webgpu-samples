@@ -6,6 +6,8 @@ import {
 } from './gridData';
 
 export const createSkinnedGridBuffers = (device: GPUDevice) => {
+  console.log(gridBoneWeights.length);
+  console.log(gridBoneIndices.length);
   const createBuffer = (data: Float32Array) => {
     const buffer = device.createBuffer({
       size: data.byteLength,

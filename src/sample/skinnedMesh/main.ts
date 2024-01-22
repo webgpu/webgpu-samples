@@ -51,12 +51,20 @@ const init: SampleInit = async ({
     object: 'Whale'
   };
 
-  gui.add(settings, 'object', ['Whale', 'Skinned Grid']);
+  gui.add(settings, 'object', ['Whale', 'Skinned Grid']).onChange(() => {
+    if (settings.object === 'Skinned Grid') {
+      cameraXController.setValue(-10);
+      cameraYController.setValue(0);
+      objectScaleController.setValue(1.27);
+    } else {
+      
+    }
+  });
   const cameraFolder = gui.addFolder('Camera Settings');
-  cameraFolder.add(settings, 'cameraX', -10, 10).step(0.1);
-  cameraFolder.add(settings, 'cameraY', -10, 10).step(0.1);
-  cameraFolder.add(settings, 'cameraZ', -100, 0).step(0.1);
-  cameraFolder.add(settings, 'objectScale', 0.01, 10).step(0.01);
+  const cameraXController = cameraFolder.add(settings, 'cameraX', -10, 10).step(0.1);
+  const cameraYController = cameraFolder.add(settings, 'cameraY', -10, 10).step(0.1);
+  const cameraZController = cameraFolder.add(settings, 'cameraZ', -100, 0).step(0.1);
+  const objectScaleController = cameraFolder.add(settings, 'objectScale', 0.01, 10).step(0.01);
   const animFolder = gui.addFolder('Animation Settings');
   animFolder.add(settings, 'angle', 0.1, 1.0).step(0.1);
   animFolder.add(settings, 'speed', 10, 100).step(10);
@@ -105,8 +113,8 @@ const init: SampleInit = async ({
   const skinnedGridVertexBuffers = createSkinnedGridBuffers(device);
   //const skinnedGridBoneArrayBuffer = new Float32Array(4 * 16);
   const skinnedGridBoneUniformBuffer = device.createBuffer({
-    // 4 4x4 matrices, one for each bone
-    size: MAT4X4_BYTES * 4,
+    // 5 4x4 matrices, one for each bone
+    size: MAT4X4_BYTES * 5,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
   });
   const skinnedGridBoneBGCluster = createBindGroupCluster(
@@ -239,7 +247,7 @@ const init: SampleInit = async ({
     }
   }
 
-  const gridBoneCollection = createBoneCollection(4);
+  const gridBoneCollection = createBoneCollection(5);
   console.log(gridBoneCollection); 
 
   function frame() {
