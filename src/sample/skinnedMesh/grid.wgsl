@@ -36,13 +36,17 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   let bone1 = bone_uniforms.bones[u32(input.bone_index[1])];
   let bone2 = bone_uniforms.bones[u32(input.bone_index[2])];
   let bone3 = bone_uniforms.bones[u32(input.bone_index[3])];
-  // Accumulate influences of each bone on the position
-  bones += bone0 * position * input.bone_weight[0];
-  bones += bone1 * position * input.bone_weight[1];
-  bones += bone2 * position * input.bone_weight[2];
-  bones += bone3 * position * input.bone_weight[3];
-  // Transform by viewproj matrix
-  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * bones;
+  // Bone transformed mesh
+  output.Position = 
+    camera_uniforms.projMatrix * 
+    camera_uniforms.viewMatrix * 
+    camera_uniforms.modelMatrix *
+    (bone0 * position * input.bone_weight[0] +
+     bone1 * position * input.bone_weight[1] +
+     bone2 * position * input.bone_weight[2] +
+     bone3 * position * input.bone_weight[3]);
+
+  // Normal, unaffected mesh
   //output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * position;
   //Get unadjusted world coordinates
   output.world_pos = position.xyz;

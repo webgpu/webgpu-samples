@@ -57,6 +57,7 @@ export const createSkinnedGridRenderPipeline = (
       }),
       entryPoint: 'vertexMain',
       buffers: [
+        // Vert Positions
         {
           arrayStride: Float32Array.BYTES_PER_ELEMENT * 2,
           attributes: [
@@ -67,6 +68,7 @@ export const createSkinnedGridRenderPipeline = (
             },
           ],
         },
+        // Bone Indicies
         {
           arrayStride: Float32Array.BYTES_PER_ELEMENT * 4,
           attributes: [
@@ -77,6 +79,7 @@ export const createSkinnedGridRenderPipeline = (
             },
           ],
         },
+        // Bone Weights
         {
           arrayStride: Float32Array.BYTES_PER_ELEMENT * 4,
           attributes: [

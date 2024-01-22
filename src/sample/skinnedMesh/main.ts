@@ -46,14 +46,20 @@ const init: SampleInit = async ({
     cameraY: -0.3,
     cameraZ: -0.6,
     objectScale: 1,
+    angle: 0.8,
+    speed: 10,
     object: 'Whale'
   };
 
   gui.add(settings, 'object', ['Whale', 'Skinned Grid']);
-  gui.add(settings, 'cameraX', -10, 10).step(0.1);
-  gui.add(settings, 'cameraY', -10, 10).step(0.1);
-  gui.add(settings, 'cameraZ', -100, 0).step(0.1);
-  gui.add(settings, 'objectScale', 0.01, 10).step(0.01);
+  const cameraFolder = gui.addFolder('Camera Settings');
+  cameraFolder.add(settings, 'cameraX', -10, 10).step(0.1);
+  cameraFolder.add(settings, 'cameraY', -10, 10).step(0.1);
+  cameraFolder.add(settings, 'cameraZ', -100, 0).step(0.1);
+  cameraFolder.add(settings, 'objectScale', 0.01, 10).step(0.01);
+  const animFolder = gui.addFolder('Animation Settings');
+  animFolder.add(settings, 'angle', 0.1, 1.0).step(0.1);
+  animFolder.add(settings, 'speed', 10, 100).step(10);
 
   // Create global resources
   const depthTexture = device.createTexture({
@@ -97,7 +103,7 @@ const init: SampleInit = async ({
 
   // Create grid resources
   const skinnedGridVertexBuffers = createSkinnedGridBuffers(device);
-  const skinnedGridBoneArrayBuffer = new Float32Array(4 * 16);
+  //const skinnedGridBoneArrayBuffer = new Float32Array(4 * 16);
   const skinnedGridBoneUniformBuffer = device.createBuffer({
     // 4 4x4 matrices, one for each bone
     size: MAT4X4_BYTES * 4,
@@ -143,7 +149,11 @@ const init: SampleInit = async ({
 
   function getViewMatrix() {
     const viewMatrix = mat4.identity();
-    mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX * settings.objectScale, settings.cameraY * settings.objectScale, settings.cameraZ), viewMatrix);
+    if (settings.object === 'Skinned Grid') {
+      mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX * settings.objectScale, settings.cameraY * settings.objectScale, settings.cameraZ), viewMatrix);
+    } else {
+      mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX, settings.cameraY, settings.cameraZ), viewMatrix);
+    }
     return viewMatrix as Float32Array;
   }
 
@@ -173,9 +183,6 @@ const init: SampleInit = async ({
       depthLoadOp: "clear",
       depthClearValue: 1.0,
       depthStoreOp: "store",
-      //stencilLoadOp: "clear",
-      //stencilClearValue: 0,
-      //stencilStoreOp: "store"
     },
   };
 
@@ -199,12 +206,11 @@ const init: SampleInit = async ({
     mat4.rotateZ(m, angle, boneTransforms[1]);
     mat4.translate(boneTransforms[1], vec3.create(4, 0, 0), m);
     mat4.rotateZ(m, angle, boneTransforms[2]);
-    
   }
 
   // Create a group of bones
   // Each index associates an actual bone to its transforms, bindPoses, uniforms, etc
-  const createBoneCollection = (arrayBuffer: Float32Array, numBones: number): BoneObject => {
+  const createBoneCollection = (numBones: number): BoneObject => {
     // Initial bone transformation
     const transforms: Mat4[] = [];
     // Bone bind poses
@@ -215,9 +221,7 @@ const init: SampleInit = async ({
       transforms.push(mat4.identity());
       bindPoses.push(mat4.identity());
       // Why is byte offset in btyes but length is in elements : (
-      const boneArrayBufferView = new Float32Array(skinnedGridBoneArrayBuffer.buffer, i * 4 * 16, 16);
-      console.log(boneArrayBufferView.length)
-      uniforms.push(boneArrayBufferView)
+      uniforms.push(mat4.identity())
     }
 
     // Get initial bind pose positions
@@ -235,8 +239,8 @@ const init: SampleInit = async ({
     }
   }
 
-  const gridBoneCollection = createBoneCollection(skinnedGridBoneArrayBuffer, 4);
-  console.log(gridBoneCollection.uniforms);
+  const gridBoneCollection = createBoneCollection(4);
+  console.log(gridBoneCollection); 
 
   function frame() {
     // Sample is no longer the active page.
@@ -248,14 +252,14 @@ const init: SampleInit = async ({
     const modelMatrix = getModelMatrix();
 
     // Calculate bone transformation
-    const t = Date.now() / 1000;
-    const angle = Math.sin(t) * 0.8;
+    const t = Date.now() / 20000 * settings.speed;
+    const angle = Math.sin(t) * settings.angle;
     // Compute Transforms when angle is applied
     computeBoneMatrices(gridBoneCollection.transforms, angle);
     gridBoneCollection.transforms.forEach((boneTransform, idx) => {
       // Apply inverseBindPose to normal transform to get transform passed to our uniforms
       mat4.multiply(boneTransform, gridBoneCollection.bindPosesInv[idx], gridBoneCollection.uniforms[idx])
-    })
+    });
 
     // Write to global camera buffer
     device.queue.writeBuffer(
@@ -284,11 +288,7 @@ const init: SampleInit = async ({
 
     // Write to skinned grid bone uniform buffer
     for (let i = 0; i < gridBoneCollection.uniforms.length; i++) {
-      device.queue.writeBuffer(skinnedGridBoneUniformBuffer, 0, gridBoneCollection.uniforms[0] as Float32Array)
-    }
-
-    if (settings.object === 'Skinned Grid') {
-      device.queue
+      device.queue.writeBuffer(skinnedGridBoneUniformBuffer, i * 64, gridBoneCollection.uniforms[i] as Float32Array)
     }
     
     gltfRenderPassDescriptor.colorAttachments[0].view = context
