@@ -18,6 +18,12 @@ interface BoneObject {
   uniforms: Mat4[];
 }
 
+enum RenderMode {
+  NORMAL,
+  JOINTS,
+  WEIGHTS,
+}
+
 const init: SampleInit = async ({
   canvas,
   pageState,
@@ -48,7 +54,8 @@ const init: SampleInit = async ({
     objectScale: 1,
     angle: 0.8,
     speed: 10,
-    object: 'Whale'
+    object: 'Whale',
+    renderMode: 'NORMAL',
   };
 
   gui.add(settings, 'object', ['Whale', 'Skinned Grid']).onChange(() => {
@@ -62,6 +69,9 @@ const init: SampleInit = async ({
       cameraZController.setValue(-10.7);
       objectScaleController.setValue(1);
     }
+  });
+  gui.add(settings, 'renderMode', ['NORMAL', 'JOINTS', 'WEIGHTS']).onChange(() => {
+    device.queue.writeBuffer(generalUniformsBuffer, 0, new Uint32Array([RenderMode[settings.renderMode]]));
   });
   const cameraFolder = gui.addFolder('Camera Settings');
   const cameraXController = cameraFolder.add(settings, 'cameraX', -10, 10).step(0.1);
@@ -91,6 +101,21 @@ const init: SampleInit = async ({
     [{ type: 'uniform' }],
     [[{ buffer: cameraBuffer }]],
     'Camera',
+    device
+  );
+
+  const generalUniformsBuffer = device.createBuffer({
+    size: Uint32Array.BYTES_PER_ELEMENT,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const generalUniformsBGCLuster = createBindGroupCluster(
+    [0],
+    [GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT],
+    ['buffer'],
+    [{ type: 'uniform' }],
+    [[{ buffer: generalUniformsBuffer }]],
+    'General',
     device
   );
 
@@ -134,8 +159,7 @@ const init: SampleInit = async ({
     presentationFormat,
     gridWGSL,
     gridWGSL,
-    cameraBGCluster.bindGroupLayout,
-    skinnedGridBoneBGCluster.bindGroupLayout,
+    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, skinnedGridBoneBGCluster.bindGroupLayout]
   );
 
   // Global Calc
@@ -316,7 +340,7 @@ const init: SampleInit = async ({
       //mesh.render(passEncoder, bgDescriptor.bindGroups[0]);
       for (const scene of whaleScene.scenes) {
         scene.root.updateWorldMatrix();
-        scene.root.renderDrawables(passEncoder, cameraBGCluster.bindGroups[0]);
+        scene.root.renderDrawables(passEncoder, [cameraBGCluster.bindGroups[0]]);
       }
       //whaleScene.meshes[0].render(passEncoder, cameraBGCluster.bindGroups[0]);
       passEncoder.end();
@@ -324,7 +348,8 @@ const init: SampleInit = async ({
       const passEncoder = commandEncoder.beginRenderPass(skinnedGridRenderPassDescriptor);
       passEncoder.setPipeline(skinnedGridPipeline);
       passEncoder.setBindGroup(0, cameraBGCluster.bindGroups[0]);
-      passEncoder.setBindGroup(1, skinnedGridBoneBGCluster.bindGroups[0]);
+      passEncoder.setBindGroup(1, generalUniformsBGCLuster.bindGroups[0]);
+      passEncoder.setBindGroup(2, skinnedGridBoneBGCluster.bindGroups[0]);
       passEncoder.setVertexBuffer(0, skinnedGridVertexBuffers.vertPositions);
       passEncoder.setVertexBuffer(1, skinnedGridVertexBuffers.boneIndices);
       passEncoder.setVertexBuffer(2, skinnedGridVertexBuffers.boneWeights);
@@ -360,6 +385,11 @@ const skinnedMesh: () => JSX.Element = () =>
         name: './gridUtils.ts',
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         contents: require('!!raw-loader!./gridUtils.ts').default,
+      },
+      {
+        name: './grid.wgsl',
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        contents: require('!!raw-loader!./grid.wgsl').default,
       },
       {
         name: './gltf.ts',

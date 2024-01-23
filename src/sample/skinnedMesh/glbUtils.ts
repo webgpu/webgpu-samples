@@ -373,9 +373,11 @@ export class GLTFPrimitive {
     this.renderPipeline = device.createRenderPipeline(rpDescript);
   }
 
-  render(renderPassEncoder: GPURenderPassEncoder, uniformsBG: GPUBindGroup) {
+  render(renderPassEncoder: GPURenderPassEncoder, bindGroups: GPUBindGroup[]) {
     renderPassEncoder.setPipeline(this.renderPipeline);
-    renderPassEncoder.setBindGroup(0, uniformsBG);
+    bindGroups.forEach((bg, idx) => {
+      renderPassEncoder.setBindGroup(idx, bg);
+    });
 
     renderPassEncoder.setVertexBuffer(
       0,
@@ -453,11 +455,11 @@ export class GLTFMesh {
     }
   }
 
-  render(renderPassEncoder: GPURenderPassEncoder, uniformsBG: GPUBindGroup) {
+  render(renderPassEncoder: GPURenderPassEncoder, bindGroups: GPUBindGroup[]) {
     // We take a pretty simple approach to start. Just loop through all the primitives and
     // call their individual draw methods
     for (let i = 0; i < this.primitives.length; ++i) {
-      this.primitives[i].render(renderPassEncoder, uniformsBG);
+      this.primitives[i].render(renderPassEncoder, bindGroups);
     }
   }
 }
@@ -666,16 +668,19 @@ export class GLTFNode {
     }
   }
 
-  renderDrawables(passEncoder: GPURenderPassEncoder, bindGroup: GPUBindGroup) {
+  renderDrawables(
+    passEncoder: GPURenderPassEncoder,
+    bindGroups: GPUBindGroup[]
+  ) {
     // Render node itself
     if (this.drawables !== undefined) {
       for (const drawable of this.drawables) {
-        drawable.render(passEncoder, bindGroup);
+        drawable.render(passEncoder, bindGroups);
       }
     }
     // Render any of its children
     for (const child of this.children) {
-      child.renderDrawables(passEncoder, bindGroup)
+      child.renderDrawables(passEncoder, bindGroups);
     }
   }
 

@@ -1,10 +1,14 @@
 struct VertexInput {
-  @location(0) position: vec3f,
+  @location(0) position: vec3<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) joints: vec4<f32>,
+  @location(3) weights: vec4<u32>,
 }
 
 struct VertexOutput {
   @builtin(position) Position: vec4<f32>,
-  @location(0) world_pos: vec3<f32>,
+  @location(0) normal: vec3<f32>,
+  @location(1) joints: vec4<f32>,
 }
 
 struct Uniforms {
@@ -19,15 +23,13 @@ struct Uniforms {
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
   output.Position = uniforms.projMatrix * uniforms.viewMatrix * uniforms.modelMatrix * vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
-  //Get unadjusted world coordinates
-  output.world_pos = input.position.xyz;
+  output.normal = input.normal;
+  output.joints = input.joints;
   return output;
 }
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
-  var normal = normalize(cross(
-    dpdx(input.world_pos), dpdy(input.world_pos)
-  ));
-  return vec4<f32>((normal + 1.0) * 0.5, 1.0);
+  //return vec4<f32>(input.normal, 1.0);
+  return input.joints;
 }

@@ -40,14 +40,13 @@ export const createSkinnedGridRenderPipeline = (
   presentationFormat: GPUTextureFormat,
   vertexShader: string,
   fragmentShader: string,
-  cameraBGLayout: GPUBindGroupLayout,
-  boneBGLayout: GPUBindGroupLayout
+  bgLayouts: GPUBindGroupLayout[]
 ) => {
   const pipeline = device.createRenderPipeline({
     label: 'SkinnedGridRenderer',
     layout: device.createPipelineLayout({
       label: `SkinnedGridRenderer.pipelineLayout`,
-      bindGroupLayouts: [cameraBGLayout, boneBGLayout],
+      bindGroupLayouts: bgLayouts,
     }),
     vertex: {
       module: device.createShaderModule({

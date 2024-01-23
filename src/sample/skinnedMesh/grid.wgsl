@@ -7,6 +7,8 @@ struct VertexInput {
 struct VertexOutput {
   @builtin(position) Position: vec4<f32>,
   @location(0) world_pos: vec3<f32>,
+  @location(1) bone_index: vec4<f32>,
+  @location(2) bone_weight: vec4<f32>,
 }
 
 struct CameraUniforms {
@@ -15,9 +17,9 @@ struct CameraUniforms {
   modelMatrix: mat4x4f,
 }
 
-// When these matrices are passed to this vertex shader,
-// they are first multiplied by the inverse bind pose
-// to only reflect their influence relative to the origin
+struct GeneralUniforms {
+  render_mode: u32,
+}
 
 struct BoneUniforms {
   // B0, B1, B2, B3
@@ -25,7 +27,8 @@ struct BoneUniforms {
 }
 
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
-@group(1) @binding(0) var<uniform> bone_uniforms: BoneUniforms;
+@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
+@group(2) @binding(0) var<uniform> bone_uniforms: BoneUniforms;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -51,19 +54,23 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   //output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * position;
   //Get unadjusted world coordinates
   output.world_pos = position.xyz;
+  output.bone_index = input.bone_index;
+  output.bone_weight = input.bone_weight;
   return output;
 }
 
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
-  var normal = normalize(cross(
-    dpdx(input.world_pos), dpdy(input.world_pos)
-  ));
-  return vec4<f32>(255.0, 0.0, 1.0, 1.0);
-  //return vec4<f32>((normal + 1.0) * 0.5, 1.0);
+  switch general_uniforms.render_mode {
+    case 1: {
+      return input.bone_index;
+    }
+    case 2: {
+      return input.bone_weight;
+    }
+    default: {
+      return vec4<f32>(255.0, 0.0, 1.0, 1.0); 
+    }
+  }
 }
-
-// Bind Pose: where was a matrix before it was used to influence vertices
-// Use inverse of original head matrix can be used to subtract out extra stuff
-// W
