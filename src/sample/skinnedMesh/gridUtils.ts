@@ -6,8 +6,6 @@ import {
 } from './gridData';
 
 export const createSkinnedGridBuffers = (device: GPUDevice) => {
-  console.log(gridBoneWeights.length);
-  console.log(gridBoneIndices.length);
   const createBuffer = (data: Float32Array) => {
     const buffer = device.createBuffer({
       size: data.byteLength,
@@ -29,7 +27,6 @@ export const createSkinnedGridBuffers = (device: GPUDevice) => {
   new Uint16Array(indicesBuffer.getMappedRange()).set(gridIndices);
   indicesBuffer.unmap();
 
-  console.log(positionsBuffer);
   return {
     vertPositions: positionsBuffer,
     boneIndices: boneIndicesBuffer,

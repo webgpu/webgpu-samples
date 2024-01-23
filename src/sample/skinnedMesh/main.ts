@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { convertGLBToJSONAndBinary } from './glbUtils';
+import { convertGLBToJSONAndBinary, GLTFNode } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
 import { Mat4, mat4, vec3 } from 'wgpu-matrix';
@@ -43,8 +43,8 @@ const init: SampleInit = async ({
 
   const settings = {
     cameraX: 0,
-    cameraY: -0.3,
-    cameraZ: -0.6,
+    cameraY: 0,
+    cameraZ: -10.7,
     objectScale: 1,
     angle: 0.8,
     speed: 10,
@@ -57,7 +57,10 @@ const init: SampleInit = async ({
       cameraYController.setValue(0);
       objectScaleController.setValue(1.27);
     } else {
-      
+      cameraXController.setValue(0);
+      cameraYController.setValue(0);
+      cameraZController.setValue(-10.7);
+      objectScaleController.setValue(1);
     }
   });
   const cameraFolder = gui.addFolder('Camera Settings');
@@ -248,7 +251,6 @@ const init: SampleInit = async ({
   }
 
   const gridBoneCollection = createBoneCollection(5);
-  console.log(gridBoneCollection); 
 
   function frame() {
     // Sample is no longer the active page.
@@ -307,11 +309,16 @@ const init: SampleInit = async ({
       .getCurrentTexture()
       .createView();
 
+
     const commandEncoder = device.createCommandEncoder();
     if (settings.object === 'Whale') {
       const passEncoder = commandEncoder.beginRenderPass(gltfRenderPassDescriptor);
       //mesh.render(passEncoder, bgDescriptor.bindGroups[0]);
-      whaleScene.meshes[0].render(passEncoder, cameraBGCluster.bindGroups[0]);
+      for (const scene of whaleScene.scenes) {
+        scene.root.updateWorldMatrix();
+        scene.root.renderDrawables(passEncoder, cameraBGCluster.bindGroups[0]);
+      }
+      //whaleScene.meshes[0].render(passEncoder, cameraBGCluster.bindGroups[0]);
       passEncoder.end();
     } else {
       const passEncoder = commandEncoder.beginRenderPass(skinnedGridRenderPassDescriptor);

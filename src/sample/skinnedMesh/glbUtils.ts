@@ -1,4 +1,4 @@
-import { Accessor, BufferView, GlTf, Node } from './gltf';
+import { Accessor, BufferView, GlTf, Node, Scene } from './gltf';
 import { Mat4, Vec3, mat4, vec3, vec4 } from 'wgpu-matrix';
 
 //NOTE: GLTF code is not generally extensible
@@ -35,21 +35,6 @@ enum GLTFType {
   MAT3 = 5,
   MAT4 = 6,
 }
-
-type GLTFNode = {
-  //name: string;
-  //mesh: GLTFMesh;
-  nodeIndex: number;
-  childrenNodes: GLTFNode[];
-  transformationMatrix: Mat4;
-  worldTransformMatrix?: Mat4;
-  mesh?: GLTFMesh;
-};
-
-type GLTFScene = {
-  sceneIndex: number;
-  nodes: GLTFNode[];
-};
 
 export const alignTo = (val: number, align: number): number => {
   return Math.floor((val + align - 1) / align) * align;
@@ -350,7 +335,6 @@ export class GLTFPrimitive {
         },
       ],
     };
-    console.log(vertexState);
 
     const fragmentState: GPUFragmentState = {
       // Shader info
@@ -495,7 +479,7 @@ export const validateBinaryHeader = (header: Uint32Array) => {
   }
 };
 
-export const flattenNodeOutput = (parentNode: GLTFNode) => {
+/* export const flattenNodeOutput = (parentNode: GLTFNode) => {
   if (!parentNode.transformationMatrix) {
     return mat4.identity();
   }
@@ -507,7 +491,7 @@ export const flattenNodeOutput = (parentNode: GLTFNode) => {
     mat4.multiply(accumulator, flattenNodeOutput(node), accumulator);
   });
   return parentNode.transformationMatrix;
-};
+}; */
 
 export const mat4FromRotationTranslationScale = (
   rotation: Vec3,
@@ -599,7 +583,128 @@ export const setNodeWorldTransformMatrix = (
 type TempReturn = {
   meshes: GLTFMesh[];
   nodes: Node[];
+  scenes: GLTFScene[];
 };
+
+// "A scene graph is usually a tree structure where each node in the tree generates a matrix...
+//  The engine walks the scene graph and figures out a list of things to draw...
+//  Each node in a scene graph represent a local space. Given the correct matrix math,
+//  anything in that local space can ignore anything above it"
+// https://webgl2fundamentals.org/webgl/lessons/webgl-scene-graph.html
+
+// BaseTransformation of a node;
+export class BaseTransformation {
+  position: Vec3;
+  rotation: Vec3;
+  scale: Vec3;
+  constructor(position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1]) {
+    this.position = position;
+    this.rotation = rotation;
+    this.scale = scale;
+  }
+  getMatrix(dst?: Mat4) {
+    dst = dst || new Float32Array(16);
+    mat4.scale(dst, this.scale);
+    mat4.rotateX(dst, this.rotation[0]);
+    mat4.rotateY(dst, this.rotation[1]);
+    mat4.rotateZ(dst, this.rotation[2]);
+    mat4.translate(dst, this.position);
+    return dst;
+  }
+}
+
+export class GLTFNode {
+  name: string;
+  source: BaseTransformation;
+  parent: GLTFNode | null;
+  children: GLTFNode[] = [];
+  // Transforms all node's children in the node's local space, with node itself acting as the origin
+  localMatrix: Mat4;
+  worldMatrix: Mat4;
+  // List of Meshes associated with this node
+  drawables: GLTFMesh[] = [];
+
+  constructor(source: BaseTransformation, name?: string) {
+    this.name = name
+      ? name
+      : `node_${source.position} ${source.rotation} ${source.scale}`;
+    this.source = source;
+    this.parent = null;
+    this.children = [];
+    this.localMatrix = mat4.identity();
+    this.worldMatrix = mat4.identity();
+    this.drawables = [];
+  }
+
+  setParent(parent: GLTFNode) {
+    if (this.parent) {
+      this.parent.removeChild(this);
+      this.parent = null;
+    }
+    parent.addChild(this);
+    this.parent = parent;
+  }
+
+  updateWorldMatrix(parentWorldMatrix?: Mat4) {
+    // Calculate the localMatrix
+    this.source.getMatrix(this.localMatrix);
+    if (parentWorldMatrix) {
+      mat4.multiply(parentWorldMatrix, this.localMatrix, this.worldMatrix);
+    } else {
+      mat4.copy(this.localMatrix, this.worldMatrix);
+    }
+    const worldMatrix = this.worldMatrix;
+    for (const child of this.children) {
+      child.updateWorldMatrix(worldMatrix);
+    }
+  }
+
+  traverse(fn: (n: GLTFNode, ...args) => void) {
+    fn(this);
+    for (const child of this.children) {
+      child.traverse(fn);
+    }
+  }
+
+  renderDrawables(passEncoder: GPURenderPassEncoder, bindGroup: GPUBindGroup) {
+    // Render node itself
+    if (this.drawables !== undefined) {
+      for (const drawable of this.drawables) {
+        drawable.render(passEncoder, bindGroup);
+      }
+    }
+    // Render any of its children
+    for (const child of this.children) {
+      child.renderDrawables(passEncoder, bindGroup)
+    }
+  }
+
+  private addChild(child: GLTFNode) {
+    this.children.push(child);
+  }
+
+  private removeChild(child: GLTFNode) {
+    const ndx = this.children.indexOf(child);
+    this.children.splice(ndx, 1);
+  }
+}
+
+export class GLTFScene {
+  nodes?: number[];
+  name?: any;
+  extensions?: any;
+  extras?: any;
+  [k: string]: any;
+  root: GLTFNode;
+
+  constructor(baseScene: Scene) {
+    this.nodes = baseScene.nodes;
+    this.name = baseScene.name;
+    this.extensions = baseScene.extensions;
+    this.extras = baseScene.extras;
+    this.root = new GLTFNode(new BaseTransformation(), baseScene.name);
+  }
+}
 
 // Upload a GLB model, parse its JSON and Binary components, and create the requisite GPU resources
 // to render them. NOTE: Not extensible to all GLTF contexts at this point in time
@@ -717,12 +822,10 @@ export const convertGLBToJSONAndBinary = async (
       // Loop through all the attributes to find the POSITION attribute.
       // While we only want the position attribute right now, we'll load
       // the others later as well.
-      console.log(prim['attributes']);
       for (const attr in prim['attributes']) {
         const accessor = accessors[prim['attributes'][attr]];
         primitiveAttributeMap[attr] = accessor;
       }
-      console.log(primitiveAttributeMap);
       meshPrimitives.push(new GLTFPrimitive(topology, primitiveAttributeMap));
     }
     meshes.push(new GLTFMesh(mesh.name, meshPrimitives));
@@ -735,65 +838,53 @@ export const convertGLBToJSONAndBinary = async (
     }
   }
 
-  const dfsConstructNodeTree = (gltf: GlTf, parentNode: GLTFNode) => {
-    if (
-      gltf.nodes[parentNode.nodeIndex] === undefined ||
-      gltf.nodes[parentNode.nodeIndex] === null
-    ) {
-      return;
-    }
-    if (
-      gltf.nodes[parentNode.nodeIndex].children === undefined ||
-      gltf.nodes[parentNode.nodeIndex].children.length === 0
-    ) {
-      return;
-    }
-    for (let i = 0; i < gltf.nodes[parentNode.nodeIndex].children.length; i++) {
-      const childNodeIndex = gltf.nodes[parentNode.nodeIndex].children[i];
-      const childNodeObject = gltf.nodes[childNodeIndex];
-      const childNode: GLTFNode = {
-        nodeIndex: childNodeIndex,
-        childrenNodes: [],
-        transformationMatrix: readNodeTransform(childNodeObject),
-        mesh: childNodeObject.mesh ? meshes[childNodeObject.mesh] : undefined,
-      };
-      if (
-        gltf.nodes[childNode.nodeIndex].children !== undefined &&
-        gltf.nodes[childNode.nodeIndex].children.length !== 0
-      ) {
-        dfsConstructNodeTree(gltf, childNode);
-      }
-      parentNode.childrenNodes.push(childNode);
-    }
-  };
+  const nodes: GLTFNode[] = [];
 
-  const theScenes: GLTFScene[] = [];
-  for (let i = 0; i < jsonChunk.scenes.length; i++) {
-    const scene: GLTFScene = {
-      sceneIndex: i,
-      nodes: [],
-    };
-    //Access every top-level ancestor node from this scene
-    for (let j = 0; j < jsonChunk.scenes[i].nodes.length; j++) {
-      //Get the index of the current top-level ancestor node
-      const currentNodeIndex = jsonChunk.scenes[i].nodes[j];
-      const currentNodeObject = jsonChunk.nodes[currentNodeIndex];
-      //Construct the ancestor node
-      const parentNode: GLTFNode = {
-        nodeIndex: currentNodeIndex,
-        childrenNodes: [],
-        transformationMatrix: readNodeTransform(currentNodeObject),
-        mesh: currentNodeObject.mesh
-          ? meshes[currentNodeObject.mesh]
-          : undefined,
-      };
-      dfsConstructNodeTree(jsonChunk, parentNode);
-      scene.nodes.push(parentNode);
+  console.log(jsonChunk.nodes);
+  // Access each node. If node references a mesh, add mesh to that node
+  for (const currNode of jsonChunk.nodes) {
+    const baseTransformation = new BaseTransformation(
+      currNode.translation,
+      currNode.rotation,
+      currNode.scale
+    );
+    const nodeToCreate = new GLTFNode(baseTransformation, currNode.name);
+    const meshToAdd = meshes[currNode.mesh];
+    if (meshToAdd) {
+      nodeToCreate.drawables.push(meshToAdd);
     }
-    theScenes.push(scene);
+    nodes.push(nodeToCreate);
   }
+
+  console.log(nodes);
+
+  // Assign each node its children
+  nodes.forEach((node, idx) => {
+    const children = jsonChunk.nodes[idx].children;
+    if (children) {
+      children.forEach((childIdx) => {
+        const child = nodes[childIdx];
+        child.setParent(node);
+      });
+    }
+  });
+  console.log(nodes);
+
+  const scenes: GLTFScene[] = [];
+
+  for (const jsonScene of jsonChunk.scenes) {
+    const scene = new GLTFScene(jsonScene);
+    const sceneChildren = scene.nodes;
+    sceneChildren.forEach((childIdx) => {
+      const child = nodes[childIdx];
+      child.setParent(scene.root);
+    });
+    scenes.push(scene);
+  }
+  console.log(jsonChunk.scenes);
   return {
     meshes,
     nodes: jsonChunk.nodes,
+    scenes: scenes,
   };
 };
