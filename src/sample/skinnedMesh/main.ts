@@ -134,7 +134,7 @@ const init: SampleInit = async ({
     }),
     presentationFormat,
     depthTexture.format,
-    cameraBGCluster.bindGroupLayout
+    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout],
   );
 
   // Create grid resources
@@ -312,6 +312,8 @@ const init: SampleInit = async ({
       viewMatrix.byteLength
     )
 
+    // Somewhat of a hacky approach
+    // We know wour whale scene 
     device.queue.writeBuffer(
       cameraBuffer,
       128,
@@ -339,8 +341,8 @@ const init: SampleInit = async ({
       const passEncoder = commandEncoder.beginRenderPass(gltfRenderPassDescriptor);
       //mesh.render(passEncoder, bgDescriptor.bindGroups[0]);
       for (const scene of whaleScene.scenes) {
-        scene.root.updateWorldMatrix();
-        scene.root.renderDrawables(passEncoder, [cameraBGCluster.bindGroups[0]]);
+        //scene.root.updateWorldMatrix();
+        scene.root.renderDrawables(passEncoder, [cameraBGCluster.bindGroups[0], generalUniformsBGCLuster.bindGroups[0]]);
       }
       //whaleScene.meshes[0].render(passEncoder, cameraBGCluster.bindGroups[0]);
       passEncoder.end();

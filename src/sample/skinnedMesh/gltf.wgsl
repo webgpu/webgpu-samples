@@ -9,27 +9,44 @@ struct VertexOutput {
   @builtin(position) Position: vec4<f32>,
   @location(0) normal: vec3<f32>,
   @location(1) joints: vec4<f32>,
+  @location(2) weights: vec4<f32>,
 }
 
-struct Uniforms {
+struct CameraUniforms {
   projMatrix: mat4x4f,
   viewMatrix: mat4x4f,
   modelMatrix: mat4x4f,
 }
 
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+struct GeneralUniforms {
+  render_mode: u32
+}
+
+@group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
+@group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
-  output.Position = uniforms.projMatrix * uniforms.viewMatrix * uniforms.modelMatrix * vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
+  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
   output.normal = input.normal;
   output.joints = input.joints;
+  // Convert to f32 to avoid flat interpolation error
+  output.weights = vec4<f32>(f32(input.weights.x), f32(input.weights.y), f32(input.weights.z), f32(input.weights.w));
   return output;
 }
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
-  //return vec4<f32>(input.normal, 1.0);
-  return input.joints;
+  switch general_uniforms.render_mode {
+    case 1: {
+      return input.joints;
+    } 
+    case 2: {
+      return input.weights;
+    }
+    default: {
+      return vec4<f32>(input.normal, 1.0);
+    }
+  }
 }

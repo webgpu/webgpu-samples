@@ -36,6 +36,11 @@ enum GLTFType {
   MAT4 = 6,
 }
 
+interface SkinRenderObject {
+  inverseBindMatrices: Mat4[];
+  joints: number[];
+}
+
 export const alignTo = (val: number, align: number): number => {
   return Math.floor((val + align - 1) / align) * align;
 };
@@ -273,7 +278,7 @@ export class GLTFPrimitive {
     fragmentShaderModule: GPUShaderModule,
     colorFormat: GPUTextureFormat,
     depthFormat: GPUTextureFormat,
-    uniformsBGLayout: GPUBindGroupLayout,
+    bgLayouts: GPUBindGroupLayout[],
     label: string
   ) {
     // Vertex attribute state and shader stage
@@ -353,7 +358,7 @@ export class GLTFPrimitive {
     }
 
     const layout: GPUPipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [uniformsBGLayout],
+      bindGroupLayouts: bgLayouts,
       label: `${label}.pipelineLayout`,
     });
 
@@ -378,6 +383,8 @@ export class GLTFPrimitive {
     bindGroups.forEach((bg, idx) => {
       renderPassEncoder.setBindGroup(idx, bg);
     });
+
+    //if skin do something with bone bind group
 
     renderPassEncoder.setVertexBuffer(
       0,
@@ -438,7 +445,7 @@ export class GLTFMesh {
     fragmentShaderModule: GPUShaderModule,
     colorFormat: GPUTextureFormat,
     depthFormat: GPUTextureFormat,
-    uniformsBGLayout: GPUBindGroupLayout
+    bgLayouts: GPUBindGroupLayout[]
   ) {
     // We take a pretty simple approach to start. Just loop through all the primitives and
     // build their respective render pipelines
@@ -449,7 +456,7 @@ export class GLTFMesh {
         fragmentShaderModule,
         colorFormat,
         depthFormat,
-        uniformsBGLayout,
+        bgLayouts,
         `PrimitivePipeline${i}`
       );
     }
@@ -586,6 +593,7 @@ type TempReturn = {
   meshes: GLTFMesh[];
   nodes: Node[];
   scenes: GLTFScene[];
+  skins: GLTFSkin[];
 };
 
 // "A scene graph is usually a tree structure where each node in the tree generates a matrix...
@@ -606,12 +614,11 @@ export class BaseTransformation {
   }
   getMatrix(dst?: Mat4) {
     dst = dst || new Float32Array(16);
-    mat4.scale(dst, this.scale);
-    mat4.rotateX(dst, this.rotation[0]);
-    mat4.rotateY(dst, this.rotation[1]);
-    mat4.rotateZ(dst, this.rotation[2]);
-    mat4.translate(dst, this.position);
-    return dst;
+    mat4.scale(dst, this.scale, dst);
+    mat4.rotateX(dst, this.rotation[0], dst);
+    mat4.rotateY(dst, this.rotation[1]), dst;
+    mat4.rotateZ(dst, this.rotation[2], dst);
+    mat4.translate(dst, this.position, dst);
   }
 }
 
@@ -619,14 +626,16 @@ export class GLTFNode {
   name: string;
   source: BaseTransformation;
   parent: GLTFNode | null;
-  children: GLTFNode[] = [];
+  children: GLTFNode[];
   // Transforms all node's children in the node's local space, with node itself acting as the origin
   localMatrix: Mat4;
   worldMatrix: Mat4;
   // List of Meshes associated with this node
-  drawables: GLTFMesh[] = [];
+  drawables: GLTFMesh[];
+  meshIndex: number;
+  test = false;
 
-  constructor(source: BaseTransformation, name?: string) {
+  constructor(source: BaseTransformation, meshIndex: number, name?: string) {
     this.name = name
       ? name
       : `node_${source.position} ${source.rotation} ${source.scale}`;
@@ -636,6 +645,7 @@ export class GLTFNode {
     this.localMatrix = mat4.identity();
     this.worldMatrix = mat4.identity();
     this.drawables = [];
+    this.meshIndex = meshIndex;
   }
 
   setParent(parent: GLTFNode) {
@@ -656,6 +666,10 @@ export class GLTFNode {
       mat4.copy(this.localMatrix, this.worldMatrix);
     }
     const worldMatrix = this.worldMatrix;
+    if (!this.test) {
+      console.log('First World Matrix');
+      this.test = true;
+    }
     for (const child of this.children) {
       child.updateWorldMatrix(worldMatrix);
     }
@@ -711,6 +725,74 @@ export class GLTFScene {
   }
 }
 
+export class GLTFSkin {
+  inverseBindMatricesAccessor: GLTFAccessor;
+  joints: number[];
+  jointGPUBuffer: GPUBuffer;
+  skinBindGroup: GPUBindGroup;
+  skinBindGroupLayout: GPUBindGroupLayout;
+  private jointArrayBuffer: Float32Array;
+
+  constructor(
+    device: GPUDevice,
+    invBindMatricesAccessor: GLTFAccessor,
+    joints: number[]
+  ) {
+    this.jointArrayBuffer = new Float32Array(joints.length * 16);
+    console.log(invBindMatricesAccessor);
+    this.inverseBindMatricesAccessor = invBindMatricesAccessor;
+    this.joints = joints;
+    this.jointGPUBuffer = device.createBuffer({
+      size: Uint32Array.BYTES_PER_ELEMENT * joints.length,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.skinBindGroupLayout = device.createBindGroupLayout({
+      label: 'StaticGLTFSkin.bindGroupLayout',
+      entries: [
+        {
+          binding: 0,
+          buffer: {
+            type: 'uniform',
+          },
+          visibility: GPUShaderStage.VERTEX,
+        },
+        {
+          binding: 1,
+          buffer: {
+            type: 'uniform',
+          },
+          visibility: GPUShaderStage.VERTEX,
+        },
+      ],
+    });
+    this.skinBindGroup = device.createBindGroup({
+      layout: this.skinBindGroupLayout,
+      label: 'StaticGLTFSkin.bindGroup',
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: this.inverseBindMatricesAccessor.view.gpuBuffer,
+          },
+        },
+        {
+          binding: 1,
+          resource: {
+            buffer: this.jointGPUBuffer,
+          },
+        },
+      ],
+    });
+  }
+
+  updateJoints(device: GPUDevice, nodes: GLTFNode[]) {
+    for (const [index, joint] of this.joints.entries()) {
+      this.jointArrayBuffer.set(nodes[joint].worldMatrix, index * 16);
+    }
+    device.queue.writeBuffer(this.jointGPUBuffer, 0, this.jointArrayBuffer);
+  }
+}
+
 // Upload a GLB model, parse its JSON and Binary components, and create the requisite GPU resources
 // to render them. NOTE: Not extensible to all GLTF contexts at this point in time
 export const convertGLBToJSONAndBinary = async (
@@ -759,12 +841,12 @@ export const convertGLBToJSONAndBinary = async (
   }
 
   //Iterate through the ancestor nodes of the gltf scene, applying world transforms down the tree to children
-  for (let i = 0; i < jsonChunk.scenes.length; i++) {
+  /*for (let i = 0; i < jsonChunk.scenes.length; i++) {
     for (const nodeIndex of jsonChunk.scenes[i].nodes) {
       const currentNode = jsonChunk.nodes[nodeIndex];
       setNodeWorldTransformMatrix(jsonChunk, currentNode, mat4.identity());
     }
-  }
+  } */
 
   //Mark each accessor with its intended usage within the vertexShader.
   //Often necessary due to infrequencey with which the BufferView target field is populated.
@@ -801,6 +883,7 @@ export const convertGLBToJSONAndBinary = async (
 
   // Load the first mesh
   const meshes: GLTFMesh[] = [];
+  console.log(accessors);
   for (let i = 0; i < jsonChunk.meshes.length; i++) {
     const mesh = jsonChunk.meshes[i];
     const meshPrimitives: GLTFPrimitive[] = [];
@@ -836,6 +919,16 @@ export const convertGLBToJSONAndBinary = async (
     meshes.push(new GLTFMesh(mesh.name, meshPrimitives));
   }
 
+  const skins = [];
+  for (const skin of jsonChunk.skins) {
+    // Why is this designed this way...
+    const inverseBindMatrixAccessor = accessors[skin.inverseBindMatrices];
+    inverseBindMatrixAccessor.view.addUsage(
+      GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    );
+    inverseBindMatrixAccessor.view.needsUpload = true;
+  }
+
   // Upload the buffer views used by mesh
   for (let i = 0; i < bufferViews.length; ++i) {
     if (bufferViews[i].needsUpload) {
@@ -843,9 +936,16 @@ export const convertGLBToJSONAndBinary = async (
     }
   }
 
+  for (const skin of jsonChunk.skins) {
+    const inverseBindMatrixAccessor = accessors[skin.inverseBindMatrices];
+    const joints = skin.joints;
+    skins.push(new GLTFSkin(device, inverseBindMatrixAccessor, joints));
+  }
+
   const nodes: GLTFNode[] = [];
 
-  console.log(jsonChunk.nodes);
+  console.log(jsonChunk.skins);
+
   // Access each node. If node references a mesh, add mesh to that node
   for (const currNode of jsonChunk.nodes) {
     const baseTransformation = new BaseTransformation(
@@ -853,15 +953,18 @@ export const convertGLBToJSONAndBinary = async (
       currNode.rotation,
       currNode.scale
     );
-    const nodeToCreate = new GLTFNode(baseTransformation, currNode.name);
+    const nodeToCreate = new GLTFNode(
+      baseTransformation,
+      currNode.mesh,
+      currNode.name
+    );
     const meshToAdd = meshes[currNode.mesh];
+    const skinToAdd = currNode.skin;
     if (meshToAdd) {
       nodeToCreate.drawables.push(meshToAdd);
     }
     nodes.push(nodeToCreate);
   }
-
-  console.log(nodes);
 
   // Assign each node its children
   nodes.forEach((node, idx) => {
@@ -873,6 +976,7 @@ export const convertGLBToJSONAndBinary = async (
       });
     }
   });
+
   console.log(nodes);
 
   const scenes: GLTFScene[] = [];
@@ -886,10 +990,11 @@ export const convertGLBToJSONAndBinary = async (
     });
     scenes.push(scene);
   }
-  console.log(jsonChunk.scenes);
+  console.log(scenes);
   return {
     meshes,
     nodes: jsonChunk.nodes,
     scenes: scenes,
+    skins,
   };
 };
