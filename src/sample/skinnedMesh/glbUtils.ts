@@ -1,6 +1,6 @@
 import { Quat } from 'wgpu-matrix/dist/2.x/quat';
-import { Accessor, BufferView, GlTf, Node, Scene } from './gltf';
-import { Mat4, Vec3, mat4, vec3, vec4 } from 'wgpu-matrix';
+import { Accessor, BufferView, GlTf, Scene } from './gltf';
+import { Mat4, Vec3, mat4 } from 'wgpu-matrix';
 
 //NOTE: GLTF code is not generally extensible
 
@@ -35,11 +35,6 @@ enum GLTFType {
   MAT2 = 4,
   MAT3 = 5,
   MAT4 = 6,
-}
-
-interface SkinRenderObject {
-  inverseBindMatrices: Mat4[];
-  joints: number[];
 }
 
 export const alignTo = (val: number, align: number): number => {
@@ -489,93 +484,6 @@ export const validateBinaryHeader = (header: Uint32Array) => {
   }
 };
 
-export const mat4FromRotationTranslationScale = (
-  rotation: Vec3,
-  translation: Mat4,
-  scale: Vec3
-): Mat4 => {
-  const [x, y, z, w] = rotation;
-  const [sx, sy, sz] = scale;
-
-  const x2 = x * 2;
-  const y2 = y * 2;
-  const z2 = z * 2;
-
-  const xx = x * x2;
-  const xy = x * y2;
-  const xz = x * z2;
-  const yy = y * y2;
-  const yz = y * z2;
-  const zz = z * z2;
-  const wx = w * x2;
-  const wy = w * y2;
-  const wz = w * z2;
-
-  const mat = mat4.create(
-    (1 - (yy + zz)) * sx,
-    (xy + wz) * sx,
-    (xz - wy) * sx,
-    0,
-    (xy - wz) * sy,
-    (1 - (xx + zz)) * sy,
-    (yz + wx) * sy,
-    0,
-    (xz + wy) * sz,
-    (yz - wx) * sz,
-    (1 - (xx + yy)) * sz,
-    0,
-    translation[0],
-    translation[1],
-    translation[2],
-    1
-  );
-  return mat;
-};
-
-export const readNodeTransform = (node: Node): Mat4 => {
-  if (node.matrix) {
-    return mat4.create(...node.matrix);
-  }
-  const scale = node.scale
-    ? vec3.fromValues(...node.scale)
-    : vec3.fromValues(1, 1, 1);
-  const rotation = node.rotation
-    ? vec4.fromValues(...node.rotation)
-    : vec4.fromValues(0, 0, 0, 1);
-  const translation = node.translation
-    ? vec3.fromValues(...node.translation)
-    : vec3.fromValues(0, 0, 0);
-  return mat4FromRotationTranslationScale(rotation, translation, scale);
-};
-
-export const setNodeWorldTransformMatrix = (
-  data: GlTf,
-  node: Node,
-  parentWorldTransformationMatrix: Mat4
-) => {
-  //Do not recompute the worldMatrixTransform if it has already been computed
-  if (node.worldTransformationMatrix) {
-    return;
-  }
-  node.worldTransformationMatrix = readNodeTransform(node);
-  mat4.multiply(
-    node.worldTransformationMatrix,
-    parentWorldTransformationMatrix,
-    node.worldTransformationMatrix
-  );
-
-  if (node.children) {
-    for (const childIndex of node.children) {
-      const childNode = data.nodes[childIndex];
-      setNodeWorldTransformMatrix(
-        data,
-        childNode,
-        node.worldTransformationMatrix
-      );
-    }
-  }
-};
-
 type TempReturn = {
   meshes: GLTFMesh[];
   nodes: GLTFNode[];
@@ -605,8 +513,13 @@ export class BaseTransformation {
   }
   getMatrix(): Mat4 {
     const dst = mat4.identity();
+    // Scale the transformation Matrix
     mat4.scale(dst, this.scale, dst);
-    mat4.fromQuat(this.rotation, dst);
+    // Calculate the rotationMatrix from the quaternion
+    const rotationMatrix = mat4.fromQuat(this.rotation, dst);
+    // Apply the rotation Matrix to the transformation matrix
+    mat4.multiply(dst, rotationMatrix, dst);
+    // Translate the transformationMatrix
     mat4.translate(dst, this.position, dst);
     return dst;
   }
@@ -1033,7 +946,6 @@ export const convertGLBToJSONAndBinary = async (
       skins[currNode.skin]
     );
     const meshToAdd = meshes[currNode.mesh];
-    const skinToAdd = currNode.skin;
     if (meshToAdd) {
       nodeToCreate.drawables.push(meshToAdd);
     }

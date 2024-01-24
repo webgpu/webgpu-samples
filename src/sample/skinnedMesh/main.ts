@@ -3,7 +3,7 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { convertGLBToJSONAndBinary, GLTFSkin } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
-import { Mat4, mat4, vec3 } from 'wgpu-matrix';
+import { Mat4, mat4, Quat, vec3 } from 'wgpu-matrix';
 import { createBindGroupCluster } from '../bitonicSort/utils';
 import { createSkinnedGridBuffers, createSkinnedGridRenderPipeline } from './gridUtils';
 import { gridIndices } from './gridData';
