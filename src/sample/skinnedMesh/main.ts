@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { convertGLBToJSONAndBinary, GLTFNode } from './glbUtils';
+import { convertGLBToJSONAndBinary, GLTFNode, GLTFSkin } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
 import { Mat4, mat4, vec3 } from 'wgpu-matrix';
@@ -290,6 +290,12 @@ const init: SampleInit = async ({
 
   const gridBoneCollection = createBoneCollection(5);
 
+  const animSkin = (skin: GLTFSkin, angle: number) => {
+    for (let i = 0; i < skin.joints.length; i++) {
+      const joint = skin.joints[i];
+    }
+  }
+
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -349,9 +355,13 @@ const init: SampleInit = async ({
       .getCurrentTexture()
       .createView();
 
+    // Update node matrixes
     for (const scene of whaleScene.scenes) {
       scene.root.updateWorldMatrix(device);
     }
+
+    // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
+
 
 
     const commandEncoder = device.createCommandEncoder();

@@ -637,6 +637,7 @@ export class GLTFNode {
   // List of Meshes associated with this node
   drawables: GLTFMesh[];
   test = 0;
+  skin?: GLTFSkin;
   private nodeTransformGPUBuffer: GPUBuffer;
   private nodeTransformBindGroup: GPUBindGroup;
 
@@ -644,8 +645,8 @@ export class GLTFNode {
     device: GPUDevice,
     bgLayout: GPUBindGroupLayout,
     source: BaseTransformation,
-    meshIndex: number,
-    name?: string
+    name?: string,
+    skin?: GLTFSkin
   ) {
     this.name = name
       ? name
@@ -671,6 +672,7 @@ export class GLTFNode {
         },
       ],
     });
+    this.skin = skin;
   }
 
   setParent(parent: GLTFNode) {
@@ -714,10 +716,16 @@ export class GLTFNode {
   ) {
     if (this.drawables !== undefined) {
       for (const drawable of this.drawables) {
-        drawable.render(passEncoder, [
-          ...bindGroups,
-          this.nodeTransformBindGroup,
-        ]);
+        this.skin
+          ? drawable.render(passEncoder, [
+              ...bindGroups,
+              this.nodeTransformBindGroup,
+              this.skin.skinBindGroup,
+            ])
+          : drawable.render(passEncoder, [
+              ...bindGroups,
+              this.nodeTransformBindGroup,
+            ]);
       }
     }
     // Render any of its children
