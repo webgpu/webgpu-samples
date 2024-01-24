@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { convertGLBToJSONAndBinary, GLTFNode, GLTFSkin } from './glbUtils';
+import { convertGLBToJSONAndBinary, GLTFSkin } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
 import { Mat4, mat4, vec3 } from 'wgpu-matrix';
@@ -22,6 +22,56 @@ enum RenderMode {
   NORMAL,
   JOINTS,
   WEIGHTS,
+}
+
+const getRotation = (mat: Mat4): Quat => {
+  const out = [0, 0, 0, 0];
+  const scaling = mat4.getScaling(mat);
+  const is1 = 1 / scaling[0];
+  const is2 = 1 / scaling[1];
+  const is3 = 1 / scaling[2];
+
+  const sm11 = mat[0] * is1;
+  const sm12 = mat[1] * is2;
+  const sm13 = mat[2] * is3;
+  const sm21 = mat[4] * is1;
+  const sm22 = mat[5] * is2;
+  const sm23 = mat[6] * is3;
+  const sm31 = mat[8] * is1;
+  const sm32 = mat[9] * is2;
+  const sm33 = mat[10] * is3;
+
+  const trace = sm11 + sm22 + sm33;
+  let S = 0;
+
+  if (trace > 0) {
+    S = Math.sqrt(trace + 1.0) * 2;
+    out[3] = 0.25 * S;
+    out[0] = (sm23 - sm32) / S;
+    out[1] = (sm31 - sm13) / S;
+    out[2] = (sm12 - sm21) / S;
+  } else if (sm11 > sm22 && sm11 > sm33) {
+    S = Math.sqrt(1.0 + sm11 - sm22 - sm33) * 2;
+    out[3] = (sm23 - sm32) / S;
+    out[0] = 0.25 * S;
+    out[1] = (sm12 + sm21) / S;
+    out[2] = (sm31 + sm13) / S;
+  } else if (sm22 > sm33) {
+    S = Math.sqrt(1.0 + sm22 - sm11 - sm33) * 2;
+    out[3] = (sm31 - sm13) / S;
+    out[0] = (sm12 + sm21) / S;
+    out[1] = 0.25 * S;
+    out[2] = (sm23 + sm32) / S;
+  } else {
+    S = Math.sqrt(1.0 + sm33 - sm11 - sm22) * 2;
+    out[3] = (sm12 - sm21) / S;
+    out[0] = (sm31 + sm13) / S;
+    out[1] = (sm23 + sm32) / S;
+    out[2] = 0.25 * S;
+  }
+
+  return out;
+
 }
 
 const init: SampleInit = async ({
@@ -148,7 +198,7 @@ const init: SampleInit = async ({
     }),
     presentationFormat,
     depthTexture.format,
-    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, nodeUniformsBindGroupLayout],
+    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, nodeUniformsBindGroupLayout, GLTFSkin.skinBindGroupLayout],
   );
 
   // Create grid resources
@@ -290,11 +340,24 @@ const init: SampleInit = async ({
 
   const gridBoneCollection = createBoneCollection(5);
 
+  const origMatrices = new Map();
   const animSkin = (skin: GLTFSkin, angle: number) => {
     for (let i = 0; i < skin.joints.length; i++) {
       const joint = skin.joints[i];
+      if (!origMatrices.has(joint)) {
+        origMatrices.set(joint, whaleScene.nodes[joint].source.getMatrix())
+      }
+      const origMatrix = origMatrices.get(joint);
+      const m = mat4.rotateX(origMatrix, angle);
+      whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
+      whaleScene.nodes[joint].source.position = mat4.getScaling(m);
+      whaleScene.nodes[joint].source.rotation = getRotation(m);
+      
     }
   }
+
+  console.log(whaleScene.skins);
+  console.log(whaleScene.nodes);
 
   function frame() {
     // Sample is no longer the active page.
@@ -361,6 +424,8 @@ const init: SampleInit = async ({
     }
 
     // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
+    animSkin(whaleScene.skins[0], Math.sin(t) * .5)
+    whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes)
 
 
 

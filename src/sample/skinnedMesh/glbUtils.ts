@@ -489,20 +489,6 @@ export const validateBinaryHeader = (header: Uint32Array) => {
   }
 };
 
-/* export const flattenNodeOutput = (parentNode: GLTFNode) => {
-  if (!parentNode.transformationMatrix) {
-    return mat4.identity();
-  }
-  if (parentNode.childrenNodes.length === 0) {
-    return parentNode.transformationMatrix;
-  }
-  const accumulator = mat4.identity();
-  parentNode.childrenNodes.forEach((node) => {
-    mat4.multiply(accumulator, flattenNodeOutput(node), accumulator);
-  });
-  return parentNode.transformationMatrix;
-}; */
-
 export const mat4FromRotationTranslationScale = (
   rotation: Vec3,
   translation: Mat4,
@@ -592,7 +578,7 @@ export const setNodeWorldTransformMatrix = (
 
 type TempReturn = {
   meshes: GLTFMesh[];
-  nodes: Node[];
+  nodes: GLTFNode[];
   scenes: GLTFScene[];
   skins: GLTFSkin[];
 };
@@ -716,16 +702,18 @@ export class GLTFNode {
   ) {
     if (this.drawables !== undefined) {
       for (const drawable of this.drawables) {
-        this.skin
-          ? drawable.render(passEncoder, [
-              ...bindGroups,
-              this.nodeTransformBindGroup,
-              this.skin.skinBindGroup,
-            ])
-          : drawable.render(passEncoder, [
-              ...bindGroups,
-              this.nodeTransformBindGroup,
-            ]);
+        if (this.skin) {
+          drawable.render(passEncoder, [
+            ...bindGroups,
+            this.nodeTransformBindGroup,
+            this.skin.skinBindGroup,
+          ]);
+        } else {
+          drawable.render(passEncoder, [
+            ...bindGroups,
+            this.nodeTransformBindGroup,
+          ]);
+        }
       }
     }
     // Render any of its children
@@ -773,25 +761,14 @@ export class GLTFScene {
 
 export class GLTFSkin {
   inverseBindMatricesAccessor: GLTFAccessor;
+  inverseBindMatricesArrayBuffer: Float32Array;
   joints: number[];
   jointGPUBuffer: GPUBuffer;
   skinBindGroup: GPUBindGroup;
-  skinBindGroupLayout: GPUBindGroupLayout;
-  private jointArrayBuffer: Float32Array;
+  static skinBindGroupLayout: GPUBindGroupLayout;
+  private jointMatrices: Mat4[];
 
-  constructor(
-    device: GPUDevice,
-    invBindMatricesAccessor: GLTFAccessor,
-    joints: number[]
-  ) {
-    this.jointArrayBuffer = new Float32Array(joints.length * 16);
-    console.log(invBindMatricesAccessor);
-    this.inverseBindMatricesAccessor = invBindMatricesAccessor;
-    this.joints = joints;
-    this.jointGPUBuffer = device.createBuffer({
-      size: Uint32Array.BYTES_PER_ELEMENT * joints.length,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
+  static createSharedBindGroupLayout(device: GPUDevice) {
     this.skinBindGroupLayout = device.createBindGroupLayout({
       label: 'StaticGLTFSkin.bindGroupLayout',
       entries: [
@@ -811,8 +788,32 @@ export class GLTFSkin {
         },
       ],
     });
+  }
+
+  constructor(
+    device: GPUDevice,
+    invBindMatricesAccessor: GLTFAccessor,
+    joints: number[]
+  ) {
+    this.jointMatrices = [];
+    for (let i = 0; i < joints.length; i++) {
+      this.jointMatrices.push(mat4.identity());
+    }
+    console.log(invBindMatricesAccessor);
+    this.inverseBindMatricesAccessor = invBindMatricesAccessor;
+    this.inverseBindMatricesArrayBuffer = new Float32Array(
+      this.inverseBindMatricesAccessor.view.view.buffer,
+      0,
+      this.inverseBindMatricesAccessor.view.view.length /
+        Float32Array.BYTES_PER_ELEMENT
+    );
+    this.joints = joints;
+    this.jointGPUBuffer = device.createBuffer({
+      size: Float32Array.BYTES_PER_ELEMENT * 16 * joints.length,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
     this.skinBindGroup = device.createBindGroup({
-      layout: this.skinBindGroupLayout,
+      layout: GLTFSkin.skinBindGroupLayout,
       label: 'StaticGLTFSkin.bindGroup',
       entries: [
         {
@@ -831,11 +832,31 @@ export class GLTFSkin {
     });
   }
 
-  updateJoints(device: GPUDevice, nodes: GLTFNode[]) {
-    for (const [index, joint] of this.joints.entries()) {
-      this.jointArrayBuffer.set(nodes[joint].worldMatrix, index * 16);
+  update(device: GPUDevice, node: GLTFNode, nodes: GLTFNode[]) {
+    const globalWorldInverse = mat4.inverse(node.worldMatrix);
+    for (let j = 0; j < this.joints.length; j++) {
+      const joint = this.joints[j];
+      const dstMatrix: Mat4 = this.jointMatrices[j];
+      mat4.multiply(globalWorldInverse, nodes[joint].worldMatrix, dstMatrix);
+      const startMatrixAccess = j * 16;
+      const endMatrixAccess = startMatrixAccess + 16;
+      const inverseBindMatrix: Mat4 =
+        this.inverseBindMatricesArrayBuffer.subarray(
+          startMatrixAccess,
+          endMatrixAccess
+        );
+      mat4.multiply(dstMatrix, inverseBindMatrix, dstMatrix);
+      const toWrite = dstMatrix as Float32Array;
+      device.queue.writeBuffer(
+        this.jointGPUBuffer,
+        j * 64,
+        toWrite.buffer,
+        toWrite.byteOffset,
+        toWrite.byteLength
+      );
     }
-    device.queue.writeBuffer(this.jointGPUBuffer, 0, this.jointArrayBuffer);
+
+    //device.queue.writeBuffer(this.jointGPUBuffer, 0, this.jointArrayBuffer);
   }
 }
 
@@ -885,14 +906,6 @@ export const convertGLBToJSONAndBinary = async (
       sampler.wrapT = sampler.wrapT ?? 10947; //GL.REPEAT
     }
   }
-
-  //Iterate through the ancestor nodes of the gltf scene, applying world transforms down the tree to children
-  /*for (let i = 0; i < jsonChunk.scenes.length; i++) {
-    for (const nodeIndex of jsonChunk.scenes[i].nodes) {
-      const currentNode = jsonChunk.nodes[nodeIndex];
-      setNodeWorldTransformMatrix(jsonChunk, currentNode, mat4.identity());
-    }
-  } */
 
   //Mark each accessor with its intended usage within the vertexShader.
   //Often necessary due to infrequencey with which the BufferView target field is populated.
@@ -965,7 +978,7 @@ export const convertGLBToJSONAndBinary = async (
     meshes.push(new GLTFMesh(mesh.name, meshPrimitives));
   }
 
-  const skins = [];
+  const skins: GLTFSkin[] = [];
   for (const skin of jsonChunk.skins) {
     // Why is this designed this way...
     const inverseBindMatrixAccessor = accessors[skin.inverseBindMatrices];
@@ -982,6 +995,7 @@ export const convertGLBToJSONAndBinary = async (
     }
   }
 
+  GLTFSkin.createSharedBindGroupLayout(device);
   for (const skin of jsonChunk.skins) {
     const inverseBindMatrixAccessor = accessors[skin.inverseBindMatrices];
     const joints = skin.joints;
@@ -1015,8 +1029,8 @@ export const convertGLBToJSONAndBinary = async (
       device,
       nodeUniformsBindGroupLayout,
       baseTransformation,
-      currNode.mesh,
-      currNode.name
+      currNode.name,
+      skins[currNode.skin]
     );
     const meshToAdd = meshes[currNode.mesh];
     const skinToAdd = currNode.skin;
@@ -1053,8 +1067,8 @@ export const convertGLBToJSONAndBinary = async (
   console.log(scenes);
   return {
     meshes,
-    nodes: jsonChunk.nodes,
-    scenes: scenes,
+    nodes,
+    scenes,
     skins,
   };
 };

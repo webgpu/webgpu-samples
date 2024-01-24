@@ -29,11 +29,17 @@ struct NodeUniforms {
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(2) @binding(0) var<uniform> node_uniforms: NodeUniforms;
+@group(3) @binding(1) var<uniform> joint_matrices: array<mat4x4<f32>, 6>;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
-  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * node_uniforms.worldMatrix * vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
+  let skin_matrix = 
+    joint_matrices[u32(input.joints[0])] * f32(input.weights[0]) +
+    joint_matrices[u32(input.joints[1])] * f32(input.weights[1]) +
+    joint_matrices[u32(input.joints[2])] * f32(input.weights[2]) +
+    joint_matrices[u32(input.joints[3])] * f32(input.weights[3]);
+  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * node_uniforms.worldMatrix * skin_matrix * vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
   output.normal = input.normal;
   output.joints = input.joints;
   // Convert to f32 to avoid flat interpolation error
