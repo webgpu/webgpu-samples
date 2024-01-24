@@ -503,8 +503,11 @@ export class BaseTransformation {
   rotation: Quat;
   scale: Vec3;
   constructor(
+    // Identity translation vec3
     position = [0, 0, 0],
+    // Identity quaternion
     rotation = [0, 0, 0, 1],
+    // Identity scale vec3
     scale = [1, 1, 1]
   ) {
     this.position = position;
@@ -512,11 +515,12 @@ export class BaseTransformation {
     this.scale = scale;
   }
   getMatrix(): Mat4 {
+    // Analagous to let transformationMatrix: mat4x4f = translation * rotation * scale;
     const dst = mat4.identity();
     // Scale the transformation Matrix
     mat4.scale(dst, this.scale, dst);
     // Calculate the rotationMatrix from the quaternion
-    const rotationMatrix = mat4.fromQuat(this.rotation, dst);
+    const rotationMatrix = mat4.fromQuat(this.rotation);
     // Apply the rotation Matrix to the transformation matrix
     mat4.multiply(dst, rotationMatrix, dst);
     // Translate the transformationMatrix
