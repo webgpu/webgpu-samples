@@ -71,7 +71,6 @@ const getRotation = (mat: Mat4): Quat => {
   }
 
   return out;
-
 }
 
 const init: SampleInit = async ({
@@ -356,9 +355,6 @@ const init: SampleInit = async ({
     }
   }
 
-  console.log(whaleScene.skins);
-  console.log(whaleScene.nodes);
-
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
@@ -424,7 +420,7 @@ const init: SampleInit = async ({
     }
 
     // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
-    animSkin(whaleScene.skins[0], Math.sin(t) * .5)
+    //animSkin(whaleScene.skins[0], Math.sin(t) * .5)
     whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes)
 
 

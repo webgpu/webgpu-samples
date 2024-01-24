@@ -250,13 +250,20 @@ interface AttributeMapInterface {
 }
 
 export class GLTFPrimitive {
-  attributeMap: AttributeMapInterface;
   topology: GLTFRenderMode;
   renderPipeline: GPURenderPipeline;
-  constructor(topology: GLTFRenderMode, attributeMap: AttributeMapInterface) {
+  private attributeMap: AttributeMapInterface;
+  private attributes: string[] = [];
+  constructor(
+    topology: GLTFRenderMode,
+    attributeMap: AttributeMapInterface,
+    attributes: string[]
+  ) {
     this.topology = topology;
     this.renderPipeline = null;
+    // Maps attribute names to accessors
     this.attributeMap = attributeMap;
+    this.attributes = attributes;
 
     for (const key in this.attributeMap) {
       this.attributeMap[key].view.needsUpload = true;
@@ -277,64 +284,28 @@ export class GLTFPrimitive {
     bgLayouts: GPUBindGroupLayout[],
     label: string
   ) {
+    // For now, just check if the attributeMap contains a given attribute using map.has(), and add it if it does
+    // POSITION, NORMAL, TEXCOORD_0, JOINTS_0, WEIGHTS_0 for order
     // Vertex attribute state and shader stage
+    const vertexBuffers: GPUVertexBufferLayout[] = this.attributes.map(
+      (attr, idx) => {
+        return {
+          arrayStride: this.attributeMap[attr].byteStride,
+          attributes: [
+            {
+              format: this.attributeMap[attr].vertexType,
+              offset: this.attributeMap[attr].byteOffset, //this.attributeMap[attr].byteOffset
+              shaderLocation: idx,
+            },
+          ],
+        };
+      }
+    );
     const vertexState: GPUVertexState = {
       // Shader stage info
       module: vertexShaderModule,
       entryPoint: 'vertexMain',
-      // Vertex buffer info
-      buffers: [
-        {
-          arrayStride: this.attributeMap['POSITION'].byteStride,
-          attributes: [
-            {
-              format: this.attributeMap['POSITION'].vertexType,
-              offset: 0,
-              shaderLocation: 0,
-            },
-          ],
-        },
-        {
-          arrayStride: this.attributeMap['NORMAL'].byteStride,
-          attributes: [
-            {
-              format: this.attributeMap['NORMAL'].vertexType,
-              offset: 0,
-              shaderLocation: 1,
-            },
-          ],
-        },
-        {
-          arrayStride: this.attributeMap['TEXCOORD_0'].byteStride,
-          attributes: [
-            {
-              format: this.attributeMap['TEXCOORD_0'].vertexType,
-              offset: 0,
-              shaderLocation: 2,
-            },
-          ],
-        },
-        {
-          arrayStride: this.attributeMap['JOINTS_0'].byteStride,
-          attributes: [
-            {
-              format: this.attributeMap['JOINTS_0'].vertexType,
-              offset: 0,
-              shaderLocation: 3,
-            },
-          ],
-        },
-        {
-          arrayStride: this.attributeMap['WEIGHTS_0'].byteStride,
-          attributes: [
-            {
-              format: this.attributeMap['WEIGHTS_0'].vertexType,
-              offset: 0,
-              shaderLocation: 4,
-            },
-          ],
-        },
-      ],
+      buffers: vertexBuffers,
     };
 
     const fragmentState: GPUFragmentState = {
@@ -381,37 +352,14 @@ export class GLTFPrimitive {
     });
 
     //if skin do something with bone bind group
-
-    renderPassEncoder.setVertexBuffer(
-      0,
-      this.attributeMap['POSITION'].view.gpuBuffer,
-      this.attributeMap['POSITION'].byteOffset,
-      this.attributeMap['POSITION'].byteLength
-    );
-    renderPassEncoder.setVertexBuffer(
-      1,
-      this.attributeMap['NORMAL'].view.gpuBuffer,
-      this.attributeMap['NORMAL'].byteOffset,
-      this.attributeMap['NORMAL'].byteLength
-    );
-    renderPassEncoder.setVertexBuffer(
-      2,
-      this.attributeMap['TEXCOORD_0'].view.gpuBuffer,
-      this.attributeMap['TEXCOORD_0'].byteOffset,
-      this.attributeMap['TEXCOORD_0'].byteLength
-    );
-    renderPassEncoder.setVertexBuffer(
-      3,
-      this.attributeMap['JOINTS_0'].view.gpuBuffer,
-      this.attributeMap['JOINTS_0'].byteOffset,
-      this.attributeMap['JOINTS_0'].byteLength
-    );
-    renderPassEncoder.setVertexBuffer(
-      4,
-      this.attributeMap['WEIGHTS_0'].view.gpuBuffer,
-      this.attributeMap['WEIGHTS_0'].byteOffset,
-      this.attributeMap['WEIGHTS_0'].byteLength
-    );
+    this.attributes.map((attr, idx) => {
+      renderPassEncoder.setVertexBuffer(
+        idx,
+        this.attributeMap[attr].view.gpuBuffer,
+        this.attributeMap[attr].byteOffset,
+        this.attributeMap[attr].byteLength
+      );
+    });
 
     if (this.attributeMap['INDICES']) {
       renderPassEncoder.setIndexBuffer(
@@ -521,8 +469,8 @@ export class BaseTransformation {
     mat4.scale(dst, this.scale, dst);
     // Calculate the rotationMatrix from the quaternion
     const rotationMatrix = mat4.fromQuat(this.rotation);
-    // Apply the rotation Matrix to the transformation matrix
-    mat4.multiply(dst, rotationMatrix, dst);
+    // Apply the rotation Matrix to the scaleMatrix (rotMat * scaleMat)
+    mat4.multiply(rotationMatrix, dst, dst);
     // Translate the transformationMatrix
     mat4.translate(dst, this.position, dst);
     return dst;
@@ -588,7 +536,6 @@ export class GLTFNode {
   }
 
   updateWorldMatrix(device: GPUDevice, parentWorldMatrix?: Mat4) {
-    // Calculate the localMatrix
     this.localMatrix = this.source.getMatrix();
     if (parentWorldMatrix) {
       mat4.multiply(parentWorldMatrix, this.localMatrix, this.worldMatrix);
@@ -859,7 +806,6 @@ export const convertGLBToJSONAndBinary = async (
 
   // Load the first mesh
   const meshes: GLTFMesh[] = [];
-  console.log(accessors);
   for (let i = 0; i < jsonChunk.meshes.length; i++) {
     const mesh = jsonChunk.meshes[i];
     const meshPrimitives: GLTFPrimitive[] = [];
@@ -878,6 +824,7 @@ export const convertGLBToJSONAndBinary = async (
       }
 
       const primitiveAttributeMap = {};
+      const attributes = [];
       if (jsonChunk['accessors'][prim['indices']] !== undefined) {
         const indices = accessors[prim['indices']];
         primitiveAttributeMap['INDICES'] = indices;
@@ -889,8 +836,12 @@ export const convertGLBToJSONAndBinary = async (
       for (const attr in prim['attributes']) {
         const accessor = accessors[prim['attributes'][attr]];
         primitiveAttributeMap[attr] = accessor;
+        attributes.push(attr);
       }
-      meshPrimitives.push(new GLTFPrimitive(topology, primitiveAttributeMap));
+      console.log(attributes);
+      meshPrimitives.push(
+        new GLTFPrimitive(topology, primitiveAttributeMap, attributes)
+      );
     }
     meshes.push(new GLTFMesh(mesh.name, meshPrimitives));
   }
@@ -914,6 +865,7 @@ export const convertGLBToJSONAndBinary = async (
 
   GLTFSkin.createSharedBindGroupLayout(device);
   for (const skin of jsonChunk.skins) {
+    console.log(skin);
     const inverseBindMatrixAccessor = accessors[skin.inverseBindMatrices];
     const joints = skin.joints;
     skins.push(new GLTFSkin(device, inverseBindMatrixAccessor, joints));
