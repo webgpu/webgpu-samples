@@ -22,13 +22,18 @@ struct GeneralUniforms {
   render_mode: u32
 }
 
+struct NodeUniforms {
+  worldMatrix: mat4x4f,
+}
+
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
+@group(2) @binding(0) var<uniform> node_uniforms: NodeUniforms;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
-  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
+  output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * node_uniforms.worldMatrix * vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
   output.normal = input.normal;
   output.joints = input.joints;
   // Convert to f32 to avoid flat interpolation error

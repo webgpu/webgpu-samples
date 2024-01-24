@@ -118,6 +118,20 @@ const init: SampleInit = async ({
     'General',
     device
   );
+  
+  // Same bindGroupLayout as in main file. 
+  const nodeUniformsBindGroupLayout = device.createBindGroupLayout({
+    label: 'NodeUniforms.bindGroupLayout',
+    entries: [
+      {
+        binding: 0,
+        buffer: {
+          type: 'uniform'
+        },
+        visibility: GPUShaderStage.VERTEX
+      }
+    ]
+  });
 
   // Create whale resources
   const whaleScene = await fetch('../assets/gltf/whale.glb')
@@ -134,7 +148,7 @@ const init: SampleInit = async ({
     }),
     presentationFormat,
     depthTexture.format,
-    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout],
+    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, nodeUniformsBindGroupLayout],
   );
 
   // Create grid resources
@@ -335,13 +349,16 @@ const init: SampleInit = async ({
       .getCurrentTexture()
       .createView();
 
+    for (const scene of whaleScene.scenes) {
+      scene.root.updateWorldMatrix(device);
+    }
+
 
     const commandEncoder = device.createCommandEncoder();
     if (settings.object === 'Whale') {
       const passEncoder = commandEncoder.beginRenderPass(gltfRenderPassDescriptor);
       //mesh.render(passEncoder, bgDescriptor.bindGroups[0]);
       for (const scene of whaleScene.scenes) {
-        //scene.root.updateWorldMatrix();
         scene.root.renderDrawables(passEncoder, [cameraBGCluster.bindGroups[0], generalUniformsBGCLuster.bindGroups[0]]);
       }
       //whaleScene.meshes[0].render(passEncoder, cameraBGCluster.bindGroups[0]);
