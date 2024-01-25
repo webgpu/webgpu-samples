@@ -5,9 +5,7 @@ import { GLTFNode } from './glbUtils';
 /* License for use can be found here: https://github.com/bwasty/gltf-loader-ts/blob/master/LICENSE */
 /* Comments have been excluded from original source for sake of cleanliness and brevity */
 export type GlTfId = number;
-/**
- * Indices of those attributes that deviate from their initialization value.
- */
+
 export interface AccessorSparseIndices {
   bufferView: GlTfId;
   byteOffset?: number;
@@ -232,47 +230,15 @@ export interface Mesh {
 }
 
 export interface Node {
-  /**
-   * The index of the camera referenced by this node.
-   */
   camera?: GlTfId;
-  /**
-   * The indices of this node's children.
-   */
   children?: GlTfId[];
-  /**
-   * The index of the skin referenced by this node.
-   */
   skin?: GlTfId;
-  /**
-   * A floating-point 4x4 transformation matrix stored in column-major order.
-   */
   matrix?: number[];
-  /**
-   * A floating-point 4x4 transformation matrix stored in column-major order.
-   * This matrix acts as a container for a pre-computed world transformation matrix,
-   * generated after the gltf has been loaded.
-   */
   worldTransformationMatrix?: Mat4;
-  /**
-   * The index of the mesh in this node.
-   */
   mesh?: GlTfId;
-  /**
-   * The node's unit quaternion rotation in the order (x, y, z, w), where w is the scalar.
-   */
   rotation?: number[];
-  /**
-   * The node's non-uniform scale, given as the scaling factors along the x, y, and z axes.
-   */
   scale?: number[];
-  /**
-   * The node's translation along the x, y, and z axes.
-   */
   translation?: number[];
-  /**
-   * The weights of the instantiated Morph Target. Number of elements must match number of Morph Targets of used mesh.
-   */
   weights?: number[];
   name?: any;
   extensions?: any;
@@ -301,9 +267,6 @@ export interface Scene {
   [k: string]: any;
   root?: GLTFNode;
 }
-/**
- * Joints and matrices defining a skin.
- */
 export interface Skin {
   /**
    * The index of the accessor containing the floating-point 4x4 inverse-bind matrices.  The default is that each matrix is a 4x4 identity matrix, which implies that inverse-bind matrices were pre-applied.
@@ -326,33 +289,19 @@ export interface Skin {
  * A texture and its sampler.
  */
 export interface Texture {
-  /**
-   * The index of the sampler used by this texture. When undefined, a sampler with repeat wrapping and auto filtering should be used.
-   */
   sampler?: GlTfId;
-  /**
-   * The index of the image used by this texture.
-   */
   source?: GlTfId;
   name?: any;
   extensions?: any;
   extras?: any;
   [k: string]: any;
 }
-/**
- * The root object for a glTF asset.
- */
+
 export interface GlTf {
-  /**
-   * Names of glTF extensions used somewhere in this asset.
-   */
   extensionsUsed?: string[];
   extensionsRequired?: string[];
   accessors?: Accessor[];
   animations?: Animation[];
-  /**
-   * Metadata about the glTF asset.
-   */
   asset: Asset;
   buffers?: Buffer[];
   bufferViews?: BufferView[];
