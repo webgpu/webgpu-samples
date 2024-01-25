@@ -20,6 +20,9 @@ export const pages: PageComponentType = {
   ),
   resizeCanvas: dynamic(() => import('../../sample/resizeCanvas/main')),
   rotatingCube: dynamic(() => import('../../sample/rotatingCube/main')),
+  vertComputeAllignment: dynamic(
+    () => import('../../sample/vertComputeAllignment/main')
+  ),
   twoCubes: dynamic(() => import('../../sample/twoCubes/main')),
   texturedCube: dynamic(() => import('../../sample/texturedCube/main')),
   instancedCube: dynamic(() => import('../../sample/instancedCube/main')),
