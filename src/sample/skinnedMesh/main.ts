@@ -200,6 +200,11 @@ const init: SampleInit = async ({
     [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, nodeUniformsBindGroupLayout, GLTFSkin.skinBindGroupLayout],
   );
 
+  //const standingGridScene = await fetch('../assets/gltf/simpleSkin.glb')
+   // .then((res) => res.arrayBuffer())
+  //  .then((buffer) => convertGLBToJSONAndBinary(buffer, device));
+
+
   // Create grid resources
   const skinnedGridVertexBuffers = createSkinnedGridBuffers(device);
   //const skinnedGridBoneArrayBuffer = new Float32Array(4 * 16);

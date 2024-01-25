@@ -294,13 +294,15 @@ export class GLTFPrimitive {
           attributes: [
             {
               format: this.attributeMap[attr].vertexType,
-              offset: this.attributeMap[attr].byteOffset, //this.attributeMap[attr].byteOffset
+              offset: this.attributeMap[attr].byteOffset,
               shaderLocation: idx,
             },
           ],
         };
       }
     );
+
+    console.log(vertexBuffers);
     const vertexState: GPUVertexState = {
       // Shader stage info
       module: vertexShaderModule,
