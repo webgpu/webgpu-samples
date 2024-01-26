@@ -1,6 +1,8 @@
 struct VertexUniforms {
   count: u32,
   position_stride: u32,
+  scale: f32,
+  padding: f32,
 }
 
 @group(0) @binding(0) var<uniform> vertex_uniforms: VertexUniforms;
@@ -16,7 +18,7 @@ fn passThrough(@builtin(global_invocation_id) global_id : vec3<u32>) {
   }
   let position_offset = index * vertex_uniforms.position_stride;
   // Access current position
-  let current_position = vec3<f32>(
+  var current_position = vec3<f32>(
     correct_positions[position_offset],
     correct_positions[position_offset + 1],
     correct_positions[position_offset + 2]

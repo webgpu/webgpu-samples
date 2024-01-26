@@ -40,14 +40,12 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   };
 
   const numVertices = cubeVertexArray.length / 10;
-  console.log(numVertices);
   const cubeVertexPositions = new Float32Array(numVertices * 3);
   for (let i = 0, j = 0; i < cubeVertexArray.length; i += 10) {
     cubeVertexPositions[j++] = cubeVertexArray[i];
     cubeVertexPositions[j++] = cubeVertexArray[i + 1];
     cubeVertexPositions[j++] = cubeVertexArray[i + 2];
   }
-  console.log(cubeVertexPositions);
 
   // Vertex positions that will be passed through our alligned and misalligned compute shaders
   const vertexPositionsBuffer = device.createBuffer({
@@ -55,12 +53,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     // Applying storage attribute, making buffer accessible to compute shaders as a storage array
     usage:
       GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    mappedAtCreation: true,
   });
-  new Float32Array(vertexPositionsBuffer.getMappedRange()).set(
-    cubeVertexPositions
-  );
-  vertexPositionsBuffer.unmap();
 
   // Create read-only buffer used to reset our vertex positions after they have been
   // incorrectly accessed in our misalligned compute shader
@@ -147,8 +140,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     },
   });
 
+  // Num verts, stride, scale, padding
   const passThroughUniformsBuffer = device.createBuffer({
-    size: Uint32Array.BYTES_PER_ELEMENT * 2,
+    size: Uint32Array.BYTES_PER_ELEMENT * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -327,15 +321,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     return modelViewProjectionMatrix as Float32Array;
   }
 
-  const vertexAllignmentController = gui
-    .add(settings, 'Compute Vertex Allignment')
-    .onChange(() => {
-      if (settings['Compute Vertex Allignment'] === 'Alligned') {
-        device.queue.writeBuffer(vertexPositionsBuffer, 0, cubeVertexPositions);
-      }
-    });
-
-  // Shader uniforms are effectively static
+  const vertexAllignmentController = gui.add(
+    settings,
+    'Compute Vertex Allignment'
+  );
 
   // Vertex Count (i.e number of vertices) and stride per Vertex in elements
   device.queue.writeBuffer(
@@ -359,11 +348,17 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
   };
 
-  setInterval(toggleVertexComputeAllignment, 2500);
+  setInterval(toggleVertexComputeAllignment, 5000);
 
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
+    const now = Date.now();
+    device.queue.writeBuffer(
+      passThroughUniformsBuffer,
+      8,
+      new Float32Array([Math.sin(now * 0.001), 0])
+    );
 
     const transformationMatrix = getTransformationMatrix();
     device.queue.writeBuffer(
@@ -419,7 +414,7 @@ const VertComputeAllignment: () => JSX.Element = () =>
         contents: __SOURCE__,
       },
       {
-        name: '../../shaders/basicMod.vert.wgsl',
+        name: './basicMod.vert.wgsl',
         contents: basicModVertWGSL,
         editable: true,
       },
@@ -427,6 +422,14 @@ const VertComputeAllignment: () => JSX.Element = () =>
         name: '../../shaders/vertexPositionColor.frag.wgsl',
         contents: vertexPositionColorWGSL,
         editable: true,
+      },
+      {
+        name: './alligned.wgsl',
+        contents: allignedWGSL,
+      },
+      {
+        name: './misalligned.wgsl',
+        contents: misallignedWGSL,
       },
       {
         name: '../../meshes/cube.ts',
