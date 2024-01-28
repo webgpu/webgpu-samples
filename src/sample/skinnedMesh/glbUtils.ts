@@ -16,7 +16,7 @@ enum GLTFRenderMode {
   TRIANGLE_FAN = 6,
 }
 
-enum GLTFComponentType {
+enum GLTFDataComponentType {
   BYTE = 5120,
   UNSIGNED_BYTE = 5121,
   SHORT = 5122,
@@ -27,7 +27,7 @@ enum GLTFComponentType {
   DOUBLE = 5130,
 }
 
-enum GLTFType {
+enum GLTFDataStructureType {
   SCALAR = 0,
   VEC2 = 1,
   VEC3 = 2,
@@ -41,41 +41,41 @@ export const alignTo = (val: number, align: number): number => {
   return Math.floor((val + align - 1) / align) * align;
 };
 
-const parseGltfType = (type: string) => {
+const parseGltfDataStructureType = (type: string) => {
   switch (type) {
     case 'SCALAR':
-      return GLTFType.SCALAR;
+      return GLTFDataStructureType.SCALAR;
     case 'VEC2':
-      return GLTFType.VEC2;
+      return GLTFDataStructureType.VEC2;
     case 'VEC3':
-      return GLTFType.VEC3;
+      return GLTFDataStructureType.VEC3;
     case 'VEC4':
-      return GLTFType.VEC4;
+      return GLTFDataStructureType.VEC4;
     case 'MAT2':
-      return GLTFType.MAT2;
+      return GLTFDataStructureType.MAT2;
     case 'MAT3':
-      return GLTFType.MAT3;
+      return GLTFDataStructureType.MAT3;
     case 'MAT4':
-      return GLTFType.MAT4;
+      return GLTFDataStructureType.MAT4;
     default:
       throw Error(`Unhandled glTF Type ${type}`);
   }
 };
 
-const gltfTypeNumComponents = (type: GLTFType) => {
+const gltfDataStructureTypeNumComponents = (type: GLTFDataStructureType) => {
   switch (type) {
-    case GLTFType.SCALAR:
+    case GLTFDataStructureType.SCALAR:
       return 1;
-    case GLTFType.VEC2:
+    case GLTFDataStructureType.VEC2:
       return 2;
-    case GLTFType.VEC3:
+    case GLTFDataStructureType.VEC3:
       return 3;
-    case GLTFType.VEC4:
-    case GLTFType.MAT2:
+    case GLTFDataStructureType.VEC4:
+    case GLTFDataStructureType.MAT2:
       return 4;
-    case GLTFType.MAT3:
+    case GLTFDataStructureType.MAT3:
       return 9;
-    case GLTFType.MAT4:
+    case GLTFDataStructureType.MAT4:
       return 16;
     default:
       throw Error(`Invalid glTF Type ${type}`);
@@ -84,35 +84,38 @@ const gltfTypeNumComponents = (type: GLTFType) => {
 
 // Note: only returns non-normalized type names,
 // so byte/ubyte = sint8/uint8, not snorm8/unorm8, same for ushort
-const gltfVertexType = (componentType: GLTFComponentType, type: GLTFType) => {
+const gltfVertexType = (
+  componentType: GLTFDataComponentType,
+  type: GLTFDataStructureType
+) => {
   let typeStr = null;
   switch (componentType) {
-    case GLTFComponentType.BYTE:
+    case GLTFDataComponentType.BYTE:
       typeStr = 'sint8';
       break;
-    case GLTFComponentType.UNSIGNED_BYTE:
+    case GLTFDataComponentType.UNSIGNED_BYTE:
       typeStr = 'uint8';
       break;
-    case GLTFComponentType.SHORT:
+    case GLTFDataComponentType.SHORT:
       typeStr = 'sint16';
       break;
-    case GLTFComponentType.UNSIGNED_SHORT:
+    case GLTFDataComponentType.UNSIGNED_SHORT:
       typeStr = 'uint16';
       break;
-    case GLTFComponentType.INT:
+    case GLTFDataComponentType.INT:
       typeStr = 'int32';
       break;
-    case GLTFComponentType.UNSIGNED_INT:
+    case GLTFDataComponentType.UNSIGNED_INT:
       typeStr = 'uint32';
       break;
-    case GLTFComponentType.FLOAT:
+    case GLTFDataComponentType.FLOAT:
       typeStr = 'float32';
       break;
     default:
       throw Error(`Unrecognized or unsupported glTF type ${componentType}`);
   }
 
-  switch (gltfTypeNumComponents(type)) {
+  switch (gltfDataStructureTypeNumComponents(type)) {
     case 1:
       return typeStr;
     case 2:
@@ -121,42 +124,47 @@ const gltfVertexType = (componentType: GLTFComponentType, type: GLTFType) => {
       return typeStr + 'x3';
     case 4:
       return typeStr + 'x4';
+    // Vertex attributes should never be a matrix type, so we should not hit this
+    // unless we're passed an improperly created gltf file
     default:
       throw Error(`Invalid number of components for gltfType: ${type}`);
   }
 };
 
-const gltfTypeSize = (componentType: GLTFComponentType, type: GLTFType) => {
+const gltfElementSize = (
+  componentType: GLTFDataComponentType,
+  type: GLTFDataStructureType
+) => {
   let componentSize = 0;
   switch (componentType) {
-    case GLTFComponentType.BYTE:
+    case GLTFDataComponentType.BYTE:
       componentSize = 1;
       break;
-    case GLTFComponentType.UNSIGNED_BYTE:
+    case GLTFDataComponentType.UNSIGNED_BYTE:
       componentSize = 1;
       break;
-    case GLTFComponentType.SHORT:
+    case GLTFDataComponentType.SHORT:
       componentSize = 2;
       break;
-    case GLTFComponentType.UNSIGNED_SHORT:
+    case GLTFDataComponentType.UNSIGNED_SHORT:
       componentSize = 2;
       break;
-    case GLTFComponentType.INT:
+    case GLTFDataComponentType.INT:
       componentSize = 4;
       break;
-    case GLTFComponentType.UNSIGNED_INT:
+    case GLTFDataComponentType.UNSIGNED_INT:
       componentSize = 4;
       break;
-    case GLTFComponentType.FLOAT:
+    case GLTFDataComponentType.FLOAT:
       componentSize = 4;
       break;
-    case GLTFComponentType.DOUBLE:
+    case GLTFDataComponentType.DOUBLE:
       componentSize = 8;
       break;
     default:
       throw Error('Unrecognized GLTF Component Type?');
   }
-  return gltfTypeNumComponents(type) * componentSize;
+  return gltfDataStructureTypeNumComponents(type) * componentSize;
 };
 
 export class GLTFBuffer {
@@ -215,14 +223,14 @@ export class GLTFBufferView {
 
 export class GLTFAccessor {
   count: number;
-  componentType: GLTFComponentType;
-  gltfType: GLTFType;
+  componentType: GLTFDataComponentType;
+  structureType: GLTFDataStructureType;
   view: GLTFBufferView;
   byteOffset: number;
   constructor(view: GLTFBufferView, accessor: Accessor) {
     this.count = accessor['count'];
     this.componentType = accessor['componentType'];
-    this.gltfType = parseGltfType(accessor['type']);
+    this.structureType = parseGltfDataStructureType(accessor['type']);
     this.view = view;
     this.byteOffset = 0;
     if (accessor['byteOffset'] !== undefined) {
@@ -231,7 +239,7 @@ export class GLTFAccessor {
   }
 
   get byteStride() {
-    const elementSize = gltfTypeSize(this.componentType, this.gltfType);
+    const elementSize = gltfElementSize(this.componentType, this.structureType);
     return Math.max(elementSize, this.view.byteStride);
   }
 
@@ -241,7 +249,7 @@ export class GLTFAccessor {
 
   // Get the vertex attribute type for accessors that are used as vertex attributes
   get vertexType() {
-    return gltfVertexType(this.componentType, this.gltfType);
+    return gltfVertexType(this.componentType, this.structureType);
   }
 }
 
@@ -441,13 +449,6 @@ type TempReturn = {
   skins: GLTFSkin[];
 };
 
-// "A scene graph is usually a tree structure where each node in the tree generates a matrix...
-//  The engine walks the scene graph and figures out a list of things to draw...
-//  Each node in a scene graph represent a local space. Given the correct matrix math,
-//  anything in that local space can ignore anything above it"
-// https://webgl2fundamentals.org/webgl/lessons/webgl-scene-graph.html
-
-// BaseTransformation of a node;
 export class BaseTransformation {
   position: Vec3;
   rotation: Quat;
@@ -656,6 +657,9 @@ export class GLTFSkin {
     });
   }
 
+  // For the sake of simplicity and easier debugging, we're going to convert our skin gpu accessor to a
+  // float32array, which should be performant enough for this example since there is only one skin (again, this)
+  // is not a comprehensive gltf parser
   constructor(
     device: GPUDevice,
     invBindMatricesAccessor: GLTFAccessor,
@@ -666,13 +670,23 @@ export class GLTFSkin {
       this.jointMatrices.push(mat4.identity());
     }
     console.log(invBindMatricesAccessor);
+    if (
+      invBindMatricesAccessor.componentType !== GLTFDataComponentType.FLOAT ||
+      invBindMatricesAccessor.byteStride !== 64
+    ) {
+      throw Error(
+        `This skin's provided accessor does not access a mat4x4<f32> matrix, or does not access the provided mat4x4<f32> data correctly`
+      );
+    }
     this.inverseBindMatricesAccessor = invBindMatricesAccessor;
+    console.log(this.inverseBindMatricesAccessor.view.view.byteOffset);
     this.inverseBindMatricesArrayBuffer = new Float32Array(
       this.inverseBindMatricesAccessor.view.view.buffer,
-      0,
-      this.inverseBindMatricesAccessor.view.view.length /
-        Float32Array.BYTES_PER_ELEMENT
+      this.inverseBindMatricesAccessor.view.view.byteOffset,
+      this.inverseBindMatricesAccessor.view.view.byteLength / 4
     );
+    console.log(this.inverseBindMatricesAccessor.view.view.length)
+    console.log(this.inverseBindMatricesArrayBuffer)
     this.joints = joints;
     this.jointGPUBuffer = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * 16 * joints.length,
@@ -721,8 +735,6 @@ export class GLTFSkin {
         toWrite.byteLength
       );
     }
-
-    //device.queue.writeBuffer(this.jointGPUBuffer, 0, this.jointArrayBuffer);
   }
 }
 
@@ -749,6 +761,8 @@ export const convertGLBToJSONAndBinary = async (
   // Binary data located after jsonChunk
   const binaryHeader = new Uint32Array(buffer, 20 + jsonChunkLength, 2);
   validateBinaryHeader(binaryHeader);
+
+  console.log(jsonChunkLength);
 
   const binaryChunk = new GLTFBuffer(
     buffer,
@@ -805,6 +819,7 @@ export const convertGLBToJSONAndBinary = async (
     const viewID = accessorInfo['bufferView'];
     accessors.push(new GLTFAccessor(bufferViews[viewID], accessorInfo));
   }
+  console.log(accessors[6].byteLength);
 
   // Load the first mesh
   const meshes: GLTFMesh[] = [];
@@ -840,7 +855,6 @@ export const convertGLBToJSONAndBinary = async (
         primitiveAttributeMap[attr] = accessor;
         attributes.push(attr);
       }
-      console.log(attributes);
       meshPrimitives.push(
         new GLTFPrimitive(topology, primitiveAttributeMap, attributes)
       );
