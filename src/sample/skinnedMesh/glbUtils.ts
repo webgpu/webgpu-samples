@@ -193,6 +193,11 @@ export class GLTFBufferView {
     if (view['byteOffset'] !== undefined) {
       viewOffset = view['byteOffset'];
     }
+    // NOTE: This creates a uint8array view into the buffer!
+    // When we call .buffer on this view, it will give us back the original array buffer
+    // Accordingly, when converting our buffer from a uint8array to a float32array representation
+    // we need to apply the byte offset of our view when creating our buffer
+    // ie new Float32Array(this.view.buffer, this.view.byteOffset, this.view.byteLength)
     this.view = buffer.buffer.subarray(
       viewOffset,
       viewOffset + this.byteLength
@@ -627,8 +632,9 @@ export class GLTFScene {
 }
 
 export class GLTFSkin {
-  inverseBindMatricesAccessor: GLTFAccessor;
-  inverseBindMatricesArrayBuffer: Float32Array;
+  inverseBindMatrices: Float32Array;
+  inverseBindMatricesUniformBuffer: GPUBuffer;
+  // Nodes of the skin's joints
   joints: number[];
   jointGPUBuffer: GPUBuffer;
   skinBindGroup: GPUBindGroup;
@@ -638,16 +644,10 @@ export class GLTFSkin {
   static createSharedBindGroupLayout(device: GPUDevice) {
     this.skinBindGroupLayout = device.createBindGroupLayout({
       label: 'StaticGLTFSkin.bindGroupLayout',
+      // Holds the joint matrices
       entries: [
         {
           binding: 0,
-          buffer: {
-            type: 'uniform',
-          },
-          visibility: GPUShaderStage.VERTEX,
-        },
-        {
-          binding: 1,
           buffer: {
             type: 'uniform',
           },
@@ -662,33 +662,31 @@ export class GLTFSkin {
   // is not a comprehensive gltf parser
   constructor(
     device: GPUDevice,
-    invBindMatricesAccessor: GLTFAccessor,
+    inverseBindMatricesAccessor: GLTFAccessor,
     joints: number[]
   ) {
     this.jointMatrices = [];
     for (let i = 0; i < joints.length; i++) {
       this.jointMatrices.push(mat4.identity());
     }
-    console.log(invBindMatricesAccessor);
+    console.log(inverseBindMatricesAccessor);
     if (
-      invBindMatricesAccessor.componentType !== GLTFDataComponentType.FLOAT ||
-      invBindMatricesAccessor.byteStride !== 64
+      inverseBindMatricesAccessor.componentType !==
+        GLTFDataComponentType.FLOAT ||
+      inverseBindMatricesAccessor.byteStride !== 64
     ) {
       throw Error(
         `This skin's provided accessor does not access a mat4x4<f32> matrix, or does not access the provided mat4x4<f32> data correctly`
       );
     }
-    this.inverseBindMatricesAccessor = invBindMatricesAccessor;
-    console.log(this.inverseBindMatricesAccessor.view.view.byteOffset);
-    this.inverseBindMatricesArrayBuffer = new Float32Array(
-      this.inverseBindMatricesAccessor.view.view.buffer,
-      this.inverseBindMatricesAccessor.view.view.byteOffset,
-      this.inverseBindMatricesAccessor.view.view.byteLength / 4
+    // NOTE: Come back to this uint8array to float32array conversion in case it is incorrect
+    this.inverseBindMatrices = new Float32Array(
+      inverseBindMatricesAccessor.view.view.buffer,
+      inverseBindMatricesAccessor.view.view.byteOffset,
+      inverseBindMatricesAccessor.view.view.byteLength / 4
     );
-    console.log(this.inverseBindMatricesAccessor.view.view.length)
-    console.log(this.inverseBindMatricesArrayBuffer)
     this.joints = joints;
-    this.jointGPUBuffer = device.createBuffer({
+    this.inverseBindMatricesUniformBuffer = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * 16 * joints.length,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
@@ -699,13 +697,7 @@ export class GLTFSkin {
         {
           binding: 0,
           resource: {
-            buffer: this.inverseBindMatricesAccessor.view.gpuBuffer,
-          },
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: this.jointGPUBuffer,
+            buffer: this.inverseBindMatricesUniformBuffer,
           },
         },
       ],
@@ -720,15 +712,14 @@ export class GLTFSkin {
       mat4.multiply(globalWorldInverse, nodes[joint].worldMatrix, dstMatrix);
       const startMatrixAccess = j * 16;
       const endMatrixAccess = startMatrixAccess + 16;
-      const inverseBindMatrix: Mat4 =
-        this.inverseBindMatricesArrayBuffer.subarray(
-          startMatrixAccess,
-          endMatrixAccess
-        );
+      const inverseBindMatrix: Mat4 = this.inverseBindMatrices.subarray(
+        startMatrixAccess,
+        endMatrixAccess
+      );
       mat4.multiply(dstMatrix, inverseBindMatrix, dstMatrix);
       const toWrite = dstMatrix as Float32Array;
       device.queue.writeBuffer(
-        this.jointGPUBuffer,
+        this.inverseBindMatricesUniformBuffer,
         j * 64,
         toWrite.buffer,
         toWrite.byteOffset,
@@ -762,7 +753,10 @@ export const convertGLBToJSONAndBinary = async (
   const binaryHeader = new Uint32Array(buffer, 20 + jsonChunkLength, 2);
   validateBinaryHeader(binaryHeader);
 
+  console.log('JSON Chunk Length');
   console.log(jsonChunkLength);
+  console.log('Binary Chunk Start');
+  console.log(28 + jsonChunkLength);
 
   const binaryChunk = new GLTFBuffer(
     buffer,
@@ -812,6 +806,8 @@ export const convertGLBToJSONAndBinary = async (
   for (let i = 0; i < jsonChunk.bufferViews.length; ++i) {
     bufferViews.push(new GLTFBufferView(binaryChunk, jsonChunk.bufferViews[i]));
   }
+  console.log('Buffer Views');
+  console.log(bufferViews);
 
   const accessors: GLTFAccessor[] = [];
   for (let i = 0; i < jsonChunk.accessors.length; ++i) {
@@ -819,7 +815,7 @@ export const convertGLBToJSONAndBinary = async (
     const viewID = accessorInfo['bufferView'];
     accessors.push(new GLTFAccessor(bufferViews[viewID], accessorInfo));
   }
-  console.log(accessors[6].byteLength);
+  console.log(accessors);
 
   // Load the first mesh
   const meshes: GLTFMesh[] = [];

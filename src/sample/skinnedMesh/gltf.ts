@@ -268,26 +268,15 @@ export interface Scene {
   root?: GLTFNode;
 }
 export interface Skin {
-  /**
-   * The index of the accessor containing the floating-point 4x4 inverse-bind matrices.  The default is that each matrix is a 4x4 identity matrix, which implies that inverse-bind matrices were pre-applied.
-   */
   inverseBindMatrices?: GlTfId;
-  /**
-   * The index of the node used as a skeleton root. When undefined, joints transforms resolve to scene root.
-   */
   skeleton?: GlTfId;
-  /**
-   * Indices of skeleton nodes, used as joints in this skin.
-   */
   joints: GlTfId[];
   name?: any;
   extensions?: any;
   extras?: any;
   [k: string]: any;
 }
-/**
- * A texture and its sampler.
- */
+
 export interface Texture {
   sampler?: GlTfId;
   source?: GlTfId;

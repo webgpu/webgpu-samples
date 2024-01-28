@@ -33,7 +33,7 @@ struct NodeUniforms {
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(2) @binding(0) var<uniform> node_uniforms: NodeUniforms;
-@group(3) @binding(1) var<uniform> joint_matrices: array<mat4x4<f32>, 6>;
+@group(3) @binding(0) var<uniform> joint_matrices: array<mat4x4<f32>, 6>;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
