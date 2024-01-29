@@ -106,7 +106,7 @@ const init: SampleInit = async ({
     cameraY: -5.1,
     cameraZ: -14.6,
     objectScale: 1,
-    angle: 0.8,
+    angle: 0.2,
     speed: 50,
     object: 'Whale',
     renderMode: 'NORMAL',
