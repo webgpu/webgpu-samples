@@ -3,6 +3,7 @@ import { Accessor, BufferView, GlTf, Scene } from './gltf';
 import { Mat4, Vec3, mat4 } from 'wgpu-matrix';
 
 //NOTE: GLTF code is not generally extensible to all gltf models
+// Modified from Will Usher code found at this link https://www.willusher.io/graphics/2023/05/16/0-to-gltf-first-mesh
 
 // Determines the topology of our pipeline
 enum GLTFRenderMode {
