@@ -483,7 +483,7 @@ const init: SampleInit = async ({
 const skinnedMesh: () => JSX.Element = () =>
   makeSample({
     name: 'Skinned Mesh',
-    description: 'WIP Skinned Mesh',
+    description: 'A demonstration of basic gltf loading and mesh skinning, ported from https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
     init,
     gui: true,
     sources: [
