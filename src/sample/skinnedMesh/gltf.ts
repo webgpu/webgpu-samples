@@ -10,26 +10,17 @@ export interface AccessorSparseIndices {
   bufferView: GlTfId;
   byteOffset?: number;
   componentType: 5121 | 5123 | 5125 | number;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface AccessorSparseValues {
   bufferView: GlTfId;
   byteOffset?: number;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface AccessorSparse {
   count: number;
   indices: AccessorSparseIndices;
   values: AccessorSparseValues;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface Accessor {
@@ -43,44 +34,29 @@ export interface Accessor {
   max?: number[];
   min?: number[];
   sparse?: AccessorSparse;
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface AnimationChannelTarget {
   node?: GlTfId;
   path: 'translation' | 'rotation' | 'scale' | 'weights' | string;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface AnimationChannel {
   sampler: GlTfId;
   target: AnimationChannelTarget;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface AnimationSampler {
   input: GlTfId;
   interpolation?: 'LINEAR' | 'STEP' | 'CUBICSPLINE' | string;
   output: GlTfId;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface Animation {
   channels: AnimationChannel[];
   samplers: AnimationSampler[];
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface Asset {
@@ -88,18 +64,12 @@ export interface Asset {
   generator?: string;
   version: string;
   minVersion?: string;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface Buffer {
   uri?: string;
   byteLength: number;
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface BufferView {
@@ -108,10 +78,7 @@ export interface BufferView {
   byteLength: number;
   byteStride?: number;
   target?: 34962 | 34963 | number;
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
   usage?: number;
 }
 
@@ -120,9 +87,6 @@ export interface CameraOrthographic {
   ymag: number;
   zfar: number;
   znear: number;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface CameraPerspective {
@@ -130,9 +94,6 @@ export interface CameraPerspective {
   yfov: number;
   zfar?: number;
   znear: number;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface Camera {
@@ -140,27 +101,18 @@ export interface Camera {
   perspective?: CameraPerspective;
   type: 'perspective' | 'orthographic' | string;
   name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface Image {
   uri?: string;
   mimeType?: 'image/jpeg' | 'image/png' | string;
   bufferView?: GlTfId;
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface TextureInfo {
   index: GlTfId;
   texCoord?: number;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface MaterialPbrMetallicRoughness {
@@ -169,31 +121,20 @@ export interface MaterialPbrMetallicRoughness {
   metallicFactor?: number;
   roughnessFactor?: number;
   metallicRoughnessTexture?: TextureInfo;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 export interface MaterialNormalTextureInfo {
   index?: any;
   texCoord?: any;
   scale?: number;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 export interface MaterialOcclusionTextureInfo {
   index?: any;
   texCoord?: any;
   strength?: number;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface Material {
-  name?: any;
-  extensions?: any;
-  extras?: any;
+  name?: string;
   pbrMetallicRoughness?: MaterialPbrMetallicRoughness;
   normalTexture?: MaterialNormalTextureInfo;
   occlusionTexture?: MaterialOcclusionTextureInfo;
@@ -202,7 +143,6 @@ export interface Material {
   alphaMode?: 'OPAQUE' | 'MASK' | 'BLEND' | string;
   alphaCutoff?: number;
   doubleSided?: boolean;
-  [k: string]: any;
 }
 
 export interface MeshPrimitive {
@@ -215,18 +155,12 @@ export interface MeshPrimitive {
   targets?: {
     [k: string]: GlTfId;
   }[];
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }
 
 export interface Mesh {
   primitives: MeshPrimitive[];
   weights?: number[];
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface Node {
@@ -240,10 +174,7 @@ export interface Node {
   scale?: number[];
   translation?: number[];
   weights?: number[];
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface Sampler {
@@ -251,37 +182,25 @@ export interface Sampler {
   minFilter?: 9728 | 9729 | 9984 | 9985 | 9986 | 9987 | number;
   wrapS?: 33071 | 33648 | 10497 | number;
   wrapT?: 33071 | 33648 | 10497 | number;
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface Scene {
   nodes?: GlTfId[];
   name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
   root?: GLTFNode;
 }
 export interface Skin {
   inverseBindMatrices?: GlTfId;
   skeleton?: GlTfId;
   joints: GlTfId[];
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface Texture {
   sampler?: GlTfId;
   source?: GlTfId;
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
+  name?: string;
 }
 
 export interface GlTf {
@@ -302,7 +221,4 @@ export interface GlTf {
   scenes?: Scene[];
   skins?: Skin[];
   textures?: Texture[];
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
 }

@@ -103,11 +103,11 @@ const init: SampleInit = async ({
 
   const settings = {
     cameraX: 0,
-    cameraY: 0,
-    cameraZ: -10.7,
+    cameraY: -5.1,
+    cameraZ: -14.6,
     objectScale: 1,
     angle: 0.8,
-    speed: 10,
+    speed: 50,
     object: 'Whale',
     renderMode: 'NORMAL',
     skinMode: 'ON',
@@ -119,16 +119,32 @@ const init: SampleInit = async ({
       cameraYController.setValue(0);
       objectScaleController.setValue(1.27);
     } else {
-      cameraXController.setValue(0);
-      cameraYController.setValue(0);
-      cameraZController.setValue(-10.7);
-      objectScaleController.setValue(1);
+      if (settings.skinMode === 'OFF') {
+        cameraXController.setValue(0);
+        cameraYController.setValue(0);
+        cameraZController.setValue(-11);
+      } else {
+        cameraXController.setValue(0);
+        cameraYController.setValue(-5.1);
+        cameraZController.setValue(-14.6);
+      }
     }
   });
   gui.add(settings, 'renderMode', ['NORMAL', 'JOINTS', 'WEIGHTS']).onChange(() => {
     device.queue.writeBuffer(generalUniformsBuffer, 0, new Uint32Array([RenderMode[settings.renderMode]]));
   });
   gui.add(settings, 'skinMode', ['ON', 'OFF']).onChange(() => {
+    if (settings.object === 'Whale') {
+      if (settings.skinMode === 'OFF') {
+        cameraXController.setValue(0);
+        cameraYController.setValue(0);
+        cameraZController.setValue(-11);
+      } else {
+        cameraXController.setValue(0);
+        cameraYController.setValue(-5.1);
+        cameraZController.setValue(-14.6);
+      }
+    }
     device.queue.writeBuffer(generalUniformsBuffer, 4, new Uint32Array([SkinMode[settings.skinMode]]));
   })
   const cameraFolder = gui.addFolder('Camera Settings');
@@ -357,7 +373,8 @@ const init: SampleInit = async ({
       const m = mat4.rotateX(origMatrix, angle);
       whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
       // Something wrong with scaling
-      whaleScene.nodes[joint].source.position = mat4.getScaling(m);
+      //whaleScene.nodes[joint].source.position = mat4.getScaling(m);
+      whaleScene.nodes[joint].source.rotation = getRotation(m)
       
     }
   }
@@ -429,7 +446,7 @@ const init: SampleInit = async ({
     }
 
     // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
-    animSkin(whaleScene.skins[0], Math.sin(t) * .5)
+    animSkin(whaleScene.skins[0], Math.sin(t) * settings.angle)
     // Node 6 should be the only node with a drawable mesh so hopefully this works fine
     whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes)
 

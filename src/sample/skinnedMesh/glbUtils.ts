@@ -2,7 +2,7 @@ import { Quat } from 'wgpu-matrix/dist/2.x/quat';
 import { Accessor, BufferView, GlTf, Scene } from './gltf';
 import { Mat4, Vec3, mat4 } from 'wgpu-matrix';
 
-//NOTE: GLTF code is not generally extensible
+//NOTE: GLTF code is not generally extensible to all gltf models
 
 // Determines the topology of our pipeline
 enum GLTFRenderMode {
@@ -623,8 +623,6 @@ export class GLTFScene {
     console.log(baseScene.nodes);
     this.nodes = baseScene.nodes;
     this.name = baseScene.name;
-    this.extensions = baseScene.extensions;
-    this.extras = baseScene.extras;
     this.root = new GLTFNode(
       device,
       nodeTransformBGL,
