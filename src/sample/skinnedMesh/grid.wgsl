@@ -19,6 +19,7 @@ struct CameraUniforms {
 
 struct GeneralUniforms {
   render_mode: u32,
+  skin_mode: u32,
 }
 
 struct BoneUniforms {
@@ -41,17 +42,16 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   let bone2 = bone_uniforms.bones[u32(input.bone_index[2])];
   let bone3 = bone_uniforms.bones[u32(input.bone_index[3])];
   // Bone transformed mesh
-  output.Position = 
-    camera_uniforms.projMatrix * 
-    camera_uniforms.viewMatrix * 
-    camera_uniforms.modelMatrix *
+  output.Position = select(
+    camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * position,
+    camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix *
     (bone0 * position * input.bone_weight[0] +
      bone1 * position * input.bone_weight[1] +
      bone2 * position * input.bone_weight[2] +
-     bone3 * position * input.bone_weight[3]);
+     bone3 * position * input.bone_weight[3]),
+     general_uniforms.skin_mode == 0
+  );
 
-  // Normal, unaffected mesh
-  //output.Position = camera_uniforms.projMatrix * camera_uniforms.viewMatrix * camera_uniforms.modelMatrix * position;
   //Get unadjusted world coordinates
   output.world_pos = position.xyz;
   output.bone_index = input.bone_index;

@@ -4,6 +4,7 @@ import { Mat4, Vec3, mat4 } from 'wgpu-matrix';
 
 //NOTE: GLTF code is not generally extensible
 
+// Determines the topology of our pipeline
 enum GLTFRenderMode {
   POINTS = 0,
   LINE = 1,
@@ -11,11 +12,10 @@ enum GLTFRenderMode {
   LINE_STRIP = 3,
   TRIANGLES = 4,
   TRIANGLE_STRIP = 5,
-  // Note= fans are not supported in WebGPU, use should be
-  // an error or converted into a list/strip
   TRIANGLE_FAN = 6,
 }
 
+// Determines how to interpret each element of the structure that is accessed from our accessor
 enum GLTFDataComponentType {
   BYTE = 5120,
   UNSIGNED_BYTE = 5121,
@@ -27,6 +27,7 @@ enum GLTFDataComponentType {
   DOUBLE = 5130,
 }
 
+// Determines how to interpret the structure of the values accessed by an accessor
 enum GLTFDataStructureType {
   SCALAR = 0,
   VEC2 = 1,
@@ -550,11 +551,13 @@ export class GLTFNode {
     } else {
       mat4.copy(this.localMatrix, this.worldMatrix);
     }
-    const worldMatrix = this.worldMatrix;
+    const worldMatrix = this.worldMatrix as Float32Array;
     device.queue.writeBuffer(
       this.nodeTransformGPUBuffer,
       0,
-      worldMatrix as Float32Array
+      worldMatrix.buffer,
+      worldMatrix.byteOffset,
+      worldMatrix.byteLength
     );
     for (const child of this.children) {
       child.updateWorldMatrix(device, worldMatrix);
@@ -632,12 +635,18 @@ export class GLTFScene {
 }
 
 export class GLTFSkin {
+  // Inverse bind matrices parsed from the accessor
   inverseBindMatrices: Float32Array;
   inverseBindMatricesUniformBuffer: GPUBuffer;
   // Nodes of the skin's joints
+  // [5, 2, 3] means our joint info is at nodes 5, 2, and 3
   joints: number[];
-  jointGPUBuffer: GPUBuffer;
+  // Bind Group for this skin's uniform buffer
   skinBindGroup: GPUBindGroup;
+  // Static bindGroupLayout shared across all skins
+  // In a larger shader with more properties, certain bind groups
+  // would likely have to be combined due to device limitations in the number of bind groups
+  // allowed within a shader
   static skinBindGroupLayout: GPUBindGroupLayout;
   private jointMatrices: Mat4[];
 
@@ -685,6 +694,7 @@ export class GLTFSkin {
       inverseBindMatricesAccessor.view.view.byteOffset,
       inverseBindMatricesAccessor.view.view.byteLength / 4
     );
+    console.log(this.inverseBindMatrices);
     this.joints = joints;
     this.inverseBindMatricesUniformBuffer = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * 16 * joints.length,
@@ -712,7 +722,7 @@ export class GLTFSkin {
       mat4.multiply(globalWorldInverse, nodes[joint].worldMatrix, dstMatrix);
       const startMatrixAccess = j * 16;
       const endMatrixAccess = startMatrixAccess + 16;
-      const inverseBindMatrix: Mat4 = this.inverseBindMatrices.subarray(
+      const inverseBindMatrix: Mat4 = this.inverseBindMatrices.slice(
         startMatrixAccess,
         endMatrixAccess
       );
@@ -849,6 +859,11 @@ export const convertGLBToJSONAndBinary = async (
       for (const attr in prim['attributes']) {
         const accessor = accessors[prim['attributes'][attr]];
         primitiveAttributeMap[attr] = accessor;
+        if (accessor.structureType > 3) {
+          throw Error(
+            'Vertex attribute accessor accessed an unsupported data type for vertex attribute'
+          );
+        }
         attributes.push(attr);
       }
       meshPrimitives.push(
@@ -886,6 +901,7 @@ export const convertGLBToJSONAndBinary = async (
   const nodes: GLTFNode[] = [];
 
   console.log(jsonChunk.skins);
+  console.log(skins);
 
   // Access each node. If node references a mesh, add mesh to that node
   const nodeUniformsBindGroupLayout = device.createBindGroupLayout({

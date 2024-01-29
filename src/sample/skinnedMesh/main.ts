@@ -24,6 +24,11 @@ enum RenderMode {
   WEIGHTS,
 }
 
+enum SkinMode {
+  ON,
+  OFF
+}
+
 const getRotation = (mat: Mat4): Quat => {
   const out = [0, 0, 0, 0];
   const scaling = mat4.getScaling(mat);
@@ -105,6 +110,7 @@ const init: SampleInit = async ({
     speed: 10,
     object: 'Whale',
     renderMode: 'NORMAL',
+    skinMode: 'ON',
   };
 
   gui.add(settings, 'object', ['Whale', 'Skinned Grid']).onChange(() => {
@@ -122,6 +128,9 @@ const init: SampleInit = async ({
   gui.add(settings, 'renderMode', ['NORMAL', 'JOINTS', 'WEIGHTS']).onChange(() => {
     device.queue.writeBuffer(generalUniformsBuffer, 0, new Uint32Array([RenderMode[settings.renderMode]]));
   });
+  gui.add(settings, 'skinMode', ['ON', 'OFF']).onChange(() => {
+    device.queue.writeBuffer(generalUniformsBuffer, 4, new Uint32Array([SkinMode[settings.skinMode]]));
+  })
   const cameraFolder = gui.addFolder('Camera Settings');
   const cameraXController = cameraFolder.add(settings, 'cameraX', -10, 10).step(0.1);
   const cameraYController = cameraFolder.add(settings, 'cameraY', -10, 10).step(0.1);
@@ -131,7 +140,6 @@ const init: SampleInit = async ({
   animFolder.add(settings, 'angle', 0.1, 1.0).step(0.1);
   animFolder.add(settings, 'speed', 10, 100).step(10);
 
-  // Create global resources
   const depthTexture = device.createTexture({
     size: [canvas.width, canvas.height],
     format: 'depth24plus',
@@ -154,7 +162,7 @@ const init: SampleInit = async ({
   );
 
   const generalUniformsBuffer = device.createBuffer({
-    size: Uint32Array.BYTES_PER_ELEMENT,
+    size: Uint32Array.BYTES_PER_ELEMENT * 2,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -348,11 +356,13 @@ const init: SampleInit = async ({
       const origMatrix = origMatrices.get(joint);
       const m = mat4.rotateX(origMatrix, angle);
       whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
+      // Something wrong with scaling
       whaleScene.nodes[joint].source.position = mat4.getScaling(m);
-      whaleScene.nodes[joint].source.rotation = getRotation(m);
       
     }
   }
+
+  console.log(whaleScene.nodes)
 
   function frame() {
     // Sample is no longer the active page.
@@ -420,6 +430,7 @@ const init: SampleInit = async ({
 
     // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
     animSkin(whaleScene.skins[0], Math.sin(t) * .5)
+    // Node 6 should be the only node with a drawable mesh so hopefully this works fine
     whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes)
 
 

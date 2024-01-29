@@ -256,9 +256,7 @@ export interface Sampler {
   extras?: any;
   [k: string]: any;
 }
-/**
- * The root nodes of a scene.
- */
+
 export interface Scene {
   nodes?: GlTfId[];
   name?: any;
