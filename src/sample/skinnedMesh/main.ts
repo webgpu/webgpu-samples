@@ -379,7 +379,6 @@ const init: SampleInit = async ({
     }
   }
 
-  console.log(whaleScene.nodes)
 
   function frame() {
     // Sample is no longer the active page.

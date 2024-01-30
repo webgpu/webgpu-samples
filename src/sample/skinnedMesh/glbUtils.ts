@@ -317,7 +317,6 @@ export class GLTFPrimitive {
       }
     );
 
-    console.log(vertexBuffers);
     const vertexState: GPUVertexState = {
       // Shader stage info
       module: vertexShaderModule,
@@ -546,6 +545,8 @@ export class GLTFNode {
   }
 
   updateWorldMatrix(device: GPUDevice, parentWorldMatrix?: Mat4) {
+    // Get local transform of this particular node, and if the node has a parent,
+    // multiply it against the parent's transform matrix to get transformMatrix relative to world.
     this.localMatrix = this.source.getMatrix();
     if (parentWorldMatrix) {
       mat4.multiply(parentWorldMatrix, this.localMatrix, this.worldMatrix);
@@ -621,7 +622,6 @@ export class GLTFScene {
     nodeTransformBGL: GPUBindGroupLayout,
     baseScene: Scene
   ) {
-    console.log(baseScene.nodes);
     this.nodes = baseScene.nodes;
     this.name = baseScene.name;
     this.root = new GLTFNode(
@@ -677,7 +677,6 @@ export class GLTFSkin {
     for (let i = 0; i < joints.length; i++) {
       this.jointMatrices.push(mat4.identity());
     }
-    console.log(inverseBindMatricesAccessor);
     if (
       inverseBindMatricesAccessor.componentType !==
         GLTFDataComponentType.FLOAT ||
@@ -693,7 +692,6 @@ export class GLTFSkin {
       inverseBindMatricesAccessor.view.view.byteOffset,
       inverseBindMatricesAccessor.view.view.byteLength / 4
     );
-    console.log(this.inverseBindMatrices);
     this.joints = joints;
     this.inverseBindMatricesUniformBuffer = device.createBuffer({
       size: Float32Array.BYTES_PER_ELEMENT * 16 * joints.length,
@@ -756,16 +754,9 @@ export const convertGLBToJSONAndBinary = async (
     new TextDecoder('utf-8').decode(new Uint8Array(buffer, 20, jsonChunkLength))
   );
 
-  console.log(jsonChunk);
-
   // Binary data located after jsonChunk
   const binaryHeader = new Uint32Array(buffer, 20 + jsonChunkLength, 2);
   validateBinaryHeader(binaryHeader);
-
-  console.log('JSON Chunk Length');
-  console.log(jsonChunkLength);
-  console.log('Binary Chunk Start');
-  console.log(28 + jsonChunkLength);
 
   const binaryChunk = new GLTFBuffer(
     buffer,
@@ -815,8 +806,6 @@ export const convertGLBToJSONAndBinary = async (
   for (let i = 0; i < jsonChunk.bufferViews.length; ++i) {
     bufferViews.push(new GLTFBufferView(binaryChunk, jsonChunk.bufferViews[i]));
   }
-  console.log('Buffer Views');
-  console.log(bufferViews);
 
   const accessors: GLTFAccessor[] = [];
   for (let i = 0; i < jsonChunk.accessors.length; ++i) {
@@ -824,8 +813,6 @@ export const convertGLBToJSONAndBinary = async (
     const viewID = accessorInfo['bufferView'];
     accessors.push(new GLTFAccessor(bufferViews[viewID], accessorInfo));
   }
-  console.log(accessors);
-
   // Load the first mesh
   const meshes: GLTFMesh[] = [];
   for (let i = 0; i < jsonChunk.meshes.length; i++) {
@@ -852,9 +839,7 @@ export const convertGLBToJSONAndBinary = async (
         primitiveAttributeMap['INDICES'] = indices;
       }
 
-      // Loop through all the attributes to find the POSITION attribute.
-      // While we only want the position attribute right now, we'll load
-      // the others later as well.
+      // Loop through all the attributes and store within our attributeMap
       for (const attr in prim['attributes']) {
         const accessor = accessors[prim['attributes'][attr]];
         primitiveAttributeMap[attr] = accessor;
@@ -874,7 +859,6 @@ export const convertGLBToJSONAndBinary = async (
 
   const skins: GLTFSkin[] = [];
   for (const skin of jsonChunk.skins) {
-    // Why is this designed this way...
     const inverseBindMatrixAccessor = accessors[skin.inverseBindMatrices];
     inverseBindMatrixAccessor.view.addUsage(
       GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -891,16 +875,12 @@ export const convertGLBToJSONAndBinary = async (
 
   GLTFSkin.createSharedBindGroupLayout(device);
   for (const skin of jsonChunk.skins) {
-    console.log(skin);
     const inverseBindMatrixAccessor = accessors[skin.inverseBindMatrices];
     const joints = skin.joints;
     skins.push(new GLTFSkin(device, inverseBindMatrixAccessor, joints));
   }
 
   const nodes: GLTFNode[] = [];
-
-  console.log(jsonChunk.skins);
-  console.log(skins);
 
   // Access each node. If node references a mesh, add mesh to that node
   const nodeUniformsBindGroupLayout = device.createBindGroupLayout({
@@ -946,8 +926,6 @@ export const convertGLBToJSONAndBinary = async (
     }
   });
 
-  console.log(nodes);
-
   const scenes: GLTFScene[] = [];
 
   for (const jsonScene of jsonChunk.scenes) {
@@ -959,7 +937,6 @@ export const convertGLBToJSONAndBinary = async (
     });
     scenes.push(scene);
   }
-  console.log(scenes);
   return {
     meshes,
     nodes,
