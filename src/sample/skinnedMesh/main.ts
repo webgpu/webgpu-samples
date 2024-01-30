@@ -1,13 +1,14 @@
-/* eslint-disable prettier/prettier */
 import { makeSample, SampleInit } from '../../components/SampleLayout';
 import { convertGLBToJSONAndBinary, GLTFSkin } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
 import { Mat4, mat4, Quat, vec3 } from 'wgpu-matrix';
 import { createBindGroupCluster } from '../bitonicSort/utils';
-import { createSkinnedGridBuffers, createSkinnedGridRenderPipeline } from './gridUtils';
+import {
+  createSkinnedGridBuffers,
+  createSkinnedGridRenderPipeline,
+} from './gridUtils';
 import { gridIndices } from './gridData';
-//import {ArcballCamera} from 'arcball_camera'
 
 const MAT4X4_BYTES = 64;
 
@@ -15,7 +16,6 @@ interface BoneObject {
   transforms: Mat4[];
   bindPoses: Mat4[];
   bindPosesInv: Mat4[];
-  uniforms: Mat4[];
 }
 
 enum RenderMode {
@@ -26,7 +26,7 @@ enum RenderMode {
 
 enum SkinMode {
   ON,
-  OFF
+  OFF,
 }
 
 const getRotation = (mat: Mat4): Quat => {
@@ -76,13 +76,9 @@ const getRotation = (mat: Mat4): Quat => {
   }
 
   return out;
-}
+};
 
-const init: SampleInit = async ({
-  canvas,
-  pageState,
-  gui,
-}) => {
+const init: SampleInit = async ({ canvas, pageState, gui }) => {
   //Normal setup
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
@@ -130,9 +126,15 @@ const init: SampleInit = async ({
       }
     }
   });
-  gui.add(settings, 'renderMode', ['NORMAL', 'JOINTS', 'WEIGHTS']).onChange(() => {
-    device.queue.writeBuffer(generalUniformsBuffer, 0, new Uint32Array([RenderMode[settings.renderMode]]));
-  });
+  gui
+    .add(settings, 'renderMode', ['NORMAL', 'JOINTS', 'WEIGHTS'])
+    .onChange(() => {
+      device.queue.writeBuffer(
+        generalUniformsBuffer,
+        0,
+        new Uint32Array([RenderMode[settings.renderMode]])
+      );
+    });
   gui.add(settings, 'skinMode', ['ON', 'OFF']).onChange(() => {
     if (settings.object === 'Whale') {
       if (settings.skinMode === 'OFF') {
@@ -145,13 +147,25 @@ const init: SampleInit = async ({
         cameraZController.setValue(-14.6);
       }
     }
-    device.queue.writeBuffer(generalUniformsBuffer, 4, new Uint32Array([SkinMode[settings.skinMode]]));
-  })
+    device.queue.writeBuffer(
+      generalUniformsBuffer,
+      4,
+      new Uint32Array([SkinMode[settings.skinMode]])
+    );
+  });
   const cameraFolder = gui.addFolder('Camera Settings');
-  const cameraXController = cameraFolder.add(settings, 'cameraX', -10, 10).step(0.1);
-  const cameraYController = cameraFolder.add(settings, 'cameraY', -10, 10).step(0.1);
-  const cameraZController = cameraFolder.add(settings, 'cameraZ', -100, 0).step(0.1);
-  const objectScaleController = cameraFolder.add(settings, 'objectScale', 0.01, 10).step(0.01);
+  const cameraXController = cameraFolder
+    .add(settings, 'cameraX', -10, 10)
+    .step(0.1);
+  const cameraYController = cameraFolder
+    .add(settings, 'cameraY', -10, 10)
+    .step(0.1);
+  const cameraZController = cameraFolder
+    .add(settings, 'cameraZ', -100, 0)
+    .step(0.1);
+  const objectScaleController = cameraFolder
+    .add(settings, 'objectScale', 0.01, 10)
+    .step(0.01);
   const animFolder = gui.addFolder('Animation Settings');
   animFolder.add(settings, 'angle', 0.1, 1.0).step(0.1);
   animFolder.add(settings, 'speed', 10, 100).step(10);
@@ -165,7 +179,7 @@ const init: SampleInit = async ({
   const cameraBuffer = device.createBuffer({
     size: MAT4X4_BYTES * 3,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  })
+  });
 
   const cameraBGCluster = createBindGroupCluster(
     [0],
@@ -191,19 +205,19 @@ const init: SampleInit = async ({
     'General',
     device
   );
-  
-  // Same bindGroupLayout as in main file. 
+
+  // Same bindGroupLayout as in main file.
   const nodeUniformsBindGroupLayout = device.createBindGroupLayout({
     label: 'NodeUniforms.bindGroupLayout',
     entries: [
       {
         binding: 0,
         buffer: {
-          type: 'uniform'
+          type: 'uniform',
         },
-        visibility: GPUShaderStage.VERTEX
-      }
-    ]
+        visibility: GPUShaderStage.VERTEX,
+      },
+    ],
   });
 
   // Create whale resources
@@ -214,14 +228,19 @@ const init: SampleInit = async ({
   whaleScene.meshes[0].buildRenderPipeline(
     device,
     device.createShaderModule({
-      code: gltfWGSL
+      code: gltfWGSL,
     }),
     device.createShaderModule({
-      code: gltfWGSL
+      code: gltfWGSL,
     }),
     presentationFormat,
     depthTexture.format,
-    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, nodeUniformsBindGroupLayout, GLTFSkin.skinBindGroupLayout],
+    [
+      cameraBGCluster.bindGroupLayout,
+      generalUniformsBGCLuster.bindGroupLayout,
+      nodeUniformsBindGroupLayout,
+      GLTFSkin.skinBindGroupLayout,
+    ]
   );
 
   // Create skinned grid resources
@@ -229,25 +248,38 @@ const init: SampleInit = async ({
   const skinnedGridUniformBufferUsage: GPUBufferDescriptor = {
     // 5 4x4 matrices, one for each bone
     size: MAT4X4_BYTES * 5,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-  }
-  const skinnedGridJointUniformBuffer = device.createBuffer(skinnedGridUniformBufferUsage);
-  const skinnedGridInverseBindUniformBuffer = device.createBuffer(skinnedGridUniformBufferUsage);
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  };
+  const skinnedGridJointUniformBuffer = device.createBuffer(
+    skinnedGridUniformBufferUsage
+  );
+  const skinnedGridInverseBindUniformBuffer = device.createBuffer(
+    skinnedGridUniformBufferUsage
+  );
   const skinnedGridBoneBGCluster = createBindGroupCluster(
     [0, 1],
     [GPUShaderStage.VERTEX, GPUShaderStage.VERTEX],
     ['buffer', 'buffer'],
-    [{type: 'uniform'}, {type: 'uniform'}],
-    [[{buffer: skinnedGridJointUniformBuffer}, {buffer: skinnedGridInverseBindUniformBuffer}]],
+    [{ type: 'uniform' }, { type: 'uniform' }],
+    [
+      [
+        { buffer: skinnedGridJointUniformBuffer },
+        { buffer: skinnedGridInverseBindUniformBuffer },
+      ],
+    ],
     'SkinnedGridJointUniforms',
     device
   );
   const skinnedGridPipeline = createSkinnedGridRenderPipeline(
-    device, 
+    device,
     presentationFormat,
     gridWGSL,
     gridWGSL,
-    [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, skinnedGridBoneBGCluster.bindGroupLayout]
+    [
+      cameraBGCluster.bindGroupLayout,
+      generalUniformsBGCLuster.bindGroupLayout,
+      skinnedGridBoneBGCluster.bindGroupLayout,
+    ]
   );
 
   // Global Calc
@@ -259,9 +291,7 @@ const init: SampleInit = async ({
     100.0
   );
 
-  const orthographicProjection = mat4.ortho(
-    -20, 20, -10, 10, -100, 100
-  );
+  const orthographicProjection = mat4.ortho(-20, 20, -10, 10, -100, 100);
 
   function getProjectionMatrix() {
     if (settings.object !== 'Skinned Grid') {
@@ -273,19 +303,35 @@ const init: SampleInit = async ({
   function getViewMatrix() {
     const viewMatrix = mat4.identity();
     if (settings.object === 'Skinned Grid') {
-      mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX * settings.objectScale, settings.cameraY * settings.objectScale, settings.cameraZ), viewMatrix);
+      mat4.translate(
+        viewMatrix,
+        vec3.fromValues(
+          settings.cameraX * settings.objectScale,
+          settings.cameraY * settings.objectScale,
+          settings.cameraZ
+        ),
+        viewMatrix
+      );
     } else {
-      mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX, settings.cameraY, settings.cameraZ), viewMatrix);
+      mat4.translate(
+        viewMatrix,
+        vec3.fromValues(settings.cameraX, settings.cameraY, settings.cameraZ),
+        viewMatrix
+      );
     }
     return viewMatrix as Float32Array;
   }
 
   function getModelMatrix() {
     const modelMatrix = mat4.identity();
-    const scaleVector = vec3.fromValues(settings.objectScale, settings.objectScale, settings.objectScale);
+    const scaleVector = vec3.fromValues(
+      settings.objectScale,
+      settings.objectScale,
+      settings.objectScale
+    );
     mat4.scale(modelMatrix, scaleVector, modelMatrix);
     if (settings.object === 'Whale') {
-      mat4.rotateY(modelMatrix, Date.now() / 1000 * 0.5, modelMatrix);
+      mat4.rotateY(modelMatrix, (Date.now() / 1000) * 0.5, modelMatrix);
     }
     return modelMatrix as Float32Array;
   }
@@ -303,9 +349,9 @@ const init: SampleInit = async ({
     ],
     depthStencilAttachment: {
       view: depthTexture.createView(),
-      depthLoadOp: "clear",
+      depthLoadOp: 'clear',
       depthClearValue: 1.0,
-      depthStoreOp: "store",
+      depthStoreOp: 'store',
     },
   };
 
@@ -320,7 +366,7 @@ const init: SampleInit = async ({
         storeOp: 'store',
       },
     ],
-  }
+  };
 
   const animSkinnedGrid = (boneTransforms: Mat4[], angle: number) => {
     const m = mat4.identity();
@@ -329,7 +375,7 @@ const init: SampleInit = async ({
     mat4.rotateZ(m, angle, boneTransforms[1]);
     mat4.translate(boneTransforms[1], vec3.create(4, 0, 0), m);
     mat4.rotateZ(m, angle, boneTransforms[2]);
-  }
+  };
 
   // Create a group of bones
   // Each index associates an actual bone to its transforms, bindPoses, uniforms, etc
@@ -338,33 +384,31 @@ const init: SampleInit = async ({
     const transforms: Mat4[] = [];
     // Bone bind poses
     const bindPoses: Mat4[] = [];
-    // Bone after transform and inverse bind pose has been applied
-    const uniforms: Mat4[] = [];
-    for (let i= 0; i < numBones; i++) {
+    for (let i = 0; i < numBones; i++) {
       transforms.push(mat4.identity());
       bindPoses.push(mat4.identity());
-      // Why is byte offset in btyes but length is in elements : (
-      uniforms.push(mat4.identity())
     }
 
     // Get initial bind pose positions
     animSkinnedGrid(bindPoses, 0);
     const bindPosesInv = bindPoses.map((bindPose) => {
-      return mat4.inverse(bindPose)
+      return mat4.inverse(bindPose);
     });
-
 
     return {
       transforms,
       bindPoses,
       bindPosesInv,
-      uniforms,
-    }
-  }
+    };
+  };
 
   const gridBoneCollection = createBoneCollection(5);
   for (let i = 0; i < gridBoneCollection.bindPosesInv.length; i++) {
-    device.queue.writeBuffer(skinnedGridInverseBindUniformBuffer, i * 64, gridBoneCollection.bindPosesInv[i] as Float32Array);
+    device.queue.writeBuffer(
+      skinnedGridInverseBindUniformBuffer,
+      i * 64,
+      gridBoneCollection.bindPosesInv[i] as Float32Array
+    );
   }
 
   const origMatrices = new Map();
@@ -372,18 +416,15 @@ const init: SampleInit = async ({
     for (let i = 0; i < skin.joints.length; i++) {
       const joint = skin.joints[i];
       if (!origMatrices.has(joint)) {
-        origMatrices.set(joint, whaleScene.nodes[joint].source.getMatrix())
+        origMatrices.set(joint, whaleScene.nodes[joint].source.getMatrix());
       }
       const origMatrix = origMatrices.get(joint);
       const m = mat4.rotateX(origMatrix, angle);
       whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
-      // Something wrong with scaling
-      //whaleScene.nodes[joint].source.position = mat4.getScaling(m);
-      whaleScene.nodes[joint].source.rotation = getRotation(m)
-      
+      whaleScene.nodes[joint].source.scale = mat4.getScaling(m);
+      whaleScene.nodes[joint].source.rotation = getRotation(m);
     }
-  }
-
+  };
 
   function frame() {
     // Sample is no longer the active page.
@@ -395,17 +436,12 @@ const init: SampleInit = async ({
     const modelMatrix = getModelMatrix();
 
     // Calculate bone transformation
-    const t = Date.now() / 20000 * settings.speed;
+    const t = (Date.now() / 20000) * settings.speed;
     const angle = Math.sin(t) * settings.angle;
     // Compute Transforms when angle is applied
     animSkinnedGrid(gridBoneCollection.transforms, angle);
-    gridBoneCollection.transforms.forEach((boneTransform, idx) => {
-      // Apply inverseBindPose to normal transform to get transform passed to our uniforms
-      //device.queue.writeBuffer(skinnedGridJointUniformBuffer, 0, boneTransform as Float32Array);
-      mat4.copy(boneTransform, gridBoneCollection.uniforms[idx])
-    });
 
-    // Write to global camera buffer
+    // Write to camera buffer
     device.queue.writeBuffer(
       cameraBuffer,
       0,
@@ -416,31 +452,34 @@ const init: SampleInit = async ({
 
     device.queue.writeBuffer(
       cameraBuffer,
-      64, 
+      64,
       viewMatrix.buffer,
       viewMatrix.byteOffset,
       viewMatrix.byteLength
-    )
+    );
 
-    // Somewhat of a hacky approach
-    // We know wour whale scene 
     device.queue.writeBuffer(
       cameraBuffer,
       128,
       modelMatrix.buffer,
       modelMatrix.byteOffset,
       modelMatrix.byteLength
-    )
+    );
 
     // Write to skinned grid bone uniform buffer
-    for (let i = 0; i < gridBoneCollection.uniforms.length; i++) {
-      device.queue.writeBuffer(skinnedGridJointUniformBuffer, i * 64, gridBoneCollection.transforms[i] as Float32Array)
+    for (let i = 0; i < gridBoneCollection.transforms.length; i++) {
+      device.queue.writeBuffer(
+        skinnedGridJointUniformBuffer,
+        i * 64,
+        gridBoneCollection.transforms[i] as Float32Array
+      );
     }
-    
+
+    // Difference between these two render passes is just the presence of depthTexture
     gltfRenderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
-    
+
     skinnedGridRenderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
@@ -451,21 +490,26 @@ const init: SampleInit = async ({
     }
 
     // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
-    animWhaleSkin(whaleScene.skins[0], Math.sin(t) * settings.angle)
+    animWhaleSkin(whaleScene.skins[0], Math.sin(t) * settings.angle);
     // Node 6 should be the only node with a drawable mesh so hopefully this works fine
-    whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes)
-
-
+    whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes);
 
     const commandEncoder = device.createCommandEncoder();
     if (settings.object === 'Whale') {
-      const passEncoder = commandEncoder.beginRenderPass(gltfRenderPassDescriptor);
+      const passEncoder = commandEncoder.beginRenderPass(
+        gltfRenderPassDescriptor
+      );
       for (const scene of whaleScene.scenes) {
-        scene.root.renderDrawables(passEncoder, [cameraBGCluster.bindGroups[0], generalUniformsBGCLuster.bindGroups[0]]);
+        scene.root.renderDrawables(passEncoder, [
+          cameraBGCluster.bindGroups[0],
+          generalUniformsBGCLuster.bindGroups[0],
+        ]);
       }
       passEncoder.end();
     } else {
-      const passEncoder = commandEncoder.beginRenderPass(skinnedGridRenderPassDescriptor);
+      const passEncoder = commandEncoder.beginRenderPass(
+        skinnedGridRenderPassDescriptor
+      );
       passEncoder.setPipeline(skinnedGridPipeline);
       passEncoder.setBindGroup(0, cameraBGCluster.bindGroups[0]);
       passEncoder.setBindGroup(1, generalUniformsBGCLuster.bindGroups[0]);
@@ -488,7 +532,8 @@ const init: SampleInit = async ({
 const skinnedMesh: () => JSX.Element = () =>
   makeSample({
     name: 'Skinned Mesh',
-    description: 'A demonstration of basic gltf loading and mesh skinning, ported from https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
+    description:
+      'A demonstration of basic gltf loading and mesh skinning, ported from https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
     init,
     gui: true,
     sources: [
@@ -523,7 +568,7 @@ const skinnedMesh: () => JSX.Element = () =>
       },
       {
         name: './gltf.wgsl',
-        contents: gltfWGSL
+        contents: gltfWGSL,
       },
     ],
     filename: __filename,

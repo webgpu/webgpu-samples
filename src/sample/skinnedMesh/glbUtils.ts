@@ -634,10 +634,6 @@ export class GLTFScene {
 }
 
 export class GLTFSkin {
-  // Inverse bind matrices parsed from the accessor
-  inverseBindMatrices: Float32Array;
-  jointMatricesUniformBuffer: GPUBuffer;
-  inverseBindMatricesUniformBuffer: GPUBuffer;
   // Nodes of the skin's joints
   // [5, 2, 3] means our joint info is at nodes 5, 2, and 3
   joints: number[];
@@ -647,8 +643,11 @@ export class GLTFSkin {
   // In a larger shader with more properties, certain bind groups
   // would likely have to be combined due to device limitations in the number of bind groups
   // allowed within a shader
+  // Inverse bind matrices parsed from the accessor
+  private inverseBindMatrices: Float32Array;
+  private jointMatricesUniformBuffer: GPUBuffer;
+  private inverseBindMatricesUniformBuffer: GPUBuffer;
   static skinBindGroupLayout: GPUBindGroupLayout;
-  private jointMatrices: Mat4[];
 
   static createSharedBindGroupLayout(device: GPUDevice) {
     this.skinBindGroupLayout = device.createBindGroupLayout({
@@ -682,10 +681,6 @@ export class GLTFSkin {
     inverseBindMatricesAccessor: GLTFAccessor,
     joints: number[]
   ) {
-    this.jointMatrices = [];
-    for (let i = 0; i < joints.length; i++) {
-      this.jointMatrices.push(mat4.identity());
-    }
     if (
       inverseBindMatricesAccessor.componentType !==
         GLTFDataComponentType.FLOAT ||
@@ -738,7 +733,7 @@ export class GLTFSkin {
     const globalWorldInverse = mat4.inverse(node.worldMatrix);
     for (let j = 0; j < this.joints.length; j++) {
       const joint = this.joints[j];
-      const dstMatrix: Mat4 = this.jointMatrices[j];
+      const dstMatrix: Mat4 = mat4.identity();
       mat4.multiply(globalWorldInverse, nodes[joint].worldMatrix, dstMatrix);
       const toWrite = dstMatrix as Float32Array;
       device.queue.writeBuffer(
