@@ -154,7 +154,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
   });
   const animFolder = gui.addFolder('Animation Settings');
-  animFolder.add(settings, 'angle', 0.1, 1.0).step(0.1);
+  animFolder.add(settings, 'angle', 0.05, 0.5).step(0.05);
   animFolder.add(settings, 'speed', 10, 100).step(10);
 
   const depthTexture = device.createTexture({
