@@ -34,18 +34,8 @@ struct NodeUniforms {
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(2) @binding(0) var<uniform> node_uniforms: NodeUniforms;
-// Note that size of each of the matrix arrays below is equal to size of the number of inverseBindMatrices/joints defined in our whale glb object.
-// As such, this shader can not be applied to any gltf object, as each skinned gltf object contains a different number of joints.
-// Ways this shader can be made more generalizable include:
-//    a. Making our shader a constructable string returned from a function that takes the skin's current number of joints as an argument.
-//       For example, converting array<mat4x4f, 6> to return `array<mat4x4f, ${numJoints}`
-//    b. Converting our uniform matrices buffers into storage buffers of variable size
-//       joint_matrices: var<uniform> joint_matrices -> var<storage, read> joint_matrices
-//    c. Reading our matrix data in as a texture
-// However, for this limited, single object example, the current approach works fine, and these considerations are only
-// necessary in the context of a more robust gltf parser/shader package.
-@group(3) @binding(0) var<uniform> joint_matrices: array<mat4x4<f32>, 6>;
-@group(3) @binding(1) var<uniform> inverse_bind_matrices: array<mat4x4<f32>, 6>;
+@group(3) @binding(0) var<storage, read> joint_matrices: array<mat4x4<f32>>;
+@group(3) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4<f32>>;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {

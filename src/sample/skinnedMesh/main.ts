@@ -235,7 +235,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const skinnedGridUniformBufferUsage: GPUBufferDescriptor = {
     // 5 4x4 matrices, one for each bone
     size: MAT4X4_BYTES * 5,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   };
   const skinnedGridJointUniformBuffer = device.createBuffer(
     skinnedGridUniformBufferUsage
@@ -247,7 +247,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     [0, 1],
     [GPUShaderStage.VERTEX, GPUShaderStage.VERTEX],
     ['buffer', 'buffer'],
-    [{ type: 'uniform' }, { type: 'uniform' }],
+    [{ type: 'read-only-storage' }, { type: 'read-only-storage' }],
     [
       [
         { buffer: skinnedGridJointUniformBuffer },

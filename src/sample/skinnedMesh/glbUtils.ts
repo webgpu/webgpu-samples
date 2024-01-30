@@ -657,7 +657,7 @@ export class GLTFSkin {
         {
           binding: 0,
           buffer: {
-            type: 'uniform',
+            type: 'read-only-storage',
           },
           visibility: GPUShaderStage.VERTEX,
         },
@@ -665,7 +665,7 @@ export class GLTFSkin {
         {
           binding: 1,
           buffer: {
-            type: 'uniform',
+            type: 'read-only-storage',
           },
           visibility: GPUShaderStage.VERTEX,
         },
@@ -699,7 +699,7 @@ export class GLTFSkin {
     this.joints = joints;
     const skinGPUBufferUsage: GPUBufferDescriptor = {
       size: Float32Array.BYTES_PER_ELEMENT * 16 * joints.length,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     };
     this.jointMatricesUniformBuffer = device.createBuffer(skinGPUBufferUsage);
     this.inverseBindMatricesUniformBuffer =
