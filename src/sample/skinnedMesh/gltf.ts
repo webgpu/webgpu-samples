@@ -3,7 +3,7 @@ import { GLTFNode } from './glbUtils';
 
 /* Sourced from https://github.com/bwasty/gltf-loader-ts/blob/master/source/gltf.ts */
 /* License for use can be found here: https://github.com/bwasty/gltf-loader-ts/blob/master/LICENSE */
-/* Comments have been excluded from original source for sake of cleanliness and brevity */
+/* Comments and types have been excluded from original source for sake of cleanliness and brevity */
 export type GlTfId = number;
 
 export interface AccessorSparseIndices {

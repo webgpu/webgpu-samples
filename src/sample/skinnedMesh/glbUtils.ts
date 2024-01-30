@@ -636,6 +636,7 @@ export class GLTFScene {
 export class GLTFSkin {
   // Inverse bind matrices parsed from the accessor
   inverseBindMatrices: Float32Array;
+  jointMatricesUniformBuffer: GPUBuffer;
   inverseBindMatricesUniformBuffer: GPUBuffer;
   // Nodes of the skin's joints
   // [5, 2, 3] means our joint info is at nodes 5, 2, and 3
@@ -652,10 +653,18 @@ export class GLTFSkin {
   static createSharedBindGroupLayout(device: GPUDevice) {
     this.skinBindGroupLayout = device.createBindGroupLayout({
       label: 'StaticGLTFSkin.bindGroupLayout',
-      // Holds the joint matrices
       entries: [
+        // Holds the initial joint matrices buffer
         {
           binding: 0,
+          buffer: {
+            type: 'uniform',
+          },
+          visibility: GPUShaderStage.VERTEX,
+        },
+        // Holds the inverse bind matrices buffer
+        {
+          binding: 1,
           buffer: {
             type: 'uniform',
           },
@@ -693,16 +702,30 @@ export class GLTFSkin {
       inverseBindMatricesAccessor.view.view.byteLength / 4
     );
     this.joints = joints;
-    this.inverseBindMatricesUniformBuffer = device.createBuffer({
+    const skinGPUBufferUsage: GPUBufferDescriptor = {
       size: Float32Array.BYTES_PER_ELEMENT * 16 * joints.length,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
+    };
+    this.jointMatricesUniformBuffer = device.createBuffer(skinGPUBufferUsage);
+    this.inverseBindMatricesUniformBuffer =
+      device.createBuffer(skinGPUBufferUsage);
+    device.queue.writeBuffer(
+      this.inverseBindMatricesUniformBuffer,
+      0,
+      this.inverseBindMatrices
+    );
     this.skinBindGroup = device.createBindGroup({
       layout: GLTFSkin.skinBindGroupLayout,
       label: 'StaticGLTFSkin.bindGroup',
       entries: [
         {
           binding: 0,
+          resource: {
+            buffer: this.jointMatricesUniformBuffer,
+          },
+        },
+        {
+          binding: 1,
           resource: {
             buffer: this.inverseBindMatricesUniformBuffer,
           },
@@ -717,16 +740,9 @@ export class GLTFSkin {
       const joint = this.joints[j];
       const dstMatrix: Mat4 = this.jointMatrices[j];
       mat4.multiply(globalWorldInverse, nodes[joint].worldMatrix, dstMatrix);
-      const startMatrixAccess = j * 16;
-      const endMatrixAccess = startMatrixAccess + 16;
-      const inverseBindMatrix: Mat4 = this.inverseBindMatrices.slice(
-        startMatrixAccess,
-        endMatrixAccess
-      );
-      mat4.multiply(dstMatrix, inverseBindMatrix, dstMatrix);
       const toWrite = dstMatrix as Float32Array;
       device.queue.writeBuffer(
-        this.inverseBindMatricesUniformBuffer,
+        this.jointMatricesUniformBuffer,
         j * 64,
         toWrite.buffer,
         toWrite.byteOffset,

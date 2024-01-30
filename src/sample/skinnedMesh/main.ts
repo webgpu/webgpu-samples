@@ -224,20 +224,22 @@ const init: SampleInit = async ({
     [cameraBGCluster.bindGroupLayout, generalUniformsBGCLuster.bindGroupLayout, nodeUniformsBindGroupLayout, GLTFSkin.skinBindGroupLayout],
   );
 
-  // Create grid resources
+  // Create skinned grid resources
   const skinnedGridVertexBuffers = createSkinnedGridBuffers(device);
-  const skinnedGridBoneUniformBuffer = device.createBuffer({
+  const skinnedGridUniformBufferUsage: GPUBufferDescriptor = {
     // 5 4x4 matrices, one for each bone
     size: MAT4X4_BYTES * 5,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-  });
+  }
+  const skinnedGridJointUniformBuffer = device.createBuffer(skinnedGridUniformBufferUsage);
+  const skinnedGridInverseBindUniformBuffer = device.createBuffer(skinnedGridUniformBufferUsage);
   const skinnedGridBoneBGCluster = createBindGroupCluster(
-    [0],
-    [GPUShaderStage.VERTEX],
-    ['buffer'],
-    [{type: 'uniform'}],
-    [[{buffer: skinnedGridBoneUniformBuffer}]],
-    'Bone',
+    [0, 1],
+    [GPUShaderStage.VERTEX, GPUShaderStage.VERTEX],
+    ['buffer', 'buffer'],
+    [{type: 'uniform'}, {type: 'uniform'}],
+    [[{buffer: skinnedGridJointUniformBuffer}, {buffer: skinnedGridInverseBindUniformBuffer}]],
+    'SkinnedGridJointUniforms',
     device
   );
   const skinnedGridPipeline = createSkinnedGridRenderPipeline(
@@ -320,7 +322,7 @@ const init: SampleInit = async ({
     ],
   }
 
-  const computeBoneMatrices = (boneTransforms: Mat4[], angle: number) => {
+  const animSkinnedGrid = (boneTransforms: Mat4[], angle: number) => {
     const m = mat4.identity();
     mat4.rotateZ(m, angle, boneTransforms[0]);
     mat4.translate(boneTransforms[0], vec3.create(4, 0, 0), m);
@@ -346,7 +348,7 @@ const init: SampleInit = async ({
     }
 
     // Get initial bind pose positions
-    computeBoneMatrices(bindPoses, 0);
+    animSkinnedGrid(bindPoses, 0);
     const bindPosesInv = bindPoses.map((bindPose) => {
       return mat4.inverse(bindPose)
     });
@@ -361,9 +363,12 @@ const init: SampleInit = async ({
   }
 
   const gridBoneCollection = createBoneCollection(5);
+  for (let i = 0; i < gridBoneCollection.bindPosesInv.length; i++) {
+    device.queue.writeBuffer(skinnedGridInverseBindUniformBuffer, i * 64, gridBoneCollection.bindPosesInv[i] as Float32Array);
+  }
 
   const origMatrices = new Map();
-  const animSkin = (skin: GLTFSkin, angle: number) => {
+  const animWhaleSkin = (skin: GLTFSkin, angle: number) => {
     for (let i = 0; i < skin.joints.length; i++) {
       const joint = skin.joints[i];
       if (!origMatrices.has(joint)) {
@@ -393,10 +398,11 @@ const init: SampleInit = async ({
     const t = Date.now() / 20000 * settings.speed;
     const angle = Math.sin(t) * settings.angle;
     // Compute Transforms when angle is applied
-    computeBoneMatrices(gridBoneCollection.transforms, angle);
+    animSkinnedGrid(gridBoneCollection.transforms, angle);
     gridBoneCollection.transforms.forEach((boneTransform, idx) => {
       // Apply inverseBindPose to normal transform to get transform passed to our uniforms
-      mat4.multiply(boneTransform, gridBoneCollection.bindPosesInv[idx], gridBoneCollection.uniforms[idx])
+      //device.queue.writeBuffer(skinnedGridJointUniformBuffer, 0, boneTransform as Float32Array);
+      mat4.copy(boneTransform, gridBoneCollection.uniforms[idx])
     });
 
     // Write to global camera buffer
@@ -428,7 +434,7 @@ const init: SampleInit = async ({
 
     // Write to skinned grid bone uniform buffer
     for (let i = 0; i < gridBoneCollection.uniforms.length; i++) {
-      device.queue.writeBuffer(skinnedGridBoneUniformBuffer, i * 64, gridBoneCollection.uniforms[i] as Float32Array)
+      device.queue.writeBuffer(skinnedGridJointUniformBuffer, i * 64, gridBoneCollection.transforms[i] as Float32Array)
     }
     
     gltfRenderPassDescriptor.colorAttachments[0].view = context
@@ -445,7 +451,7 @@ const init: SampleInit = async ({
     }
 
     // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
-    animSkin(whaleScene.skins[0], Math.sin(t) * settings.angle)
+    animWhaleSkin(whaleScene.skins[0], Math.sin(t) * settings.angle)
     // Node 6 should be the only node with a drawable mesh so hopefully this works fine
     whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes)
 
@@ -464,10 +470,10 @@ const init: SampleInit = async ({
       passEncoder.setBindGroup(0, cameraBGCluster.bindGroups[0]);
       passEncoder.setBindGroup(1, generalUniformsBGCLuster.bindGroups[0]);
       passEncoder.setBindGroup(2, skinnedGridBoneBGCluster.bindGroups[0]);
-      passEncoder.setVertexBuffer(0, skinnedGridVertexBuffers.vertPositions);
-      passEncoder.setVertexBuffer(1, skinnedGridVertexBuffers.boneIndices);
-      passEncoder.setVertexBuffer(2, skinnedGridVertexBuffers.boneWeights);
-      passEncoder.setIndexBuffer(skinnedGridVertexBuffers.vertIndices, 'uint16');
+      passEncoder.setVertexBuffer(0, skinnedGridVertexBuffers.positions);
+      passEncoder.setVertexBuffer(1, skinnedGridVertexBuffers.joints);
+      passEncoder.setVertexBuffer(2, skinnedGridVertexBuffers.weights);
+      passEncoder.setIndexBuffer(skinnedGridVertexBuffers.indices, 'uint16');
       passEncoder.drawIndexed(gridIndices.length, 1);
       passEncoder.end();
     }

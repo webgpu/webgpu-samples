@@ -1,24 +1,23 @@
-import {
-  gridBoneIndices,
-  gridBoneWeights,
-  gridVertices,
-  gridIndices,
-} from './gridData';
+import { gridVertices, gridIndices, gridJoints, gridWeights } from './gridData';
 
 export const createSkinnedGridBuffers = (device: GPUDevice) => {
-  const createBuffer = (data: Float32Array) => {
+  const createBuffer = (data: Float32Array, type: 'f32' | 'u32') => {
     const buffer = device.createBuffer({
       size: data.byteLength,
       usage: GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-    new Float32Array(buffer.getMappedRange()).set(data);
+    if (type === 'f32') {
+      new Float32Array(buffer.getMappedRange()).set(data);
+    } else {
+      new Uint32Array(buffer.getMappedRange()).set(data);
+    }
     buffer.unmap();
     return buffer;
   };
-  const positionsBuffer = createBuffer(gridVertices);
-  const boneIndicesBuffer = createBuffer(gridBoneIndices);
-  const boneWeightsBuffer = createBuffer(gridBoneWeights);
+  const positionsBuffer = createBuffer(gridVertices, 'f32');
+  const jointsBuffer = createBuffer(gridJoints, 'u32');
+  const weightsBuffer = createBuffer(gridWeights, 'f32');
   const indicesBuffer = device.createBuffer({
     size: Uint16Array.BYTES_PER_ELEMENT * gridIndices.length,
     usage: GPUBufferUsage.INDEX,
@@ -28,10 +27,10 @@ export const createSkinnedGridBuffers = (device: GPUDevice) => {
   indicesBuffer.unmap();
 
   return {
-    vertPositions: positionsBuffer,
-    boneIndices: boneIndicesBuffer,
-    boneWeights: boneWeightsBuffer,
-    vertIndices: indicesBuffer,
+    positions: positionsBuffer,
+    joints: jointsBuffer,
+    weights: weightsBuffer,
+    indices: indicesBuffer,
   };
 };
 
@@ -55,7 +54,7 @@ export const createSkinnedGridRenderPipeline = (
       }),
       entryPoint: 'vertexMain',
       buffers: [
-        // Vert Positions
+        // Vertex Positions (positions)
         {
           arrayStride: Float32Array.BYTES_PER_ELEMENT * 2,
           attributes: [
@@ -66,18 +65,18 @@ export const createSkinnedGridRenderPipeline = (
             },
           ],
         },
-        // Bone Indicies
+        // Bone Indices (joints)
         {
-          arrayStride: Float32Array.BYTES_PER_ELEMENT * 4,
+          arrayStride: Uint32Array.BYTES_PER_ELEMENT * 4,
           attributes: [
             {
-              format: 'float32x4',
+              format: 'uint32x4',
               offset: 0,
               shaderLocation: 1,
             },
           ],
         },
-        // Bone Weights
+        // Bone Weights (weights)
         {
           arrayStride: Float32Array.BYTES_PER_ELEMENT * 4,
           attributes: [
@@ -108,9 +107,3 @@ export const createSkinnedGridRenderPipeline = (
   });
   return pipeline;
 };
-
-// In Shader...
-// Bones[gridBoneIndices[0][0] * BonePositions[0] * gridBoneWeights[0][0] +
-// Bones[gridBoneIndices[0][1] * BonePositions[0] * gridBoneWeights[0][1] +
-// Bones[gridBoneIndices[0][2] * BonePositions[0] * gridBoneWeights[0][2] +
-// Bones[gridBoneIndices[0][3] * BonePositions[0] * gridBoneWeights[0][3]
