@@ -111,18 +111,18 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   gui.add(settings, 'object', ['Whale', 'Skinned Grid']).onChange(() => {
     if (settings.object === 'Skinned Grid') {
-      cameraXController.setValue(-10);
-      cameraYController.setValue(0);
-      objectScaleController.setValue(1.27);
+      settings.cameraX = -10;
+      settings.cameraY = 0;
+      settings.objectScale = 1.27;
     } else {
       if (settings.skinMode === 'OFF') {
-        cameraXController.setValue(0);
-        cameraYController.setValue(0);
-        cameraZController.setValue(-11);
+        settings.cameraX = 0;
+        settings.cameraY = 0;
+        settings.cameraZ = -11;
       } else {
-        cameraXController.setValue(0);
-        cameraYController.setValue(-5.1);
-        cameraZController.setValue(-14.6);
+        settings.cameraX = 0;
+        settings.cameraY = -5.1;
+        settings.cameraZ = -14.6;
       }
     }
   });
@@ -138,13 +138,13 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   gui.add(settings, 'skinMode', ['ON', 'OFF']).onChange(() => {
     if (settings.object === 'Whale') {
       if (settings.skinMode === 'OFF') {
-        cameraXController.setValue(0);
-        cameraYController.setValue(0);
-        cameraZController.setValue(-11);
+        settings.cameraX = 0;
+        settings.cameraY = 0;
+        settings.cameraZ = -11;
       } else {
-        cameraXController.setValue(0);
-        cameraYController.setValue(-5.1);
-        cameraZController.setValue(-14.6);
+        settings.cameraX = 0;
+        settings.cameraY = -5.1;
+        settings.cameraZ = -14.6;
       }
     }
     device.queue.writeBuffer(
@@ -153,19 +153,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       new Uint32Array([SkinMode[settings.skinMode]])
     );
   });
-  const cameraFolder = gui.addFolder('Camera Settings');
-  const cameraXController = cameraFolder
-    .add(settings, 'cameraX', -10, 10)
-    .step(0.1);
-  const cameraYController = cameraFolder
-    .add(settings, 'cameraY', -10, 10)
-    .step(0.1);
-  const cameraZController = cameraFolder
-    .add(settings, 'cameraZ', -100, 0)
-    .step(0.1);
-  const objectScaleController = cameraFolder
-    .add(settings, 'objectScale', 0.01, 10)
-    .step(0.01);
   const animFolder = gui.addFolder('Animation Settings');
   animFolder.add(settings, 'angle', 0.1, 1.0).step(0.1);
   animFolder.add(settings, 'speed', 10, 100).step(10);
@@ -419,7 +406,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         origMatrices.set(joint, whaleScene.nodes[joint].source.getMatrix());
       }
       const origMatrix = origMatrices.get(joint);
-      const m = mat4.rotateX(origMatrix, angle);
+      const m = mat4.rotateZ(origMatrix, angle);
       whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
       whaleScene.nodes[joint].source.scale = mat4.getScaling(m);
       whaleScene.nodes[joint].source.rotation = getRotation(m);
