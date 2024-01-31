@@ -214,12 +214,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   whaleScene.meshes[0].buildRenderPipeline(
     device,
-    device.createShaderModule({
-      code: gltfWGSL,
-    }),
-    device.createShaderModule({
-      code: gltfWGSL,
-    }),
+    gltfWGSL,
+    gltfWGSL,
     presentationFormat,
     depthTexture.format,
     [

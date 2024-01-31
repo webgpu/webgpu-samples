@@ -1,14 +1,6 @@
 // Whale.glb Vertex attributes
-// POSTION, NORMAL, TEXCOORD_0, JOINTS_0, WEIGHTS_0
+// Read in VertexInput from attributes
 // f32x3    f32x3   f32x2       u8x4       f32x4
-struct VertexInput {
-  @location(0) position: vec3<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) texcoord: vec2<f32>,
-  @location(3) joints: vec4<u32>,
-  @location(4) weights: vec4<f32>,
-}
-
 struct VertexOutput {
   @builtin(position) Position: vec4<f32>,
   @location(0) normal: vec3<f32>,

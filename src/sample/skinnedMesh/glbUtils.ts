@@ -4,7 +4,6 @@ import { Mat4, Vec3, mat4 } from 'wgpu-matrix';
 
 //NOTE: GLTF code is not generally extensible to all gltf models
 // Modified from Will Usher code found at this link https://www.willusher.io/graphics/2023/05/16/0-to-gltf-first-mesh
-
 // Determines the topology of our pipeline
 enum GLTFRenderMode {
   POINTS = 0,
@@ -169,6 +168,45 @@ const gltfElementSize = (
   return gltfDataStructureTypeNumComponents(type) * componentSize;
 };
 
+// Convert differently depending on if the shader is a vertex or compute shader
+const convertGPUVertexFormatToWGSLFormat = (vertexFormat: GPUVertexFormat) => {
+  switch (vertexFormat) {
+    case 'float32': {
+      return 'f32';
+    }
+    case 'float32x2': {
+      return 'vec2<f32>';
+    }
+    case 'float32x3': {
+      return 'vec3<f32>';
+    }
+    case 'float32x4': {
+      return 'vec4<f32>';
+    }
+    case 'uint32': {
+      return 'u32';
+    }
+    case 'uint32x2': {
+      return 'vec2<u32>';
+    }
+    case 'uint32x3': {
+      return 'vec3<u32>';
+    }
+    case 'uint32x4': {
+      return 'vec4<u32>';
+    }
+    case 'uint8x2': {
+      return 'vec2<u32>';
+    }
+    case 'uint8x4': {
+      return 'vec4<u32>';
+    }
+    default: {
+      return 'f32';
+    }
+  }
+};
+
 export class GLTFBuffer {
   buffer: Uint8Array;
   constructor(buffer: ArrayBuffer, offset: number, size: number) {
@@ -292,8 +330,8 @@ export class GLTFPrimitive {
 
   buildRenderPipeline(
     device: GPUDevice,
-    vertexShaderModule: GPUShaderModule,
-    fragmentShaderModule: GPUShaderModule,
+    vertexShader: string,
+    fragmentShader: string,
     colorFormat: GPUTextureFormat,
     depthFormat: GPUTextureFormat,
     bgLayouts: GPUBindGroupLayout[],
@@ -302,8 +340,14 @@ export class GLTFPrimitive {
     // For now, just check if the attributeMap contains a given attribute using map.has(), and add it if it does
     // POSITION, NORMAL, TEXCOORD_0, JOINTS_0, WEIGHTS_0 for order
     // Vertex attribute state and shader stage
+    let VertexInputShaderString = `struct VertexInput {\n`;
     const vertexBuffers: GPUVertexBufferLayout[] = this.attributes.map(
       (attr, idx) => {
+        const vertexFormat: GPUVertexFormat = this.attributeMap[attr].vertexType;
+        const attrString = attr.toLowerCase().replace(/_0$/, '');
+        VertexInputShaderString += `\t@location(${idx}) ${attrString}: ${convertGPUVertexFormatToWGSLFormat(
+          vertexFormat
+        )},\n`;
         return {
           arrayStride: this.attributeMap[attr].byteStride,
           attributes: [
@@ -313,20 +357,26 @@ export class GLTFPrimitive {
               shaderLocation: idx,
             },
           ],
-        };
+        } as GPUVertexBufferLayout;
       }
     );
+    VertexInputShaderString += '}';
+    console.log(VertexInputShaderString);
 
     const vertexState: GPUVertexState = {
       // Shader stage info
-      module: vertexShaderModule,
+      module: device.createShaderModule({
+        code: VertexInputShaderString + vertexShader,
+      }),
       entryPoint: 'vertexMain',
       buffers: vertexBuffers,
     };
 
     const fragmentState: GPUFragmentState = {
       // Shader info
-      module: fragmentShaderModule,
+      module: device.createShaderModule({
+        code: VertexInputShaderString + fragmentShader,
+      }),
       entryPoint: 'fragmentMain',
       // Output render target info
       targets: [{ format: colorFormat }],
@@ -401,8 +451,8 @@ export class GLTFMesh {
 
   buildRenderPipeline(
     device: GPUDevice,
-    vertexShaderModule: GPUShaderModule,
-    fragmentShaderModule: GPUShaderModule,
+    vertexShader: string,
+    fragmentShader: string,
     colorFormat: GPUTextureFormat,
     depthFormat: GPUTextureFormat,
     bgLayouts: GPUBindGroupLayout[]
@@ -412,8 +462,8 @@ export class GLTFMesh {
     for (let i = 0; i < this.primitives.length; ++i) {
       this.primitives[i].buildRenderPipeline(
         device,
-        vertexShaderModule,
-        fragmentShaderModule,
+        vertexShader,
+        fragmentShader,
         colorFormat,
         depthFormat,
         bgLayouts,
@@ -768,7 +818,6 @@ export const convertGLBToJSONAndBinary = async (
   );
 
   console.log(jsonChunk);
-
   // Binary data located after jsonChunk
   const binaryHeader = new Uint32Array(buffer, 20 + jsonChunkLength, 2);
   validateBinaryHeader(binaryHeader);
