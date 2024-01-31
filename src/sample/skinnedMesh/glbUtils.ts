@@ -729,8 +729,10 @@ export class GLTFSkin {
     });
   }
 
-  update(device: GPUDevice, node: GLTFNode, nodes: GLTFNode[]) {
-    const globalWorldInverse = mat4.inverse(node.worldMatrix);
+  update(device: GPUDevice, currentNodeIndex: number, nodes: GLTFNode[]) {
+    const globalWorldInverse = mat4.inverse(
+      nodes[currentNodeIndex].worldMatrix
+    );
     for (let j = 0; j < this.joints.length; j++) {
       const joint = this.joints[j];
       const dstMatrix: Mat4 = mat4.identity();
@@ -764,6 +766,8 @@ export const convertGLBToJSONAndBinary = async (
   const jsonChunk: GlTf = JSON.parse(
     new TextDecoder('utf-8').decode(new Uint8Array(buffer, 20, jsonChunkLength))
   );
+
+  console.log(jsonChunk);
 
   // Binary data located after jsonChunk
   const binaryHeader = new Uint32Array(buffer, 20 + jsonChunkLength, 2);

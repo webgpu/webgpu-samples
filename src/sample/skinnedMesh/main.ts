@@ -406,7 +406,11 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         origMatrices.set(joint, whaleScene.nodes[joint].source.getMatrix());
       }
       const origMatrix = origMatrices.get(joint);
-      const m = mat4.rotateZ(origMatrix, angle);
+      const m = mat4.rotateX(origMatrix, angle);
+      // Joint 3 Right Flipper
+      // Joint 4 Left flipper
+      // Joint 0 Back flipper
+      // Joint 1 body to back flipper connector
       whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
       whaleScene.nodes[joint].source.scale = mat4.getScaling(m);
       whaleScene.nodes[joint].source.rotation = getRotation(m);
@@ -479,7 +483,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     // Updates skins (we index into skins in the renderer, which is not the best approach but hey)
     animWhaleSkin(whaleScene.skins[0], Math.sin(t) * settings.angle);
     // Node 6 should be the only node with a drawable mesh so hopefully this works fine
-    whaleScene.skins[0].update(device, whaleScene.nodes[6], whaleScene.nodes);
+    whaleScene.skins[0].update(device, 6, whaleScene.nodes);
 
     const commandEncoder = device.createCommandEncoder();
     if (settings.object === 'Whale') {
