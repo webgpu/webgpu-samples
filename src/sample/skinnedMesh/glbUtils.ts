@@ -170,6 +170,7 @@ const gltfElementSize = (
 
 // Convert differently depending on if the shader is a vertex or compute shader
 const convertGPUVertexFormatToWGSLFormat = (vertexFormat: GPUVertexFormat) => {
+  console.log(vertexFormat);
   switch (vertexFormat) {
     case 'float32': {
       return 'f32';
@@ -200,6 +201,12 @@ const convertGPUVertexFormatToWGSLFormat = (vertexFormat: GPUVertexFormat) => {
     }
     case 'uint8x4': {
       return 'vec4<u32>';
+    }
+    case 'uint16x4': {
+      return 'vec4<u32>';
+    }
+    case 'uint16x2': {
+      return 'vec2<u32>';
     }
     default: {
       return 'f32';
@@ -343,7 +350,8 @@ export class GLTFPrimitive {
     let VertexInputShaderString = `struct VertexInput {\n`;
     const vertexBuffers: GPUVertexBufferLayout[] = this.attributes.map(
       (attr, idx) => {
-        const vertexFormat: GPUVertexFormat = this.attributeMap[attr].vertexType;
+        const vertexFormat: GPUVertexFormat =
+          this.attributeMap[attr].vertexType;
         const attrString = attr.toLowerCase().replace(/_0$/, '');
         VertexInputShaderString += `\t@location(${idx}) ${attrString}: ${convertGPUVertexFormatToWGSLFormat(
           vertexFormat
