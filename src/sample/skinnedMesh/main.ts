@@ -396,18 +396,24 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   const origMatrices = new Map();
   const animWhaleSkin = (skin: GLTFSkin, angle: number) => {
+    console.log(skin.joints);
     for (let i = 0; i < skin.joints.length; i++) {
       const joint = skin.joints[i];
       if (!origMatrices.has(joint)) {
         origMatrices.set(joint, whaleScene.nodes[joint].source.getMatrix());
       }
       const origMatrix = origMatrices.get(joint);
-      const m = mat4.rotateX(origMatrix, angle);
-      // Joint 3 Right Flipper
-      // Joint 4 Left flipper
-      // Joint 0 Back flipper
-      // Joint 1 body to back flipper connector
-      whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
+      let m = mat4.create();
+      if (joint === 1 || joint === 0) {
+        m = mat4.rotateY(origMatrix, -angle);
+      } else if (joint === 3 || joint === 4) {
+        m = mat4.rotateX(origMatrix, joint === 3 ? angle : -angle);
+      } else {
+        m = mat4.rotateZ(origMatrix, angle);
+      }
+      if (joint !== 2) {
+        whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
+      }
       whaleScene.nodes[joint].source.scale = mat4.getScaling(m);
       whaleScene.nodes[joint].source.rotation = getRotation(m);
     }
