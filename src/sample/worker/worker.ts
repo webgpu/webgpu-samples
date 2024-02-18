@@ -19,7 +19,7 @@ self.addEventListener('message', (ev) => {
   switch (ev.data.type) {
     case 'init': {
       try {
-        init(ev.data.offscreenCanvas);
+        init(ev.data.width, ev.data.height);
       } catch (err) {
         console.error(
           `Error while initializing WebGPU in worker process: ${err.message}`
@@ -33,7 +33,9 @@ self.addEventListener('message', (ev) => {
 // Once we receive the OffscreenCanvas this init() function is called, which functions similarly
 // to the init() method for all the other samples. The remainder of this file is largely identical
 // to the rotatingCube sample.
-async function init(canvas) {
+async function init(width: number, height: number) {
+  // Create an OffscreenCanvas with the dimensions provided by the main thread.
+  const canvas = new OffscreenCanvas(width, height);
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const context = canvas.getContext('webgpu');
@@ -200,6 +202,9 @@ async function init(canvas) {
     passEncoder.draw(cubeVertexCount);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
+
+    const bitmap = canvas.transferToImageBitmap();
+    postMessage({ type: 'bitmap', bitmap });
 
     requestAnimationFrame(frame);
   }
