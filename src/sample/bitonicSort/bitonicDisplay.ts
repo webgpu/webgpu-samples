@@ -1,7 +1,7 @@
 import {
   BindGroupCluster,
-  Base2DRendererClass,
   createBindGroupCluster,
+  BaseFullscreenShaderClass,
 } from '../sampleUtils';
 
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
@@ -10,7 +10,7 @@ interface BitonicDisplayRenderArgs {
   highlight: number;
 }
 
-export default class BitonicDisplayRenderer extends Base2DRendererClass {
+export default class BitonicDisplayRenderer extends BaseFullscreenShaderClass {
   static sourceInfo = {
     name: __filename.substring(__dirname.length + 1),
     contents: __SOURCE__,
@@ -51,7 +51,7 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
 
     this.currentBindGroup = bgCluster.bindGroups[0];
 
-    this.pipeline = super.create2DRenderPipeline(
+    this.pipeline = super.createFullscreenShaderPipeline(
       device,
       label,
       [this.computeBGDescript.bindGroupLayout, bgCluster.bindGroupLayout],

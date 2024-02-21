@@ -96,56 +96,88 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   {
     const response = await fetch('../assets/img/wood_albedo.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    woodAlbedoTexture = createTextureFromImage(device, imageBitmap);
+    woodAlbedoTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   let spiralNormalTexture: GPUTexture;
   {
     const response = await fetch('../assets/img/spiral_normal.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    spiralNormalTexture = createTextureFromImage(device, imageBitmap);
+    spiralNormalTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   let spiralHeightTexture: GPUTexture;
   {
     const response = await fetch('../assets/img/spiral_height.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    spiralHeightTexture = createTextureFromImage(device, imageBitmap);
+    spiralHeightTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   let toyboxNormalTexture: GPUTexture;
   {
     const response = await fetch('../assets/img/toybox_normal.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    toyboxNormalTexture = createTextureFromImage(device, imageBitmap);
+    toyboxNormalTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   let toyboxHeightTexture: GPUTexture;
   {
     const response = await fetch('../assets/img/toybox_height.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    toyboxHeightTexture = createTextureFromImage(device, imageBitmap);
+    toyboxHeightTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   let brickwallAlbedoTexture: GPUTexture;
   {
     const response = await fetch('../assets/img/brickwall_albedo.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    brickwallAlbedoTexture = createTextureFromImage(device, imageBitmap);
+    brickwallAlbedoTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   let brickwallNormalTexture: GPUTexture;
   {
     const response = await fetch('../assets/img/brickwall_normal.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    brickwallNormalTexture = createTextureFromImage(device, imageBitmap);
+    brickwallNormalTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   let brickwallHeightTexture: GPUTexture;
   {
     const response = await fetch('../assets/img/brickwall_height.png');
     const imageBitmap = await createImageBitmap(await response.blob());
-    brickwallHeightTexture = createTextureFromImage(device, imageBitmap);
+    brickwallHeightTexture = createTextureFromImage(
+      device,
+      imageBitmap,
+      'rgba8unorm'
+    );
   }
 
   // Create a sampler with linear filtering for smooth interpolation.

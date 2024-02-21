@@ -10,7 +10,10 @@ type BindGroupBindingLayout =
   | GPUStorageTextureBindingLayout
   | GPUExternalTextureBindingLayout;
 
-// A cluster of objects containing a bind group layout and an array of bind groups that accord to that bind group layout.
+/**
+ * @property {GPUBindGroup[]} bindGroups - An array of `GPUBindGroup` objects created according to the `resourceLayouts`.
+ * @property {GPUBindGroupLayout} bindGroupLayout - The `GPUBindGroupLayout` created based on `bindingLayouts`.
+ */
 export type BindGroupCluster = {
   bindGroups: GPUBindGroup[];
   bindGroupLayout: GPUBindGroupLayout;
@@ -24,7 +27,13 @@ type BindingMemberType =
   | 'externalTexture'
   | 'storageTexture';
 
-// Arguments for createBindGroupCluster function
+/**
+ * @property {GPUDevice} device - The WebGPU device to use for creating bind groups and layouts.
+ * @property {string} label - A base label that identifies the bind group resources.
+ * @property {BindGroupClusterLayoutArgs[]} bindingLayouts - Descriptors for each binding's layout within the bind group layout.
+ * @property {GPUBindingResource[][]} resourceLayouts - A 2D array of resources for each bind group, matching the binding layouts.
+ *
+ */
 interface BindGroupClusterFunctionArgs {
   device: GPUDevice;
   label: string;
@@ -32,12 +41,40 @@ interface BindGroupClusterFunctionArgs {
   resourceLayouts: GPUBindingResource[][];
 }
 
+/**
+ * @property {number} visibility - GPU shader stages where the binding is visible.
+ * @property {BindingMemberType} bindingMember - Specifies the type of binding (e.g., 'buffer', 'texture').
+ * @property {BindGroupBindingLayout} bindingLayout - The detailed layout for the binding, specifying the type of resource.
+ *
+ */
 export interface BindGroupClusterLayoutArgs {
   visibility: number;
   bindingMember: BindingMemberType;
   bindingLayout: BindGroupBindingLayout;
 }
 
+/**
+ * Creates a cluster of bind groups and a corresponding bind group layout based on specified binding and resource layouts.
+ * This function acts as a less verbose and more compact way of flexibily defining diverging bind groups based on a single
+ * bind group layout template.
+ *
+ * @param {BindGroupClusterFunctionArgs} args - The arguments required for bind group cluster creation.
+ * @returns {BindGroupCluster} An object containing the created `bindGroupLayout` and an array of `bindGroups`.
+ *
+ * @example
+ * const cluster = createBindGroupCluster({
+ *   device: gpuDevice,
+ *   label: 'exampleCluster',
+ *   bindingLayouts: [
+ *     { visibility: GPUShaderStage.FRAGMENT, bindingMember: 'buffer', bindingLayout: { type: 'uniform-buffer' } },
+ *     { visibility: GPUShaderStage.FRAGMENT, bindingMember: 'texture', bindingLayout: { type: 'sampled-texture', viewDimension: '2d' } }
+ *   ],
+ *   resourceLayouts: [
+ *     [uniformBuffer, sampledTextureView],
+ *     [uniformBuffer2, sampledTextureView2]
+ *   ]
+ * });
+ */
 export const createBindGroupCluster = (
   args: BindGroupClusterFunctionArgs
 ): BindGroupCluster => {
@@ -96,6 +133,7 @@ interface DeviceInitParms {
 interface DeviceInit3DParams extends DeviceInitParms {
   context: GPUCanvasContext;
   presentationFormat: GPUTextureFormat;
+  timestampQueryAvailable: boolean;
 }
 
 type CallbackSync3D = (params: SampleInitParams & DeviceInit3DParams) => void;
@@ -105,12 +143,25 @@ type CallbackAsync3D = (
 
 type SampleInitCallback3D = CallbackSync3D | CallbackAsync3D;
 
+/**
+ * A factory function that performs the initial setup for a WebGPU-Samples Page.
+ * @param {SampleInitCallback3D} callback - The callback function to execute once WebGPU initialization is completed.
+ * @returns {Promise<SampleInit>} A promise that resolves to an initialization function that can be passed as a parameter to makeSample().
+ */
 export const SampleInitFactoryWebGPU = async (
   callback: SampleInitCallback3D
 ): Promise<SampleInit> => {
   const init: SampleInit = async ({ canvas, pageState, gui, stats }) => {
     const adapter = await navigator.gpu.requestAdapter();
-    const device = await adapter.requestDevice();
+    const timestampQueryAvailable = adapter.features.has('timestamp-query');
+    let device: GPUDevice;
+    if (timestampQueryAvailable) {
+      device = await adapter.requestDevice({
+        requiredFeatures: ['timestamp-query'],
+      });
+    } else {
+      device = await adapter.requestDevice();
+    }
     if (!pageState.active) return;
     const context = canvas.getContext('webgpu') as GPUCanvasContext;
     const devicePixelRatio = window.devicePixelRatio;
@@ -131,6 +182,7 @@ export const SampleInitFactoryWebGPU = async (
       context,
       presentationFormat,
       stats,
+      timestampQueryAvailable,
     });
   };
   return init;
@@ -144,6 +196,11 @@ export abstract class BaseFullscreenShaderClass {
     commandEncoder: GPUCommandEncoder,
     ...args: unknown[]
   ): void;
+  renderPassDescriptor: GPURenderPassDescriptor;
+  pipeline: GPURenderPipeline;
+  bindGroupMap: Record<string, GPUBindGroup>;
+  currentBindGroup: GPUBindGroup;
+  currentBindGroupName: string;
 
   executeRun(
     commandEncoder: GPUCommandEncoder,
@@ -212,6 +269,16 @@ export abstract class BaseFullscreenShaderClass {
   }
 }
 
+/**
+ * Creates a GPUTexture from an ImageBitmap.
+ * This function creates a GPUTexture object from a given ImageBitmap. The texture is created
+ * with specified format and is usable as a texture binding, destination for copy operations,
+ * and as a render attachment.
+ * @param {GPUDevice} device - The GPUDevice to create the texture on.
+ * @param {ImageBitmap} bitmap - The source image bitmap.
+ * @param {GPUTextureFormat} format - The texture's intended texture format.
+ * @returns {GPUTexture} The created GPUTexture object.
+ */
 export const createTextureFromImage = (
   device: GPUDevice,
   bitmap: ImageBitmap,
