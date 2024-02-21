@@ -3,11 +3,12 @@ import { makeSample, SampleInit } from '../../components/SampleLayout';
 import normalMapWGSL from './normalMap.wgsl';
 import { createMeshRenderable } from '../../meshes/mesh';
 import { createBoxMeshWithTangents } from '../../meshes/box';
+import { create3DRenderPipeline } from './utils';
 import {
-  createBindGroupDescriptor,
-  create3DRenderPipeline,
+  BindGroupClusterLayoutArgs,
+  createBindGroupCluster,
   createTextureFromImage,
-} from './utils';
+} from '../sampleUtils';
 
 const MAT4X4_BYTES = 64;
 enum TextureAtlas {
@@ -177,33 +178,43 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     createBoxMeshWithTangents(1.0, 1.0, 1.0)
   );
 
+  const frameUniformBindingLayout: BindGroupClusterLayoutArgs = {
+    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+    bindingMember: 'buffer',
+    bindingLayout: { type: 'uniform' },
+  };
+
   // Uniform bindGroups and bindGroupLayout
-  const frameBGDescriptor = createBindGroupDescriptor(
-    [0, 1],
-    [
-      GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-      GPUShaderStage.FRAGMENT | GPUShaderStage.VERTEX,
+  const frameBGDescriptor = createBindGroupCluster({
+    device: device,
+    label: 'Frame',
+    bindingLayouts: [frameUniformBindingLayout, frameUniformBindingLayout],
+    resourceLayouts: [
+      [{ buffer: spaceTransformsBuffer }, { buffer: mapInfoBuffer }],
     ],
-    ['buffer', 'buffer'],
-    [{ type: 'uniform' }, { type: 'uniform' }],
-    [[{ buffer: spaceTransformsBuffer }, { buffer: mapInfoBuffer }]],
-    'Frame',
-    device
-  );
+  });
+
+  const surfaceTextureBindingLayout: BindGroupClusterLayoutArgs = {
+    visibility: GPUShaderStage.FRAGMENT,
+    bindingMember: 'texture',
+    bindingLayout: { sampleType: 'float' },
+  };
 
   // Texture bindGroups and bindGroupLayout
-  const surfaceBGDescriptor = createBindGroupDescriptor(
-    [0, 1, 2, 3],
-    [GPUShaderStage.FRAGMENT],
-    ['sampler', 'texture', 'texture', 'texture'],
-    [
-      { type: 'filtering' },
-      { sampleType: 'float' },
-      { sampleType: 'float' },
-      { sampleType: 'float' },
+  const surfaceBGDescriptor = createBindGroupCluster({
+    device,
+    label: 'Surface',
+    bindingLayouts: [
+      {
+        visibility: GPUShaderStage.FRAGMENT,
+        bindingMember: 'sampler',
+        bindingLayout: { type: 'filtering' },
+      },
+      surfaceTextureBindingLayout,
+      surfaceTextureBindingLayout,
+      surfaceTextureBindingLayout,
     ],
-    // Multiple bindgroups that accord to the layout defined above
-    [
+    resourceLayouts: [
       [
         sampler,
         woodAlbedoTexture.createView(),
@@ -223,9 +234,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         brickwallHeightTexture.createView(),
       ],
     ],
-    'Surface',
-    device
-  );
+  });
 
   const aspect = canvas.width / canvas.height;
   const projectionMatrix = mat4.perspective(
@@ -348,13 +357,6 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       matrices.byteLength
     );
 
-    // struct MapInfo {
-    //   lightPosVS: vec3f,
-    //   mode: u32,
-    //   lightIntensity: f32,
-    //   depthScale: f32,
-    //   depthLayers: f32,
-    // }
     mapInfoView.setFloat32(0, lightPosVS[0], true);
     mapInfoView.setFloat32(4, lightPosVS[1], true);
     mapInfoView.setFloat32(8, lightPosVS[2], true);

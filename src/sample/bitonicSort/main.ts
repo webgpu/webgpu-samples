@@ -1,10 +1,11 @@
 import { makeSample, SampleInit } from '../../components/SampleLayout';
-import { createBindGroupCluster, SampleInitFactoryWebGPU } from './utils';
+import { SampleInitFactoryWebGPU } from '../sampleUtils';
 import BitonicDisplayRenderer from './bitonicDisplay';
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
 import { NaiveBitonicCompute } from './bitonicCompute';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 import atomicToZero from './atomicToZero.wgsl';
+import { createBindGroupCluster } from '../sampleUtils';
 
 // Type of step that will be executed in our shader
 enum StepEnum {
@@ -198,22 +199,32 @@ SampleInitFactoryWebGPU(
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    const computeBGCluster = createBindGroupCluster(
-      [0, 1, 2, 3],
-      [
-        GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
-        GPUShaderStage.COMPUTE,
-        GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
-        GPUShaderStage.COMPUTE,
+    const computeBGCluster = createBindGroupCluster({
+      device,
+      label: 'BitonicSort',
+      bindingLayouts: [
+        {
+          visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
+          bindingMember: 'buffer',
+          bindingLayout: { type: 'read-only-storage' },
+        },
+        {
+          visibility: GPUShaderStage.COMPUTE,
+          bindingMember: 'buffer',
+          bindingLayout: { type: 'storage' },
+        },
+        {
+          visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT,
+          bindingMember: 'buffer',
+          bindingLayout: { type: 'uniform' },
+        },
+        {
+          visibility: GPUShaderStage.COMPUTE,
+          bindingMember: 'buffer',
+          bindingLayout: { type: 'storage' },
+        },
       ],
-      ['buffer', 'buffer', 'buffer', 'buffer'],
-      [
-        { type: 'read-only-storage' },
-        { type: 'storage' },
-        { type: 'uniform' },
-        { type: 'storage' },
-      ],
-      [
+      resourceLayouts: [
         [
           { buffer: elementsInputBuffer },
           { buffer: elementsOutputBuffer },
@@ -221,9 +232,7 @@ SampleInitFactoryWebGPU(
           { buffer: atomicSwapsOutputBuffer },
         ],
       ],
-      'BitonicSort',
-      device
-    );
+    });
 
     let computePipeline = device.createComputePipeline({
       layout: device.createPipelineLayout({

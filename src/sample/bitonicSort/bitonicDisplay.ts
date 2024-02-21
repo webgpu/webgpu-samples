@@ -2,7 +2,7 @@ import {
   BindGroupCluster,
   Base2DRendererClass,
   createBindGroupCluster,
-} from './utils';
+} from '../sampleUtils';
 
 import bitonicDisplay from './bitonicDisplay.frag.wgsl';
 
@@ -36,15 +36,18 @@ export default class BitonicDisplayRenderer extends Base2DRendererClass {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    const bgCluster = createBindGroupCluster(
-      [0],
-      [GPUShaderStage.FRAGMENT],
-      ['buffer'],
-      [{ type: 'uniform' }],
-      [[{ buffer: uniformBuffer }]],
+    const bgCluster = createBindGroupCluster({
+      device,
       label,
-      device
-    );
+      bindingLayouts: [
+        {
+          visibility: GPUShaderStage.FRAGMENT,
+          bindingMember: 'buffer',
+          bindingLayout: { type: 'uniform' },
+        },
+      ],
+      resourceLayouts: [[{ buffer: uniformBuffer }]],
+    });
 
     this.currentBindGroup = bgCluster.bindGroups[0];
 

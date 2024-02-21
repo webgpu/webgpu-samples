@@ -1,7 +1,8 @@
-import { SampleInit } from '../../components/SampleLayout';
+import { SampleInit } from '../components/SampleLayout';
 import type { GUI } from 'dat.gui';
-import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
+import fullscreenTexturedQuad from '../shaders/fullscreenTexturedQuad.wgsl';
 
+// A union type representing all posibble GPUBindingLayout types
 type BindGroupBindingLayout =
   | GPUBufferBindingLayout
   | GPUTextureBindingLayout
@@ -9,42 +10,44 @@ type BindGroupBindingLayout =
   | GPUStorageTextureBindingLayout
   | GPUExternalTextureBindingLayout;
 
-// An object containing
-// 1. A generated Bind Group Layout
-// 2. An array of Bind Groups that accord to that layout
+// A cluster of objects containing a bind group layout and an array of bind groups that accord to that bind group layout.
 export type BindGroupCluster = {
   bindGroups: GPUBindGroup[];
   bindGroupLayout: GPUBindGroupLayout;
 };
 
-type ResourceTypeName =
+// A union type representing all possible binding members assignable to a GPUBindGroupLayoutEntry
+type BindingMemberType =
   | 'buffer'
   | 'texture'
   | 'sampler'
   | 'externalTexture'
   | 'storageTexture';
 
-/**
- * @param {number[]} bindings - The binding value of each resource in the bind group.
- * @param {number[]} visibilities - The GPUShaderStage visibility of the resource at the corresponding index.
- * @param {ResourceTypeName[]} resourceTypes - The resourceType at the corresponding index.
- * @returns {BindGroupsObjectsAndLayout} An object containing an array of bindGroups and the bindGroupLayout they implement.
- */
+// Arguments for createBindGroupCluster function
+interface BindGroupClusterFunctionArgs {
+  device: GPUDevice;
+  label: string;
+  bindingLayouts: BindGroupClusterLayoutArgs[];
+  resourceLayouts: GPUBindingResource[][];
+}
+
+export interface BindGroupClusterLayoutArgs {
+  visibility: number;
+  bindingMember: BindingMemberType;
+  bindingLayout: BindGroupBindingLayout;
+}
+
 export const createBindGroupCluster = (
-  bindings: number[],
-  visibilities: number[],
-  resourceTypes: ResourceTypeName[],
-  resourceLayouts: BindGroupBindingLayout[],
-  resources: GPUBindingResource[][],
-  label: string,
-  device: GPUDevice
+  args: BindGroupClusterFunctionArgs
 ): BindGroupCluster => {
+  const { device, label, bindingLayouts, resourceLayouts } = args;
   const layoutEntries: GPUBindGroupLayoutEntry[] = [];
-  for (let i = 0; i < bindings.length; i++) {
+  for (let i = 0; i < bindingLayouts.length; i++) {
     layoutEntries.push({
-      binding: bindings[i],
-      visibility: visibilities[i % visibilities.length],
-      [resourceTypes[i]]: resourceLayouts[i],
+      binding: i,
+      visibility: bindingLayouts[i].visibility,
+      [bindingLayouts[i].bindingMember]: bindingLayouts[i].bindingLayout,
     });
   }
 
@@ -53,19 +56,18 @@ export const createBindGroupCluster = (
     entries: layoutEntries,
   });
 
+  console.log(layoutEntries);
+
   const bindGroups: GPUBindGroup[] = [];
-  //i represent the bindGroup index, j represents the binding index of the resource within the bindgroup
-  //i=0, j=0  bindGroup: 0, binding: 0
-  //i=1, j=1, bindGroup: 0, binding: 1
-  //NOTE: not the same as @group(0) @binding(1) group index within the fragment shader is set within a pipeline
-  for (let i = 0; i < resources.length; i++) {
+  for (let i = 0; i < resourceLayouts.length; i++) {
     const groupEntries: GPUBindGroupEntry[] = [];
-    for (let j = 0; j < resources[0].length; j++) {
+    for (let j = 0; j < resourceLayouts[0].length; j++) {
       groupEntries.push({
         binding: j,
-        resource: resources[i][j],
+        resource: resourceLayouts[i][j],
       });
     }
+    console.log(groupEntries);
     const newBindGroup = device.createBindGroup({
       label: `${label}.bindGroup${i}`,
       layout: bindGroupLayout,
@@ -78,10 +80,6 @@ export const createBindGroupCluster = (
     bindGroups,
     bindGroupLayout,
   };
-};
-
-export type ShaderKeyInterface<T extends string[]> = {
-  [K in T[number]]: number;
 };
 
 export type SampleInitParams = {
@@ -138,17 +136,14 @@ export const SampleInitFactoryWebGPU = async (
   return init;
 };
 
-export abstract class Base2DRendererClass {
+// A class that provides a set of utilities for creating a basic fullscreen shader that renders
+// a programatically generated 2D image to the screen
+export abstract class BaseFullscreenShaderClass {
   abstract switchBindGroup(name: string): void;
   abstract startRun(
     commandEncoder: GPUCommandEncoder,
     ...args: unknown[]
   ): void;
-  renderPassDescriptor: GPURenderPassDescriptor;
-  pipeline: GPURenderPipeline;
-  bindGroupMap: Record<string, GPUBindGroup>;
-  currentBindGroup: GPUBindGroup;
-  currentBindGroupName: string;
 
   executeRun(
     commandEncoder: GPUCommandEncoder,
@@ -180,7 +175,7 @@ export abstract class Base2DRendererClass {
     }
   }
 
-  create2DRenderPipeline(
+  createFullscreenShaderPipeline(
     device: GPUDevice,
     label: string,
     bgLayouts: GPUBindGroupLayout[],
@@ -216,3 +211,24 @@ export abstract class Base2DRendererClass {
     });
   }
 }
+
+export const createTextureFromImage = (
+  device: GPUDevice,
+  bitmap: ImageBitmap,
+  format: GPUTextureFormat
+) => {
+  const texture: GPUTexture = device.createTexture({
+    size: [bitmap.width, bitmap.height, 1],
+    format,
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  device.queue.copyExternalImageToTexture(
+    { source: bitmap },
+    { texture: texture },
+    [bitmap.width, bitmap.height]
+  );
+  return texture;
+};
