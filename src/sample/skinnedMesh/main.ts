@@ -29,13 +29,18 @@ enum SkinMode {
   OFF,
 }
 
+// Copied from toji/gl-matrix
 const getRotation = (mat: Mat4): Quat => {
+  // Initialize our output quaternion
   const out = [0, 0, 0, 0];
+  // Extract the scaling factor from the final matrix transformation
+  // to normalize our rotation;
   const scaling = mat4.getScaling(mat);
   const is1 = 1 / scaling[0];
   const is2 = 1 / scaling[1];
   const is3 = 1 / scaling[2];
 
+  // Scale the matrix elements by the scaling factors
   const sm11 = mat[0] * is1;
   const sm12 = mat[1] * is2;
   const sm13 = mat[2] * is3;
@@ -46,27 +51,34 @@ const getRotation = (mat: Mat4): Quat => {
   const sm32 = mat[9] * is2;
   const sm33 = mat[10] * is3;
 
+  // The trace of a square matrix is the sum of its diagonal entries
+  // While the matrix trace has many interesting mathematical properties,
+  // the primary purpose of the trace is to assess the characteristics of the rotation.
   const trace = sm11 + sm22 + sm33;
   let S = 0;
 
+  // If all matrix elements contribute equally to the rotation.
   if (trace > 0) {
     S = Math.sqrt(trace + 1.0) * 2;
     out[3] = 0.25 * S;
     out[0] = (sm23 - sm32) / S;
     out[1] = (sm31 - sm13) / S;
     out[2] = (sm12 - sm21) / S;
+    // If the rotation is primarily around the x-axis
   } else if (sm11 > sm22 && sm11 > sm33) {
     S = Math.sqrt(1.0 + sm11 - sm22 - sm33) * 2;
     out[3] = (sm23 - sm32) / S;
     out[0] = 0.25 * S;
     out[1] = (sm12 + sm21) / S;
     out[2] = (sm31 + sm13) / S;
+    // If rotation is primarily around the y-axis
   } else if (sm22 > sm33) {
     S = Math.sqrt(1.0 + sm22 - sm11 - sm33) * 2;
     out[3] = (sm31 - sm13) / S;
     out[0] = (sm12 + sm21) / S;
     out[1] = 0.25 * S;
     out[2] = (sm23 + sm32) / S;
+    // If the rotation is primarily around the z-axis
   } else {
     S = Math.sqrt(1.0 + sm33 - sm11 - sm22) * 2;
     out[3] = (sm12 - sm21) / S;
@@ -109,6 +121,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     skinMode: 'ON',
   };
 
+  // Determine whether we want to render our whale or our skinned grid
   gui.add(settings, 'object', ['Whale', 'Skinned Grid']).onChange(() => {
     if (settings.object === 'Skinned Grid') {
       settings.cameraX = -10;
@@ -126,6 +139,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       }
     }
   });
+
+  // Output the mesh normals, its joints, or the weights that influence the movement of the joints
   gui
     .add(settings, 'renderMode', ['NORMAL', 'JOINTS', 'WEIGHTS'])
     .onChange(() => {
@@ -135,6 +150,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         new Uint32Array([RenderMode[settings.renderMode]])
       );
     });
+  // Determine whether the mesh is static or whether skinning is activated
   gui.add(settings, 'skinMode', ['ON', 'OFF']).onChange(() => {
     if (settings.object === 'Whale') {
       if (settings.skinMode === 'OFF') {
@@ -207,11 +223,16 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
   });
 
-  // Create whale resources
+  // Fetch whale resources from the glb file
   const whaleScene = await fetch('../assets/gltf/whale.glb')
     .then((res) => res.arrayBuffer())
     .then((buffer) => convertGLBToJSONAndBinary(buffer, device));
 
+  // Builds a render pipeline for our whale mesh
+  // Since we are building a lightweight gltf parser around a gltf scene with a known
+  // quantity of meshes, we only build a renderPipeline for the singular mesh present
+  // within our scene. A more robust gltf parser would loop through all the meshes,
+  // cache replicated pipelines, and perform other optimizations.
   whaleScene.meshes[0].buildRenderPipeline(
     device,
     gltfWGSL,
@@ -228,6 +249,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
 
   // Create skinned grid resources
   const skinnedGridVertexBuffers = createSkinnedGridBuffers(device);
+  // Buffer for our uniforms, joints, and inverse bind matrices
   const skinnedGridUniformBufferUsage: GPUBufferDescriptor = {
     // 5 4x4 matrices, one for each bone
     size: MAT4X4_BYTES * 5,
@@ -365,8 +387,10 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const createBoneCollection = (numBones: number): BoneObject => {
     // Initial bone transformation
     const transforms: Mat4[] = [];
-    // Bone bind poses
+    // Bone bind poses, an extra matrix per joint/bone that represents the starting point
+    // of the bone before any transformations are applied
     const bindPoses: Mat4[] = [];
+    // Create a transform, bind pose, and inverse bind pose for each bone
     for (let i = 0; i < numBones; i++) {
       transforms.push(mat4.identity());
       bindPoses.push(mat4.identity());
@@ -385,6 +409,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     };
   };
 
+  // Create bones of the skinned grid and write the inverse bind positions to
+  // the skinned grid's inverse bind matrix array
   const gridBoneCollection = createBoneCollection(5);
   for (let i = 0; i < gridBoneCollection.bindPosesInv.length; i++) {
     device.queue.writeBuffer(
@@ -394,16 +420,21 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     );
   }
 
-  const origMatrices = new Map();
+  // A map that maps a joint index to the original matrix transformation of a bone
+  const origMatrices = new Map<number, Mat4>();
   const animWhaleSkin = (skin: GLTFSkin, angle: number) => {
-    console.log(skin.joints);
     for (let i = 0; i < skin.joints.length; i++) {
+      // Index into the current joint
       const joint = skin.joints[i];
+      // If our map does
       if (!origMatrices.has(joint)) {
         origMatrices.set(joint, whaleScene.nodes[joint].source.getMatrix());
       }
+      // Get the original position, rotation, and scale of the current joint
       const origMatrix = origMatrices.get(joint);
       let m = mat4.create();
+      // Depending on which bone we are accessing, apply a specific rotation to the bone's original
+      // transformation to animate it
       if (joint === 1 || joint === 0) {
         m = mat4.rotateY(origMatrix, -angle);
       } else if (joint === 3 || joint === 4) {
@@ -411,9 +442,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       } else {
         m = mat4.rotateZ(origMatrix, angle);
       }
-      if (joint !== 2) {
-        whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
-      }
+      // Apply the current transformation to the transform values within the relevant nodes
+      // (these nodes, of course, each being nodes that represent joints/bones)
+      whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
       whaleScene.nodes[joint].source.scale = mat4.getScaling(m);
       whaleScene.nodes[joint].source.rotation = getRotation(m);
     }
@@ -434,7 +465,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     // Compute Transforms when angle is applied
     animSkinnedGrid(gridBoneCollection.transforms, angle);
 
-    // Write to camera buffer
+    // Write to mvp to camera buffer
     device.queue.writeBuffer(
       cameraBuffer,
       0,
@@ -500,6 +531,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       }
       passEncoder.end();
     } else {
+      // Our skinned grid isn't checking for depth, so we pass it
+      // a separate render descriptor that does not take in a depth texture
       const passEncoder = commandEncoder.beginRenderPass(
         skinnedGridRenderPassDescriptor
       );
@@ -507,6 +540,8 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
       passEncoder.setBindGroup(0, cameraBGCluster.bindGroups[0]);
       passEncoder.setBindGroup(1, generalUniformsBGCLuster.bindGroups[0]);
       passEncoder.setBindGroup(2, skinnedGridBoneBGCluster.bindGroups[0]);
+      // Pass in vertex and index buffers generated from our static skinned grid
+      // data at ./gridData.ts
       passEncoder.setVertexBuffer(0, skinnedGridVertexBuffers.positions);
       passEncoder.setVertexBuffer(1, skinnedGridVertexBuffers.joints);
       passEncoder.setVertexBuffer(2, skinnedGridVertexBuffers.weights);
@@ -526,7 +561,7 @@ const skinnedMesh: () => JSX.Element = () =>
   makeSample({
     name: 'Skinned Mesh',
     description:
-      'A demonstration of basic gltf loading and mesh skinning, ported from https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
+      'A demonstration of basic gltf loading and mesh skinning, ported from https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file. Animations are generated progrmatically, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
     init,
     gui: true,
     sources: [

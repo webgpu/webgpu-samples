@@ -24,7 +24,7 @@ export const gridVertices = new Float32Array([
 ]);
 
 // Representing the indice of four bones that can influence each vertex
-export const gridJoints = new Float32Array([
+export const gridJoints = new Uint32Array([
   0, 0, 0, 0,  // Vertex 0 is influenced by bone 0
   0, 0, 0, 0,  // 1
   0, 1, 0, 0,  // 2

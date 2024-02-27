@@ -1,7 +1,12 @@
 import { gridVertices, gridIndices, gridJoints, gridWeights } from './gridData';
 
+// Uses constant grid data to create appropriately sized GPU Buffers for our skinned grid
 export const createSkinnedGridBuffers = (device: GPUDevice) => {
-  const createBuffer = (data: Float32Array, type: 'f32' | 'u32') => {
+  // Utility function that creates GPUBuffers from data
+  const createBuffer = (
+    data: Float32Array | Uint32Array,
+    type: 'f32' | 'u32'
+  ) => {
     const buffer = device.createBuffer({
       size: data.byteLength,
       usage: GPUBufferUsage.VERTEX,

@@ -4,7 +4,8 @@ import { Mat4, Vec3, mat4 } from 'wgpu-matrix';
 
 //NOTE: GLTF code is not generally extensible to all gltf models
 // Modified from Will Usher code found at this link https://www.willusher.io/graphics/2023/05/16/0-to-gltf-first-mesh
-// Determines the topology of our pipeline
+
+// Associates the mode paramete of a gltf primitive object with the primitive's intended render mode
 enum GLTFRenderMode {
   POINTS = 0,
   LINE = 1,
@@ -170,7 +171,6 @@ const gltfElementSize = (
 
 // Convert differently depending on if the shader is a vertex or compute shader
 const convertGPUVertexFormatToWGSLFormat = (vertexFormat: GPUVertexFormat) => {
-  console.log(vertexFormat);
   switch (vertexFormat) {
     case 'float32': {
       return 'f32';
@@ -369,7 +369,6 @@ export class GLTFPrimitive {
       }
     );
     VertexInputShaderString += '}';
-    console.log(VertexInputShaderString);
 
     const vertexState: GPUVertexState = {
       // Shader stage info
