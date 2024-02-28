@@ -8,7 +8,6 @@ import './styles.css';
 import styles from './MainLayout.module.css';
 
 import { pageCategories } from './samples/[slug]';
-import { SampleLink } from '../components/SampleLink';
 import { SampleCategory } from '../components/SampleCategory';
 
 const title = 'WebGPU Samples';
