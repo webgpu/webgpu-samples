@@ -34,6 +34,7 @@ const featureDemoPages: PageComponentType = {
   reversedZ: dynamic(() => import('../../sample/reversedZ/main')),
   normalMap: dynamic(() => import('../../sample/normalMap/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
+  skinnedMesh: dynamic(() => import('../../sample/skinnedMesh/main')),
 };
 
 const renderPassDemoPages: PageComponentType = {
