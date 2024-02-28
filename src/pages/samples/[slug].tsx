@@ -13,7 +13,7 @@ type PageComponentType = {
   [key: string]: React.ComponentType;
 };
 
-const webGPUBasicsPages: PageComponentType = {
+const graphicsBasicsPages: PageComponentType = {
   helloTriangle: dynamic(() => import('../../sample/helloTriangle/main')),
   helloTriangleMSAA: dynamic(
     () => import('../../sample/helloTriangleMSAA/main')
@@ -26,24 +26,24 @@ const webGPUBasicsPages: PageComponentType = {
   cubemap: dynamic(() => import('../../sample/cubemap/main')),
 };
 
-const featureDemoPages: PageComponentType = {
-  cameras: dynamic(() => import('../../sample/cameras/main')),
+const webGPUFeaturesPages: PageComponentType = {
   samplerParameters: dynamic(
     () => import('../../sample/samplerParameters/main')
   ),
   reversedZ: dynamic(() => import('../../sample/reversedZ/main')),
-  normalMap: dynamic(() => import('../../sample/normalMap/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
-  skinnedMesh: dynamic(() => import('../../sample/skinnedMesh/main')),
 };
 
-const renderPassDemoPages: PageComponentType = {
+const graphicsDemoPages: PageComponentType = {
+  cameras: dynamic(() => import('../../sample/cameras/main')),
+  normalMap: dynamic(() => import('../../sample/normalMap/main')),
   shadowMapping: dynamic(() => import('../../sample/shadowMapping/main')),
   deferredRendering: dynamic(
     () => import('../../sample/deferredRendering/main')
   ),
   cornell: dynamic(() => import('../../sample/cornell/main')),
   'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
+  skinnedMesh: dynamic(() => import('../../sample/skinnedMesh/main')),
 };
 
 const gpuComputeDemoPages: PageComponentType = {
@@ -68,9 +68,9 @@ const benchmarkPages: PageComponentType = {
 };
 
 const pages: PageComponentType = {
-  ...webGPUBasicsPages,
-  ...featureDemoPages,
-  ...renderPassDemoPages,
+  ...graphicsBasicsPages,
+  ...webGPUFeaturesPages,
+  ...graphicsDemoPages,
   ...gpuComputeDemoPages,
   ...webPlatformPages,
   ...benchmarkPages,
@@ -94,10 +94,10 @@ const createPageCategory = (
 };
 
 export const pageCategories: PageCategory[] = [
-  createPageCategory('WebGPU Basics', webGPUBasicsPages),
-  createPageCategory('Feature Demos', featureDemoPages),
-  createPageCategory('Render Pass Demos', renderPassDemoPages),
-  createPageCategory('GPU Compute Demos', gpuComputeDemoPages),
+  createPageCategory('Basic Graphics', graphicsBasicsPages),
+  createPageCategory('WebGPU Features', webGPUFeaturesPages),
+  createPageCategory('Graphics Demos', graphicsDemoPages),
+  createPageCategory('Compute Demos', gpuComputeDemoPages),
   createPageCategory('Web Platform Demos', webPlatformPages),
   createPageCategory('Benchmarks', benchmarkPages),
 ];

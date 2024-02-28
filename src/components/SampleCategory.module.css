@@ -10,7 +10,6 @@
 
 .sampleCategory {
   display: flex;
-  cursor: pointer;
 }
 
 .dropdown {
@@ -21,12 +20,4 @@
 
 li.selected a {
   color: #ff0000;
-}
-
-.dropdown[data-collapsed=false] {
-  animation: closeTriangle 0.3s forwards ease-in-out;
-}
-
-.dropdown[data-collapsed=true] {
-  animation: openTriangle 0.3s forwards ease-in-out;
 }

@@ -49,11 +49,8 @@
 .panel .panelContents {
   display: block;
   transition: max-height 0s;
-  overflow: none;
   max-height: 100vh;
 }
-
-
 
 @media only screen and (max-width: 768px) {
   /* More padding on mobile for easier touch screen use */
@@ -73,7 +70,6 @@
   .panel .panelContents {
     display: block;
     transition: max-height 0.3s ease-out;
-    overflow: none;
     max-height: 0px;
   }
 
