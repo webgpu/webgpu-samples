@@ -9,6 +9,7 @@ import styles from './MainLayout.module.css';
 
 import { pageCategories } from './samples/[slug]';
 import { SampleLink } from '../components/SampleLink';
+import { SampleCategory } from '../components/SampleCategory';
 
 const title = 'WebGPU Samples';
 
@@ -17,7 +18,6 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   pageProps,
 }) => {
   const router = useRouter();
-  //const samplesNames = Object.keys(pages);
   const [listExpanded, setListExpanded] = useState<boolean>(false);
 
   const ComponentMemo = useMemo(() => {
@@ -69,15 +69,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                   className={styles.exampleList}
                   key={`/categories/${category.title}`}
                 >
-                  <h3
-                    style={{
-                      marginTop: '5px',
-                      marginBottom: '5px',
-                      color: 'rgb(43, 126, 171)',
-                    }}
-                  >
-                    {category.title}
-                  </h3>
+                  <SampleCategory title={category.title} />
                   {category.sampleNames.map((slug) => {
                     return (
                       <SampleLink

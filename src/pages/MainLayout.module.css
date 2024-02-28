@@ -23,6 +23,10 @@
   margin-block-end: 16px;
 }
 
+.exampleList h3 {
+  color: rgb(43, 126, 171);
+}
+
 .exampleList li {
   list-style: none;
   padding: 0.3em 0;
@@ -48,6 +52,8 @@
   overflow: none;
   max-height: 100vh;
 }
+
+
 
 @media only screen and (max-width: 768px) {
   /* More padding on mobile for easier touch screen use */
