@@ -13,6 +13,46 @@ type PageComponentType = {
   [key: string]: React.ComponentType;
 };
 
+const webGPUBasicsPages: PageComponentType = {
+  helloTriangle: dynamic(() => import('../../sample/helloTriangle/main')),
+  helloTriangleMSAA: dynamic(
+    () => import('../../sample/helloTriangleMSAA/main')
+  ),
+  rotatingCube: dynamic(() => import('../../sample/rotatingCube/main')),
+  twoCubes: dynamic(() => import('../../sample/twoCubes/main')),
+  texturedCube: dynamic(() => import('../../sample/texturedCube/main')),
+  instancedCube: dynamic(() => import('../../sample/instancedCube/main')),
+  fractalCube: dynamic(() => import('../../sample/fractalCube/main')),
+  cubemap: dynamic(() => import('../../sample/cubemap/main')),
+};
+
+const featureDemoPages: PageComponentType = {
+  cameras: dynamic(() => import('../../sample/cameras/main')),
+  samplerParameters: dynamic(
+    () => import('../../sample/samplerParameters/main')
+  ),
+  reversedZ: dynamic(() => import('../../sample/reversedZ/main')),
+  normalMap: dynamic(() => import('../../sample/normalMap/main')),
+  renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
+};
+
+const renderPassDemoPages: PageComponentType = {
+  shadowMapping: dynamic(() => import('../../sample/shadowMapping/main')),
+  deferredRendering: dynamic(
+    () => import('../../sample/deferredRendering/main')
+  ),
+  cornell: dynamic(() => import('../../sample/cornell/main')),
+  'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
+};
+
+const gpuComputeDemoPages: PageComponentType = {
+  imageBlur: dynamic(() => import('../../sample/imageBlur/main')),
+  computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
+  particles: dynamic(() => import('../../sample/particles/main')),
+  gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
+  bitonicSort: dynamic(() => import('../../sample/bitonicSort/main')),
+};
+
 const webPlatformPages: PageComponentType = {
   resizeCanvas: dynamic(() => import('../../sample/resizeCanvas/main')),
   videoUploading: dynamic(() => import('../../sample/videoUploading/main')),
@@ -26,35 +66,13 @@ const benchmarkPages: PageComponentType = {
   animometer: dynamic(() => import('../../sample/animometer/main')),
 };
 
-const standardPages: PageComponentType = {
-  helloTriangle: dynamic(() => import('../../sample/helloTriangle/main')),
-  helloTriangleMSAA: dynamic(
-    () => import('../../sample/helloTriangleMSAA/main')
-  ),
-  rotatingCube: dynamic(() => import('../../sample/rotatingCube/main')),
-  twoCubes: dynamic(() => import('../../sample/twoCubes/main')),
-  texturedCube: dynamic(() => import('../../sample/texturedCube/main')),
-  instancedCube: dynamic(() => import('../../sample/instancedCube/main')),
-  fractalCube: dynamic(() => import('../../sample/fractalCube/main')),
-  cameras: dynamic(() => import('../../sample/cameras/main')),
-  cubemap: dynamic(() => import('../../sample/cubemap/main')),
-  computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
-  samplerParameters: dynamic(
-    () => import('../../sample/samplerParameters/main')
-  ),
-  imageBlur: dynamic(() => import('../../sample/imageBlur/main')),
-  shadowMapping: dynamic(() => import('../../sample/shadowMapping/main')),
-  reversedZ: dynamic(() => import('../../sample/reversedZ/main')),
-  deferredRendering: dynamic(
-    () => import('../../sample/deferredRendering/main')
-  ),
-  particles: dynamic(() => import('../../sample/particles/main')),
-  cornell: dynamic(() => import('../../sample/cornell/main')),
-  gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
-  renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
-  'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
-  bitonicSort: dynamic(() => import('../../sample/bitonicSort/main')),
-  normalMap: dynamic(() => import('../../sample/normalMap/main')),
+const pages: PageComponentType = {
+  ...webGPUBasicsPages,
+  ...featureDemoPages,
+  ...renderPassDemoPages,
+  ...gpuComputeDemoPages,
+  ...webPlatformPages,
+  ...benchmarkPages,
 };
 
 interface PageCategory {
@@ -63,22 +81,24 @@ interface PageCategory {
   sampleNames: string[];
 }
 
+const createPageCategory = (
+  title: string,
+  pages: PageComponentType
+): PageCategory => {
+  return {
+    title,
+    pages,
+    sampleNames: Object.keys(pages),
+  };
+};
+
 export const pageCategories: PageCategory[] = [
-  {
-    title: 'Standard',
-    pages: standardPages,
-    sampleNames: Object.keys(standardPages),
-  },
-  {
-    title: 'Web Platorm',
-    pages: webPlatformPages,
-    sampleNames: Object.keys(webPlatformPages),
-  },
-  {
-    title: 'Benchmark',
-    pages: benchmarkPages,
-    sampleNames: Object.keys(benchmarkPages),
-  },
+  createPageCategory('WebGPU Basics', webGPUBasicsPages),
+  createPageCategory('Feature Demos', featureDemoPages),
+  createPageCategory('Render Pass Demos', renderPassDemoPages),
+  createPageCategory('GPU Compute Demos', gpuComputeDemoPages),
+  createPageCategory('Web Platform Demos', webPlatformPages),
+  createPageCategory('Benchmarks', benchmarkPages),
 ];
 
 function Page({ slug }: Props): JSX.Element {
@@ -87,10 +107,11 @@ function Page({ slug }: Props): JSX.Element {
 }
 
 export const getStaticPaths: GetStaticPaths<PathParams> = async () => {
+  const paths = Object.keys(pages).map((p) => ({
+    params: { slug: p },
+  }));
   return {
-    paths: Object.keys(pages).map((p) => {
-      return { params: { slug: p } };
-    }),
+    paths,
     fallback: false,
   };
 };

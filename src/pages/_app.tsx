@@ -7,14 +7,10 @@ import { useMemo, memo, useState } from 'react';
 import './styles.css';
 import styles from './MainLayout.module.css';
 
-import { pageCategories, pages } from './samples/[slug]';
+import { pageCategories } from './samples/[slug]';
 import { SampleLink } from '../components/SampleLink';
 
 const title = 'WebGPU Samples';
-
-type PageType = {
-  [key: string]: React.ComponentType & { render: { preload: () => void } };
-};
 
 const MainLayout: React.FunctionComponent<AppProps> = ({
   Component,
@@ -73,7 +69,13 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                   className={styles.exampleList}
                   key={`/categories/${category.title}`}
                 >
-                  <h3 className={styles.pageCategoryHeader}>
+                  <h3
+                    style={{
+                      marginTop: '5px',
+                      marginBottom: '5px',
+                      color: 'rgb(43, 126, 171)',
+                    }}
+                  >
                     {category.title}
                   </h3>
                   {category.sampleNames.map((slug) => {
