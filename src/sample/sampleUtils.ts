@@ -188,16 +188,25 @@ export const SampleInitFactoryWebGPU = async (
 // A class that provides a set of utilities for creating a basic fullscreen shader that renders
 // a programatically generated 2D image to the screen
 export abstract class BaseFullscreenShaderClass {
+  // The intended implementation of switchBindGroup is to facilitate switching between bind groups that conform
+  // to the same bind group layout used within the fullscreen shader
   abstract switchBindGroup(name: string): void;
+  // THe intended implementation of startRun is to execute any necessary code that must be executed before the renderPassEncoder
+  // is created. This may include writing new values to our uniform buffers, switching bind groups, taking diagnostics, etc.
   abstract startRun(
     commandEncoder: GPUCommandEncoder,
     ...args: unknown[]
   ): void;
-  renderPassDescriptor: GPURenderPassDescriptor;
-  pipeline: GPURenderPipeline;
-  bindGroupMap: Record<string, GPUBindGroup>;
-  currentBindGroup: GPUBindGroup;
-  currentBindGroupName: string;
+  protected renderPassDescriptor: GPURenderPassDescriptor;
+  protected pipeline: GPURenderPipeline;
+  // A map between a string and its associated bind group. Used to switch between bind groups in a sensible manner.
+  // For instance, if you wanted to switch your texture from a cat texture to a dog texture, you could assign
+  // the label 'cat' to a bind group containing that texture which accords with the shader's bind group layout.
+  protected bindGroupMap: Record<string, GPUBindGroup>;
+  // The current bind group in use within the shader.
+  protected currentBindGroup: GPUBindGroup;
+  // The label associated with currentBindGroup
+  protected currentBindGroupName: string;
 
   executeRun(
     commandEncoder: GPUCommandEncoder,
