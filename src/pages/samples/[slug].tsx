@@ -76,7 +76,7 @@ const pages: PageComponentType = {
   ...benchmarkPages,
 };
 
-interface PageCategory {
+export interface PageCategory {
   title: string;
   pages: PageComponentType;
   sampleNames: string[];

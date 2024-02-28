@@ -8,17 +8,25 @@
   to { transform: rotate(0deg); }
 }
 
+.sampleCategory {
+  display: flex;
+  cursor: pointer;
+}
+
 .dropdown {
   margin-left: 8px;
   margin-top: 7px;
   margin-bottom: 5px;
 }
 
+li.selected a {
+  color: #ff0000;
+}
 
 .dropdown[data-collapsed=false] {
-  animation: openTriangle 0.3s forwards ease-in-out;
+  animation: closeTriangle 0.3s forwards ease-in-out;
 }
 
 .dropdown[data-collapsed=true] {
-  animation: closeTriangle 0.3s forwards ease-in-out;
+  animation: openTriangle 0.3s forwards ease-in-out;
 }

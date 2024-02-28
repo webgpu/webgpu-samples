@@ -69,18 +69,11 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
                   className={styles.exampleList}
                   key={`/categories/${category.title}`}
                 >
-                  <SampleCategory title={category.title} />
-                  {category.sampleNames.map((slug) => {
-                    return (
-                      <SampleLink
-                        key={`samples/${slug}`}
-                        slug={slug}
-                        router={router}
-                        pages={category.pages}
-                        onClick={() => setListExpanded(false)}
-                      />
-                    );
-                  })}
+                  <SampleCategory
+                    category={category}
+                    router={router}
+                    onClickPageLink={() => setListExpanded(false)}
+                  />
                 </ul>
               );
             })}
