@@ -13,12 +13,24 @@ type PageComponentType = {
   [key: string]: React.ComponentType;
 };
 
+export const webPlatformPages: PageComponentType = {
+  resizeCanvas: dynamic(() => import('../../sample/resizeCanvas/main')),
+  videoUploading: dynamic(() => import('../../sample/videoUploading/main')),
+  videoUploadingWebCodecs: dynamic(
+    () => import('../../sample/videoUploadingWebCodecs/main')
+  ),
+  worker: dynamic(() => import('../../sample/worker/main')),
+};
+
+export const benchmarkPages: PageComponentType = {
+  animometer: dynamic(() => import('../../sample/animometer/main')),
+};
+
 export const pages: PageComponentType = {
   helloTriangle: dynamic(() => import('../../sample/helloTriangle/main')),
   helloTriangleMSAA: dynamic(
     () => import('../../sample/helloTriangleMSAA/main')
   ),
-  resizeCanvas: dynamic(() => import('../../sample/resizeCanvas/main')),
   rotatingCube: dynamic(() => import('../../sample/rotatingCube/main')),
   twoCubes: dynamic(() => import('../../sample/twoCubes/main')),
   texturedCube: dynamic(() => import('../../sample/texturedCube/main')),
@@ -27,11 +39,6 @@ export const pages: PageComponentType = {
   cameras: dynamic(() => import('../../sample/cameras/main')),
   cubemap: dynamic(() => import('../../sample/cubemap/main')),
   computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
-  animometer: dynamic(() => import('../../sample/animometer/main')),
-  videoUploading: dynamic(() => import('../../sample/videoUploading/main')),
-  videoUploadingWebCodecs: dynamic(
-    () => import('../../sample/videoUploadingWebCodecs/main')
-  ),
   samplerParameters: dynamic(
     () => import('../../sample/samplerParameters/main')
   ),
@@ -45,7 +52,6 @@ export const pages: PageComponentType = {
   cornell: dynamic(() => import('../../sample/cornell/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
-  worker: dynamic(() => import('../../sample/worker/main')),
   'A-buffer': dynamic(() => import('../../sample/a-buffer/main')),
   bitonicSort: dynamic(() => import('../../sample/bitonicSort/main')),
   normalMap: dynamic(() => import('../../sample/normalMap/main')),

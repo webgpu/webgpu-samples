@@ -8,6 +8,7 @@ import './styles.css';
 import styles from './MainLayout.module.css';
 
 import { pages } from './samples/[slug]';
+import { SampleLink } from '../components/SampleLink';
 
 const title = 'WebGPU Samples';
 
@@ -68,28 +69,14 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
             <hr />
             <ul className={styles.exampleList}>
               {samplesNames.map((slug) => {
-                const className =
-                  router.pathname === `/samples/[slug]` &&
-                  router.query['slug'] === slug
-                    ? styles.selected
-                    : undefined;
                 return (
-                  <li
-                    key={slug}
-                    className={className}
-                    onMouseOver={() => {
-                      (pages as PageType)[slug].render.preload();
-                    }}
-                  >
-                    <Link
-                      href={`/samples/${slug}`}
-                      onClick={() => {
-                        setListExpanded(false);
-                      }}
-                    >
-                      {slug}
-                    </Link>
-                  </li>
+                  <SampleLink
+                    key={`samples/${slug}`}
+                    slug={slug}
+                    router={router}
+                    pages={pages}
+                    onClick={() => setListExpanded(false)}
+                  />
                 );
               })}
             </ul>
