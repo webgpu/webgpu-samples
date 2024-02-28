@@ -5,7 +5,7 @@ import { createMeshRenderable } from '../../meshes/mesh';
 import { createBoxMeshWithTangents } from '../../meshes/box';
 import { create3DRenderPipeline } from './utils';
 import {
-  BindGroupClusterLayoutArgs,
+  BindGroupClusterBindingLayout,
   createBindGroupCluster,
   createTextureFromImage,
 } from '../sampleUtils';
@@ -210,7 +210,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     createBoxMeshWithTangents(1.0, 1.0, 1.0)
   );
 
-  const frameUniformBindingLayout: BindGroupClusterLayoutArgs = {
+  const frameUniformBindingLayout: BindGroupClusterBindingLayout = {
     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
     bindingMember: 'buffer',
     bindingLayout: { type: 'uniform' },
@@ -226,7 +226,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
   });
 
-  const surfaceTextureBindingLayout: BindGroupClusterLayoutArgs = {
+  const surfaceTextureBindingLayout: BindGroupClusterBindingLayout = {
     visibility: GPUShaderStage.FRAGMENT,
     bindingMember: 'texture',
     bindingLayout: { sampleType: 'float' },

@@ -3,7 +3,10 @@ import { convertGLBToJSONAndBinary, GLTFSkin } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
 import { Mat4, mat4, Quat, vec3 } from 'wgpu-matrix';
-import { createBindGroupCluster } from '../bitonicSort/utils';
+import {
+  BindGroupClusterBindingLayout,
+  createBindGroupCluster,
+} from '../sampleUtils';
 import {
   createSkinnedGridBuffers,
   createSkinnedGridRenderPipeline,
@@ -184,30 +187,36 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const cameraBGCluster = createBindGroupCluster(
-    [0],
-    [GPUShaderStage.VERTEX],
-    ['buffer'],
-    [{ type: 'uniform' }],
-    [[{ buffer: cameraBuffer }]],
-    'Camera',
-    device
-  );
+  const cameraBGCluster = createBindGroupCluster({
+    device,
+    label: 'Camera',
+    bindingLayouts: [
+      {
+        visibility: GPUShaderStage.VERTEX,
+        bindingMember: 'buffer',
+        bindingLayout: { type: 'uniform' },
+      },
+    ],
+    resourceLayouts: [[{ buffer: cameraBuffer }]],
+  });
 
   const generalUniformsBuffer = device.createBuffer({
     size: Uint32Array.BYTES_PER_ELEMENT * 2,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const generalUniformsBGCLuster = createBindGroupCluster(
-    [0],
-    [GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT],
-    ['buffer'],
-    [{ type: 'uniform' }],
-    [[{ buffer: generalUniformsBuffer }]],
-    'General',
-    device
-  );
+  const generalUniformsBGCLuster = createBindGroupCluster({
+    device,
+    label: 'General',
+    bindingLayouts: [
+      {
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+        bindingMember: 'buffer',
+        bindingLayout: { type: 'uniform' },
+      },
+    ],
+    resourceLayouts: [[{ buffer: generalUniformsBuffer }]],
+  });
 
   // Same bindGroupLayout as in main file.
   const nodeUniformsBindGroupLayout = device.createBindGroupLayout({
@@ -261,7 +270,29 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   const skinnedGridInverseBindUniformBuffer = device.createBuffer(
     skinnedGridUniformBufferUsage
   );
-  const skinnedGridBoneBGCluster = createBindGroupCluster(
+
+  const skinnedGridBoneBindingLayout: BindGroupClusterBindingLayout = {
+    visibility: GPUShaderStage.VERTEX,
+    bindingMember: 'buffer',
+    bindingLayout: { type: 'read-only-storage' },
+  };
+
+  const skinnedGridBoneBGCluster = createBindGroupCluster({
+    device,
+    label: 'SkinnedGridJointUniforms',
+    bindingLayouts: [
+      skinnedGridBoneBindingLayout,
+      skinnedGridBoneBindingLayout,
+    ],
+    resourceLayouts: [
+      [
+        { buffer: skinnedGridJointUniformBuffer },
+        { buffer: skinnedGridInverseBindUniformBuffer },
+      ],
+    ],
+  });
+
+  /*    bindingLayouts
     [0, 1],
     [GPUShaderStage.VERTEX, GPUShaderStage.VERTEX],
     ['buffer', 'buffer'],
@@ -274,7 +305,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     ],
     'SkinnedGridJointUniforms',
     device
-  );
+    */
   const skinnedGridPipeline = createSkinnedGridRenderPipeline(
     device,
     presentationFormat,

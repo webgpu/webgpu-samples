@@ -30,14 +30,14 @@ type BindingMemberType =
 /**
  * @property {GPUDevice} device - The WebGPU device to use for creating bind groups and layouts.
  * @property {string} label - A base label that identifies the bind group resources.
- * @property {BindGroupClusterLayoutArgs[]} bindingLayouts - Descriptors for each binding's layout within the bind group layout.
+ * @property {BindGroupClusterBindingLayout[]} bindingLayouts - Descriptors for each binding's layout within the bind group layout.
  * @property {GPUBindingResource[][]} resourceLayouts - A 2D array of resources for each bind group, matching the binding layouts.
  *
  */
 interface BindGroupClusterFunctionArgs {
   device: GPUDevice;
   label: string;
-  bindingLayouts: BindGroupClusterLayoutArgs[];
+  bindingLayouts: BindGroupClusterBindingLayout[];
   resourceLayouts: GPUBindingResource[][];
 }
 
@@ -47,7 +47,7 @@ interface BindGroupClusterFunctionArgs {
  * @property {BindGroupBindingLayout} bindingLayout - The detailed layout for the binding, specifying the type of resource.
  *
  */
-export interface BindGroupClusterLayoutArgs {
+export interface BindGroupClusterBindingLayout {
   visibility: number;
   bindingMember: BindingMemberType;
   bindingLayout: BindGroupBindingLayout;
@@ -93,8 +93,6 @@ export const createBindGroupCluster = (
     entries: layoutEntries,
   });
 
-  console.log(layoutEntries);
-
   const bindGroups: GPUBindGroup[] = [];
   for (let i = 0; i < resourceLayouts.length; i++) {
     const groupEntries: GPUBindGroupEntry[] = [];
@@ -104,7 +102,6 @@ export const createBindGroupCluster = (
         resource: resourceLayouts[i][j],
       });
     }
-    console.log(groupEntries);
     const newBindGroup = device.createBindGroup({
       label: `${label}.bindGroup${i}`,
       layout: bindGroupLayout,
