@@ -7,7 +7,7 @@ import { useMemo, memo, useState } from 'react';
 import './styles.css';
 import styles from './MainLayout.module.css';
 
-import { pages } from './samples/[slug]';
+import { pageCategories, pages } from './samples/[slug]';
 import { SampleLink } from '../components/SampleLink';
 
 const title = 'WebGPU Samples';
@@ -21,7 +21,7 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
   pageProps,
 }) => {
   const router = useRouter();
-  const samplesNames = Object.keys(pages);
+  //const samplesNames = Object.keys(pages);
   const [listExpanded, setListExpanded] = useState<boolean>(false);
 
   const ComponentMemo = useMemo(() => {
@@ -67,19 +67,29 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
               Github
             </a>
             <hr />
-            <ul className={styles.exampleList}>
-              {samplesNames.map((slug) => {
-                return (
-                  <SampleLink
-                    key={`samples/${slug}`}
-                    slug={slug}
-                    router={router}
-                    pages={pages}
-                    onClick={() => setListExpanded(false)}
-                  />
-                );
-              })}
-            </ul>
+            {pageCategories.map((category) => {
+              return (
+                <ul
+                  className={styles.exampleList}
+                  key={`/categories/${category.title}`}
+                >
+                  <h3 className={styles.pageCategoryHeader}>
+                    {category.title}
+                  </h3>
+                  {category.sampleNames.map((slug) => {
+                    return (
+                      <SampleLink
+                        key={`samples/${slug}`}
+                        slug={slug}
+                        router={router}
+                        pages={category.pages}
+                        onClick={() => setListExpanded(false)}
+                      />
+                    );
+                  })}
+                </ul>
+              );
+            })}
             <hr />
             <h3>Other Pages</h3>
             <ul className={styles.exampleList}>

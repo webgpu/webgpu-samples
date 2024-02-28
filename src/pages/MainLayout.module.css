@@ -71,6 +71,11 @@
     max-height: 0px;
   }
 
+  .pageCategoryHeader {
+    color: rgb(5, 74, 111);
+    margin-bottom: 10px;
+  }
+
   .panel[data-expanded='false'] .panelContents {
     max-height: 0vh;
   }

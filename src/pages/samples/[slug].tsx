@@ -13,7 +13,7 @@ type PageComponentType = {
   [key: string]: React.ComponentType;
 };
 
-export const webPlatformPages: PageComponentType = {
+const webPlatformPages: PageComponentType = {
   resizeCanvas: dynamic(() => import('../../sample/resizeCanvas/main')),
   videoUploading: dynamic(() => import('../../sample/videoUploading/main')),
   videoUploadingWebCodecs: dynamic(
@@ -22,11 +22,11 @@ export const webPlatformPages: PageComponentType = {
   worker: dynamic(() => import('../../sample/worker/main')),
 };
 
-export const benchmarkPages: PageComponentType = {
+const benchmarkPages: PageComponentType = {
   animometer: dynamic(() => import('../../sample/animometer/main')),
 };
 
-export const pages: PageComponentType = {
+const standardPages: PageComponentType = {
   helloTriangle: dynamic(() => import('../../sample/helloTriangle/main')),
   helloTriangleMSAA: dynamic(
     () => import('../../sample/helloTriangleMSAA/main')
@@ -56,6 +56,30 @@ export const pages: PageComponentType = {
   bitonicSort: dynamic(() => import('../../sample/bitonicSort/main')),
   normalMap: dynamic(() => import('../../sample/normalMap/main')),
 };
+
+interface PageCategory {
+  title: string;
+  pages: PageComponentType;
+  sampleNames: string[];
+}
+
+export const pageCategories: PageCategory[] = [
+  {
+    title: 'Standard',
+    pages: standardPages,
+    sampleNames: Object.keys(standardPages),
+  },
+  {
+    title: 'Web Platorm',
+    pages: webPlatformPages,
+    sampleNames: Object.keys(webPlatformPages),
+  },
+  {
+    title: 'Benchmark',
+    pages: benchmarkPages,
+    sampleNames: Object.keys(benchmarkPages),
+  },
+];
 
 function Page({ slug }: Props): JSX.Element {
   const PageComponent = pages[slug];
