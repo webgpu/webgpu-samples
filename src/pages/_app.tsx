@@ -93,8 +93,11 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
               );
             })}
             <hr />
-            <h3>Other Pages</h3>
-            <ul className={styles.exampleList}>
+            <h3 style={{ marginBottom: '5px' }}>Other Pages</h3>
+            <ul
+              style={{ margin: '0px', paddingBottom: '20px' }}
+              className={styles.exampleList}
+            >
               <li>
                 <a
                   rel="noreferrer"

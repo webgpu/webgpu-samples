@@ -67,12 +67,13 @@
   .panel .panelContents {
     display: block;
     transition: max-height 0.3s ease-out;
-    overflow: hidden;
+    overflow: none;
     max-height: 0px;
   }
 
   .panel[data-expanded='false'] .panelContents {
     max-height: 0vh;
+    overflow: hidden;
   }
 
   .panel[data-expanded='true'] .panelContents {
