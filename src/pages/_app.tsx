@@ -7,20 +7,16 @@ import { useMemo, memo, useState } from 'react';
 import './styles.css';
 import styles from './MainLayout.module.css';
 
-import { pages } from './samples/[slug]';
+import { pageCategories } from './samples/[slug]';
+import { SampleCategory } from '../components/SampleCategory';
 
 const title = 'WebGPU Samples';
-
-type PageType = {
-  [key: string]: React.ComponentType & { render: { preload: () => void } };
-};
 
 const MainLayout: React.FunctionComponent<AppProps> = ({
   Component,
   pageProps,
 }) => {
   const router = useRouter();
-  const samplesNames = Object.keys(pages);
   const [listExpanded, setListExpanded] = useState<boolean>(false);
 
   const ComponentMemo = useMemo(() => {
@@ -66,36 +62,26 @@ const MainLayout: React.FunctionComponent<AppProps> = ({
               Github
             </a>
             <hr />
-            <ul className={styles.exampleList}>
-              {samplesNames.map((slug) => {
-                const className =
-                  router.pathname === `/samples/[slug]` &&
-                  router.query['slug'] === slug
-                    ? styles.selected
-                    : undefined;
-                return (
-                  <li
-                    key={slug}
-                    className={className}
-                    onMouseOver={() => {
-                      (pages as PageType)[slug].render.preload();
-                    }}
-                  >
-                    <Link
-                      href={`/samples/${slug}`}
-                      onClick={() => {
-                        setListExpanded(false);
-                      }}
-                    >
-                      {slug}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            {pageCategories.map((category) => {
+              return (
+                <ul
+                  className={styles.exampleList}
+                  key={`/categories/${category.title}`}
+                >
+                  <SampleCategory
+                    category={category}
+                    router={router}
+                    onClickPageLink={() => setListExpanded(false)}
+                  />
+                </ul>
+              );
+            })}
             <hr />
-            <h3>Other Pages</h3>
-            <ul className={styles.exampleList}>
+            <h3 style={{ marginBottom: '5px' }}>Other Pages</h3>
+            <ul
+              style={{ margin: '0px', paddingBottom: '20px' }}
+              className={styles.exampleList}
+            >
               <li>
                 <a
                   rel="noreferrer"

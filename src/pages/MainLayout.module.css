@@ -23,13 +23,13 @@
   margin-block-end: 16px;
 }
 
+.exampleList h3 {
+  color: rgb(43, 126, 171);
+}
+
 .exampleList li {
   list-style: none;
   padding: 0.3em 0;
-}
-
-.exampleList li.selected a {
-  color: #ff0000;
 }
 
 .expand {
@@ -45,7 +45,6 @@
 .panel .panelContents {
   display: block;
   transition: max-height 0s;
-  overflow: none;
   max-height: 100vh;
 }
 
@@ -67,12 +66,12 @@
   .panel .panelContents {
     display: block;
     transition: max-height 0.3s ease-out;
-    overflow: hidden;
     max-height: 0px;
   }
 
   .panel[data-expanded='false'] .panelContents {
     max-height: 0vh;
+    overflow: hidden;
   }
 
   .panel[data-expanded='true'] .panelContents {
