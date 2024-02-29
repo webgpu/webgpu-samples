@@ -100,7 +100,7 @@ export interface Camera {
   orthographic?: CameraOrthographic;
   perspective?: CameraPerspective;
   type: 'perspective' | 'orthographic' | string;
-  name?: any;
+  name?: string;
 }
 
 export interface Image {
@@ -123,13 +123,13 @@ export interface MaterialPbrMetallicRoughness {
   metallicRoughnessTexture?: TextureInfo;
 }
 export interface MaterialNormalTextureInfo {
-  index?: any;
-  texCoord?: any;
+  index?: number;
+  texCoord?: number;
   scale?: number;
 }
 export interface MaterialOcclusionTextureInfo {
-  index?: any;
-  texCoord?: any;
+  index?: number;
+  texCoord?: number;
   strength?: number;
 }
 
@@ -187,7 +187,7 @@ export interface Sampler {
 
 export interface Scene {
   nodes?: GlTfId[];
-  name?: any;
+  name?: string;
   root?: GLTFNode;
 }
 export interface Skin {
