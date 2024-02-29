@@ -57,11 +57,11 @@ const graphicsDemoPages: PageComponentType = {
   skinnedMesh: dynamic(() => import('../../sample/skinnedMesh/main')),
 };
 
-// Samples that demonstrate the gpgpu functionality of WebGPU. These samples generally
+// Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally
 // provide a two-dimensional visual representation of the result of a compute operation.
 // Accordingly, the rendering functionality of these samples exists primarily to demonstrate
 // the results of these operations. As a general rule of thumb, if the visual output of the
-// sample could just as easily be displayed using the canvas's 2D rendering context, then it
+// sample could just as easily be generated using the canvas's 2D rendering context, then it
 // belongs within this category.
 const gpuComputeDemoPages: PageComponentType = {
   computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
