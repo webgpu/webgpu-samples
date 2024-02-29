@@ -32,10 +32,6 @@
   padding: 0.3em 0;
 }
 
-.exampleList li.selected a {
-  color: #ff0000;
-}
-
 .expand {
   display: none;
   float: right;

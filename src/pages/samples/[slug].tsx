@@ -42,7 +42,7 @@ const webGPUFeaturesPages: PageComponentType = {
 
 // A selection of samples demonstrating various graphics techniques, utilizing various features
 // of the WebGPU API, and often executing render and compute pipelines in tandem to achieve their
-// visual results.
+// visual results. The techniques demonstrated may even be independent of WebGPU (e.g. 'cameras')
 const graphicsDemoPages: PageComponentType = {
   cameras: dynamic(() => import('../../sample/cameras/main')),
   normalMap: dynamic(() => import('../../sample/normalMap/main')),
@@ -57,14 +57,10 @@ const graphicsDemoPages: PageComponentType = {
   skinnedMesh: dynamic(() => import('../../sample/skinnedMesh/main')),
 };
 
-// Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally
-// provide a visual representation of the result of a compute operation. Accordingly, the rendering
-// functionality of these samples exists soley to demonstrate the results of these operations.
-// As a general rule of thumb, samples within this category should be of two types:
-//   1. Visualizations of compute operations where the rendering is or could just as effectively be
-//      implemented within canvas2D with minimal changes to the code.
-//   2. Visualizations of compute features that are endemic to the domain of machine learning or A.I
-//      such as 'f16', convolution, backpropogation, etc.
+// Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally provide some
+// user-facing representation (e.g. image, text, or audio) of the result of compute operations.
+// Any rendering code is primarily for visualization, not key to the unique part of the sample;
+// rendering could also be done using canvas2D without detracting from the sample's usefulness.
 const gpuComputeDemoPages: PageComponentType = {
   computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
@@ -118,7 +114,7 @@ export const pageCategories: PageCategory[] = [
   createPageCategory('WebGPU Features', webGPUFeaturesPages),
   createPageCategory('GPGPU Demos', gpuComputeDemoPages),
   createPageCategory('Graphics Techniques', graphicsDemoPages),
-  createPageCategory('Web Platform Demos', webPlatformPages),
+  createPageCategory('Web Platform Integration', webPlatformPages),
   createPageCategory('Benchmarks', benchmarkPages),
 ];
 
