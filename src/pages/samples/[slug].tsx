@@ -94,28 +94,55 @@ const pages: PageComponentType = {
 
 export interface PageCategory {
   title: string;
+  description?: string;
   pages: PageComponentType;
   sampleNames: string[];
 }
 
 const createPageCategory = (
   title: string,
-  pages: PageComponentType
+  pages: PageComponentType,
+  description?: string
 ): PageCategory => {
   return {
     title,
+    description,
     pages,
     sampleNames: Object.keys(pages),
   };
 };
 
 export const pageCategories: PageCategory[] = [
-  createPageCategory('Basic Graphics', graphicsBasicsPages),
-  createPageCategory('WebGPU Features', webGPUFeaturesPages),
-  createPageCategory('GPGPU Demos', gpuComputeDemoPages),
-  createPageCategory('Graphics Techniques', graphicsDemoPages),
-  createPageCategory('Web Platform Integration', webPlatformPages),
-  createPageCategory('Benchmarks', benchmarkPages),
+  createPageCategory(
+    'Basic Graphics',
+    graphicsBasicsPages,
+    'Basic rendering functionality implemented with the WebGPU API.'
+  ),
+  createPageCategory(
+    'WebGPU Features',
+    webGPUFeaturesPages,
+    'Demos of WebGPU-specific features or WebGPU-specific implementations of features.'
+  ),
+  createPageCategory(
+    'GPGPU Demos',
+    gpuComputeDemoPages,
+    'Visualizations of parallel GPU compute operations.'
+  ),
+  createPageCategory(
+    'Graphics Techniques',
+    graphicsDemoPages,
+    'A collection of graphics techniques implemented with WebGPU.'
+  ),
+  createPageCategory(
+    'Web Platform Integration',
+    webPlatformPages,
+    'Demos integrating WebGPU with other functionalities of the web platform.'
+  ),
+  createPageCategory(
+    'Benchmarks',
+    benchmarkPages,
+    'WebGPU Performance Benchmarks'
+  ),
 ];
 
 function Page({ slug }: Props): JSX.Element {

@@ -69,9 +69,12 @@
     max-height: 0px;
   }
 
+  .panel[data-expanded='false'] {
+    overflow: hidden;
+  }
+
   .panel[data-expanded='false'] .panelContents {
     max-height: 0vh;
-    overflow: hidden;
   }
 
   .panel[data-expanded='true'] .panelContents {
