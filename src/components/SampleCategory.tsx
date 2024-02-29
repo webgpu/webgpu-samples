@@ -1,5 +1,6 @@
 import styles from './SampleCategory.module.css';
 import { useState } from 'react';
+
 import { NextRouter } from 'next/router';
 import Link from 'next/link';
 import { PageCategory } from '../pages/samples/[slug]';
@@ -44,6 +45,7 @@ export const SampleCategory = ({
         >
           {title}
         </h3>
+
         <p
           className={styles.sampleCategoryDescription}
           data-active={displayDescription}

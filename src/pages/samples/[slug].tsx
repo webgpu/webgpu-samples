@@ -143,6 +143,7 @@ export const pageCategories: PageCategory[] = [
     benchmarkPages,
     'WebGPU Performance Benchmarks'
   ),
+
 ];
 
 function Page({ slug }: Props): JSX.Element {
