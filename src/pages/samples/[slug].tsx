@@ -58,11 +58,13 @@ const graphicsDemoPages: PageComponentType = {
 };
 
 // Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally
-// provide a two-dimensional visual representation of the result of a compute operation.
-// Accordingly, the rendering functionality of these samples exists primarily to demonstrate
-// the results of these operations. As a general rule of thumb, if the visual output of the
-// sample could just as easily be generated using the canvas's 2D rendering context, then it
-// belongs within this category.
+// provide a visual representation of the result of a compute operation. Accordingly, the rendering
+// functionality of these samples exists soley to demonstrate the results of these operations.
+// As a general rule of thumb, samples within this category should be of two types:
+//   1. Visualizations of compute operations where the rendering is or could just as effectively be
+//      implemented within canvas2D with minimal changes to the code.
+//   2. Visualizations of compute features that are endemic to the domain of machine learning or A.I
+//      such as 'f16', convolution, backpropogation, etc.
 const gpuComputeDemoPages: PageComponentType = {
   computeBoids: dynamic(() => import('../../sample/computeBoids/main')),
   gameOfLife: dynamic(() => import('../../sample/gameOfLife/main')),
