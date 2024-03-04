@@ -8,15 +8,22 @@ const init: SampleInit = async ({ canvas, pageState }) => {
   const worker = new Worker(new URL('./worker.ts', import.meta.url));
 
   // The primary way to communicate with the worker is to send and receive messages.
-  worker.addEventListener('message', (ev) => {
+  worker.addEventListener('message', (event) => {
     // The format of the message can be whatever you'd like, but it's helpful to decide on a
     // consistent convention so that you can tell the message types apart as your apps grow in
     // complexity. Here we establish a convention that all messages to and from the worker will
     // have a `type` field that we can use to determine the content of the message.
-    switch (ev.data.type) {
-      default: {
-        console.error(`Unknown Message Type: ${ev.data.type}`);
-      }
+
+    // Receive the bitmap from the worker.
+    // https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas#synchronous_display_of_frames_produced_by_an_offscreencanvas
+    switch (event.data.type) {
+      case 'bitmap':
+        canvas
+          .getContext('bitmaprenderer')
+          ?.transferFromImageBitmap(event.data.bitmap);
+        break;
+      default:
+        console.error(`Unknown Message Type: ${event.data.type}`);
     }
   });
 
@@ -25,16 +32,15 @@ const init: SampleInit = async ({ canvas, pageState }) => {
     // Here we can create one from our normal canvas by calling transferControlToOffscreen().
     // Anything drawn to the OffscreenCanvas that call returns will automatically be displayed on
     // the source canvas on the page.
-    const offscreenCanvas = canvas.transferControlToOffscreen();
     const devicePixelRatio = window.devicePixelRatio;
-    offscreenCanvas.width = canvas.clientWidth * devicePixelRatio;
-    offscreenCanvas.height = canvas.clientHeight * devicePixelRatio;
+    const width = canvas.clientWidth * devicePixelRatio;
+    const height = canvas.clientHeight * devicePixelRatio;
 
     // Send a message to the worker telling it to initialize WebGPU with the OffscreenCanvas. The
     // array passed as the second argument here indicates that the OffscreenCanvas is to be
     // transferred to the worker, meaning this main thread will lose access to it and it will be
     // fully owned by the worker.
-    worker.postMessage({ type: 'init', offscreenCanvas }, [offscreenCanvas]);
+    worker.postMessage({ type: 'init', width, height });
   } catch (err) {
     // TODO: This catch is added here because React will call init twice with the same canvas, and
     // the second time will fail the transferControlToOffscreen() because it's already been
