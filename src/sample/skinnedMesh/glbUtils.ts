@@ -668,11 +668,8 @@ export class GLTFNode {
 
 export class GLTFScene {
   nodes?: number[];
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
   root: GLTFNode;
+  name?: string;
 
   constructor(
     device: GPUDevice,

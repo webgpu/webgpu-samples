@@ -1,4 +1,5 @@
 import styles from './SampleCategory.module.css';
+import { useState } from 'react';
 
 import { NextRouter } from 'next/router';
 import Link from 'next/link';
@@ -23,17 +24,34 @@ export const SampleCategory = ({
   onClickPageLink,
   router,
 }: SampleCategoryProps) => {
+  const [displayDescription, setDisplayDescription] = useState<boolean>(false);
   const { title, pages, sampleNames } = category;
   return (
     <div>
-      <div className={styles.sampleCategory}>
+      <div
+        className={styles.sampleCategory}
+        onMouseEnter={() => {
+          setDisplayDescription(true);
+        }}
+        onMouseLeave={() => {
+          setDisplayDescription(false);
+        }}
+      >
         <h3
           style={{
-            marginTop: '5px',
+            cursor: 'pointer',
+            width: 'auto',
           }}
         >
           {title}
         </h3>
+
+        <p
+          className={styles.sampleCategoryDescription}
+          data-active={displayDescription}
+        >
+          {category.description}
+        </p>
       </div>
       {sampleNames.map((slug) => {
         return (
