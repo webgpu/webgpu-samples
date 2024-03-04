@@ -22,6 +22,9 @@ const graphicsBasicsPages: PageComponentType = {
   rotatingCube: dynamic(() => import('../../sample/rotatingCube/main')),
   twoCubes: dynamic(() => import('../../sample/twoCubes/main')),
   texturedCube: dynamic(() => import('../../sample/texturedCube/main')),
+  samplerParameters: dynamic(
+    () => import('../../sample/samplerParameters/main')
+  ),
   instancedCube: dynamic(() => import('../../sample/instancedCube/main')),
   fractalCube: dynamic(() => import('../../sample/fractalCube/main')),
   cubemap: dynamic(() => import('../../sample/cubemap/main')),
@@ -33,9 +36,6 @@ const graphicsBasicsPages: PageComponentType = {
 // the primary purpose of 'sampleParameters' is to demonstrate their specific nomenclature and
 // functionality within the context of the WebGPU API.
 const webGPUFeaturesPages: PageComponentType = {
-  samplerParameters: dynamic(
-    () => import('../../sample/samplerParameters/main')
-  ),
   reversedZ: dynamic(() => import('../../sample/reversedZ/main')),
   renderBundles: dynamic(() => import('../../sample/renderBundles/main')),
 };
@@ -121,7 +121,7 @@ export const pageCategories: PageCategory[] = [
   createPageCategory(
     'WebGPU Features',
     webGPUFeaturesPages,
-    'Demos of WebGPU-specific features or WebGPU-specific implementations of features.'
+    'Highlights of important WebGPU features.'
   ),
   createPageCategory(
     'GPGPU Demos',
