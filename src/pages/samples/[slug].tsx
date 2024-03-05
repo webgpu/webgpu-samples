@@ -72,9 +72,6 @@ const gpuComputeDemoPages: PageComponentType = {
 const webPlatformPages: PageComponentType = {
   resizeCanvas: dynamic(() => import('../../sample/resizeCanvas/main')),
   videoUploading: dynamic(() => import('../../sample/videoUploading/main')),
-  videoUploadingWebCodecs: dynamic(
-    () => import('../../sample/videoUploadingWebCodecs/main')
-  ),
   worker: dynamic(() => import('../../sample/worker/main')),
 };
 
