@@ -8,15 +8,6 @@ module.exports = {
   basePath: BASE_PATH,
   compress: true,
   reactStrictMode: true,
-  async redirects() {
-    return [
-      {
-        source: `${BASE_PATH}/samples/videoUploadingWebCodecs`,
-        destination: `${BASE_PATH}/samples/videoUploading?videoSource=videoFrame`,
-        permanent: true,
-      },
-    ]
-  },
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.module.rules.push({
       test: /\.(png|jpe?g|gif|webm)$/i,
