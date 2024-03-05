@@ -58,10 +58,14 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
     minFilter: 'linear',
   });
 
+  const params = new URLSearchParams(window.location.search);
+
   const settings = {
     requestFrame: 'requestAnimationFrame',
+    videoSource: params.get('videoSource') || 'videoElement',
   };
 
+  gui.add(settings, 'videoSource', ['videoElement', 'videoFrame']);
   gui.add(settings, 'requestFrame', [
     'requestAnimationFrame',
     'requestVideoFrameCallback',
@@ -70,6 +74,9 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
   function frame() {
     // Sample is no longer the active page.
     if (!pageState.active) return;
+
+    const externalTextureSource =
+      settings.videoSource === 'videoFrame' ? new VideoFrame(video) : video;
 
     const uniformBindGroup = device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
@@ -81,7 +88,7 @@ const init: SampleInit = async ({ canvas, pageState, gui }) => {
         {
           binding: 2,
           resource: device.importExternalTexture({
-            source: video,
+            source: externalTextureSource,
           }),
         },
       ],
