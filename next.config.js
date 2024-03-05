@@ -11,8 +11,8 @@ module.exports = {
   async redirects() {
     return [
       {
-        source: '/samples/videoUploadingWebCodecs',
-        destination: '/samples/videoUploading?videoSource=videoFrame',
+        source: `${BASE_PATH}/samples/videoUploadingWebCodecs`,
+        destination: `${BASE_PATH}/samples/videoUploading?videoSource=videoFrame`,
         permanent: true,
       },
     ]
