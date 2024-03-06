@@ -375,7 +375,6 @@ export class GLTFPrimitive {
       module: device.createShaderModule({
         code: VertexInputShaderString + vertexShader,
       }),
-      entryPoint: 'vertexMain',
       buffers: vertexBuffers,
     };
 
@@ -384,7 +383,6 @@ export class GLTFPrimitive {
       module: device.createShaderModule({
         code: VertexInputShaderString + fragmentShader,
       }),
-      entryPoint: 'fragmentMain',
       // Output render target info
       targets: [{ format: colorFormat }],
     };
