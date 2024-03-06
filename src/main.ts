@@ -176,7 +176,7 @@ function setSampleIFrameURL(e: PointerEvent, sampleInfo: SampleInfo) {
 const samplesByKey = new Map<string, SampleInfo>();
 
 // Generate the list of samples
-for (const { title, samples } of pageCategories) {
+for (const { title, description, samples } of pageCategories) {
   for (const [key, sampleInfo] of Object.entries(samples)) {
     samplesByKey.set(key, sampleInfo);
   }
@@ -185,7 +185,11 @@ for (const { title, samples } of pageCategories) {
     el('ul', { className: 'exampleList' }, [
       el('div', {}, [
         el('div', { className: 'sampleCategory' }, [
-          el('h3', { style: { 'margin-top': '5px' }, textContent: title }),
+          el('h3', {
+            style: { 'margin-top': '5px' },
+            textContent: title,
+            dataset: { tooltip: description },
+          }),
         ]),
         ...Object.entries(samples).map(([key, sampleInfo]) =>
           el('li', {}, [

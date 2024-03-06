@@ -9,6 +9,35 @@
   display: block;
 }
 
+.sampleCategory {
+  margin-top: 5px;
+  margin-bottom: 5px;
+  display: inline-block;
+}
+
+[data-tooltip] {
+  cursor: pointer;
+}
+
+[data-tooltip]::after {
+  pointer-events: none;
+  content: attr(data-tooltip);
+  background-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  transition: opacity 0.2s ease-in, transform 0.2s ease-out;
+  padding: 0.5em;
+  opacity: 0;
+  display: block;
+  position: absolute;
+  transform: translateY(-0.5em);
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateY(0.25em);
+}
+
 nav.sourceFileNav {
 }
 

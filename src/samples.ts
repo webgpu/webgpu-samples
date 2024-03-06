@@ -41,6 +41,7 @@ export type SampleInfo = {
 
 type PageCategory = {
   title: string;
+  description: string;
   samples: { [key: string]: SampleInfo };
 };
 
@@ -48,6 +49,8 @@ export const pageCategories: PageCategory[] = [
   // Samples that implement basic rendering functionality using the WebGPU API.
   {
     title: 'Basic Graphics',
+    description:
+      'Basic rendering functionality implemented with the WebGPU API.',
     samples: {
       helloTriangle,
       helloTriangleMSAA,
@@ -67,6 +70,7 @@ export const pageCategories: PageCategory[] = [
   // functionality within the context of the WebGPU API.
   {
     title: 'WebGPU Features',
+    description: 'Highlights of important WebGPU features.',
     samples: {
       samplerParameters,
       reversedZ,
@@ -80,6 +84,7 @@ export const pageCategories: PageCategory[] = [
   // rendering could also be done using canvas2D without detracting from the sample's usefulness.
   {
     title: 'GPGPU Demos',
+    description: 'Visualizations of parallel GPU compute operations.',
     samples: {
       computeBoids,
       gameOfLife,
@@ -92,6 +97,7 @@ export const pageCategories: PageCategory[] = [
   // visual results. The techniques demonstrated may even be independent of WebGPU (e.g. 'cameras')
   {
     title: 'Graphics Techniques',
+    description: 'A collection of graphics techniques implemented with WebGPU.',
     samples: {
       cameras,
       normalMap,
@@ -109,6 +115,8 @@ export const pageCategories: PageCategory[] = [
   // functionalities provided by the web platform.
   {
     title: 'Web Platform Integration',
+    description:
+      'Demos integrating WebGPU with other functionalities of the web platform.',
     samples: {
       resizeCanvas,
       videoUploading,
@@ -120,6 +128,7 @@ export const pageCategories: PageCategory[] = [
   // Samples whose primary purpose is to benchmark WebGPU performance.
   {
     title: 'Benchmarks',
+    description: 'WebGPU Performance Benchmarks',
     samples: {
       animometer,
     },
