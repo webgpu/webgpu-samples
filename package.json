@@ -41,6 +41,7 @@
     "chokidar": "^3.6.0",
     "eslint": "^8.26.0",
     "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-html": "^8.0.0",
     "eslint-plugin-prettier": "^4.2.1",
     "glob": "^10.3.10",
     "prettier": "^2.7.1",
