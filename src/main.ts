@@ -113,7 +113,9 @@ function setSampleIFrame(sampleInfo: SampleInfo | undefined) {
   // Replace the iframe because changing src adds to the user's history.
   sampleContainerElem.innerHTML = '';
   if (filename) {
-    sampleContainerElem.appendChild(el('iframe', { src: filename }));
+    sampleContainerElem.appendChild(
+      el('iframe', { src: filename, style: { height: '600px' } })
+    );
     // hide intro and show sample
     introElem.style.display = 'none';
     sampleElem.style.display = '';
