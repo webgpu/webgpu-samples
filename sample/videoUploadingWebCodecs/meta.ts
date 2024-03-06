@@ -3,7 +3,7 @@ export default {
   description: `This example shows how to upload a WebCodecs VideoFrame to WebGPU.`,
   filename: 'sample/videoUploadingWebCodecs',
   sources: [
-    { path: 'main.ts' },
+    { path: '../videoUploading/video.ts' },
     { path: '../../shaders/fullscreenTexturedQuad.wgsl' },
     { path: '../../shaders/sampleExternalTexture.frag.wgsl' },
   ],
