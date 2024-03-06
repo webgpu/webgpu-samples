@@ -39,7 +39,7 @@
   top: 1em;
   width: 36px;
   height: 36px;
-  background-image: url(../../menu.svg);
+  background-image: url(../menu.svg);
   background-size: cover;
 }
 
@@ -77,6 +77,7 @@
   .panel {
     max-width: 100%;
     height: auto;
+    overflow: hidden;
   }
 
   .expand {
