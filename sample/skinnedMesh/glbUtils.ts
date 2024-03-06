@@ -666,14 +666,10 @@ export class GLTFNode {
   }
 }
 
-/* eslint @typescript-eslint/no-explicit-any: "off" */
 export class GLTFScene {
   nodes?: number[];
-  name?: any;
-  extensions?: any;
-  extras?: any;
-  [k: string]: any;
   root: GLTFNode;
+  name?: string;
 
   constructor(
     device: GPUDevice,
