@@ -90,7 +90,10 @@ let currentSampleInfo: SampleInfo | undefined;
 /**
  * Change the iframe (and source editors) to the given sample or none
  */
-function setSampleIFrame(sampleInfo: SampleInfo | undefined) {
+function setSampleIFrame(
+  sampleInfo: SampleInfo | undefined,
+  search: string = ''
+) {
   menuToggleElem.checked = false;
 
   if (sampleInfo === currentSampleInfo) {
@@ -114,7 +117,7 @@ function setSampleIFrame(sampleInfo: SampleInfo | undefined) {
   sampleContainerElem.innerHTML = '';
   if (filename) {
     sampleContainerElem.appendChild(
-      el('iframe', { src: filename, style: { height: '600px' } })
+      el('iframe', { src: `${filename}${search}`, style: { height: '600px' } })
     );
     // hide intro and show sample
     introElem.style.display = 'none';
@@ -215,9 +218,10 @@ for (const { title, description, samples } of pageCategories) {
 function parseURL() {
   const url = new URL(location.toString());
 
-  const sample = url.searchParams.get('sample');
-  const sampleInfo = samplesByKey.get(sample || '');
-  setSampleIFrame(sampleInfo);
+  const sample = url.searchParams.get('sample') || '';
+  const sampleUrl = new URL(sample, location.href);
+  const sampleInfo = samplesByKey.get(basename(sampleUrl.pathname));
+  setSampleIFrame(sampleInfo, sampleUrl.search);
   if (sampleInfo) {
     const hash = basename(url.hash.substring(1));
     const sourceInfo =

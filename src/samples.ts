@@ -24,7 +24,6 @@ import skinnedMesh from '../sample/skinnedMesh/meta';
 import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/texturedCube/meta';
 import videoUploading from '../sample/videoUploading/meta';
-import videoUploadingWebCodecs from '../sample/videoUploadingWebCodecs/meta';
 import worker from '../sample/worker/meta';
 
 export type SourceInfo = {
@@ -120,7 +119,6 @@ export const pageCategories: PageCategory[] = [
     samples: {
       resizeCanvas,
       videoUploading,
-      videoUploadingWebCodecs,
       worker,
     },
   },
