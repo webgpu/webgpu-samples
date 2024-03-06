@@ -1,6 +1,6 @@
-@import url('/css/HomePage.css');
-@import url('/css/MainLayout.css');
-@import url('/css/SampleLayout.css');
+@import url('HomePage.css');
+@import url('MainLayout.css');
+@import url('SampleLayout.css');
 
 
 * {
