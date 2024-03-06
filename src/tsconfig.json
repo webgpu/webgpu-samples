@@ -1,0 +1,21 @@
+{
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "outDir": "../out",
+    "rootDir": "../",
+    "moduleResolution": "Node",
+    "typeRoots": [
+      "../node_modules/@webgpu/types",
+      "../node_modules/@types",
+    ],
+  },
+  "include": [
+    "../src/**/*.ts",
+    "../sample/*.ts",
+  ],
+  "exclude": [
+    "../out"
+  ],
+}
