@@ -27,6 +27,7 @@ module.exports = {
           const source = fs.readFileSync(v.module.userRequest, 'utf-8');
           return JSON.stringify(source); // Strings need to be wrapped in quotes
         }, []),
+        BASE_PATH: JSON.stringify(process.env.BASE_PATH || ''),
       })
     );
 

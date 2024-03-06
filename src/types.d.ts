@@ -9,6 +9,7 @@ interface HTMLCanvasElement extends HTMLElement {
 }
 
 declare const __SOURCE__: string;
+declare const BASE_PATH: string;
 
 // Defined by webpack.
 declare namespace NodeJS {

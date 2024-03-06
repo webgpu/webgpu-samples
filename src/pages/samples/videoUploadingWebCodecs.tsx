@@ -5,9 +5,7 @@ function Page(): JSX.Element {
     <Head>
       <meta
         httpEquiv="refresh"
-        content={`0; url=${
-          process.env.BASE_PATH || ''
-        }/samples/videoUploading?videoSource=videoFrame`}
+        content={`0; url=${BASE_PATH}/samples/videoUploading?videoSource=videoFrame`}
       ></meta>
     </Head>
   );
