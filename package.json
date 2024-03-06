@@ -19,7 +19,6 @@
     "export": "npm run build"
   },
   "dependencies": {
-    "@codemirror/gutter": "^0.19.9",
     "@codemirror/lang-javascript": "^6.2.2",
     "@codemirror/view": "^6.25.0",
     "@uiw/codemirror-theme-monokai": "^4.21.24",
