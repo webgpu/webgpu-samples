@@ -9,7 +9,7 @@
 }
 
 .panel {
-  flex: 1;
+  flex: 1 0 auto;
   max-width: 300px;
   height: 100%;
   background: #fafafa;
@@ -53,10 +53,17 @@
   display: none;
 }
 
+main {
+  overflow: auto;
+}
+
 @media only screen and (max-width: 768px) {
   .wrapper {
     flex-direction: column;
-    height: auto;
+  }
+
+  main {
+    overflow: visible;
   }
 
   #menuToggle ~ .panelContents {
@@ -65,16 +72,16 @@
   }
 
   #menuToggle:checked ~ .panelContents {
-    max-height: 1000px;
+    max-height: 2000px;
   }
 
   .panel .panelContents {
     display: block;
     transition: max-height 0.3s ease-out;
-    gmax-height: 100%;
   }
 
   .panel {
+    flex: 0 0 fit-content;
     max-width: 100%;
     height: auto;
     overflow: hidden;
