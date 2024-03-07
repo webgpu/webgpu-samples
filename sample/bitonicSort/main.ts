@@ -3,7 +3,10 @@ import Stats from 'stats.js';
 import BitonicDisplayRenderer from './bitonicDisplay';
 import { NaiveBitonicCompute } from './bitonicCompute';
 import atomicToZero from './atomicToZero.wgsl';
-import { SampleInitFactoryWebGPU, createBindGroupCluster } from '../sampleUtils';
+import {
+  SampleInitFactoryWebGPU,
+  createBindGroupCluster,
+} from '../sampleUtils';
 
 // Type of step that will be executed in our shader
 enum StepEnum {
