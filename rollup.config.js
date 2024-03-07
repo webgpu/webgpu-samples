@@ -112,6 +112,7 @@ export default [
     ],
     plugins: [
       nodeResolve(),
+      commonjs(),
       filenamePlugin(),
       typescript({ tsconfig: './src/tsconfig.json' }),
     ],

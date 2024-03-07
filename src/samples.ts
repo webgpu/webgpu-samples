@@ -1,7 +1,9 @@
 import aBuffer from '../sample/a-buffer/meta';
 import animometer from '../sample/animometer/meta';
 import bitonicSort from '../sample/bitonicSort/meta';
+import bundleCulling from '../sample/bundleCulling/meta';
 import cameras from '../sample/cameras/meta';
+import clusteredShading from '../sample/clusteredShading/meta';
 import cornell from '../sample/cornell/meta';
 import computeBoids from '../sample/computeBoids/meta';
 import cubemap from '../sample/cubemap/meta';
@@ -12,8 +14,10 @@ import helloTriangle from '../sample/helloTriangle/meta';
 import helloTriangleMSAA from '../sample/helloTriangleMSAA/meta';
 import imageBlur from '../sample/imageBlur/meta';
 import instancedCube from '../sample/instancedCube/meta';
+import metaballs from '../sample/metaballs/meta';
 import normalMap from '../sample/normalMap/meta';
 import particles from '../sample/particles/meta';
+import pristineGrid from '../sample/pristineGrid/meta';
 import renderBundles from '../sample/renderBundles/meta';
 import resizeCanvas from '../sample/resizeCanvas/meta';
 import reversedZ from '../sample/reversedZ/meta';
@@ -21,6 +25,7 @@ import rotatingCube from '../sample/rotatingCube/meta';
 import samplerParameters from '../sample/samplerParameters/meta';
 import shadowMapping from '../sample/shadowMapping/meta';
 import skinnedMesh from '../sample/skinnedMesh/meta';
+import spookyball from '../sample/spookyball/meta';
 import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
@@ -34,7 +39,8 @@ export type SampleInfo = {
   name: string;
   tocName?: string;
   description: string;
-  filename: string;
+  filename: string; // used if sample is local
+  url?: string; // used if sample is remote
   sources: SourceInfo[];
 };
 
@@ -74,6 +80,7 @@ export const pageCategories: PageCategory[] = [
       samplerParameters,
       reversedZ,
       renderBundles,
+      spookyball,
     },
   },
 
@@ -120,6 +127,19 @@ export const pageCategories: PageCategory[] = [
       resizeCanvas,
       videoUploading,
       worker,
+    },
+  },
+
+  // External examples
+  {
+    title: 'External Samples',
+    description: `Samples from around the net.`,
+    samples: {
+      bundleCulling,
+      metaballs,
+      pristineGrid,
+      clusteredShading,
+      spookyball,
     },
   },
 
