@@ -33,8 +33,10 @@ function writeRedirect(filename) {
   const dirname = path.join(outPath, 'samples', sampleName);
   const filepath = path.join(dirname, 'index.html');
   fs.mkdirSync(dirname, { recursive: true });
-  console.log('created', filepath)
-  fs.writeFileSync(filepath, `\
+  console.log('created', filepath);
+  fs.writeFileSync(
+    filepath,
+    `\
 <!DOCTYPE html>
 <html>
   <head>
@@ -44,7 +46,8 @@ function writeRedirect(filename) {
       ></meta> 
   </head>
 </html>
-`);
+`
+  );
 }
 
 const sampleFiles = readDirSyncRecursive('sample');
@@ -52,8 +55,7 @@ const sampleFiles = readDirSyncRecursive('sample');
 // Generate redirects for all samples
 sampleFiles
   .filter((n) => n.endsWith('/index.html'))
-  .forEach(n => writeRedirect(n));
-
+  .forEach((n) => writeRedirect(n));
 
 const samplePlugins = [
   wgslPlugin(),
