@@ -22,7 +22,7 @@ import samplerParameters from '../sample/samplerParameters/meta';
 import shadowMapping from '../sample/shadowMapping/meta';
 import skinnedMesh from '../sample/skinnedMesh/meta';
 import texturedCube from '../sample/texturedCube/meta';
-import twoCubes from '../sample/texturedCube/meta';
+import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
 import worker from '../sample/worker/meta';
 
