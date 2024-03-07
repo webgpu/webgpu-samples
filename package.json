@@ -15,6 +15,7 @@
     "build": "node build/tools/build.js",
     "start": "node build/tools/serve.js",
     "serve": "node build/tools/serve.js",
+    "server": "servez out",
     "watch": "rollup -c -w",
     "export": "npm run build"
   },
