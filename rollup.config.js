@@ -21,6 +21,25 @@ function wgslPlugin() {
   };
 }
 
+function makeRelativeToCWD(id) {
+  return path.relative(process.cwd(), path.normalize(id)).replaceAll('\\', '/');
+}
+
+function filenamePlugin() {
+  return {
+    name: 'filename-plugin',
+    transform(code, id) {
+      return {
+        code: code.replaceAll(
+          '__DIRNAME__',
+          () => `${JSON.stringify(makeRelativeToCWD(path.dirname(id)))}`
+        ),
+        map: { mappings: '' },
+      };
+    },
+  };
+}
+
 /**
  * Given a path like sample/foo/main.ts then, if an index.html doesn't exist
  * in the same folder, generate a redirect index.html in the out folder.
@@ -33,8 +52,10 @@ function writeRedirect(filename) {
   const dirname = path.join(outPath, 'samples', sampleName);
   const filepath = path.join(dirname, 'index.html');
   fs.mkdirSync(dirname, { recursive: true });
-  console.log('created', filepath)
-  fs.writeFileSync(filepath, `\
+  console.log('created', filepath);
+  fs.writeFileSync(
+    filepath,
+    `\
 <!DOCTYPE html>
 <html>
   <head>
@@ -44,7 +65,8 @@ function writeRedirect(filename) {
       ></meta> 
   </head>
 </html>
-`);
+`
+  );
 }
 
 const sampleFiles = readDirSyncRecursive('sample');
@@ -52,8 +74,7 @@ const sampleFiles = readDirSyncRecursive('sample');
 // Generate redirects for all samples
 sampleFiles
   .filter((n) => n.endsWith('/index.html'))
-  .forEach(n => writeRedirect(n));
-
+  .forEach((n) => writeRedirect(n));
 
 const samplePlugins = [
   wgslPlugin(),
@@ -89,7 +110,11 @@ export default [
         sourcemap: true,
       },
     ],
-    plugins: [nodeResolve(), typescript({ tsconfig: './src/tsconfig.json' })],
+    plugins: [
+      nodeResolve(),
+      filenamePlugin(),
+      typescript({ tsconfig: './src/tsconfig.json' }),
+    ],
     watch: {
       clearScreen: false,
     },

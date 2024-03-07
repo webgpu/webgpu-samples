@@ -10,7 +10,7 @@ export default {
     https://developer.nvidia.com/content/depth-precision-visualized
     https://web.archive.org/web/20220724174000/https://thxforthefish.com/posts/reverse_z/
     `,
-  filename: 'sample/reversedZ',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'vertex.wgsl' },

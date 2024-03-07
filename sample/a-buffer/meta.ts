@@ -3,7 +3,7 @@ export default {
   description: `Demonstrates order independent transparency using a per-pixel 
      linked-list of translucent fragments. Provides a choice for 
      limiting memory usage (when required).`,
-  filename: 'sample/a-buffer',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'opaque.wgsl' },

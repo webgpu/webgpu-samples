@@ -1,7 +1,7 @@
 export default {
   name: 'Cameras',
   description: 'This example provides example camera implementations',
-  filename: 'sample/cameras',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'camera.ts' },
