@@ -2,7 +2,7 @@ export default {
   name: 'Rotating Cube',
   description:
     'This example shows how to upload uniform data every frame to render a rotating object.',
-  filename: 'sample/rotatingCube',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: '../../shaders/basic.vert.wgsl' },

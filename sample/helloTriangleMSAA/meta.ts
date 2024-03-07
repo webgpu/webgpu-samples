@@ -1,7 +1,7 @@
 export default {
   name: 'Hello Triangle MSAA',
   description: 'Shows multisampled rendering a basic triangle.',
-  filename: 'sample/helloTriangleMSAA',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: '../../shaders/triangle.vert.wgsl' },

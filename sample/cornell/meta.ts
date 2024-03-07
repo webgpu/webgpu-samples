@@ -2,7 +2,7 @@ export default {
   name: 'Cornell box',
   description:
     'A classic Cornell box, using a lightmap generated using software ray-tracing.',
-  filename: 'sample/cornell',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'common.ts' },
