@@ -13,7 +13,7 @@ spawn('node', ['build/tools/copy.js', '1'], {
   stdio: 'inherit',
 });
 
-spawn('./node_modules/.bin/servez', ['out'], {
+spawn('npm', ['run', 'server'], {
   shell: true,
   stdio: 'inherit',
 });
