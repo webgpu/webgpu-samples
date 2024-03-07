@@ -1,0 +1,49 @@
+@import url('HomePage.css');
+@import url('MainLayout.css');
+@import url('SampleLayout.css');
+
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Inconsolata', monospace;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:link,
+a:visited {
+  color: #045b88;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+main {
+  position: relative;
+  flex: 1;
+  background: black;
+  color: #ddd;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.CodeMirror {
+  height: auto !important;
+  margin: 1em 0;
+}
+
+.CodeMirror-scroll {
+  height: auto !important;
+  overflow: visible !important;
+}

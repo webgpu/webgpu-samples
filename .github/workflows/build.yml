@@ -32,4 +32,3 @@ jobs:
           npm ci
           npm run-script lint
           npm run-script build
-          npm run-script export
