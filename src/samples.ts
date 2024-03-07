@@ -20,6 +20,7 @@ import particles from '../sample/particles/meta';
 import pristineGrid from '../sample/pristineGrid/meta';
 import renderBundles from '../sample/renderBundles/meta';
 import resizeCanvas from '../sample/resizeCanvas/meta';
+import resizeObserverHDDPI from '../sample/resizeObserverHDDPI/meta';
 import reversedZ from '../sample/reversedZ/meta';
 import rotatingCube from '../sample/rotatingCube/meta';
 import samplerParameters from '../sample/samplerParameters/meta';
@@ -125,6 +126,7 @@ export const pageCategories: PageCategory[] = [
       'Demos integrating WebGPU with other functionalities of the web platform.',
     samples: {
       resizeCanvas,
+      resizeObserverHDDPI,
       videoUploading,
       worker,
     },
