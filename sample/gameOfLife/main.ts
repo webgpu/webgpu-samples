@@ -125,7 +125,6 @@ function resetGameData() {
     }),
     compute: {
       module: computeShader,
-      entryPoint: 'main',
       constants: {
         blockSize: GameOptions.workgroupSize,
       },
@@ -191,12 +190,10 @@ function resetGameData() {
     },
     vertex: {
       module: vertexShader,
-      entryPoint: 'main',
       buffers: [cellsStride, squareStride],
     },
     fragment: {
       module: fragmentShader,
-      entryPoint: 'main',
       targets: [
         {
           format: presentationFormat,

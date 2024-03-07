@@ -541,7 +541,6 @@ SampleInitFactoryWebGPU(
                 Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
               ),
             }),
-            entryPoint: 'computeMain',
           },
         });
         // Create new config key for current element + size limit configuration
