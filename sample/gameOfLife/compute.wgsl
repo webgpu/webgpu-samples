@@ -1,4 +1,4 @@
-@binding(0) @group(0) var<storage, read> size: vec2<u32>;
+@binding(0) @group(0) var<storage, read> size: vec2u;
 @binding(1) @group(0) var<storage, read> current: array<u32>;
 @binding(2) @group(0) var<storage, read_write> next: array<u32>;
 
@@ -22,7 +22,7 @@ fn countNeighbors(x: u32, y: u32) -> u32 {
 }
 
 @compute @workgroup_size(blockSize, blockSize)
-fn main(@builtin(global_invocation_id) grid: vec3<u32>) {
+fn main(@builtin(global_invocation_id) grid: vec3u) {
   let x = grid.x;
   let y = grid.y;
   let n = countNeighbors(x, y);

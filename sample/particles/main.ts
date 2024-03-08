@@ -65,7 +65,7 @@ const renderPipeline = device.createRenderPipeline({
       },
       {
         // quad vertex buffer
-        arrayStride: 2 * 4, // vec2<f32>
+        arrayStride: 2 * 4, // vec2f
         stepMode: 'vertex',
         attributes: [
           {
@@ -118,10 +118,10 @@ const depthTexture = device.createTexture({
 });
 
 const uniformBufferSize =
-  4 * 4 * 4 + // modelViewProjectionMatrix : mat4x4<f32>
-  3 * 4 + // right : vec3<f32>
+  4 * 4 * 4 + // modelViewProjectionMatrix : mat4x4f
+  3 * 4 + // right : vec3f
   4 + // padding
-  3 * 4 + // up : vec3<f32>
+  3 * 4 + // up : vec3f
   4 + // padding
   0;
 const uniformBuffer = device.createBuffer({
@@ -163,7 +163,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
 // Quad vertex buffer
 //////////////////////////////////////////////////////////////////////////////
 const quadVertexBuffer = device.createBuffer({
-  size: 6 * 2 * 4, // 6x vec2<f32>
+  size: 6 * 2 * 4, // 6x vec2f
   usage: GPUBufferUsage.VERTEX,
   mappedAtCreation: true,
 });

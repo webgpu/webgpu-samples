@@ -1,13 +1,13 @@
 struct VertexOutput {
-  @builtin(position) position : vec4<f32>,
-  @location(4) color : vec4<f32>,
+  @builtin(position) position : vec4f,
+  @location(4) color : vec4f,
 }
 
 @vertex
 fn vert_main(
-  @location(0) a_particlePos : vec2<f32>,
-  @location(1) a_particleVel : vec2<f32>,
-  @location(2) a_pos : vec2<f32>
+  @location(0) a_particlePos : vec2f,
+  @location(1) a_particleVel : vec2f,
+  @location(2) a_pos : vec2f
 ) -> VertexOutput {
   let angle = -atan2(a_particleVel.x, a_particleVel.y);
   let pos = vec2(
@@ -26,6 +26,6 @@ fn vert_main(
 }
 
 @fragment
-fn frag_main(@location(4) color : vec4<f32>) -> @location(0) vec4<f32> {
+fn frag_main(@location(4) color : vec4f) -> @location(0) vec4f {
   return color;
 }
