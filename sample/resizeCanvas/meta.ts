@@ -2,7 +2,7 @@ export default {
   name: 'Resize Canvas',
   description:
     'Shows multisampled rendering a basic triangle on a dynamically sized canvas.',
-  filename: 'sample/resizeCanvas',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: '../../shaders/triangle.vert.wgsl' },

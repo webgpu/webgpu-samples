@@ -2,7 +2,7 @@ export default {
   name: 'Shadow Mapping',
   description:
     'This example shows how to sample from a depth texture to render shadows.',
-  filename: 'sample/shadowMapping',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'vertexShadow.wgsl' },

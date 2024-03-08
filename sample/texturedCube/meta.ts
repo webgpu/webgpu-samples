@@ -1,7 +1,7 @@
 export default {
   name: 'Textured Cube',
   description: 'This example shows how to bind and sample textures.',
-  filename: 'sample/texturedCube',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: '../../shaders/basic.vert.wgsl' },

@@ -54,7 +54,7 @@ var aBuffer = {
     description: `Demonstrates order independent transparency using a per-pixel 
      linked-list of translucent fragments. Provides a choice for 
      limiting memory usage (when required).`,
-    filename: 'sample/a-buffer',
+    filename: "sample/a-buffer",
     sources: [
         { path: 'main.ts' },
         { path: 'opaque.wgsl' },
@@ -66,14 +66,14 @@ var aBuffer = {
 var animometer = {
     name: 'Animometer',
     description: 'A WebGPU port of the Animometer MotionMark benchmark.',
-    filename: 'sample/animometer',
+    filename: "sample/animometer",
     sources: [{ path: 'main.ts' }, { path: 'animometer.wgsl' }],
 };
 
 var bitonicSort = {
     name: 'Bitonic Sort',
     description: "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at poniesandlight.co.uk/reflect/bitonic_merge_sort/. Each dispatch of the bitonic sort shader dispatches a workgroup containing elements/2 invocations. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
-    filename: 'sample/bitonicSort',
+    filename: "sample/bitonicSort",
     sources: [
         { path: 'main.ts' },
         { path: 'bitonicDisplay.ts' },
@@ -87,7 +87,7 @@ var bitonicSort = {
 var cameras = {
     name: 'Cameras',
     description: 'This example provides example camera implementations',
-    filename: 'sample/cameras',
+    filename: "sample/cameras",
     sources: [
         { path: 'main.ts' },
         { path: 'camera.ts' },
@@ -100,7 +100,7 @@ var cameras = {
 var cornell = {
     name: 'Cornell box',
     description: 'A classic Cornell box, using a lightmap generated using software ray-tracing.',
-    filename: 'sample/cornell',
+    filename: "sample/cornell",
     sources: [
         { path: 'main.ts' },
         { path: 'common.ts' },
@@ -123,7 +123,7 @@ var computeBoids = {
 the flocking behavior of birds. A compute shader updates \
 two ping-pong buffers which store particle data. The data \
 is used to draw instanced particles.',
-    filename: 'sample/computeBoids',
+    filename: "sample/computeBoids",
     sources: [
         { path: 'main.ts' },
         { path: 'updateSprites.wgsl' },
@@ -134,7 +134,7 @@ is used to draw instanced particles.',
 var cubemap = {
     name: 'Cubemap',
     description: 'This example shows how to render and sample from a cubemap texture.',
-    filename: 'sample/cubemap',
+    filename: "sample/cubemap",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/basic.vert.wgsl' },
@@ -154,7 +154,7 @@ var deferredRendering = {
     The debug view shows the depth buffer on the left (flipped and scaled a bit to make it more visible), the normal G buffer
     in the middle, and the albedo G-buffer on the right side of the screen.
     `,
-    filename: 'sample/deferredRendering',
+    filename: "sample/deferredRendering",
     sources: [
         { path: 'main.ts' },
         { path: 'vertexWriteGBuffers.wgsl' },
@@ -170,7 +170,7 @@ var fractalCube = {
     name: 'Fractal Cube',
     description: "This example uses the previous frame's rendering result \
      as the source texture for the next frame.",
-    filename: 'sample/fractalCube',
+    filename: "sample/fractalCube",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/basic.vert.wgsl' },
@@ -182,7 +182,7 @@ var fractalCube = {
 var gameOfLife = {
     name: "Conway's Game of Life",
     description: "This example shows how to make Conway's game of life. First, use compute shader to calculate how cells grow or die. Then use render pipeline to draw cells by using instance mesh.",
-    filename: 'sample/gameOfLife',
+    filename: "sample/gameOfLife",
     sources: [
         { path: 'main.ts' },
         { path: 'compute.wgsl' },
@@ -194,7 +194,7 @@ var gameOfLife = {
 var helloTriangle = {
     name: 'Hello Triangle',
     description: 'Shows rendering a basic triangle.',
-    filename: 'sample/helloTriangle',
+    filename: "sample/helloTriangle",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/triangle.vert.wgsl' },
@@ -205,7 +205,7 @@ var helloTriangle = {
 var helloTriangleMSAA = {
     name: 'Hello Triangle MSAA',
     description: 'Shows multisampled rendering a basic triangle.',
-    filename: 'sample/helloTriangleMSAA',
+    filename: "sample/helloTriangleMSAA",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/triangle.vert.wgsl' },
@@ -216,7 +216,7 @@ var helloTriangleMSAA = {
 var imageBlur = {
     name: 'Image Blur',
     description: 'This example shows how to blur an image using a WebGPU compute shader.',
-    filename: 'sample/imageBlur',
+    filename: "sample/imageBlur",
     sources: [
         { path: 'main.ts' },
         { path: 'blur.wgsl' },
@@ -227,7 +227,7 @@ var imageBlur = {
 var instancedCube = {
     name: 'Instanced Cube',
     description: 'This example shows the use of instancing.',
-    filename: 'sample/instancedCube',
+    filename: "sample/instancedCube",
     sources: [
         { path: 'main.ts' },
         { path: 'instanced.vert.wgsl' },
@@ -239,7 +239,7 @@ var instancedCube = {
 var normalMap = {
     name: 'Normal Mapping',
     description: 'This example demonstrates multiple different methods that employ fragment shaders to achieve additional perceptual depth on the surface of a cube mesh. Demonstrated methods include normal mapping, parallax mapping, and steep parallax mapping.',
-    filename: 'sample/normalMap',
+    filename: "sample/normalMap",
     sources: [
         { path: 'main.ts' },
         { path: 'normalMap.wgsl' },
@@ -252,7 +252,7 @@ var normalMap = {
 var particles = {
     name: 'Particles',
     description: 'This example demonstrates rendering of particles simulated with compute shaders.',
-    filename: 'sample/particles',
+    filename: "sample/particles",
     sources: [
         { path: 'main.ts' },
         { path: './particle.wgsl' },
@@ -266,7 +266,7 @@ var renderBundles = {
     meshes individually as a proxy for a more complex scene in order to demonstrate the reduction
     in JavaScript time spent to issue render commands. (Typically a scene like this would make use
     of instancing to reduce draw overhead.)`,
-    filename: 'sample/renderBundles',
+    filename: "sample/renderBundles",
     sources: [
         { path: 'main.ts' },
         { path: 'mesh.wgsl' },
@@ -277,7 +277,7 @@ var renderBundles = {
 var resizeCanvas = {
     name: 'Resize Canvas',
     description: 'Shows multisampled rendering a basic triangle on a dynamically sized canvas.',
-    filename: 'sample/resizeCanvas',
+    filename: "sample/resizeCanvas",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/triangle.vert.wgsl' },
@@ -298,7 +298,7 @@ var reversedZ = {
     https://developer.nvidia.com/content/depth-precision-visualized
     https://web.archive.org/web/20220724174000/https://thxforthefish.com/posts/reverse_z/
     `,
-    filename: 'sample/reversedZ',
+    filename: "sample/reversedZ",
     sources: [
         { path: 'main.ts' },
         { path: 'vertex.wgsl' },
@@ -314,7 +314,7 @@ var reversedZ = {
 var rotatingCube = {
     name: 'Rotating Cube',
     description: 'This example shows how to upload uniform data every frame to render a rotating object.',
-    filename: 'sample/rotatingCube',
+    filename: "sample/rotatingCube",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/basic.vert.wgsl' },
@@ -326,7 +326,7 @@ var rotatingCube = {
 var samplerParameters = {
     name: 'Sampler Parameters',
     description: 'Visualizes what all the sampler parameters do. Shows a textured plane at various scales (rotated, head-on, in perspective, and in vanishing perspective). The bottom-right view shows the raw contents of the 4 mipmap levels of the test texture (16x16, 8x8, 4x4, and 2x2).',
-    filename: 'sample/samplerParameters',
+    filename: "sample/samplerParameters",
     sources: [
         { path: 'main.ts' },
         { path: './texturedSquare.wgsl' },
@@ -337,7 +337,7 @@ var samplerParameters = {
 var shadowMapping = {
     name: 'Shadow Mapping',
     description: 'This example shows how to sample from a depth texture to render shadows.',
-    filename: 'sample/shadowMapping',
+    filename: "sample/shadowMapping",
     sources: [
         { path: 'main.ts' },
         { path: 'vertexShadow.wgsl' },
@@ -349,7 +349,7 @@ var shadowMapping = {
 var skinnedMesh = {
     name: 'Skinned Mesh',
     description: 'A demonstration of basic gltf loading and mesh skinning, ported from https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file. Animations are generated progrmatically, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
-    filename: 'sample/skinnedMesh',
+    filename: "sample/skinnedMesh",
     sources: [
         { path: 'main.ts' },
         { path: 'gridData.ts' },
@@ -364,7 +364,7 @@ var skinnedMesh = {
 var texturedCube = {
     name: 'Textured Cube',
     description: 'This example shows how to bind and sample textures.',
-    filename: 'sample/texturedCube',
+    filename: "sample/texturedCube",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/basic.vert.wgsl' },
@@ -379,7 +379,7 @@ var twoCubes = {
      involved when updating and binding multiple slices of a \
      uniform buffer. It renders two rotating cubes which have transform \
      matrices at different offsets in a uniform buffer.',
-    filename: 'sample/twoCubes',
+    filename: "sample/twoCubes",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/basic.vert.wgsl' },
@@ -391,7 +391,7 @@ var twoCubes = {
 var videoUploading = {
     name: 'Video Uploading',
     description: 'This example shows how to upload video frame to WebGPU.',
-    filename: 'sample/videoUploading',
+    filename: "sample/videoUploading",
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/fullscreenTexturedQuad.wgsl' },
@@ -404,7 +404,7 @@ var worker = {
     description: `This example shows one method of using WebGPU in a web worker and presenting to
     the main thread. It uses canvas.transferControlToOffscreen() to produce an offscreen canvas
     which is then transferred to the worker where all the WebGPU calls are made.`,
-    filename: 'sample/worker',
+    filename: "sample/worker",
     sources: [
         { path: 'main.ts' },
         { path: 'worker.ts' },

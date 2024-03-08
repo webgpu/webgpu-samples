@@ -5,7 +5,7 @@ export default {
 the flocking behavior of birds. A compute shader updates \
 two ping-pong buffers which store particle data. The data \
 is used to draw instanced particles.',
-  filename: 'sample/computeBoids',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'updateSprites.wgsl' },

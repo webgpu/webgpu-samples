@@ -9,7 +9,7 @@ export default {
     The debug view shows the depth buffer on the left (flipped and scaled a bit to make it more visible), the normal G buffer
     in the middle, and the albedo G-buffer on the right side of the screen.
     `,
-  filename: 'sample/deferredRendering',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'vertexWriteGBuffers.wgsl' },
