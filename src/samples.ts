@@ -27,6 +27,7 @@ import samplerParameters from '../sample/samplerParameters/meta';
 import shadowMapping from '../sample/shadowMapping/meta';
 import skinnedMesh from '../sample/skinnedMesh/meta';
 import spookyball from '../sample/spookyball/meta';
+import textRenderingMsdf from '../sample/textRenderingMsdf/meta';
 import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
@@ -115,6 +116,7 @@ export const pageCategories: PageCategory[] = [
       cornell,
       'a-buffer': aBuffer,
       skinnedMesh,
+      textRenderingMsdf,
     },
   },
 
