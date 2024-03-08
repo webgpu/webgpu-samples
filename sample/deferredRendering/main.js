@@ -5653,8 +5653,8 @@ mesh.uvs.push([0, 0], //
 [1, 0]);
 
 var lightUpdate = `struct LightData {
-  position : vec4<f32>,
-  color : vec3<f32>,
+  position : vec4f,
+  color : vec3f,
   radius : f32,
 }
 struct LightsBuffer {
@@ -5668,13 +5668,13 @@ struct Config {
 @group(0) @binding(1) var<uniform> config: Config;
 
 struct LightExtent {
-  min : vec4<f32>,
-  max : vec4<f32>,
+  min : vec4f,
+  max : vec4f,
 }
 @group(0) @binding(2) var<uniform> lightExtent: LightExtent;
 
 @compute @workgroup_size(64, 1, 1)
-fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
+fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
   var index = GlobalInvocationID.x;
   if (index >= config.numLights) {
     return;
@@ -5689,27 +5689,27 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
 `;
 
 var vertexWriteGBuffers = `struct Uniforms {
-  modelMatrix : mat4x4<f32>,
-  normalModelMatrix : mat4x4<f32>,
+  modelMatrix : mat4x4f,
+  normalModelMatrix : mat4x4f,
 }
 struct Camera {
-  viewProjectionMatrix : mat4x4<f32>,
-  invViewProjectionMatrix : mat4x4<f32>,
+  viewProjectionMatrix : mat4x4f,
+  invViewProjectionMatrix : mat4x4f,
 }
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
 @group(0) @binding(1) var<uniform> camera : Camera;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>,
-  @location(0) fragNormal: vec3<f32>,    // normal in world space
-  @location(1) fragUV: vec2<f32>,
+  @builtin(position) Position : vec4f,
+  @location(0) fragNormal: vec3f,    // normal in world space
+  @location(1) fragUV: vec2f,
 }
 
 @vertex
 fn main(
-  @location(0) position : vec3<f32>,
-  @location(1) normal : vec3<f32>,
-  @location(2) uv : vec2<f32>
+  @location(0) position : vec3f,
+  @location(1) normal : vec3f,
+  @location(2) uv : vec2f
 ) -> VertexOutput {
   var output : VertexOutput;
   let worldPosition = (uniforms.modelMatrix * vec4(position, 1.0)).xyz;
@@ -5721,16 +5721,16 @@ fn main(
 `;
 
 var fragmentWriteGBuffers = `struct GBufferOutput {
-  @location(0) normal : vec4<f32>,
+  @location(0) normal : vec4f,
 
   // Textures: diffuse color, specular color, smoothness, emissive etc. could go here
-  @location(1) albedo : vec4<f32>,
+  @location(1) albedo : vec4f,
 }
 
 @fragment
 fn main(
-  @location(0) fragNormal: vec3<f32>,
-  @location(1) fragUV : vec2<f32>
+  @location(0) fragNormal: vec3f,
+  @location(1) fragUV : vec2f
 ) -> GBufferOutput {
   // faking some kind of checkerboard texture
   let uv = floor(30.0 * fragUV);
@@ -5747,13 +5747,13 @@ fn main(
 var vertexTextureQuad = `@vertex
 fn main(
   @builtin(vertex_index) VertexIndex : u32
-) -> @builtin(position) vec4<f32> {
+) -> @builtin(position) vec4f {
   const pos = array(
     vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(-1.0, 1.0),
     vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0),
   );
 
-  return vec4<f32>(pos[VertexIndex], 0.0, 1.0);
+  return vec4f(pos[VertexIndex], 0.0, 1.0);
 }
 `;
 
@@ -5766,14 +5766,14 @@ override canvasSizeHeight: f32;
 
 @fragment
 fn main(
-  @builtin(position) coord : vec4<f32>
-) -> @location(0) vec4<f32> {
-  var result : vec4<f32>;
-  let c = coord.xy / vec2<f32>(canvasSizeWidth, canvasSizeHeight);
+  @builtin(position) coord : vec4f
+) -> @location(0) vec4f {
+  var result : vec4f;
+  let c = coord.xy / vec2f(canvasSizeWidth, canvasSizeHeight);
   if (c.x < 0.33333) {
     let rawDepth = textureLoad(
       gBufferDepth,
-      vec2<i32>(floor(coord.xy)),
+      vec2i(floor(coord.xy)),
       0
     );
     // remap depth into something a bit more visible
@@ -5782,7 +5782,7 @@ fn main(
   } else if (c.x < 0.66667) {
     result = textureLoad(
       gBufferNormal,
-      vec2<i32>(floor(coord.xy)),
+      vec2i(floor(coord.xy)),
       0
     );
     result.x = (result.x + 1.0) * 0.5;
@@ -5791,7 +5791,7 @@ fn main(
   } else {
     result = textureLoad(
       gBufferAlbedo,
-      vec2<i32>(floor(coord.xy)),
+      vec2i(floor(coord.xy)),
       0
     );
   }
@@ -5804,8 +5804,8 @@ var fragmentDeferredRendering = `@group(0) @binding(0) var gBufferNormal: textur
 @group(0) @binding(2) var gBufferDepth: texture_depth_2d;
 
 struct LightData {
-  position : vec4<f32>,
-  color : vec3<f32>,
+  position : vec4f,
+  color : vec3f,
   radius : f32,
 }
 struct LightsBuffer {
@@ -5817,13 +5817,13 @@ struct Config {
   numLights : u32,
 }
 struct Camera {
-  viewProjectionMatrix : mat4x4<f32>,
-  invViewProjectionMatrix : mat4x4<f32>,
+  viewProjectionMatrix : mat4x4f,
+  invViewProjectionMatrix : mat4x4f,
 }
 @group(1) @binding(1) var<uniform> config: Config;
 @group(1) @binding(2) var<uniform> camera: Camera;
 
-fn world_from_screen_coord(coord : vec2<f32>, depth_sample: f32) -> vec3<f32> {
+fn world_from_screen_coord(coord : vec2f, depth_sample: f32) -> vec3f {
   // reconstruct world-space position from the screen coordinate.
   let posClip = vec4(coord.x * 2.0 - 1.0, (1.0 - coord.y) * 2.0 - 1.0, depth_sample, 1.0);
   let posWorldW = camera.invViewProjectionMatrix * posClip;
@@ -5833,13 +5833,13 @@ fn world_from_screen_coord(coord : vec2<f32>, depth_sample: f32) -> vec3<f32> {
 
 @fragment
 fn main(
-  @builtin(position) coord : vec4<f32>
-) -> @location(0) vec4<f32> {
-  var result : vec3<f32>;
+  @builtin(position) coord : vec4f
+) -> @location(0) vec4f {
+  var result : vec3f;
 
   let depth = textureLoad(
     gBufferDepth,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   );
 
@@ -5849,18 +5849,18 @@ fn main(
   }
 
   let bufferSize = textureDimensions(gBufferDepth);
-  let coordUV = coord.xy / vec2<f32>(bufferSize);
+  let coordUV = coord.xy / vec2f(bufferSize);
   let position = world_from_screen_coord(coordUV, depth);
 
   let normal = textureLoad(
     gBufferNormal,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   ).xyz;
 
   let albedo = textureLoad(
     gBufferAlbedo,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   ).rgb;
 
@@ -5871,7 +5871,7 @@ fn main(
       continue;
     }
     let lambert = max(dot(normal, normalize(L)), 0.0);
-    result += vec3<f32>(
+    result += vec3f(
       lambert * pow(1.0 - distance / lightsBuffer.lights[i].radius, 2.0) * lightsBuffer.lights[i].color * albedo
     );
   }

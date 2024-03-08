@@ -4937,18 +4937,18 @@ const mesh = {
 mesh.normals = computeSurfaceNormals(mesh.positions, mesh.triangles);
 
 var opaqueWGSL = `struct Uniforms {
-  modelViewProjectionMatrix: mat4x4<f32>,
+  modelViewProjectionMatrix: mat4x4f,
 };
 
 @binding(0) @group(0) var<uniform> uniforms: Uniforms;
 
 struct VertexOutput {
-  @builtin(position) position: vec4<f32>,
+  @builtin(position) position: vec4f,
   @location(0) @interpolate(flat) instance: u32
 };
 
 @vertex
-fn main_vs(@location(0) position: vec4<f32>, @builtin(instance_index) instance: u32) -> VertexOutput {
+fn main_vs(@location(0) position: vec4f, @builtin(instance_index) instance: u32) -> VertexOutput {
   var output: VertexOutput;
 
   // distribute instances into a staggered 4x4 grid
@@ -4968,8 +4968,8 @@ fn main_vs(@location(0) position: vec4<f32>, @builtin(instance_index) instance: 
 }
 
 @fragment
-fn main_fs(@location(0) @interpolate(flat) instance: u32) -> @location(0) vec4<f32> {
-  const colors = array<vec3<f32>,6>(
+fn main_fs(@location(0) @interpolate(flat) instance: u32) -> @location(0) vec4f {
+  const colors = array<vec3f,6>(
       vec3(1.0, 0.0, 0.0),
       vec3(0.0, 1.0, 0.0),
       vec3(0.0, 0.0, 1.0),
@@ -4983,7 +4983,7 @@ fn main_fs(@location(0) @interpolate(flat) instance: u32) -> @location(0) vec4<f
 `;
 
 var translucentWGSL = `struct Uniforms {
-  modelViewProjectionMatrix: mat4x4<f32>,
+  modelViewProjectionMatrix: mat4x4f,
   maxStorableFragments: u32,
   targetWidth: u32,
 };
@@ -4998,7 +4998,7 @@ struct Heads {
 };
 
 struct LinkedListElement {
-  color: vec4<f32>,
+  color: vec4f,
   depth: f32,
   next: u32
 };
@@ -5014,12 +5014,12 @@ struct LinkedList {
 @binding(4) @group(0) var<uniform> sliceInfo: SliceInfo;
 
 struct VertexOutput {
-  @builtin(position) position: vec4<f32>,
+  @builtin(position) position: vec4f,
   @location(0) @interpolate(flat) instance: u32
 };
 
 @vertex
-fn main_vs(@location(0) position: vec4<f32>, @builtin(instance_index) instance: u32) -> VertexOutput {
+fn main_vs(@location(0) position: vec4f, @builtin(instance_index) instance: u32) -> VertexOutput {
   var output: VertexOutput;
 
   // distribute instances into a staggered 4x4 grid
@@ -5040,8 +5040,8 @@ fn main_vs(@location(0) position: vec4<f32>, @builtin(instance_index) instance: 
 }
 
 @fragment
-fn main_fs(@builtin(position) position: vec4<f32>, @location(0) @interpolate(flat) instance: u32) {
-  const colors = array<vec3<f32>,6>(
+fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat) instance: u32) {
+  const colors = array<vec3f,6>(
     vec3(1.0, 0.0, 0.0),
     vec3(0.0, 1.0, 0.0),
     vec3(0.0, 0.0, 1.0),
@@ -5050,7 +5050,7 @@ fn main_fs(@builtin(position) position: vec4<f32>, @location(0) @interpolate(fla
     vec3(0.0, 1.0, 1.0),
   );
 
-  let fragCoords = vec2<i32>(position.xy);
+  let fragCoords = vec2i(position.xy);
   let opaqueDepth = textureLoad(opaqueDepthTexture, fragCoords, 0);
 
   // reject fragments behind opaque objects
@@ -5076,7 +5076,7 @@ fn main_fs(@builtin(position) position: vec4<f32>, @location(0) @interpolate(fla
 `;
 
 var compositeWGSL = `struct Uniforms {
-  modelViewProjectionMatrix: mat4x4<f32>,
+  modelViewProjectionMatrix: mat4x4f,
   maxStorableFragments: u32,
   targetWidth: u32,
 };
@@ -5091,7 +5091,7 @@ struct Heads {
 };
 
 struct LinkedListElement {
-  color: vec4<f32>,
+  color: vec4f,
   depth: f32,
   next: u32
 };
@@ -5107,8 +5107,8 @@ struct LinkedList {
 
 // Output a full screen quad
 @vertex
-fn main_vs(@builtin(vertex_index) vertIndex: u32) -> @builtin(position) vec4<f32> {
-  const position = array<vec2<f32>, 6>(
+fn main_vs(@builtin(vertex_index) vertIndex: u32) -> @builtin(position) vec4f {
+  const position = array<vec2f, 6>(
     vec2(-1.0, -1.0),
     vec2(1.0, -1.0),
     vec2(1.0, 1.0),
@@ -5121,8 +5121,8 @@ fn main_vs(@builtin(vertex_index) vertIndex: u32) -> @builtin(position) vec4<f32
 }
 
 @fragment
-fn main_fs(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-  let fragCoords = vec2<i32>(position.xy);
+fn main_fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
+  let fragCoords = vec2i(position.xy);
   let headsIndex = u32(fragCoords.y - sliceInfo.sliceStartY) * uniforms.targetWidth + u32(fragCoords.x);
 
   // The maximum layers we can process for any pixel
@@ -5217,7 +5217,7 @@ const indexBuffer = device.createBuffer({
     indexBuffer.unmap();
 }
 // Uniforms contains:
-// * modelViewProjectionMatrix: mat4x4<f32>
+// * modelViewProjectionMatrix: mat4x4f
 // * maxStorableFragments: u32
 // * targetWidth: u32
 const uniformsSize = roundUp(16 * Float32Array.BYTES_PER_ELEMENT + 2 * Uint32Array.BYTES_PER_ELEMENT, 16);
@@ -5497,7 +5497,7 @@ const configure = () => {
     // Determines how much memory is allocated to store linked-list elements
     const averageLayersPerFragment = 4;
     // Each element stores
-    // * color : vec4<f32>
+    // * color : vec4f
     // * depth : f32
     // * index of next element in the list : u32
     const linkedListElementSize = 5 * Float32Array.BYTES_PER_ELEMENT + 1 * Uint32Array.BYTES_PER_ELEMENT;

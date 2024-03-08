@@ -14,14 +14,14 @@ struct Uniforms {
 @binding(0) @group(1) var<uniform> uniforms : Uniforms;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>,
-  @location(0) v_color : vec4<f32>,
+  @builtin(position) Position : vec4f,
+  @location(0) v_color : vec4f,
 }
 
 @vertex
 fn vert_main(
-  @location(0) position : vec4<f32>,
-  @location(1) color : vec4<f32>
+  @location(0) position : vec4f,
+  @location(1) color : vec4f
 ) -> VertexOutput {
   var fade = (uniforms.scalarOffset + time.value * uniforms.scalar / 10.0) % 1.0;
   if (fade < 0.5) {
@@ -44,6 +44,6 @@ fn vert_main(
 }
 
 @fragment
-fn frag_main(@location(0) v_color : vec4<f32>) -> @location(0) vec4<f32> {
+fn frag_main(@location(0) v_color : vec4f) -> @location(0) vec4f {
   return v_color;
 }

@@ -1,6 +1,6 @@
 struct LightData {
-  position : vec4<f32>,
-  color : vec3<f32>,
+  position : vec4f,
+  color : vec3f,
   radius : f32,
 }
 struct LightsBuffer {
@@ -14,13 +14,13 @@ struct Config {
 @group(0) @binding(1) var<uniform> config: Config;
 
 struct LightExtent {
-  min : vec4<f32>,
-  max : vec4<f32>,
+  min : vec4f,
+  max : vec4f,
 }
 @group(0) @binding(2) var<uniform> lightExtent: LightExtent;
 
 @compute @workgroup_size(64, 1, 1)
-fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
+fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
   var index = GlobalInvocationID.x;
   if (index >= config.numLights) {
     return;

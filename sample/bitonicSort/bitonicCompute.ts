@@ -36,12 +36,12 @@ fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
 }
 
 // invoke_id goes from 0 to workgroupSize
-fn get_flip_indices(invoke_id: u32, block_height: u32) -> vec2<u32> {
+fn get_flip_indices(invoke_id: u32, block_height: u32) -> vec2u {
   // Caculate index offset (i.e move indices into correct block)
   let block_offset: u32 = ((2 * invoke_id) / block_height) * block_height;
   let half_height = block_height / 2;
   // Calculate index spacing
-  var idx: vec2<u32> = vec2<u32>(
+  var idx: vec2u = vec2u(
     invoke_id % half_height, block_height - (invoke_id % half_height) - 1,
   );
   idx.x += block_offset;
@@ -49,10 +49,10 @@ fn get_flip_indices(invoke_id: u32, block_height: u32) -> vec2<u32> {
   return idx;
 }
 
-fn get_disperse_indices(invoke_id: u32, block_height: u32) -> vec2<u32> {
+fn get_disperse_indices(invoke_id: u32, block_height: u32) -> vec2u {
   var block_offset: u32 = ((2 * invoke_id) / block_height) * block_height;
   let half_height = block_height / 2;
-	var idx: vec2<u32> = vec2<u32>(
+	var idx: vec2u = vec2u(
     invoke_id % half_height, (invoke_id % half_height) + half_height
   );
   idx.x += block_offset;
@@ -76,9 +76,9 @@ const ALGO_GLOBAL_FLIP = 3;
 // Our compute shader will execute specified # of invocations or elements / 2 invocations
 @compute @workgroup_size(${workgroupSize}, 1, 1)
 fn computeMain(
-  @builtin(global_invocation_id) global_id: vec3<u32>,
-  @builtin(local_invocation_id) local_id: vec3<u32>,
-  @builtin(workgroup_id) workgroup_id: vec3<u32>,
+  @builtin(global_invocation_id) global_id: vec3u,
+  @builtin(local_invocation_id) local_id: vec3u,
+  @builtin(workgroup_id) workgroup_id: vec3u,
 ) {
 
   let offset = ${workgroupSize} * 2 * workgroup_id.x;

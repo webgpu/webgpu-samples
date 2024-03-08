@@ -1,8 +1,8 @@
 struct Uniforms {
-  modelMatrix : array<mat4x4<f32>, 5>,
+  modelMatrix : array<mat4x4f, 5>,
 }
 struct Camera {
-  viewProjectionMatrix : mat4x4<f32>,
+  viewProjectionMatrix : mat4x4f,
 }
 
 @binding(0) @group(0) var<uniform> uniforms : Uniforms;
@@ -11,7 +11,7 @@ struct Camera {
 @vertex
 fn main(
   @builtin(instance_index) instanceIdx : u32,
-  @location(0) position : vec4<f32>
-) -> @builtin(position) vec4<f32> {
+  @location(0) position : vec4f
+) -> @builtin(position) vec4f {
   return camera.viewProjectionMatrix * uniforms.modelMatrix[instanceIdx] * position;
 }

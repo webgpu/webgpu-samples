@@ -2493,7 +2493,7 @@ function updateDisplays(controllerArray) {
 }
 var GUI$1 = GUI;
 
-var computeWGSL = `@binding(0) @group(0) var<storage, read> size: vec2<u32>;
+var computeWGSL = `@binding(0) @group(0) var<storage, read> size: vec2u;
 @binding(1) @group(0) var<storage, read> current: array<u32>;
 @binding(2) @group(0) var<storage, read_write> next: array<u32>;
 
@@ -2517,7 +2517,7 @@ fn countNeighbors(x: u32, y: u32) -> u32 {
 }
 
 @compute @workgroup_size(blockSize, blockSize)
-fn main(@builtin(global_invocation_id) grid: vec3<u32>) {
+fn main(@builtin(global_invocation_id) grid: vec3u) {
   let x = grid.x;
   let y = grid.y;
   let n = countNeighbors(x, y);
@@ -2526,26 +2526,26 @@ fn main(@builtin(global_invocation_id) grid: vec3<u32>) {
 `;
 
 var vertWGSL = `struct Out {
-  @builtin(position) pos: vec4<f32>,
+  @builtin(position) pos: vec4f,
   @location(0) cell: f32,
 }
 
-@binding(0) @group(0) var<uniform> size: vec2<u32>;
+@binding(0) @group(0) var<uniform> size: vec2u;
 
 @vertex
-fn main(@builtin(instance_index) i: u32, @location(0) cell: u32, @location(1) pos: vec2<u32>) -> Out {
+fn main(@builtin(instance_index) i: u32, @location(0) cell: u32, @location(1) pos: vec2u) -> Out {
   let w = size.x;
   let h = size.y;
   let x = (f32(i % w + pos.x) / f32(w) - 0.5) * 2. * f32(w) / f32(max(w, h));
   let y = (f32((i - (i % w)) / w + pos.y) / f32(h) - 0.5) * 2. * f32(h) / f32(max(w, h));
 
-  return Out(vec4<f32>(x, y, 0., 1.), f32(cell));
+  return Out(vec4f(x, y, 0., 1.), f32(cell));
 }
 `;
 
 var fragWGSL = `@fragment
-fn main(@location(0) cell: f32) -> @location(0) vec4<f32> {
-  return vec4<f32>(cell, cell, cell, 1.);
+fn main(@location(0) cell: f32) -> @location(0) vec4f {
+  return vec4f(cell, cell, cell, 1.);
 }
 `;
 

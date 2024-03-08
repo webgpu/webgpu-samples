@@ -5058,37 +5058,37 @@ const convertGPUVertexFormatToWGSLFormat = (vertexFormat) => {
             return 'f32';
         }
         case 'float32x2': {
-            return 'vec2<f32>';
+            return 'vec2f';
         }
         case 'float32x3': {
-            return 'vec3<f32>';
+            return 'vec3f';
         }
         case 'float32x4': {
-            return 'vec4<f32>';
+            return 'vec4f';
         }
         case 'uint32': {
             return 'u32';
         }
         case 'uint32x2': {
-            return 'vec2<u32>';
+            return 'vec2u';
         }
         case 'uint32x3': {
-            return 'vec3<u32>';
+            return 'vec3u';
         }
         case 'uint32x4': {
-            return 'vec4<u32>';
+            return 'vec4u';
         }
         case 'uint8x2': {
-            return 'vec2<u32>';
+            return 'vec2u';
         }
         case 'uint8x4': {
-            return 'vec4<u32>';
+            return 'vec4u';
         }
         case 'uint16x4': {
-            return 'vec4<u32>';
+            return 'vec4u';
         }
         case 'uint16x2': {
-            return 'vec2<u32>';
+            return 'vec2u';
         }
         default: {
             return 'f32';
@@ -5494,7 +5494,7 @@ class GLTFSkin {
         if (inverseBindMatricesAccessor.componentType !==
             GLTFDataComponentType.FLOAT ||
             inverseBindMatricesAccessor.byteStride !== 64) {
-            throw Error(`This skin's provided accessor does not access a mat4x4<f32> matrix, or does not access the provided mat4x4<f32> data correctly`);
+            throw Error(`This skin's provided accessor does not access a mat4x4f matrix, or does not access the provided mat4x4f data correctly`);
         }
         // NOTE: Come back to this uint8array to float32array conversion in case it is incorrect
         this.inverseBindMatrices = new Float32Array(inverseBindMatricesAccessor.view.view.buffer, inverseBindMatricesAccessor.view.view.byteOffset, inverseBindMatricesAccessor.view.view.byteLength / 4);
@@ -5703,10 +5703,10 @@ var gltfWGSL = `// Whale.glb Vertex attributes
 // Read in VertexInput from attributes
 // f32x3    f32x3   f32x2       u8x4       f32x4
 struct VertexOutput {
-  @builtin(position) Position: vec4<f32>,
-  @location(0) normal: vec3<f32>,
-  @location(1) joints: vec4<f32>,
-  @location(2) weights: vec4<f32>,
+  @builtin(position) Position: vec4f,
+  @location(0) normal: vec3f,
+  @location(1) joints: vec4f,
+  @location(2) weights: vec4f,
 }
 
 struct CameraUniforms {
@@ -5727,8 +5727,8 @@ struct NodeUniforms {
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
 @group(2) @binding(0) var<uniform> node_uniforms: NodeUniforms;
-@group(3) @binding(0) var<storage, read> joint_matrices: array<mat4x4<f32>>;
-@group(3) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4<f32>>;
+@group(3) @binding(0) var<storage, read> joint_matrices: array<mat4x4f>;
+@group(3) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -5745,7 +5745,7 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
     joint2 * input.weights[2] +
     joint3 * input.weights[3];
   // Position of the vertex relative to our world
-  let world_position = vec4<f32>(input.position.x, input.position.y, input.position.z, 1.0);
+  let world_position = vec4f(input.position.x, input.position.y, input.position.z, 1.0);
   // Vertex position with model rotation, skinning, and the mesh's node transformation applied.
   let skinned_position = camera_uniforms.model_matrix * skin_matrix * node_uniforms.world_matrix * world_position;
   // Vertex position with only the model rotation applied.
@@ -5760,13 +5760,13 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
   output.Position = camera_uniforms.proj_matrix * camera_uniforms.view_matrix * transformed_position;
   output.normal = input.normal;
   // Convert u32 joint data to f32s to prevent flat interpolation error.
-  output.joints = vec4<f32>(f32(input.joints[0]), f32(input.joints[1]), f32(input.joints[2]), f32(input.joints[3]));
+  output.joints = vec4f(f32(input.joints[0]), f32(input.joints[1]), f32(input.joints[2]), f32(input.joints[3]));
   output.weights = input.weights;
   return output;
 }
 
 @fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   switch general_uniforms.render_mode {
     case 1: {
       return input.joints;
@@ -5775,22 +5775,22 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
       return input.weights;
     }
     default: {
-      return vec4<f32>(input.normal, 1.0);
+      return vec4f(input.normal, 1.0);
     }
   }
 }`;
 
 var gridWGSL = `struct VertexInput {
-  @location(0) vert_pos: vec2<f32>,
-  @location(1) joints: vec4<u32>,
-  @location(2) weights: vec4<f32>
+  @location(0) vert_pos: vec2f,
+  @location(1) joints: vec4u,
+  @location(2) weights: vec4f
 }
 
 struct VertexOutput {
-  @builtin(position) Position: vec4<f32>,
-  @location(0) world_pos: vec3<f32>,
-  @location(1) joints: vec4<f32>,
-  @location(2) weights: vec4<f32>,
+  @builtin(position) Position: vec4f,
+  @location(0) world_pos: vec3f,
+  @location(1) joints: vec4f,
+  @location(2) weights: vec4f,
 }
 
 struct CameraUniforms {
@@ -5806,14 +5806,14 @@ struct GeneralUniforms {
 
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4<f32>>;
-@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4<f32>>;
+@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4f>;
+@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
-  var bones = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  let position = vec4<f32>(input.vert_pos.x, input.vert_pos.y, 0.0, 1.0);
+  var bones = vec4f(0.0, 0.0, 0.0, 0.0);
+  let position = vec4f(input.vert_pos.x, input.vert_pos.y, 0.0, 1.0);
   // Get relevant 4 bone matrices
   let joint0 = joint_matrices[input.joints[0]] * inverse_bind_matrices[input.joints[0]];
   let joint1 = joint_matrices[input.joints[1]] * inverse_bind_matrices[input.joints[1]];
@@ -5834,14 +5834,14 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 
   //Get unadjusted world coordinates
   output.world_pos = position.xyz;
-  output.joints = vec4<f32>(f32(input.joints.x), f32(input.joints.y), f32(input.joints.z), f32(input.joints.w));
+  output.joints = vec4f(f32(input.joints.x), f32(input.joints.y), f32(input.joints.z), f32(input.joints.w));
   output.weights = input.weights;
   return output;
 }
 
 
 @fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   switch general_uniforms.render_mode {
     case 1: {
       return input.joints;
@@ -5850,7 +5850,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
       return input.weights;
     }
     default: {
-      return vec4<f32>(255.0, 0.0, 1.0, 1.0); 
+      return vec4f(255.0, 0.0, 1.0, 1.0); 
     }
   }
 }`;

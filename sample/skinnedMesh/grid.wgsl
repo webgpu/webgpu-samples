@@ -1,14 +1,14 @@
 struct VertexInput {
-  @location(0) vert_pos: vec2<f32>,
-  @location(1) joints: vec4<u32>,
-  @location(2) weights: vec4<f32>
+  @location(0) vert_pos: vec2f,
+  @location(1) joints: vec4u,
+  @location(2) weights: vec4f
 }
 
 struct VertexOutput {
-  @builtin(position) Position: vec4<f32>,
-  @location(0) world_pos: vec3<f32>,
-  @location(1) joints: vec4<f32>,
-  @location(2) weights: vec4<f32>,
+  @builtin(position) Position: vec4f,
+  @location(0) world_pos: vec3f,
+  @location(1) joints: vec4f,
+  @location(2) weights: vec4f,
 }
 
 struct CameraUniforms {
@@ -24,14 +24,14 @@ struct GeneralUniforms {
 
 @group(0) @binding(0) var<uniform> camera_uniforms: CameraUniforms;
 @group(1) @binding(0) var<uniform> general_uniforms: GeneralUniforms;
-@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4<f32>>;
-@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4<f32>>;
+@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4f>;
+@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
 
 @vertex
 fn vertexMain(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
-  var bones = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-  let position = vec4<f32>(input.vert_pos.x, input.vert_pos.y, 0.0, 1.0);
+  var bones = vec4f(0.0, 0.0, 0.0, 0.0);
+  let position = vec4f(input.vert_pos.x, input.vert_pos.y, 0.0, 1.0);
   // Get relevant 4 bone matrices
   let joint0 = joint_matrices[input.joints[0]] * inverse_bind_matrices[input.joints[0]];
   let joint1 = joint_matrices[input.joints[1]] * inverse_bind_matrices[input.joints[1]];
@@ -52,14 +52,14 @@ fn vertexMain(input: VertexInput) -> VertexOutput {
 
   //Get unadjusted world coordinates
   output.world_pos = position.xyz;
-  output.joints = vec4<f32>(f32(input.joints.x), f32(input.joints.y), f32(input.joints.z), f32(input.joints.w));
+  output.joints = vec4f(f32(input.joints.x), f32(input.joints.y), f32(input.joints.z), f32(input.joints.w));
   output.weights = input.weights;
   return output;
 }
 
 
 @fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   switch general_uniforms.render_mode {
     case 1: {
       return input.joints;
@@ -68,7 +68,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
       return input.weights;
     }
     default: {
-      return vec4<f32>(255.0, 0.0, 1.0, 1.0); 
+      return vec4f(255.0, 0.0, 1.0, 1.0); 
     }
   }
 }

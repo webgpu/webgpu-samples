@@ -2522,16 +2522,16 @@ struct Flip {
 // square blocks of size 128 - (filterSize - 1). We compute the number of blocks
 // needed in Javascript and dispatch that amount.
 
-var<workgroup> tile : array<array<vec3<f32>, 128>, 4>;
+var<workgroup> tile : array<array<vec3f, 128>, 4>;
 
 @compute @workgroup_size(32, 1, 1)
 fn main(
-  @builtin(workgroup_id) WorkGroupID : vec3<u32>,
-  @builtin(local_invocation_id) LocalInvocationID : vec3<u32>
+  @builtin(workgroup_id) WorkGroupID : vec3u,
+  @builtin(local_invocation_id) LocalInvocationID : vec3u
 ) {
   let filterOffset = (params.filterDim - 1) / 2;
-  let dims = vec2<i32>(textureDimensions(inputTex, 0));
-  let baseIndex = vec2<i32>(WorkGroupID.xy * vec2(params.blockDim, 4) +
+  let dims = vec2i(textureDimensions(inputTex, 0));
+  let baseIndex = vec2i(WorkGroupID.xy * vec2(params.blockDim, 4) +
                             LocalInvocationID.xy * vec2(4, 1))
                   - vec2(filterOffset, 0);
 
@@ -2545,7 +2545,7 @@ fn main(
       tile[r][4 * LocalInvocationID.x + u32(c)] = textureSampleLevel(
         inputTex,
         samp,
-        (vec2<f32>(loadIndex) + vec2<f32>(0.25, 0.25)) / vec2<f32>(dims),
+        (vec2f(loadIndex) + vec2f(0.25, 0.25)) / vec2f(dims),
         0.0
       ).rgb;
     }
@@ -2580,8 +2580,8 @@ var fullscreenTexturedQuadWGSL = `@group(0) @binding(0) var mySampler : sampler;
 @group(0) @binding(1) var myTexture : texture_2d<f32>;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>,
-  @location(0) fragUV : vec2<f32>,
+  @builtin(position) Position : vec4f,
+  @location(0) fragUV : vec2f,
 }
 
 @vertex
@@ -2611,7 +2611,7 @@ fn vert_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 }
 
 @fragment
-fn frag_main(@location(0) fragUV : vec2<f32>) -> @location(0) vec4<f32> {
+fn frag_main(@location(0) fragUV : vec2f) -> @location(0) vec4f {
   return textureSample(myTexture, mySampler, fragUV);
 }
 `;

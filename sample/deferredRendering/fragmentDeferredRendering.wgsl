@@ -3,8 +3,8 @@
 @group(0) @binding(2) var gBufferDepth: texture_depth_2d;
 
 struct LightData {
-  position : vec4<f32>,
-  color : vec3<f32>,
+  position : vec4f,
+  color : vec3f,
   radius : f32,
 }
 struct LightsBuffer {
@@ -16,13 +16,13 @@ struct Config {
   numLights : u32,
 }
 struct Camera {
-  viewProjectionMatrix : mat4x4<f32>,
-  invViewProjectionMatrix : mat4x4<f32>,
+  viewProjectionMatrix : mat4x4f,
+  invViewProjectionMatrix : mat4x4f,
 }
 @group(1) @binding(1) var<uniform> config: Config;
 @group(1) @binding(2) var<uniform> camera: Camera;
 
-fn world_from_screen_coord(coord : vec2<f32>, depth_sample: f32) -> vec3<f32> {
+fn world_from_screen_coord(coord : vec2f, depth_sample: f32) -> vec3f {
   // reconstruct world-space position from the screen coordinate.
   let posClip = vec4(coord.x * 2.0 - 1.0, (1.0 - coord.y) * 2.0 - 1.0, depth_sample, 1.0);
   let posWorldW = camera.invViewProjectionMatrix * posClip;
@@ -32,13 +32,13 @@ fn world_from_screen_coord(coord : vec2<f32>, depth_sample: f32) -> vec3<f32> {
 
 @fragment
 fn main(
-  @builtin(position) coord : vec4<f32>
-) -> @location(0) vec4<f32> {
-  var result : vec3<f32>;
+  @builtin(position) coord : vec4f
+) -> @location(0) vec4f {
+  var result : vec3f;
 
   let depth = textureLoad(
     gBufferDepth,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   );
 
@@ -48,18 +48,18 @@ fn main(
   }
 
   let bufferSize = textureDimensions(gBufferDepth);
-  let coordUV = coord.xy / vec2<f32>(bufferSize);
+  let coordUV = coord.xy / vec2f(bufferSize);
   let position = world_from_screen_coord(coordUV, depth);
 
   let normal = textureLoad(
     gBufferNormal,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   ).xyz;
 
   let albedo = textureLoad(
     gBufferAlbedo,
-    vec2<i32>(floor(coord.xy)),
+    vec2i(floor(coord.xy)),
     0
   ).rgb;
 
@@ -70,7 +70,7 @@ fn main(
       continue;
     }
     let lambert = max(dot(normal, normalize(L)), 0.0);
-    result += vec3<f32>(
+    result += vec3f(
       lambert * pow(1.0 - distance / lightsBuffer.lights[i].radius, 2.0) * lightsBuffer.lights[i].color * albedo
     );
   }

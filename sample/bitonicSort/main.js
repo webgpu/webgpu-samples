@@ -2667,8 +2667,8 @@ var fullscreenTexturedQuad = `@group(0) @binding(0) var mySampler : sampler;
 @group(0) @binding(1) var myTexture : texture_2d<f32>;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>,
-  @location(0) fragUV : vec2<f32>,
+  @builtin(position) Position : vec4f,
+  @location(0) fragUV : vec2f,
 }
 
 @vertex
@@ -2698,7 +2698,7 @@ fn vert_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 }
 
 @fragment
-fn frag_main(@location(0) fragUV : vec2<f32>) -> @location(0) vec4<f32> {
+fn frag_main(@location(0) fragUV : vec2f) -> @location(0) vec4f {
   return textureSample(myTexture, mySampler, fragUV);
 }
 `;
@@ -2844,8 +2844,8 @@ struct FragmentUniforms {
 }
 
 struct VertexOutput {
-  @builtin(position) Position: vec4<f32>,
-  @location(0) fragUV: vec2<f32>
+  @builtin(position) Position: vec4f,
+  @location(0) fragUV: vec2f
 }
 
 // Uniforms from compute shader
@@ -2855,13 +2855,13 @@ struct VertexOutput {
 @group(1) @binding(0) var<uniform> fragment_uniforms: FragmentUniforms;
 
 @fragment
-fn frag_main(input: VertexOutput) -> @location(0) vec4<f32> {
-  var uv: vec2<f32> = vec2<f32>(
+fn frag_main(input: VertexOutput) -> @location(0) vec4f {
+  var uv: vec2f = vec2f(
     input.fragUV.x * uniforms.width,
     input.fragUV.y * uniforms.height
   );
 
-  var pixel: vec2<u32> = vec2<u32>(
+  var pixel: vec2u = vec2u(
     u32(floor(uv.x)),
     u32(floor(uv.y)),
   );
@@ -2874,18 +2874,18 @@ fn frag_main(input: VertexOutput) -> @location(0) vec4<f32> {
   if (fragment_uniforms.highlight == 1) {
     return select(
       //If element is above halfHeight, highlight green
-      vec4<f32>(vec3<f32>(0.0, 1.0 - subtracter, 0.0).rgb, 1.0),
+      vec4f(vec3f(0.0, 1.0 - subtracter, 0.0).rgb, 1.0),
       //If element is below halfheight, highlight red
-      vec4<f32>(vec3<f32>(1.0 - subtracter, 0.0, 0.0).rgb, 1.0),
+      vec4f(vec3f(1.0 - subtracter, 0.0, 0.0).rgb, 1.0),
       elementIndex % uniforms.blockHeight < uniforms.blockHeight / 2
     );
   }
 
-  var color: vec3<f32> = vec3f(
+  var color: vec3f = vec3f(
     1.0 - subtracter
   );
 
-  return vec4<f32>(color.rgb, 1.0);
+  return vec4f(color.rgb, 1.0);
 }
 `;
 
@@ -2953,12 +2953,12 @@ fn local_compare_and_swap(idx_before: u32, idx_after: u32) {
 }
 
 // invoke_id goes from 0 to workgroupSize
-fn get_flip_indices(invoke_id: u32, block_height: u32) -> vec2<u32> {
+fn get_flip_indices(invoke_id: u32, block_height: u32) -> vec2u {
   // Caculate index offset (i.e move indices into correct block)
   let block_offset: u32 = ((2 * invoke_id) / block_height) * block_height;
   let half_height = block_height / 2;
   // Calculate index spacing
-  var idx: vec2<u32> = vec2<u32>(
+  var idx: vec2u = vec2u(
     invoke_id % half_height, block_height - (invoke_id % half_height) - 1,
   );
   idx.x += block_offset;
@@ -2966,10 +2966,10 @@ fn get_flip_indices(invoke_id: u32, block_height: u32) -> vec2<u32> {
   return idx;
 }
 
-fn get_disperse_indices(invoke_id: u32, block_height: u32) -> vec2<u32> {
+fn get_disperse_indices(invoke_id: u32, block_height: u32) -> vec2u {
   var block_offset: u32 = ((2 * invoke_id) / block_height) * block_height;
   let half_height = block_height / 2;
-	var idx: vec2<u32> = vec2<u32>(
+	var idx: vec2u = vec2u(
     invoke_id % half_height, (invoke_id % half_height) + half_height
   );
   idx.x += block_offset;
@@ -2993,9 +2993,9 @@ const ALGO_GLOBAL_FLIP = 3;
 // Our compute shader will execute specified # of invocations or elements / 2 invocations
 @compute @workgroup_size(${workgroupSize}, 1, 1)
 fn computeMain(
-  @builtin(global_invocation_id) global_id: vec3<u32>,
-  @builtin(local_invocation_id) local_id: vec3<u32>,
-  @builtin(workgroup_id) workgroup_id: vec3<u32>,
+  @builtin(global_invocation_id) global_id: vec3u,
+  @builtin(local_invocation_id) local_id: vec3u,
+  @builtin(workgroup_id) workgroup_id: vec3u,
 ) {
 
   let offset = ${workgroupSize} * 2 * workgroup_id.x;

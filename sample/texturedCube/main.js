@@ -2448,20 +2448,20 @@ const cubeVertexArray = new Float32Array([
 ]);
 
 var basicVertWGSL = `struct Uniforms {
-  modelViewProjectionMatrix : mat4x4<f32>,
+  modelViewProjectionMatrix : mat4x4f,
 }
 @binding(0) @group(0) var<uniform> uniforms : Uniforms;
 
 struct VertexOutput {
-  @builtin(position) Position : vec4<f32>,
-  @location(0) fragUV : vec2<f32>,
-  @location(1) fragPosition: vec4<f32>,
+  @builtin(position) Position : vec4f,
+  @location(0) fragUV : vec2f,
+  @location(1) fragPosition: vec4f,
 }
 
 @vertex
 fn main(
-  @location(0) position : vec4<f32>,
-  @location(1) uv : vec2<f32>
+  @location(0) position : vec4f,
+  @location(1) uv : vec2f
 ) -> VertexOutput {
   var output : VertexOutput;
   output.Position = uniforms.modelViewProjectionMatrix * position;
@@ -2476,9 +2476,9 @@ var sampleTextureMixColorWGSL = `@group(0) @binding(1) var mySampler: sampler;
 
 @fragment
 fn main(
-  @location(0) fragUV: vec2<f32>,
-  @location(1) fragPosition: vec4<f32>
-) -> @location(0) vec4<f32> {
+  @location(0) fragUV: vec2f,
+  @location(1) fragPosition: vec4f
+) -> @location(0) vec4f {
   return textureSample(myTexture, mySampler, fragUV) * fragPosition;
 }
 `;

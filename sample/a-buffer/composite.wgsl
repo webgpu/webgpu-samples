@@ -1,5 +1,5 @@
 struct Uniforms {
-  modelViewProjectionMatrix: mat4x4<f32>,
+  modelViewProjectionMatrix: mat4x4f,
   maxStorableFragments: u32,
   targetWidth: u32,
 };
@@ -14,7 +14,7 @@ struct Heads {
 };
 
 struct LinkedListElement {
-  color: vec4<f32>,
+  color: vec4f,
   depth: f32,
   next: u32
 };
@@ -30,8 +30,8 @@ struct LinkedList {
 
 // Output a full screen quad
 @vertex
-fn main_vs(@builtin(vertex_index) vertIndex: u32) -> @builtin(position) vec4<f32> {
-  const position = array<vec2<f32>, 6>(
+fn main_vs(@builtin(vertex_index) vertIndex: u32) -> @builtin(position) vec4f {
+  const position = array<vec2f, 6>(
     vec2(-1.0, -1.0),
     vec2(1.0, -1.0),
     vec2(1.0, 1.0),
@@ -44,8 +44,8 @@ fn main_vs(@builtin(vertex_index) vertIndex: u32) -> @builtin(position) vec4<f32
 }
 
 @fragment
-fn main_fs(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-  let fragCoords = vec2<i32>(position.xy);
+fn main_fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
+  let fragCoords = vec2i(position.xy);
   let headsIndex = u32(fragCoords.y - sliceInfo.sliceStartY) * uniforms.targetWidth + u32(fragCoords.x);
 
   // The maximum layers we can process for any pixel

@@ -1,13 +1,13 @@
 var spriteWGSL = `struct VertexOutput {
-  @builtin(position) position : vec4<f32>,
-  @location(4) color : vec4<f32>,
+  @builtin(position) position : vec4f,
+  @location(4) color : vec4f,
 }
 
 @vertex
 fn vert_main(
-  @location(0) a_particlePos : vec2<f32>,
-  @location(1) a_particleVel : vec2<f32>,
-  @location(2) a_pos : vec2<f32>
+  @location(0) a_particlePos : vec2f,
+  @location(1) a_particleVel : vec2f,
+  @location(2) a_pos : vec2f
 ) -> VertexOutput {
   let angle = -atan2(a_particleVel.x, a_particleVel.y);
   let pos = vec2(
@@ -26,14 +26,14 @@ fn vert_main(
 }
 
 @fragment
-fn frag_main(@location(4) color : vec4<f32>) -> @location(0) vec4<f32> {
+fn frag_main(@location(4) color : vec4f) -> @location(0) vec4f {
   return color;
 }
 `;
 
 var updateSpritesWGSL = `struct Particle {
-  pos : vec2<f32>,
-  vel : vec2<f32>,
+  pos : vec2f,
+  vel : vec2f,
 }
 struct SimParams {
   deltaT : f32,
@@ -53,7 +53,7 @@ struct Particles {
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
+fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
   var index = GlobalInvocationID.x;
 
   var vPos = particlesA.particles[index].pos;
@@ -63,8 +63,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var colVel = vec2(0.0);
   var cMassCount = 0u;
   var cVelCount = 0u;
-  var pos : vec2<f32>;
-  var vel : vec2<f32>;
+  var pos : vec2f;
+  var vel : vec2f;
 
   for (var i = 0u; i < arrayLength(&particlesA.particles); i++) {
     if (i == index) {

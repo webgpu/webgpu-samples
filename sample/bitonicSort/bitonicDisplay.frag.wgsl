@@ -11,8 +11,8 @@ struct FragmentUniforms {
 }
 
 struct VertexOutput {
-  @builtin(position) Position: vec4<f32>,
-  @location(0) fragUV: vec2<f32>
+  @builtin(position) Position: vec4f,
+  @location(0) fragUV: vec2f
 }
 
 // Uniforms from compute shader
@@ -22,13 +22,13 @@ struct VertexOutput {
 @group(1) @binding(0) var<uniform> fragment_uniforms: FragmentUniforms;
 
 @fragment
-fn frag_main(input: VertexOutput) -> @location(0) vec4<f32> {
-  var uv: vec2<f32> = vec2<f32>(
+fn frag_main(input: VertexOutput) -> @location(0) vec4f {
+  var uv: vec2f = vec2f(
     input.fragUV.x * uniforms.width,
     input.fragUV.y * uniforms.height
   );
 
-  var pixel: vec2<u32> = vec2<u32>(
+  var pixel: vec2u = vec2u(
     u32(floor(uv.x)),
     u32(floor(uv.y)),
   );
@@ -41,16 +41,16 @@ fn frag_main(input: VertexOutput) -> @location(0) vec4<f32> {
   if (fragment_uniforms.highlight == 1) {
     return select(
       //If element is above halfHeight, highlight green
-      vec4<f32>(vec3<f32>(0.0, 1.0 - subtracter, 0.0).rgb, 1.0),
+      vec4f(vec3f(0.0, 1.0 - subtracter, 0.0).rgb, 1.0),
       //If element is below halfheight, highlight red
-      vec4<f32>(vec3<f32>(1.0 - subtracter, 0.0, 0.0).rgb, 1.0),
+      vec4f(vec3f(1.0 - subtracter, 0.0, 0.0).rgb, 1.0),
       elementIndex % uniforms.blockHeight < uniforms.blockHeight / 2
     );
   }
 
-  var color: vec3<f32> = vec3f(
+  var color: vec3f = vec3f(
     1.0 - subtracter
   );
 
-  return vec4<f32>(color.rgb, 1.0);
+  return vec4f(color.rgb, 1.0);
 }
