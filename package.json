@@ -10,8 +10,8 @@
     "url": "https://github.com/webgpu/webgpu-samples.git"
   },
   "scripts": {
-    "lint": "eslint --ext .ts,.js,.html src/ sample/ build/",
-    "fix": "eslint --fix --ext .ts,.js,.html src/ sample/ build/",
+    "lint": "eslint --ext .ts,.js,.html src/ sample/ build/ .eslintrc.cjs rollup.config.js index.html",
+    "fix": "eslint --fix --ext .ts,.js,.html src/ sample/ build/ .eslintrc.cjs rollup.config.js index.html",
     "build": "node build/tools/build.js",
     "start": "node build/tools/serve.js",
     "serve": "node build/tools/serve.js",
