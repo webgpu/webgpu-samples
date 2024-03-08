@@ -91,7 +91,7 @@ function setSourceTabHash(event: PointerEvent, sourceInfo: SourceInfo) {
 
 // Non authoritative test that url is for same domain
 function isSameDomain(url: string) {
-  return !/^\w+:\/\//.test(url);
+  return new URL(url, window.location.href).origin === window.location.origin;
 }
 
 // That current sample so we don't reload an iframe if the user picks the same sample.
