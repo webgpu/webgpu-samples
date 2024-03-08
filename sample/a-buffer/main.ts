@@ -62,7 +62,7 @@ const indexBuffer = device.createBuffer({
 }
 
 // Uniforms contains:
-// * modelViewProjectionMatrix: mat4x4<f32>
+// * modelViewProjectionMatrix: mat4x4f
 // * maxStorableFragments: u32
 // * targetWidth: u32
 const uniformsSize = roundUp(
@@ -365,7 +365,7 @@ const configure = () => {
   const averageLayersPerFragment = 4;
 
   // Each element stores
-  // * color : vec4<f32>
+  // * color : vec4f
   // * depth : f32
   // * index of next element in the list : u32
   const linkedListElementSize =

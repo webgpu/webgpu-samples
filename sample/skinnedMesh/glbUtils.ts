@@ -176,37 +176,37 @@ const convertGPUVertexFormatToWGSLFormat = (vertexFormat: GPUVertexFormat) => {
       return 'f32';
     }
     case 'float32x2': {
-      return 'vec2<f32>';
+      return 'vec2f';
     }
     case 'float32x3': {
-      return 'vec3<f32>';
+      return 'vec3f';
     }
     case 'float32x4': {
-      return 'vec4<f32>';
+      return 'vec4f';
     }
     case 'uint32': {
       return 'u32';
     }
     case 'uint32x2': {
-      return 'vec2<u32>';
+      return 'vec2u';
     }
     case 'uint32x3': {
-      return 'vec3<u32>';
+      return 'vec3u';
     }
     case 'uint32x4': {
-      return 'vec4<u32>';
+      return 'vec4u';
     }
     case 'uint8x2': {
-      return 'vec2<u32>';
+      return 'vec2u';
     }
     case 'uint8x4': {
-      return 'vec4<u32>';
+      return 'vec4u';
     }
     case 'uint16x4': {
-      return 'vec4<u32>';
+      return 'vec4u';
     }
     case 'uint16x2': {
-      return 'vec2<u32>';
+      return 'vec2u';
     }
     default: {
       return 'f32';
@@ -739,7 +739,7 @@ export class GLTFSkin {
       inverseBindMatricesAccessor.byteStride !== 64
     ) {
       throw Error(
-        `This skin's provided accessor does not access a mat4x4<f32> matrix, or does not access the provided mat4x4<f32> data correctly`
+        `This skin's provided accessor does not access a mat4x4f matrix, or does not access the provided mat4x4f data correctly`
       );
     }
     // NOTE: Come back to this uint8array to float32array conversion in case it is incorrect

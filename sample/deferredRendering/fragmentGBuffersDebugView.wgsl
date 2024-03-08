@@ -7,14 +7,14 @@ override canvasSizeHeight: f32;
 
 @fragment
 fn main(
-  @builtin(position) coord : vec4<f32>
-) -> @location(0) vec4<f32> {
-  var result : vec4<f32>;
-  let c = coord.xy / vec2<f32>(canvasSizeWidth, canvasSizeHeight);
+  @builtin(position) coord : vec4f
+) -> @location(0) vec4f {
+  var result : vec4f;
+  let c = coord.xy / vec2f(canvasSizeWidth, canvasSizeHeight);
   if (c.x < 0.33333) {
     let rawDepth = textureLoad(
       gBufferDepth,
-      vec2<i32>(floor(coord.xy)),
+      vec2i(floor(coord.xy)),
       0
     );
     // remap depth into something a bit more visible
@@ -23,7 +23,7 @@ fn main(
   } else if (c.x < 0.66667) {
     result = textureLoad(
       gBufferNormal,
-      vec2<i32>(floor(coord.xy)),
+      vec2i(floor(coord.xy)),
       0
     );
     result.x = (result.x + 1.0) * 0.5;
@@ -32,7 +32,7 @@ fn main(
   } else {
     result = textureLoad(
       gBufferAlbedo,
-      vec2<i32>(floor(coord.xy)),
+      vec2i(floor(coord.xy)),
       0
     );
   }
