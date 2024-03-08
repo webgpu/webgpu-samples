@@ -30,13 +30,22 @@ context.configure({
   alphaMode: 'premultiplied',
 });
 
-const textRenderer = new MsdfTextRenderer(device, presentationFormat, depthFormat);
-const font = await textRenderer.createFont(new URL(
-  '../../assets/font/ya-hei-ascii-msdf.json',
-  import.meta.url
-).toString());
+const textRenderer = new MsdfTextRenderer(
+  device,
+  presentationFormat,
+  depthFormat
+);
+const font = await textRenderer.createFont(
+  new URL(
+    '../../assets/font/ya-hei-ascii-msdf.json',
+    import.meta.url
+  ).toString()
+);
 
-function getTextTransform(position: [number, number, number], rotation?: [number, number, number]) {
+function getTextTransform(
+  position: [number, number, number],
+  rotation?: [number, number, number]
+) {
   const textTransform = mat4.create();
   mat4.identity(textTransform);
   mat4.translate(textTransform, position, textTransform);
@@ -55,15 +64,19 @@ function getTextTransform(position: [number, number, number], rotation?: [number
 const textTransforms = [
   getTextTransform([0, 0, 1.1]),
   getTextTransform([0, 0, -1.1], [0, Math.PI, 0]),
-  getTextTransform([1.1, 0, 0], [0, Math.PI/2, 0]),
-  getTextTransform([-1.1, 0, 0], [0, -Math.PI/2, 0]),
-  getTextTransform([0, 1.1, 0], [-Math.PI/2, 0, 0]),
-  getTextTransform([0, -1.1, 0], [Math.PI/2, 0, 0]),
+  getTextTransform([1.1, 0, 0], [0, Math.PI / 2, 0]),
+  getTextTransform([-1.1, 0, 0], [0, -Math.PI / 2, 0]),
+  getTextTransform([0, 1.1, 0], [-Math.PI / 2, 0, 0]),
+  getTextTransform([0, -1.1, 0], [Math.PI / 2, 0, 0]),
 ];
 
-const titleText = textRenderer.formatText(font, `WebGPU`,
-{ centered: true, pixelScale: 1/128 });
-const largeText = textRenderer.formatText(font, `
+const titleText = textRenderer.formatText(font, `WebGPU`, {
+  centered: true,
+  pixelScale: 1 / 128,
+});
+const largeText = textRenderer.formatText(
+  font,
+  `
 WebGPU exposes an API for performing operations, such as rendering
 and computation, on a Graphics Processing Unit.
 
@@ -92,15 +105,40 @@ pipeline is defined by a GPURenderPipeline or a GPUComputePipeline
 object. The state not included in these pipeline objects is set
 during encoding with commands, such as beginRenderPass() or
 setBlendConstant().`,
-{ pixelScale: 1/256 });
+  { pixelScale: 1 / 256 }
+);
 
 const text = [
-  textRenderer.formatText(font, "Front", { centered: true, pixelScale: 1/128, color: [1, 0, 0, 1] }),
-  textRenderer.formatText(font, "Back", { centered: true, pixelScale: 1/128, color: [0, 1, 1, 1] }),
-  textRenderer.formatText(font, "Right", { centered: true, pixelScale: 1/128, color: [0, 1, 0, 1] }),
-  textRenderer.formatText(font, "Left", { centered: true, pixelScale: 1/128, color: [1, 0, 1, 1] }),
-  textRenderer.formatText(font, "Top", { centered: true, pixelScale: 1/128, color: [0, 0, 1, 1] }),
-  textRenderer.formatText(font, "Bottom", { centered: true, pixelScale: 1/128, color: [1, 1, 0, 1] }),
+  textRenderer.formatText(font, 'Front', {
+    centered: true,
+    pixelScale: 1 / 128,
+    color: [1, 0, 0, 1],
+  }),
+  textRenderer.formatText(font, 'Back', {
+    centered: true,
+    pixelScale: 1 / 128,
+    color: [0, 1, 1, 1],
+  }),
+  textRenderer.formatText(font, 'Right', {
+    centered: true,
+    pixelScale: 1 / 128,
+    color: [0, 1, 0, 1],
+  }),
+  textRenderer.formatText(font, 'Left', {
+    centered: true,
+    pixelScale: 1 / 128,
+    color: [1, 0, 1, 1],
+  }),
+  textRenderer.formatText(font, 'Top', {
+    centered: true,
+    pixelScale: 1 / 128,
+    color: [0, 0, 1, 1],
+  }),
+  textRenderer.formatText(font, 'Bottom', {
+    centered: true,
+    pixelScale: 1 / 128,
+    color: [1, 1, 0, 1],
+  }),
 
   titleText,
   largeText,
@@ -121,7 +159,6 @@ const pipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: basicVertWGSL,
     }),
-    entryPoint: 'main',
     buffers: [
       {
         arrayStride: cubeVertexSize,
@@ -146,7 +183,6 @@ const pipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: vertexPositionColorWGSL,
     }),
-    entryPoint: 'main',
     targets: [
       {
         format: presentationFormat,
@@ -154,8 +190,6 @@ const pipeline = device.createRenderPipeline({
     ],
   },
   primitive: {
-    topology: 'triangle-list',
-
     // Backface culling since the cube is solid piece of geometry.
     // Faces pointing away from the camera will be occluded by faces
     // pointing toward the camera.
@@ -200,7 +234,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     {
       view: undefined, // Assigned later
 
-      clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+      clearValue: [0, 0, 0, 1],
       loadOp: 'clear',
       storeOp: 'store',
     },
@@ -215,25 +249,8 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
 };
 
 const aspect = canvas.width / canvas.height;
-const projectionMatrix = mat4.perspective(
-  (2 * Math.PI) / 5,
-  aspect,
-  1,
-  100.0
-);
+const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 const modelViewProjectionMatrix = mat4.create();
-
-const frameBindGroup = device.createBindGroup({
-  layout: pipeline.getBindGroupLayout(0),
-  entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      },
-    },
-  ],
-});
 
 const start = Date.now();
 function getTransformationMatrix() {
@@ -252,14 +269,18 @@ function getTransformationMatrix() {
 
   // Update the matrix for the cube
   mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
-  mat4.multiply(modelViewProjectionMatrix, modelMatrix, modelViewProjectionMatrix);
+  mat4.multiply(
+    modelViewProjectionMatrix,
+    modelMatrix,
+    modelViewProjectionMatrix
+  );
 
   // Update the projection and view matrices for the text
   textRenderer.updateCamera(projectionMatrix, viewMatrix);
 
   // Update the transform of all the text surrounding the cube
   const textMatrix = mat4.create();
-  for (let [index, transform] of textTransforms.entries()) {
+  for (const [index, transform] of textTransforms.entries()) {
     mat4.multiply(modelMatrix, transform, textMatrix);
     text[index].setTransform(textMatrix);
   }
@@ -267,11 +288,7 @@ function getTransformationMatrix() {
   // Update the transform of the larger block of text
   const crawl = ((Date.now() - start) / 2500) % 14;
   mat4.identity(textMatrix);
-  mat4.rotateX(
-    textMatrix,
-    -Math.PI / 8,
-    textMatrix
-  );
+  mat4.rotateX(textMatrix, -Math.PI / 8, textMatrix);
   mat4.translate(textMatrix, [0, crawl - 3, 0], textMatrix);
   titleText.setTransform(textMatrix);
   mat4.translate(textMatrix, [-3, -0.1, 0], textMatrix);
