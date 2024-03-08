@@ -25,6 +25,7 @@ import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
 import worker from '../sample/worker/meta';
+import sobelFilter from '../sample/sobelFilter/meta';
 
 export type SourceInfo = {
   path: string;
@@ -107,6 +108,7 @@ export const pageCategories: PageCategory[] = [
       cornell,
       'a-buffer': aBuffer,
       skinnedMesh,
+      sobelFilter,
     },
   },
 
