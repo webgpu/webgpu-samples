@@ -30,6 +30,8 @@ a:hover {
 }
 
 main {
+  display: flex;
+  flex-direction: column;
   position: relative;
   flex: 1;
   background: black;

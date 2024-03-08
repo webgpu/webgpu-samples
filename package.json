@@ -25,6 +25,7 @@
     "@uiw/codemirror-theme-monokai": "^4.21.24",
     "codemirror": "^6.0.1",
     "dat.gui": "^0.7.6",
+    "showdown": "^2.1.0",
     "stats.js": "github:mrdoob/stats.js#b235d9c",
     "teapot": "^1.0.0",
     "wgpu-matrix": "^2.5.0"
@@ -36,6 +37,7 @@
     "@rollup/plugin-typescript": "^11.1.6",
     "@tsconfig/recommended": "^1.0.3",
     "@types/dat.gui": "^0.7.12",
+    "@types/showdown": "^2.0.6",
     "@types/stats.js": "^0.17.3",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@webgpu/types": "^0.1.40",

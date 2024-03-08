@@ -5,6 +5,11 @@ import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { basicSetup } from 'codemirror';
+import { Converter } from 'showdown';
+
+const markdownConverter = new Converter({
+  simplifiedAutoLink: true,
+});
 
 /**
  * Gets an element unconditionally so TS doesn't complain.
@@ -84,6 +89,11 @@ function setSourceTabHash(event: PointerEvent, sourceInfo: SourceInfo) {
   setSourceTab(sourceInfo);
 }
 
+// Non authoritative test that url is for same domain
+function isSameDomain(url: string) {
+  return new URL(url, window.location.href).origin === window.location.origin;
+}
+
 // That current sample so we don't reload an iframe if the user picks the same sample.
 let currentSampleInfo: SampleInfo | undefined;
 
@@ -100,10 +110,10 @@ function setSampleIFrame(
     return;
   }
   sampleContainerElem.innerHTML = '';
-  descriptionElem.textContent = '';
+  descriptionElem.innerHTML = '';
 
   currentSampleInfo = sampleInfo;
-  const { name, description, filename, sources } = sampleInfo || {
+  const { name, description, filename, url, sources } = sampleInfo || {
     name: '',
     description: '',
     filename: '',
@@ -111,14 +121,15 @@ function setSampleIFrame(
   };
 
   titleElem.textContent = name;
-  descriptionElem.textContent = description;
+  descriptionElem.innerHTML = markdownConverter.makeHtml(description);
 
   // Replace the iframe because changing src adds to the user's history.
   sampleContainerElem.innerHTML = '';
   if (filename) {
-    sampleContainerElem.appendChild(
-      el('iframe', { src: `${filename}${search}`, style: { height: '600px' } })
-    );
+    const src = url || `${filename}${search}`;
+    sampleContainerElem.appendChild(el('iframe', { src }));
+    sampleContainerElem.style.height = sources.length > 0 ? '600px' : '100%';
+
     // hide intro and show sample
     introElem.style.display = 'none';
     sampleElem.style.display = '';
@@ -131,13 +142,15 @@ function setSampleIFrame(
   // create source tabs
   codeTabsElem.innerHTML = '';
   sourcesElem.innerHTML = '';
+  sourcesElem.style.display = sources.length > 0 ? '' : 'none';
   sources.forEach((source, i) => {
+    const { path } = source;
     const active = (i === 0).toString();
     const name = basename(source.path);
     codeTabsElem.appendChild(
       el('li', {}, [
         el('a', {
-          href: `#${source.path}`,
+          href: `#${path}`,
           textContent: name,
           dataset: {
             active,
@@ -157,7 +170,8 @@ function setSampleIFrame(
       },
     });
     sourcesElem.appendChild(elem);
-    makeCodeMirrorEditor(elem, `${filename}/${source.path}`);
+    const url = isSameDomain(path) ? `${filename}/${path}` : source.path;
+    makeCodeMirrorEditor(elem, url);
   });
 }
 
