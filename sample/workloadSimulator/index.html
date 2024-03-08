@@ -473,8 +473,7 @@ async function render(fromRaf, fromPostMessage) {
       }
     }
     if (useRaf.checked && rafPending == 0) {
-      (window.requestAnimationFrame || window.mozRequestAnimationFrame ||
-          window.webkitRequestAnimationFrame)(function() { render(true); });
+      window.requestAnimationFrame(function() { render(true); });
       rafPending++;
     }
     if (useSetTimeout.checked) {

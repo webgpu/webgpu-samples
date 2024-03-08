@@ -32,6 +32,7 @@ import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
 import worker from '../sample/worker/meta';
+import workloadSimulator from '../sample/workloadSimulator/meta';
 
 export type SourceInfo = {
   path: string;
@@ -41,6 +42,7 @@ export type SampleInfo = {
   name: string;
   tocName?: string;
   description: string;
+  openInNewTab?: boolean;
   filename: string; // used if sample is local
   url?: string; // used if sample is remote
   sources: SourceInfo[];
@@ -152,6 +154,7 @@ export const pageCategories: PageCategory[] = [
     description: 'WebGPU Performance Benchmarks',
     samples: {
       animometer,
+      workloadSimulator,
     },
   },
 ];

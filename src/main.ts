@@ -214,10 +214,15 @@ for (const { title, description, samples } of pageCategories) {
           el('li', {}, [
             el('a', {
               href: sampleInfo.filename,
-              onClick: (e: PointerEvent) => {
-                setSampleIFrameURL(e, sampleInfo);
-              },
-              textContent: sampleInfo.tocName || key,
+              ...(!sampleInfo.openInNewTab && {
+                onClick: (e: PointerEvent) => {
+                  setSampleIFrameURL(e, sampleInfo);
+                },
+              }),
+              textContent: `${sampleInfo.tocName || key}${
+                sampleInfo.openInNewTab ? ' ↗️' : ''
+              }`,
+              ...(sampleInfo.openInNewTab && { target: '_blank' }),
             }),
           ])
         ),
