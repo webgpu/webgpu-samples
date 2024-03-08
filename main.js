@@ -330,6 +330,13 @@ var resizeCanvas = {
     ],
 };
 
+var resizeObserverHDDPI = {
+    name: 'ResizeObserver HD-DPI Fullscreen',
+    description: `This example shows how to use ResizeObserver, handle HD-DPI correctly, and Fullscreen`,
+    filename: "sample/resizeObserverHDDPI",
+    sources: [{ path: 'main.ts' }, { path: 'checker.wgsl' }],
+};
+
 var reversedZ = {
     name: 'Reversed Z',
     description: `This example shows the use of reversed z technique for better utilization of depth buffer precision.
@@ -538,6 +545,7 @@ const pageCategories = [
         description: 'Demos integrating WebGPU with other functionalities of the web platform.',
         samples: {
             resizeCanvas,
+            resizeObserverHDDPI,
             videoUploading,
             worker,
         },
