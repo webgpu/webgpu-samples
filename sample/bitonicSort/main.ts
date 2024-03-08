@@ -294,7 +294,6 @@ SampleInitFactoryWebGPU(
         module: device.createShaderModule({
           code: NaiveBitonicCompute(settings['Workgroup Size']),
         }),
-        entryPoint: 'computeMain',
       },
     });
 
@@ -307,7 +306,6 @@ SampleInitFactoryWebGPU(
         module: device.createShaderModule({
           code: atomicToZero,
         }),
-        entryPoint: 'atomicToZero',
       },
     });
 
@@ -427,7 +425,6 @@ SampleInitFactoryWebGPU(
               Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
             ),
           }),
-          entryPoint: 'computeMain',
         },
       });
       // Randomize array elements
@@ -544,7 +541,6 @@ SampleInitFactoryWebGPU(
                 Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
               ),
             }),
-            entryPoint: 'computeMain',
           },
         });
         // Create new config key for current element + size limit configuration

@@ -2510,7 +2510,6 @@ const pipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: basicVertWGSL,
         }),
-        entryPoint: 'main',
         buffers: [
             {
                 arrayStride: cubeVertexSize,
@@ -2535,7 +2534,6 @@ const pipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: sampleTextureMixColorWGSL,
         }),
-        entryPoint: 'main',
         targets: [
             {
                 format: presentationFormat,

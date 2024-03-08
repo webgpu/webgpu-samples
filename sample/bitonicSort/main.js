@@ -2812,13 +2812,11 @@ class Base2DRendererClass {
                 module: device.createShaderModule({
                     code: fullscreenTexturedQuad,
                 }),
-                entryPoint: 'vert_main',
             },
             fragment: {
                 module: device.createShaderModule({
                     code: code,
                 }),
-                entryPoint: 'frag_main',
                 targets: [
                     {
                         format: presentationFormat,
@@ -3245,7 +3243,6 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
             module: device.createShaderModule({
                 code: NaiveBitonicCompute(settings['Workgroup Size']),
             }),
-            entryPoint: 'computeMain',
         },
     });
     // Simple pipeline that zeros out an atomic value at group 0 binding 3
@@ -3257,7 +3254,6 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
             module: device.createShaderModule({
                 code: atomicToZero,
             }),
-            entryPoint: 'atomicToZero',
         },
     });
     // Create bitonic debug renderer
@@ -3343,7 +3339,6 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
                 module: device.createShaderModule({
                     code: NaiveBitonicCompute(Math.min(settings['Total Elements'] / 2, settings['Size Limit'])),
                 }),
-                entryPoint: 'computeMain',
             },
         });
         // Randomize array elements
@@ -3450,7 +3445,6 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
                 module: device.createShaderModule({
                     code: NaiveBitonicCompute(Math.min(settings['Total Elements'] / 2, settings['Size Limit'])),
                 }),
-                entryPoint: 'computeMain',
             },
         });
         // Create new config key for current element + size limit configuration

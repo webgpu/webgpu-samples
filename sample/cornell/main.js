@@ -5872,12 +5872,10 @@ class Rasterizer {
             }),
             vertex: {
                 module: mod,
-                entryPoint: 'vs_main',
                 buffers: scene.vertexBufferLayout,
             },
             fragment: {
                 module: mod,
-                entryPoint: 'fs_main',
                 targets: [{ format: framebuffer.format }],
             },
             primitive: {
@@ -5995,7 +5993,6 @@ class Tonemapper {
             layout: pipelineLayout,
             compute: {
                 module: mod,
-                entryPoint: 'main',
                 constants: {
                     WorkgroupSizeX: this.kWorkgroupSizeX,
                     WorkgroupSizeY: this.kWorkgroupSizeY,
@@ -6149,7 +6146,6 @@ class Raytracer {
                 module: device.createShaderModule({
                     code: raytracerWGSL + common.wgsl,
                 }),
-                entryPoint: 'main',
                 constants: {
                     WorkgroupSizeX: this.kWorkgroupSizeX,
                     WorkgroupSizeY: this.kWorkgroupSizeY,

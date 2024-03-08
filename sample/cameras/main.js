@@ -5373,7 +5373,6 @@ const pipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: cubeWGSL,
         }),
-        entryPoint: 'vertex_main',
         buffers: [
             {
                 arrayStride: cubeVertexSize,
@@ -5398,7 +5397,6 @@ const pipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: cubeWGSL,
         }),
-        entryPoint: 'fragment_main',
         targets: [
             {
                 format: presentationFormat,

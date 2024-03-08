@@ -2698,7 +2698,6 @@ const shadowPipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: vertexShadowWGSL,
         }),
-        entryPoint: 'main',
         buffers: vertexBuffers,
     },
     depthStencil: {
@@ -2744,14 +2743,12 @@ const pipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: vertexWGSL,
         }),
-        entryPoint: 'main',
         buffers: vertexBuffers,
     },
     fragment: {
         module: device.createShaderModule({
             code: fragmentWGSL,
         }),
-        entryPoint: 'main',
         targets: [
             {
                 format: presentationFormat,

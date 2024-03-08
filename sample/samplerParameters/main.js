@@ -4504,10 +4504,9 @@ const showTextureModule = device.createShaderModule({
 });
 const showTexturePipeline = device.createRenderPipeline({
     layout: 'auto',
-    vertex: { module: showTextureModule, entryPoint: 'vmain' },
+    vertex: { module: showTextureModule },
     fragment: {
         module: showTextureModule,
-        entryPoint: 'fmain',
         targets: [{ format: presentationFormat }],
     },
     primitive: { topology: 'triangle-list' },
@@ -4526,12 +4525,10 @@ const texturedSquarePipeline = device.createRenderPipeline({
     layout: 'auto',
     vertex: {
         module: texturedSquareModule,
-        entryPoint: 'vmain',
         constants: { kTextureBaseSize, kViewportSize },
     },
     fragment: {
         module: texturedSquareModule,
-        entryPoint: 'fmain',
         targets: [{ format: presentationFormat }],
     },
     primitive: { topology: 'triangle-list' },

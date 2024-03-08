@@ -5987,14 +5987,12 @@ const writeGBuffersPipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: vertexWriteGBuffers,
         }),
-        entryPoint: 'main',
         buffers: vertexBuffers,
     },
     fragment: {
         module: device.createShaderModule({
             code: fragmentWriteGBuffers,
         }),
-        entryPoint: 'main',
         targets: [
             // normal
             { format: 'rgba16float' },
@@ -6067,13 +6065,11 @@ const gBuffersDebugViewPipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: vertexTextureQuad,
         }),
-        entryPoint: 'main',
     },
     fragment: {
         module: device.createShaderModule({
             code: fragmentGBuffersDebugView,
         }),
-        entryPoint: 'main',
         targets: [
             {
                 format: presentationFormat,
@@ -6097,13 +6093,11 @@ const deferredRenderPipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: vertexTextureQuad,
         }),
-        entryPoint: 'main',
     },
     fragment: {
         module: device.createShaderModule({
             code: fragmentDeferredRendering,
         }),
-        entryPoint: 'main',
         targets: [
             {
                 format: presentationFormat,
@@ -6256,7 +6250,6 @@ const lightUpdateComputePipeline = device.createComputePipeline({
         module: device.createShaderModule({
             code: lightUpdate,
         }),
-        entryPoint: 'main',
     },
 });
 const lightsBufferBindGroup = device.createBindGroup({

@@ -2629,7 +2629,6 @@ const pipelineDesc = {
     layout: 'auto',
     vertex: {
         module: shaderModule,
-        entryPoint: 'vert_main',
         buffers: [
             {
                 // vertex buffer
@@ -2654,7 +2653,6 @@ const pipelineDesc = {
     },
     fragment: {
         module: shaderModule,
-        entryPoint: 'frag_main',
         targets: [
             {
                 format: presentationFormat,

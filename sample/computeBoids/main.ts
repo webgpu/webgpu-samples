@@ -44,7 +44,6 @@ const renderPipeline = device.createRenderPipeline({
   layout: 'auto',
   vertex: {
     module: spriteShaderModule,
-    entryPoint: 'vert_main',
     buffers: [
       {
         // instanced particles buffer
@@ -82,7 +81,6 @@ const renderPipeline = device.createRenderPipeline({
   },
   fragment: {
     module: spriteShaderModule,
-    entryPoint: 'frag_main',
     targets: [
       {
         format: presentationFormat,
@@ -100,7 +98,6 @@ const computePipeline = device.createComputePipeline({
     module: device.createShaderModule({
       code: updateSpritesWGSL,
     }),
-    entryPoint: 'main',
   },
 });
 

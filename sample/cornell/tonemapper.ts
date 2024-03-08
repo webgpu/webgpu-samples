@@ -75,7 +75,6 @@ export default class Tonemapper {
       layout: pipelineLayout,
       compute: {
         module: mod,
-        entryPoint: 'main',
         constants: {
           WorkgroupSizeX: this.kWorkgroupSizeX,
           WorkgroupSizeY: this.kWorkgroupSizeY,

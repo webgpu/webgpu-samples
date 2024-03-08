@@ -5220,7 +5220,6 @@ class GLTFPrimitive {
             module: device.createShaderModule({
                 code: VertexInputShaderString + vertexShader,
             }),
-            entryPoint: 'vertexMain',
             buffers: vertexBuffers,
         };
         const fragmentState = {
@@ -5228,7 +5227,6 @@ class GLTFPrimitive {
             module: device.createShaderModule({
                 code: VertexInputShaderString + fragmentShader,
             }),
-            entryPoint: 'fragmentMain',
             // Output render target info
             targets: [{ format: colorFormat }],
         };
@@ -6052,7 +6050,6 @@ const createSkinnedGridRenderPipeline = (device, presentationFormat, vertexShade
                 label: `SkinnedGridRenderer.vertexShader`,
                 code: vertexShader,
             }),
-            entryPoint: 'vertexMain',
             buffers: [
                 // Vertex Positions (positions)
                 {
@@ -6094,7 +6091,6 @@ const createSkinnedGridRenderPipeline = (device, presentationFormat, vertexShade
                 label: `SkinnedGridRenderer.fragmentShader`,
                 code: fragmentShader,
             }),
-            entryPoint: 'fragmentMain',
             targets: [
                 {
                     format: presentationFormat,

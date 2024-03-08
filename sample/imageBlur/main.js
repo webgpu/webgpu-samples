@@ -2638,7 +2638,6 @@ const blurPipeline = device.createComputePipeline({
         module: device.createShaderModule({
             code: blurWGSL,
         }),
-        entryPoint: 'main',
     },
 });
 const fullscreenQuadPipeline = device.createRenderPipeline({
@@ -2647,13 +2646,11 @@ const fullscreenQuadPipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: fullscreenTexturedQuadWGSL,
         }),
-        entryPoint: 'vert_main',
     },
     fragment: {
         module: device.createShaderModule({
             code: fullscreenTexturedQuadWGSL,
         }),
-        entryPoint: 'frag_main',
         targets: [
             {
                 format: presentationFormat,

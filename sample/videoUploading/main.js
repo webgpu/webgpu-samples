@@ -2568,13 +2568,11 @@ const pipeline = device.createRenderPipeline({
         module: device.createShaderModule({
             code: fullscreenTexturedQuadWGSL,
         }),
-        entryPoint: 'vert_main',
     },
     fragment: {
         module: device.createShaderModule({
             code: sampleExternalTextureWGSL,
         }),
-        entryPoint: 'main',
         targets: [
             {
                 format: presentationFormat,

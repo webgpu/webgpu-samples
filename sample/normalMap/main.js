@@ -5295,7 +5295,6 @@ const create3DRenderPipeline = (device, label, bgLayouts, vertexShader, vBufferF
                 label: `${label}.vertexShader`,
                 code: vertexShader,
             }),
-            entryPoint: 'vertexMain',
             buffers: vBufferFormats.length !== 0 ? [createVBuffer(vBufferFormats)] : [],
         },
         fragment: {
@@ -5303,7 +5302,6 @@ const create3DRenderPipeline = (device, label, bgLayouts, vertexShader, vBufferF
                 label: `${label}.fragmentShader`,
                 code: fragmentShader,
             }),
-            entryPoint: 'fragmentMain',
             targets: [
                 {
                     format: presentationFormat,
