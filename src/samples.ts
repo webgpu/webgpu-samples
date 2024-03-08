@@ -82,7 +82,6 @@ export const pageCategories: PageCategory[] = [
       samplerParameters,
       reversedZ,
       renderBundles,
-      spookyball,
     },
   },
 
