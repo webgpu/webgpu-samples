@@ -50,7 +50,7 @@ export const pageCategories: PageCategory[] = [
   {
     title: 'Basic Graphics',
     description:
-      'Basic rendering functionality implemented with the WebGPU API.',
+      'Implementations of basic rendering.',
     samples: {
       helloTriangle,
       helloTriangleMSAA,
@@ -97,7 +97,7 @@ export const pageCategories: PageCategory[] = [
   // visual results. The techniques demonstrated may even be independent of WebGPU (e.g. 'cameras')
   {
     title: 'Graphics Techniques',
-    description: 'A collection of graphics techniques implemented with WebGPU.',
+    description: 'Graphics techniques implemented with WebGPU.',
     samples: {
       cameras,
       normalMap,

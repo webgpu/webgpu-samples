@@ -10,9 +10,11 @@
 }
 
 .sampleCategory {
+  position: relative;
   margin-top: 5px;
   margin-bottom: 5px;
   display: inline-block;
+  width: 100%;
 }
 
 [data-tooltip] {
@@ -21,16 +23,20 @@
 
 [data-tooltip]::after {
   pointer-events: none;
+  font-size: 15px;
   content: attr(data-tooltip);
   background-color: rgba(255, 255, 255, 1);
   box-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.1);
   border-radius: 10px;
   transition: opacity 0.2s ease-in, transform 0.2s ease-out;
   padding: 0.5em;
+  text-align: center;
   opacity: 0;
+  width: 90%;
+  left: 2px;
   display: block;
   position: absolute;
-  transform: translateY(-0.5em);
+  transform: translateY(-0.5em), translateX(-50%);
 }
 
 [data-tooltip]:hover::after {
