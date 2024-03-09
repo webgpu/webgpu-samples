@@ -15,6 +15,7 @@ import helloTriangleMSAA from '../sample/helloTriangleMSAA/meta';
 import imageBlur from '../sample/imageBlur/meta';
 import instancedCube from '../sample/instancedCube/meta';
 import metaballs from '../sample/metaballs/meta';
+import multipleCanvases from '../sample/multipleCanvases/meta';
 import normalMap from '../sample/normalMap/meta';
 import particles from '../sample/particles/meta';
 import pristineGrid from '../sample/pristineGrid/meta';
@@ -128,6 +129,7 @@ export const pageCategories: PageCategory[] = [
     samples: {
       resizeCanvas,
       resizeObserverHDDPI,
+      multipleCanvases,
       videoUploading,
       worker,
     },
