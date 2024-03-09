@@ -17,6 +17,7 @@ import instancedCube from '../sample/instancedCube/meta';
 import metaballs from '../sample/metaballs/meta';
 import normalMap from '../sample/normalMap/meta';
 import particles from '../sample/particles/meta';
+import points from '../sample/points/meta';
 import pristineGrid from '../sample/pristineGrid/meta';
 import renderBundles from '../sample/renderBundles/meta';
 import resizeCanvas from '../sample/resizeCanvas/meta';
@@ -111,6 +112,7 @@ export const pageCategories: PageCategory[] = [
       shadowMapping,
       deferredRendering,
       particles,
+      points,
       imageBlur,
       cornell,
       'a-buffer': aBuffer,
