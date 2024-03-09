@@ -23,6 +23,7 @@ function getElem(
 
 const sampleListElem = getElem('#samplelist');
 const sampleElem = getElem('#sample');
+const githubElem = getElem('#src') as HTMLAnchorElement;
 const introElem = getElem('#intro');
 const codeTabsElem = getElem('#codeTabs');
 const sourcesElem = getElem('#sources');
@@ -129,6 +130,15 @@ function setSampleIFrame(
     const src = url || `${filename}${search}`;
     sampleContainerElem.appendChild(el('iframe', { src }));
     sampleContainerElem.style.height = sources.length > 0 ? '600px' : '100%';
+
+    if (url) {
+      // If it's remote example, hide the github link and assume it's in the description.
+      githubElem.style.display = 'none';
+    } else {
+      // It's a local sample so show the github link.
+      githubElem.style.display = '';
+      githubElem.href = `https://github.com/webgpu/webgpu-samples/tree/main/${filename}`;
+    }
 
     // hide intro and show sample
     introElem.style.display = 'none';
