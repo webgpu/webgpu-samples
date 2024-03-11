@@ -14,26 +14,17 @@ worker.addEventListener('message', (ev) => {
         }
     }
 });
-try {
-    // In order for the worker to display anything on the page, an OffscreenCanvas must be used.
-    // Here we can create one from our normal canvas by calling transferControlToOffscreen().
-    // Anything drawn to the OffscreenCanvas that call returns will automatically be displayed on
-    // the source canvas on the page.
-    const offscreenCanvas = canvas.transferControlToOffscreen();
-    const devicePixelRatio = window.devicePixelRatio;
-    offscreenCanvas.width = canvas.clientWidth * devicePixelRatio;
-    offscreenCanvas.height = canvas.clientHeight * devicePixelRatio;
-    // Send a message to the worker telling it to initialize WebGPU with the OffscreenCanvas. The
-    // array passed as the second argument here indicates that the OffscreenCanvas is to be
-    // transferred to the worker, meaning this main thread will lose access to it and it will be
-    // fully owned by the worker.
-    worker.postMessage({ type: 'init', offscreenCanvas }, [offscreenCanvas]);
-}
-catch (err) {
-    // TODO: This catch is added here because React will call init twice with the same canvas, and
-    // the second time will fail the transferControlToOffscreen() because it's already been
-    // transferred. I'd love to know how to get around that.
-    console.warn(err.message);
-    worker.terminate();
-}
+// In order for the worker to display anything on the page, an OffscreenCanvas must be used.
+// Here we can create one from our normal canvas by calling transferControlToOffscreen().
+// Anything drawn to the OffscreenCanvas that call returns will automatically be displayed on
+// the source canvas on the page.
+const offscreenCanvas = canvas.transferControlToOffscreen();
+const devicePixelRatio = window.devicePixelRatio;
+offscreenCanvas.width = canvas.clientWidth * devicePixelRatio;
+offscreenCanvas.height = canvas.clientHeight * devicePixelRatio;
+// Send a message to the worker telling it to initialize WebGPU with the OffscreenCanvas. The
+// array passed as the second argument here indicates that the OffscreenCanvas is to be
+// transferred to the worker, meaning this main thread will lose access to it and it will be
+// fully owned by the worker.
+worker.postMessage({ type: 'init', offscreenCanvas }, [offscreenCanvas]);
 //# sourceMappingURL=main.js.map
