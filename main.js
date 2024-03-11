@@ -293,6 +293,23 @@ var particles = {
     ],
 };
 
+var points = {
+    name: 'Points',
+    description: `\
+This example shows how to render points of various sizes using a quad and instancing.
+    
+You can read more details [here](https://webgpufundamentals.org/webgpu/lessons/webgpu-points.html).
+`,
+    filename: "sample/points",
+    sources: [
+        { path: 'main.ts' },
+        { path: 'distance-sized-points.vert.wgsl' },
+        { path: 'fixed-size-points.vert.wgsl' },
+        { path: 'orange.frag.wgsl' },
+        { path: 'textured.frag.wgsl' },
+    ],
+};
+
 var pristineGrid = {
     name: 'Pristine Grid',
     description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8.
@@ -555,6 +572,7 @@ const pageCategories = [
             shadowMapping,
             deferredRendering,
             particles,
+            points,
             imageBlur,
             cornell,
             'a-buffer': aBuffer,
