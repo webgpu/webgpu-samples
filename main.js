@@ -517,6 +517,14 @@ var worker = {
     ],
 };
 
+var workloadSimulator = {
+    name: 'Workload Simulator',
+    description: `Test various ways of rendering (WebGPU, WebGL, Canvas2D, DOM) and measures performance`,
+    openInNewTab: true,
+    filename: "sample/workloadSimulator",
+    sources: [],
+};
+
 const pageCategories = [
     // Samples that implement basic rendering functionality using the WebGPU API.
     {
@@ -610,6 +618,7 @@ const pageCategories = [
         description: 'WebGPU Performance Benchmarks',
         samples: {
             animometer,
+            workloadSimulator,
         },
     },
 ];
@@ -32575,10 +32584,13 @@ for (const { title, description, samples } of pageCategories) {
             ...Object.entries(samples).map(([key, sampleInfo]) => createElem('li', {}, [
                 createElem('a', {
                     href: sampleInfo.filename,
-                    onClick: (e) => {
-                        setSampleIFrameURL(e, sampleInfo);
-                    },
-                    textContent: sampleInfo.tocName || key,
+                    ...(!sampleInfo.openInNewTab && {
+                        onClick: (e) => {
+                            setSampleIFrameURL(e, sampleInfo);
+                        },
+                    }),
+                    textContent: `${sampleInfo.tocName || key}${sampleInfo.openInNewTab ? ' ↗️' : ''}`,
+                    ...(sampleInfo.openInNewTab && { target: '_blank' }),
                 }),
             ])),
         ]),
