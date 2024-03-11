@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>webgpu-samples: multiple canvases</title>
+    <style>
+      html, body {
+        margin: 0;      /* remove default margin */
+        height: 100%;   /* make body fill the browser window */
+      }
+      #outere {
+        width: 100%;
+        height: 100%;
+        display: block;
+        overflow: auto;
+      }
+      .product {
+        display: inline-block;
+        padding: 1em;
+        background: #888;
+        margin: 1em;
+      }
+      .size0>canvas {
+        width: 200px;
+        height: 200px;
+      }
+      .size1>canvas {
+        width: 250px;
+        height: 200px;
+      }
+      .size2>canvas {
+        width: 300px;
+        height: 200px;
+      }
+      .size3>canvas {
+        width: 100px;
+        height: 200px;
+      }
+    </style>
+    <script defer src="main.js" type="module"></script>
+    <script defer type="module" src="../../js/iframe-helper.js"></script>
+  </head>
+  <body>
+    <div id="outer"></div>
+  </body>
+</html>

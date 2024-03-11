@@ -269,6 +269,21 @@ Source at https://github.com/toji/webgpu-metaballs/
     sources: [],
 };
 
+var multipleCanvases = {
+    name: 'Multiple Canvases',
+    description: `\
+This example shows rendering to multiple canvases with a single WebGPU device and using \`IntersectionObserver\`
+to only render to visible canvases.
+
+For more info [see this article](https://webgpufundamentals.org/webgpu/lessons/webgpu-multiple-canvases.html).`,
+    filename: "sample/multipleCanvases",
+    sources: [
+        { path: 'main.ts' },
+        { path: 'models.ts' },
+        { path: 'solidColorLit.wgsl' },
+    ],
+};
+
 var normalMap = {
     name: 'Normal Mapping',
     description: 'This example demonstrates multiple different methods that employ fragment shaders to achieve additional perceptual depth on the surface of a cube mesh. Demonstrated methods include normal mapping, parallax mapping, and steep parallax mapping.',
@@ -596,6 +611,7 @@ const pageCategories = [
         samples: {
             resizeCanvas,
             resizeObserverHDDPI,
+            multipleCanvases,
             videoUploading,
             worker,
         },
