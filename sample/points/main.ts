@@ -55,17 +55,12 @@ const bindGroupLayout = device.createBindGroupLayout({
     {
       binding: 1,
       visibility: GPUShaderStage.FRAGMENT,
-      sampler: {
-        type: 'filtering',
-      },
+      sampler: {},
     },
     {
       binding: 2,
       visibility: GPUShaderStage.FRAGMENT,
-      texture: {
-        sampleType: 'float',
-        viewDimension: '2d',
-      },
+      texture: {},
     },
   ],
 });
@@ -122,12 +117,10 @@ const pipelines = vertModules.map((vertModule) =>
               color: {
                 srcFactor: 'one',
                 dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
               },
               alpha: {
                 srcFactor: 'one',
                 dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
               },
             },
           },
