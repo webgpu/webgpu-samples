@@ -1,42 +1,44 @@
 import dragonRawData from './stanfordDragonData';
-import { computeSurfaceNormals, computeProjectedPlaneUVs } from './utils';
+import { computeProjectedPlaneUVs, generateNormals } from './utils';
 
-export const mesh = {
-  positions: dragonRawData.positions as [number, number, number][],
-  triangles: dragonRawData.cells as [number, number, number][],
-  normals: [] as [number, number, number][],
-  uvs: [] as [number, number][],
-};
+const { positions, normals, triangles } = generateNormals(
+  Math.PI,
+  dragonRawData.positions as [number, number, number][],
+  dragonRawData.cells as [number, number, number][]
+);
 
-// Compute surface normals
-mesh.normals = computeSurfaceNormals(mesh.positions, mesh.triangles);
-
-// Compute some easy uvs for testing
-mesh.uvs = computeProjectedPlaneUVs(mesh.positions, 'xy');
+const uvs = computeProjectedPlaneUVs(positions, 'xy');
 
 // Push indices for an additional ground plane
-mesh.triangles.push(
-  [mesh.positions.length, mesh.positions.length + 2, mesh.positions.length + 1],
-  [mesh.positions.length, mesh.positions.length + 1, mesh.positions.length + 3]
+triangles.push(
+  [positions.length, positions.length + 2, positions.length + 1],
+  [positions.length, positions.length + 1, positions.length + 3]
 );
 
 // Push vertex attributes for an additional ground plane
 // prettier-ignore
-mesh.positions.push(
+positions.push(
   [-100, 20, -100], //
   [ 100, 20,  100], //
   [-100, 20,  100], //
   [ 100, 20, -100]
 );
-mesh.normals.push(
+normals.push(
   [0, 1, 0], //
   [0, 1, 0], //
   [0, 1, 0], //
   [0, 1, 0]
 );
-mesh.uvs.push(
+uvs.push(
   [0, 0], //
   [1, 1], //
   [0, 1], //
   [1, 0]
 );
+
+export const mesh = {
+  positions,
+  triangles,
+  normals,
+  uvs,
+};
