@@ -1,4 +1,4 @@
-import { vec3 } from 'wgpu-matrix';
+import { vec3, Vec3 } from 'wgpu-matrix';
 
 export function computeSurfaceNormals(
   positions: [number, number, number][],
@@ -63,7 +63,7 @@ export function generateNormals(
   const numFaceVerts = getNextIndex.numElements;
   const numVerts = positions.length;
   const numFaces = numFaceVerts / 3;
-  const faceNormals = [];
+  const faceNormals: Vec3[] = [];
 
   // Compute the normal for every face.
   // While doing that, create a new vertex for every face vertex
@@ -87,7 +87,7 @@ export function generateNormals(
   // this assumes vertex positions are an exact match
 
   function getVertIndex(vert: [number, number, number]): number {
-    const vertId = `${vert[0]},${vert[1]},${vert[2]}`;
+    const vertId = JSON.stringify(vert);
     const ndx = tempVerts[vertId];
     if (ndx !== undefined) {
       return ndx;
@@ -114,14 +114,14 @@ export function generateNormals(
   // since they have different UVs but if you don't consider
   // them to share vertices they will get the wrong normals
 
-  const vertIndices = [];
+  const vertIndices: number[] = [];
   for (let i = 0; i < numVerts; ++i) {
     const vert = positions[i];
     vertIndices.push(getVertIndex(vert));
   }
 
   // go through every vertex and record which faces it's on
-  const vertFaces = [];
+  const vertFaces: number[][] = [];
   getNextIndex.reset();
   for (let i = 0; i < numFaces; ++i) {
     for (let j = 0; j < 3; ++j) {
@@ -143,14 +143,14 @@ export function generateNormals(
   // are the same.
   tempVerts = {};
   tempVertNdx = 0;
-  const newPositions = [];
-  const newNormals = [];
+  const newPositions: [number, number, number][] = [];
+  const newNormals: [number, number, number][] = [];
 
   function getNewVertIndex(
     position: [number, number, number],
     normal: [number, number, number]
   ) {
-    const vertId = `${position[0]},${position[1]},${position[2]},${normal[0]},${normal[1]},${normal[2]}`;
+    const vertId = JSON.stringify({ position, normal });
     const ndx = tempVerts[vertId];
     if (ndx !== undefined) {
       return ndx;
@@ -162,7 +162,7 @@ export function generateNormals(
     return newNdx;
   }
 
-  const newTriangles = [];
+  const newTriangles: [number, number, number][] = [];
   getNextIndex.reset();
   const maxAngleCos = Math.cos(maxAngle);
   // for each face
@@ -170,7 +170,7 @@ export function generateNormals(
     // get the normal for this face
     const thisFaceNormal = faceNormals[i];
     // for each vertex on the face
-    const newTriangle = [];
+    const newTriangle: number[] = [];
     for (let j = 0; j < 3; ++j) {
       const ndx = getNextIndex();
       const sharedNdx = vertIndices[ndx];
@@ -187,7 +187,7 @@ export function generateNormals(
       vec3.normalize(norm, norm);
       newTriangle.push(getNewVertIndex(positions[ndx], norm));
     }
-    newTriangles.push(newTriangle);
+    newTriangles.push(newTriangle as [number, number, number]);
   }
 
   return {
