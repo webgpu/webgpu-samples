@@ -33,6 +33,10 @@ const sampleContainerElem = getElem('.sampleContainer', sampleElem);
 const titleElem = getElem('#title', sampleElem);
 const descriptionElem = getElem('#description', sampleElem);
 const menuToggleElem = getElem('#menuToggle') as HTMLInputElement;
+const codeElem = getElem('#code');
+const sourceTabsElem = getElem('#sourceTabs');
+const sourceLElem = getElem('#sourceL');
+const sourceRElem = getElem('#sourceR');
 
 const darkMatcher = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -78,7 +82,39 @@ function setURL(url: string) {
 }
 
 // Handle when the URL changes (browser back / forward)
-window.addEventListener('popstate', parseURL);
+window.addEventListener('popstate', (e) => {
+  e.preventDefault();
+  parseURL();
+});
+
+/**
+ * Scrolls the current tab into view.
+ */
+function moveIntoView(parent: HTMLElement, element: HTMLElement) {
+  const parentLeft = parent.scrollLeft;
+  const parentRight = parentLeft + parent.clientWidth;
+
+  const elemLeft = element.offsetLeft;
+  const elemRight = elemLeft + element.clientWidth;
+
+  if (elemLeft < parentLeft) {
+    parent.scrollLeft -= parentLeft - elemLeft;
+  } else if (elemRight > parentRight) {
+    parent.scrollLeft += elemRight - parentRight;
+  }
+}
+
+/**
+ * Switches to a tab relative to the current tab
+ */
+function switchToRelativeTab(offsetFromCurrentTab: number) {
+  const tabs = [...sourceTabsElem.querySelectorAll('a')];
+  const activeNdx = tabs.findIndex((tab) => tab.dataset.active === 'true');
+  const newNdx = (activeNdx + tabs.length + offsetFromCurrentTab) % tabs.length;
+  const tab = tabs[newNdx];
+  moveIntoView(sourceTabsElem, tab.parentElement!);
+  return tab;
+}
 
 /**
  * Show/hide source tabs
@@ -89,6 +125,8 @@ function setSourceTab(sourceInfo: SourceInfo) {
     const elem = e as HTMLElement;
     elem.dataset.active = (elem.dataset.name === name).toString();
   });
+  // Effectively makes the tab entirely visible if part of it is scrolled off.
+  switchToRelativeTab(0);
 }
 
 /**
@@ -151,6 +189,7 @@ function setSampleIFrame(
   };
 
   titleElem.textContent = name;
+  document.title = `WebGPU Samples - ${name}`;
   descriptionElem.innerHTML = markdownConverter.makeHtml(description);
 
   // Replace the iframe because changing src adds to the user's history.
@@ -270,6 +309,43 @@ for (const { title, description, samples } of pageCategories) {
     ])
   );
 }
+
+sourceLElem.addEventListener('click', () => switchToRelativeTab(-1).click());
+sourceRElem.addEventListener('click', () => switchToRelativeTab(1).click());
+
+function checkIfSourceTabsFit() {
+  const parentWidth = sourceTabsElem.clientWidth;
+  const childWidth = [...sourceTabsElem.querySelectorAll('li')].reduce(
+    (sum, elem) => sum + elem.clientWidth,
+    0
+  );
+  const showLR = childWidth > parentWidth;
+  codeElem.classList.toggle('sourceLRShow', showLR);
+}
+
+const registerResizeCallback = (() => {
+  const elemToResizeCallback = new Map<
+    Element,
+    (entry: ResizeObserverEntry) => void
+  >();
+  const observer = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const cb = elemToResizeCallback.get(entry.target);
+      if (cb) {
+        cb(entry);
+      }
+    }
+  });
+  return function (
+    elem: Element,
+    callback: (entry: ResizeObserverEntry) => void
+  ) {
+    elemToResizeCallback.set(elem, callback);
+    observer.observe(elem);
+  };
+})();
+
+registerResizeCallback(sourceTabsElem, checkIfSourceTabsFit);
 
 /**
  * Parse the page's current URL and then set the iframe appropriately.
