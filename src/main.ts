@@ -32,6 +32,10 @@ const sampleContainerElem = getElem('.sampleContainer', sampleElem);
 const titleElem = getElem('#title', sampleElem);
 const descriptionElem = getElem('#description', sampleElem);
 const menuToggleElem = getElem('#menuToggle') as HTMLInputElement;
+const codeElem = getElem('#code');
+const sourceTabsElem = getElem('#sourceTabs');
+const sourceLElem = getElem('#sourceL');
+const sourceRElem = getElem('#sourceR');
 
 // Get the parts of a string past the last `/`
 const basename = (name: string) => name.substring(name.lastIndexOf('/') + 1);
@@ -68,6 +72,35 @@ function setURL(url: string) {
 window.addEventListener('popstate', parseURL);
 
 /**
+ * Scrolls the current tab into view.
+ */
+function moveIntoView(parent: HTMLElement, element: HTMLElement) {
+  const parentLeft = parent.scrollLeft;
+  const parentRight = parentLeft + parent.clientWidth;
+
+  const elemLeft = element.offsetLeft;
+  const elemRight = elemLeft + element.clientWidth;
+
+  if (elemLeft < parentLeft) {
+    parent.scrollLeft -= parentLeft - elemLeft;
+  } else if (elemRight > parentRight) {
+    parent.scrollLeft += elemRight - parentRight;
+  }
+}
+
+/**
+ * Switches to a tab relative to the current tab
+ */
+function switchToRelativeTab(direction: number) {
+  const tabs = [...sourceTabsElem.querySelectorAll('a')];
+  const activeNdx = tabs.findIndex((tab) => tab.dataset.active === 'true');
+  const newNdx = (activeNdx + tabs.length + direction) % tabs.length;
+  const tab = tabs[newNdx];
+  moveIntoView(sourceTabsElem, tab.parentElement!);
+  tab.click();
+}
+
+/**
  * Show/hide source tabs
  */
 function setSourceTab(sourceInfo: SourceInfo) {
@@ -76,6 +109,7 @@ function setSourceTab(sourceInfo: SourceInfo) {
     const elem = e as HTMLElement;
     elem.dataset.active = (elem.dataset.name === name).toString();
   });
+  switchToRelativeTab(0);
 }
 
 /**
@@ -241,6 +275,43 @@ for (const { title, description, samples } of pageCategories) {
     ])
   );
 }
+
+sourceLElem.addEventListener('click', () => switchToRelativeTab(-1));
+sourceRElem.addEventListener('click', () => switchToRelativeTab(1));
+
+function checkIfSourceTabsFit() {
+  const parentWidth = sourceTabsElem.clientWidth;
+  const childWidth = [...sourceTabsElem.querySelectorAll('li')].reduce(
+    (sum, elem) => sum + elem.clientWidth,
+    0
+  );
+  const showLR = childWidth > parentWidth;
+  codeElem.classList.toggle('sourceLRShow', showLR);
+}
+
+const registerResizeCallback = (() => {
+  const elemToResizeCallback = new Map<
+    Element,
+    (entry: ResizeObserverEntry) => void
+  >();
+  const observer = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const cb = elemToResizeCallback.get(entry.target);
+      if (cb) {
+        cb(entry);
+      }
+    }
+  });
+  return function (
+    elem: Element,
+    callback: (entry: ResizeObserverEntry) => void
+  ) {
+    elemToResizeCallback.set(elem, callback);
+    observer.observe(elem);
+  };
+})();
+
+registerResizeCallback(sourceTabsElem, checkIfSourceTabsFit);
 
 /**
  * Parse the page's current URL and then set the iframe appropriately.
