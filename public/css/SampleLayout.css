@@ -47,12 +47,18 @@
   transform: translateY(0.25em);
 }
 
+nav.sourceFileNav {
+  display: flex;
+  align-items: flex-start;
+}
+
 nav.sourceFileNav ul {
   box-sizing: border-box;
   list-style-type: none;
   padding: 0;
   margin: 0;
   margin-top: 15px;
+  position: relative;
 }
 
 nav.sourceFileNav li {
@@ -97,12 +103,59 @@ nav.sourceFileNav[data-right=true]::after {
   background: linear-gradient(270deg, rgba(0, 0, 0, 0.35), transparent);
 }
 
+.sourceLR {
+  display: none;
+  cursor: pointer;
+  width: 5em;
+  padding: 10px;
+  margin-top: 15px;
+  text-align: center;
+  color: var(--source-tab-color);
+  background-color: var(--source-tab-background);
+  border-left: 1px solid rgba(0, 0, 0, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+}
+.sourceLR:hover {
+  text-decoration: underline;
+}
+.sourceLRShow .sourceLR {
+  display: block;
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer {
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar {
+  display: inline;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  height: 11px;
+  width: 10px;
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar-thumb {
+  background: rgb(200, 200, 200);
+  height: 4px;
+  border-radius: 20px;
+  -webkit-box-shadow: inset 0px 0px 10px rgb(45, 33, 33);
+  border: 0.5px solid transparent;
+  background-clip: content-box;
+}
+
+nav.sourceFileNav div.sourceFileScrollContainer::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0);
+}
+
 nav.sourceFileNav li a {
   display: block;
   margin: 0;
   padding: 10px;
   color: var(--source-tab-color);
   background-color: var(--source-tab-background);
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
 }
 
 nav.sourceFileNav li:hover {
