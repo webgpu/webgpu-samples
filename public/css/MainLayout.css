@@ -12,9 +12,10 @@
   flex: 1 0 auto;
   max-width: 300px;
   height: 100%;
-  background: #fafafa;
   overflow-y: auto;
   position: relative;
+  color: var(--panel-color);
+  background-color: var(--panel-background);
 }
 
 .exampleList {
@@ -24,7 +25,13 @@
 }
 
 .exampleList h3 {
-  color: rgb(43, 126, 171);
+  color: var(--panel-emphasis);
+}
+
+code {
+  background-color: var(--code-background);
+  border: 2px solid var(--code-background);
+  border-radius: 0.25em;
 }
 
 .exampleList li {
@@ -90,5 +97,6 @@ main {
   .expand {
     display: inline-block;
   }
+
 }
 
