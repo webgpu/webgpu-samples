@@ -1,7 +1,9 @@
 import aBuffer from '../sample/a-buffer/meta';
 import animometer from '../sample/animometer/meta';
 import bitonicSort from '../sample/bitonicSort/meta';
+import bundleCulling from '../sample/bundleCulling/meta';
 import cameras from '../sample/cameras/meta';
+import clusteredShading from '../sample/clusteredShading/meta';
 import cornell from '../sample/cornell/meta';
 import computeBoids from '../sample/computeBoids/meta';
 import cubemap from '../sample/cubemap/meta';
@@ -12,19 +14,27 @@ import helloTriangle from '../sample/helloTriangle/meta';
 import helloTriangleMSAA from '../sample/helloTriangleMSAA/meta';
 import imageBlur from '../sample/imageBlur/meta';
 import instancedCube from '../sample/instancedCube/meta';
+import metaballs from '../sample/metaballs/meta';
+import multipleCanvases from '../sample/multipleCanvases/meta';
 import normalMap from '../sample/normalMap/meta';
 import particles from '../sample/particles/meta';
+import points from '../sample/points/meta';
+import pristineGrid from '../sample/pristineGrid/meta';
 import renderBundles from '../sample/renderBundles/meta';
 import resizeCanvas from '../sample/resizeCanvas/meta';
+import resizeObserverHDDPI from '../sample/resizeObserverHDDPI/meta';
 import reversedZ from '../sample/reversedZ/meta';
 import rotatingCube from '../sample/rotatingCube/meta';
 import samplerParameters from '../sample/samplerParameters/meta';
 import shadowMapping from '../sample/shadowMapping/meta';
 import skinnedMesh from '../sample/skinnedMesh/meta';
+import spookyball from '../sample/spookyball/meta';
+import textRenderingMsdf from '../sample/textRenderingMsdf/meta';
 import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
 import worker from '../sample/worker/meta';
+import workloadSimulator from '../sample/workloadSimulator/meta';
 
 export type SourceInfo = {
   path: string;
@@ -34,7 +44,9 @@ export type SampleInfo = {
   name: string;
   tocName?: string;
   description: string;
-  filename: string;
+  openInNewTab?: boolean;
+  filename: string; // used if sample is local
+  url?: string; // used if sample is remote
   sources: SourceInfo[];
 };
 
@@ -103,10 +115,12 @@ export const pageCategories: PageCategory[] = [
       shadowMapping,
       deferredRendering,
       particles,
+      points,
       imageBlur,
       cornell,
       'a-buffer': aBuffer,
       skinnedMesh,
+      textRenderingMsdf,
     },
   },
 
@@ -118,8 +132,23 @@ export const pageCategories: PageCategory[] = [
       'Demos integrating WebGPU with other functionalities of the web platform.',
     samples: {
       resizeCanvas,
+      resizeObserverHDDPI,
+      multipleCanvases,
       videoUploading,
       worker,
+    },
+  },
+
+  // External examples
+  {
+    title: 'External Samples',
+    description: `Samples from around the net.`,
+    samples: {
+      bundleCulling,
+      metaballs,
+      pristineGrid,
+      clusteredShading,
+      spookyball,
     },
   },
 
@@ -129,6 +158,7 @@ export const pageCategories: PageCategory[] = [
     description: 'WebGPU Performance Benchmarks',
     samples: {
       animometer,
+      workloadSimulator,
     },
   },
 ];

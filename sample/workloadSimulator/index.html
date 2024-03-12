@@ -199,9 +199,8 @@ input[type="range"] {
 <h2><center>Web graphics workload simulator</center></h2>
 </div>
 
-<script>
-'use strict';
-
+<script type="module">
+/* eslint-disable */
 
 /************\
 * Options UI *
@@ -474,8 +473,7 @@ async function render(fromRaf, fromPostMessage) {
       }
     }
     if (useRaf.checked && rafPending == 0) {
-      (window.requestAnimationFrame || window.mozRequestAnimationFrame ||
-          window.webkitRequestAnimationFrame)(function() { render(true); });
+      window.requestAnimationFrame(function() { render(true); });
       rafPending++;
     }
     if (useSetTimeout.checked) {
@@ -676,11 +674,9 @@ async function render(fromRaf, fromPostMessage) {
           layout: pipelineLayout,
           multisample: { count: sampleCount },
           vertex: {
-            entryPoint: 'vs',
             module: shaderModule,
           },
           fragment: {
-            entryPoint: 'fs',
             targets: [ { format: canvasFormat, }, ],
             module: shaderModule,
           },

@@ -26,13 +26,11 @@ const pipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: triangleVertWGSL,
     }),
-    entryPoint: 'main',
   },
   fragment: {
     module: device.createShaderModule({
       code: redFragWGSL,
     }),
-    entryPoint: 'main',
     targets: [
       {
         format: presentationFormat,

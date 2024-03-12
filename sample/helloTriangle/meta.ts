@@ -1,7 +1,7 @@
 export default {
   name: 'Hello Triangle',
   description: 'Shows rendering a basic triangle.',
-  filename: 'sample/helloTriangle',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: '../../shaders/triangle.vert.wgsl' },

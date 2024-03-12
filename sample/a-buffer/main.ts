@@ -62,7 +62,7 @@ const indexBuffer = device.createBuffer({
 }
 
 // Uniforms contains:
-// * modelViewProjectionMatrix: mat4x4<f32>
+// * modelViewProjectionMatrix: mat4x4f
 // * maxStorableFragments: u32
 // * targetWidth: u32
 const uniformsSize = roundUp(
@@ -85,7 +85,6 @@ const opaquePipeline = device.createRenderPipeline({
   layout: 'auto',
   vertex: {
     module: opaqueModule,
-    entryPoint: 'main_vs',
     buffers: [
       {
         arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
@@ -102,7 +101,6 @@ const opaquePipeline = device.createRenderPipeline({
   },
   fragment: {
     module: opaqueModule,
-    entryPoint: 'main_fs',
     targets: [
       {
         format: presentationFormat,
@@ -205,7 +203,6 @@ const translucentPipeline = device.createRenderPipeline({
   }),
   vertex: {
     module: translucentModule,
-    entryPoint: 'main_vs',
     buffers: [
       {
         arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
@@ -221,7 +218,6 @@ const translucentPipeline = device.createRenderPipeline({
   },
   fragment: {
     module: translucentModule,
-    entryPoint: 'main_fs',
     targets: [
       {
         format: presentationFormat,
@@ -293,11 +289,9 @@ const compositePipeline = device.createRenderPipeline({
   }),
   vertex: {
     module: compositeModule,
-    entryPoint: 'main_vs',
   },
   fragment: {
     module: compositeModule,
-    entryPoint: 'main_fs',
     targets: [
       {
         format: presentationFormat,
@@ -371,7 +365,7 @@ const configure = () => {
   const averageLayersPerFragment = 4;
 
   // Each element stores
-  // * color : vec4<f32>
+  // * color : vec4f
   // * depth : f32
   // * index of next element in the list : u32
   const linkedListElementSize =

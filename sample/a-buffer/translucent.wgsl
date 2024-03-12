@@ -1,5 +1,5 @@
 struct Uniforms {
-  modelViewProjectionMatrix: mat4x4<f32>,
+  modelViewProjectionMatrix: mat4x4f,
   maxStorableFragments: u32,
   targetWidth: u32,
 };
@@ -14,7 +14,7 @@ struct Heads {
 };
 
 struct LinkedListElement {
-  color: vec4<f32>,
+  color: vec4f,
   depth: f32,
   next: u32
 };
@@ -30,12 +30,12 @@ struct LinkedList {
 @binding(4) @group(0) var<uniform> sliceInfo: SliceInfo;
 
 struct VertexOutput {
-  @builtin(position) position: vec4<f32>,
+  @builtin(position) position: vec4f,
   @location(0) @interpolate(flat) instance: u32
 };
 
 @vertex
-fn main_vs(@location(0) position: vec4<f32>, @builtin(instance_index) instance: u32) -> VertexOutput {
+fn main_vs(@location(0) position: vec4f, @builtin(instance_index) instance: u32) -> VertexOutput {
   var output: VertexOutput;
 
   // distribute instances into a staggered 4x4 grid
@@ -56,8 +56,8 @@ fn main_vs(@location(0) position: vec4<f32>, @builtin(instance_index) instance: 
 }
 
 @fragment
-fn main_fs(@builtin(position) position: vec4<f32>, @location(0) @interpolate(flat) instance: u32) {
-  const colors = array<vec3<f32>,6>(
+fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat) instance: u32) {
+  const colors = array<vec3f,6>(
     vec3(1.0, 0.0, 0.0),
     vec3(0.0, 1.0, 0.0),
     vec3(0.0, 0.0, 1.0),
@@ -66,7 +66,7 @@ fn main_fs(@builtin(position) position: vec4<f32>, @location(0) @interpolate(fla
     vec3(0.0, 1.0, 1.0),
   );
 
-  let fragCoords = vec2<i32>(position.xy);
+  let fragCoords = vec2i(position.xy);
   let opaqueDepth = textureLoad(opaqueDepthTexture, fragCoords, 0);
 
   // reject fragments behind opaque objects

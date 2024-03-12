@@ -4,7 +4,7 @@ export default {
     meshes individually as a proxy for a more complex scene in order to demonstrate the reduction
     in JavaScript time spent to issue render commands. (Typically a scene like this would make use
     of instancing to reduce draw overhead.)`,
-  filename: 'sample/renderBundles',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: 'mesh.wgsl' },

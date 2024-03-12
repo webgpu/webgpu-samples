@@ -5,7 +5,7 @@ export default {
      involved when updating and binding multiple slices of a \
      uniform buffer. It renders two rotating cubes which have transform \
      matrices at different offsets in a uniform buffer.',
-  filename: 'sample/twoCubes',
+  filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
     { path: '../../shaders/basic.vert.wgsl' },

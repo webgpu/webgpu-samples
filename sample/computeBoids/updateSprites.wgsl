@@ -1,6 +1,6 @@
 struct Particle {
-  pos : vec2<f32>,
-  vel : vec2<f32>,
+  pos : vec2f,
+  vel : vec2f,
 }
 struct SimParams {
   deltaT : f32,
@@ -20,7 +20,7 @@ struct Particles {
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
+fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
   var index = GlobalInvocationID.x;
 
   var vPos = particlesA.particles[index].pos;
@@ -30,8 +30,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
   var colVel = vec2(0.0);
   var cMassCount = 0u;
   var cVelCount = 0u;
-  var pos : vec2<f32>;
-  var vel : vec2<f32>;
+  var pos : vec2f;
+  var vel : vec2f;
 
   for (var i = 0u; i < arrayLength(&particlesA.particles); i++) {
     if (i == index) {
