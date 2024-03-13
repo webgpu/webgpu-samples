@@ -32419,6 +32419,7 @@ var showdownExports = showdown.exports;
 
 const markdownConverter = new showdownExports.Converter({
     simplifiedAutoLink: true,
+    openLinksInNewWindow: true,
 });
 /**
  * Gets an element unconditionally so TS doesn't complain.
