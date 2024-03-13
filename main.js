@@ -19954,6 +19954,142 @@ var monokaiInit = options => {
 };
 var monokai = monokaiInit();
 
+var defaultSettingsGithubLight = {
+  background: '#fff',
+  foreground: '#24292e',
+  selection: '#BBDFFF',
+  selectionMatch: '#BBDFFF',
+  gutterBackground: '#fff',
+  gutterForeground: '#6e7781'
+};
+var githubLightInit = options => {
+  var {
+    theme = 'light',
+    settings = {},
+    styles = []
+  } = options || {};
+  return createTheme({
+    theme: theme,
+    settings: _extends({}, defaultSettingsGithubLight, settings),
+    styles: [{
+      tag: [tags.standard(tags.tagName), tags.tagName],
+      color: '#116329'
+    }, {
+      tag: [tags.comment, tags.bracket],
+      color: '#6a737d'
+    }, {
+      tag: [tags.className, tags.propertyName],
+      color: '#6f42c1'
+    }, {
+      tag: [tags.variableName, tags.attributeName, tags.number, tags.operator],
+      color: '#005cc5'
+    }, {
+      tag: [tags.keyword, tags.typeName, tags.typeOperator, tags.typeName],
+      color: '#d73a49'
+    }, {
+      tag: [tags.string, tags.meta, tags.regexp],
+      color: '#032f62'
+    }, {
+      tag: [tags.name, tags.quote],
+      color: '#22863a'
+    }, {
+      tag: [tags.heading, tags.strong],
+      color: '#24292e',
+      fontWeight: 'bold'
+    }, {
+      tag: [tags.emphasis],
+      color: '#24292e',
+      fontStyle: 'italic'
+    }, {
+      tag: [tags.deleted],
+      color: '#b31d28',
+      backgroundColor: 'ffeef0'
+    }, {
+      tag: [tags.atom, tags.bool, tags.special(tags.variableName)],
+      color: '#e36209'
+    }, {
+      tag: [tags.url, tags.escape, tags.regexp, tags.link],
+      color: '#032f62'
+    }, {
+      tag: tags.link,
+      textDecoration: 'underline'
+    }, {
+      tag: tags.strikethrough,
+      textDecoration: 'line-through'
+    }, {
+      tag: tags.invalid,
+      color: '#cb2431'
+    }, ...styles]
+  });
+};
+var githubLight = githubLightInit();
+var defaultSettingsGithubDark = {
+  background: '#0d1117',
+  foreground: '#c9d1d9',
+  caret: '#c9d1d9',
+  selection: '#003d73',
+  selectionMatch: '#003d73',
+  lineHighlight: '#36334280'
+};
+var githubDarkInit = options => {
+  var {
+    theme = 'dark',
+    settings = {},
+    styles = []
+  } = options || {};
+  return createTheme({
+    theme: theme,
+    settings: _extends({}, defaultSettingsGithubDark, settings),
+    styles: [{
+      tag: [tags.standard(tags.tagName), tags.tagName],
+      color: '#7ee787'
+    }, {
+      tag: [tags.comment, tags.bracket],
+      color: '#8b949e'
+    }, {
+      tag: [tags.className, tags.propertyName],
+      color: '#d2a8ff'
+    }, {
+      tag: [tags.variableName, tags.attributeName, tags.number, tags.operator],
+      color: '#79c0ff'
+    }, {
+      tag: [tags.keyword, tags.typeName, tags.typeOperator, tags.typeName],
+      color: '#ff7b72'
+    }, {
+      tag: [tags.string, tags.meta, tags.regexp],
+      color: '#a5d6ff'
+    }, {
+      tag: [tags.name, tags.quote],
+      color: '#7ee787'
+    }, {
+      tag: [tags.heading, tags.strong],
+      color: '#d2a8ff',
+      fontWeight: 'bold'
+    }, {
+      tag: [tags.emphasis],
+      color: '#d2a8ff',
+      fontStyle: 'italic'
+    }, {
+      tag: [tags.deleted],
+      color: '#ffdcd7',
+      backgroundColor: 'ffeef0'
+    }, {
+      tag: [tags.atom, tags.bool, tags.special(tags.variableName)],
+      color: '#ffab70'
+    }, {
+      tag: tags.link,
+      textDecoration: 'underline'
+    }, {
+      tag: tags.strikethrough,
+      textDecoration: 'line-through'
+    }, {
+      tag: tags.invalid,
+      color: '#f97583'
+    }, ...styles]
+  });
+};
+githubDarkInit();
+
 /**
 A parse stack. These are used internally by the parser to track
 parsing progress. They also provide some properties and methods
@@ -32437,16 +32573,25 @@ const sampleContainerElem = getElem('.sampleContainer', sampleElem);
 const titleElem = getElem('#title', sampleElem);
 const descriptionElem = getElem('#description', sampleElem);
 const menuToggleElem = getElem('#menuToggle');
+const darkMatcher = window.matchMedia('(prefers-color-scheme: dark)');
+/**
+ * Gets the CodeMirrorTheme based on light or dark
+ */
+function getCodeMirrorTheme() {
+    const isDarkMode = darkMatcher.matches;
+    return isDarkMode ? monokai : githubLight;
+}
 // Get the parts of a string past the last `/`
 const basename = (name) => name.substring(name.lastIndexOf('/') + 1);
 // Make a new codemirror editor
 const readOnly = EditorState.readOnly.of(true);
+const themeConfig = new Compartment();
 async function makeCodeMirrorEditor(parent, filename) {
     const source = await (await fetch(filename)).text();
-    new EditorView({
+    return new EditorView({
         extensions: [
             basicSetup,
-            monokai,
+            themeConfig.of([getCodeMirrorTheme()]),
             EditorView.lineWrapping,
             javascript(),
             readOnly,
@@ -32491,8 +32636,21 @@ function setSourceTabHash(event, sourceInfo) {
 function isSameDomain(url) {
     return new URL(url, window.location.href).origin === window.location.origin;
 }
-// That current sample so we don't reload an iframe if the user picks the same sample.
+// The current sample so we don't reload an iframe if the user picks the same sample.
 let currentSampleInfo;
+// The current set of codeMirrorEditors
+const codeMirrorEditors = [];
+// Switch the code mirror themes if the color preference changes.
+darkMatcher.addEventListener('change', () => {
+    const theme = getCodeMirrorTheme();
+    for (const editorViewPromise of codeMirrorEditors) {
+        editorViewPromise.then((editorView) => {
+            editorView.dispatch({
+                effects: themeConfig.reconfigure([theme]),
+            });
+        });
+    }
+});
 /**
  * Change the iframe (and source editors) to the given sample or none
  */
@@ -32540,6 +32698,7 @@ function setSampleIFrame(sampleInfo, search = '') {
     codeTabsElem.innerHTML = '';
     sourcesElem.innerHTML = '';
     sourcesElem.style.display = sources.length > 0 ? '' : 'none';
+    codeMirrorEditors.length = 0;
     sources.forEach((source, i) => {
         const { path } = source;
         const active = (i === 0).toString();
@@ -32566,7 +32725,7 @@ function setSampleIFrame(sampleInfo, search = '') {
         });
         sourcesElem.appendChild(elem);
         const url = isSameDomain(path) ? `${filename}/${path}` : source.path;
-        makeCodeMirrorEditor(elem, url);
+        codeMirrorEditors.push(makeCodeMirrorEditor(elem, url));
     });
 }
 /**
