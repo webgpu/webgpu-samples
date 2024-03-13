@@ -1,8 +1,9 @@
 import { createElem as el } from './utils/elem';
 import { SampleInfo, SourceInfo, pageCategories } from './samples';
 import { monokai } from '@uiw/codemirror-theme-monokai';
+import { githubLight } from '@uiw/codemirror-theme-github';
 import { EditorView } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Compartment } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { basicSetup } from 'codemirror';
 import { Converter } from 'showdown';
@@ -33,18 +34,30 @@ const titleElem = getElem('#title', sampleElem);
 const descriptionElem = getElem('#description', sampleElem);
 const menuToggleElem = getElem('#menuToggle') as HTMLInputElement;
 
+const darkMatcher = window.matchMedia('(prefers-color-scheme: dark)');
+
+/**
+ * Gets the CodeMirrorTheme based on light or dark
+ */
+function getCodeMirrorTheme() {
+  const isDarkMode = darkMatcher.matches;
+  return isDarkMode ? monokai : githubLight;
+}
+
 // Get the parts of a string past the last `/`
 const basename = (name: string) => name.substring(name.lastIndexOf('/') + 1);
 
 // Make a new codemirror editor
 const readOnly = EditorState.readOnly.of(true);
+const themeConfig = new Compartment();
+
 async function makeCodeMirrorEditor(parent: HTMLElement, filename: string) {
   const source = await (await fetch(filename)).text();
 
-  new EditorView({
+  return new EditorView({
     extensions: [
       basicSetup,
-      monokai,
+      themeConfig.of([getCodeMirrorTheme()]),
       EditorView.lineWrapping,
       javascript(),
       readOnly,
@@ -96,8 +109,23 @@ function isSameDomain(url: string) {
   return new URL(url, window.location.href).origin === window.location.origin;
 }
 
-// That current sample so we don't reload an iframe if the user picks the same sample.
+// The current sample so we don't reload an iframe if the user picks the same sample.
 let currentSampleInfo: SampleInfo | undefined;
+
+// The current set of codeMirrorEditors
+const codeMirrorEditors: Promise<EditorView>[] = [];
+
+// Switch the code mirror themes if the color preference changes.
+darkMatcher.addEventListener('change', () => {
+  const theme = getCodeMirrorTheme();
+  for (const editorViewPromise of codeMirrorEditors) {
+    editorViewPromise.then((editorView) => {
+      editorView.dispatch({
+        effects: themeConfig.reconfigure([theme]),
+      });
+    });
+  }
+});
 
 /**
  * Change the iframe (and source editors) to the given sample or none
@@ -154,6 +182,7 @@ function setSampleIFrame(
   codeTabsElem.innerHTML = '';
   sourcesElem.innerHTML = '';
   sourcesElem.style.display = sources.length > 0 ? '' : 'none';
+  codeMirrorEditors.length = 0;
   sources.forEach((source, i) => {
     const { path } = source;
     const active = (i === 0).toString();
@@ -182,7 +211,7 @@ function setSampleIFrame(
     });
     sourcesElem.appendChild(elem);
     const url = isSameDomain(path) ? `${filename}/${path}` : source.path;
-    makeCodeMirrorEditor(elem, url);
+    codeMirrorEditors.push(makeCodeMirrorEditor(elem, url));
   });
 }
 
