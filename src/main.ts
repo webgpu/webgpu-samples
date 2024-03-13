@@ -69,7 +69,10 @@ function setURL(url: string) {
 }
 
 // Handle when the URL changes (browser back / forward)
-window.addEventListener('popstate', parseURL);
+window.addEventListener('popstate', (e) => {
+  e.preventDefault();
+  parseURL();
+});
 
 /**
  * Scrolls the current tab into view.
@@ -97,7 +100,7 @@ function switchToRelativeTab(direction: number) {
   const newNdx = (activeNdx + tabs.length + direction) % tabs.length;
   const tab = tabs[newNdx];
   moveIntoView(sourceTabsElem, tab.parentElement!);
-  tab.click();
+  return tab;
 }
 
 /**
@@ -109,7 +112,6 @@ function setSourceTab(sourceInfo: SourceInfo) {
     const elem = e as HTMLElement;
     elem.dataset.active = (elem.dataset.name === name).toString();
   });
-  switchToRelativeTab(0);
 }
 
 /**
@@ -157,6 +159,7 @@ function setSampleIFrame(
   };
 
   titleElem.textContent = name;
+  document.title = `WebGPU Samples - ${name}`;
   descriptionElem.innerHTML = markdownConverter.makeHtml(description);
 
   // Replace the iframe because changing src adds to the user's history.
@@ -276,8 +279,8 @@ for (const { title, description, samples } of pageCategories) {
   );
 }
 
-sourceLElem.addEventListener('click', () => switchToRelativeTab(-1));
-sourceRElem.addEventListener('click', () => switchToRelativeTab(1));
+sourceLElem.addEventListener('click', () => switchToRelativeTab(-1).click());
+sourceRElem.addEventListener('click', () => switchToRelativeTab(1).click());
 
 function checkIfSourceTabsFit() {
   const parentWidth = sourceTabsElem.clientWidth;
