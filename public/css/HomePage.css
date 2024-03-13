@@ -14,10 +14,10 @@
   --tooltip-background: #eee;
   --tooltip-border: rgba(0, 0, 0, 0.1);
 
-  --source-tab-color: white;
-  --source-tab-background: #444;
-  --source-tab-active-background: #282828;
-  --source-tab-active-shadow: rgb(167, 167, 167);
+  --source-tab-color: black;
+  --source-tab-background: #CCC;
+  --source-tab-active-background: #FFF;
+  --source-tab-active-shadow: #EEE;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,6 +34,11 @@
 
     --tooltip-background: #111;
     --tooltip-border: rgba(255, 255, 255, 0.1);
+
+    --source-tab-color: white;
+    --source-tab-background: #444;
+    --source-tab-active-background: #282828;
+    --source-tab-active-shadow: rgb(167, 167, 167);
   }
 }
 
