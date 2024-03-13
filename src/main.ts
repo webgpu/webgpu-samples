@@ -9,6 +9,7 @@ import { Converter } from 'showdown';
 
 const markdownConverter = new Converter({
   simplifiedAutoLink: true,
+  openLinksInNewWindow: true,
 });
 
 /**
