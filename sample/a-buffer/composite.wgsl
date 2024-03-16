@@ -49,7 +49,7 @@ fn main_fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
   let headsIndex = u32(fragCoords.y - sliceInfo.sliceStartY) * uniforms.targetWidth + u32(fragCoords.x);
 
   // The maximum layers we can process for any pixel
-  const maxLayers = 24u;
+  const maxLayers = 12u;
 
   var layers: array<LinkedListElement, maxLayers>;
 
