@@ -21,7 +21,7 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
   device,
   format: presentationFormat,
-  alphaMode: 'premultiplied',
+  alphaMode: 'opaque',
 });
 
 const params = new URLSearchParams(window.location.search);
