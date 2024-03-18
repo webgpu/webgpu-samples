@@ -59,18 +59,24 @@ fn sampleMsdf(texcoord: vec2f) -> f32 {
   return max(min(c.r, c.g), min(max(c.r, c.g), c.b));
 }
 
-// Antialiasing technique from https://drewcassidy.me/2020/06/26/sdf-antialiasing/
+// Antialiasing technique from Paul Houx 
+// https://github.com/Chlumsky/msdfgen/issues/22#issuecomment-234958005
 @fragment
 fn fragmentMain(input : VertexOutput) -> @location(0) vec4f {
-  let dist = 0.5 - sampleMsdf(input.texcoord);
+  // pxRange (AKA distanceRange) comes from the msdfgen tool. Don McCurdy's tool
+  // uses the default which is 4.
+  let pxRange = 4.0;
+  let sz = vec2f(textureDimensions(fontTexture, 0));
+  let dx = sz.x*length(vec2f(dpdxFine(input.texcoord.x), dpdyFine(input.texcoord.x)));
+  let dy = sz.y*length(vec2f(dpdxFine(input.texcoord.y), dpdyFine(input.texcoord.y)));
+  let toPixels = pxRange * inverseSqrt(dx * dx + dy * dy);
+  let sigDist = sampleMsdf(input.texcoord) - 0.5;
+  let pxDist = sigDist * toPixels;
 
-  // sdf distance per pixel (gradient vector)
-  let ddist = vec2f(dpdx(dist), dpdy(dist));
+  let edgeWidth = 0.5;
 
-  // distance to edge in pixels (scalar)
-  let pixelDist = dist / length(ddist);
+  let alpha = smoothstep(-edgeWidth, edgeWidth, pxDist);
 
-  let alpha = saturate(0.5 - pixelDist);
   if (alpha < 0.001) {
     discard;
   }
