@@ -67,7 +67,7 @@ fn fragmentMain(input : VertexOutput) -> @location(0) vec4f {
   // uses the default which is 4.
   let pxRange = 4.0;
   let sz = vec2<f32>(textureDimensions(fontTexture, 0));
-  let dx = sz.x*length(vec2<f32>(dpdxFine(input.texcoord.x), dpdyFine(input.texcoord.x)));
+  let dx = sz.x*length(vec2f(dpdxFine(input.texcoord.x), dpdyFine(input.texcoord.x)));
   let dy = sz.y*length(vec2<f32>(dpdxFine(input.texcoord.y), dpdyFine(input.texcoord.y)));
   let toPixels = pxRange * inverseSqrt(dx * dx + dy * dy);
   let sigDist = sampleMsdf(input.texcoord) - 0.5;
