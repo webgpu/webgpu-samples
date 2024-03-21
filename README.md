@@ -12,7 +12,7 @@ implementation status and how to run WebGPU in your browser at
 and bundled using [Rollup](https://rollupjs.org/). Building the project
 requires an installation of [Node.js](https://nodejs.org/en/).
 
-- Install dependencies: `npm install`.
+- Install dependencies: `npm ci`.
 - For development, start the dev server which will watch and recompile
   sources: `npm start`. You can navigate to http://localhost:8080 to view the project.
 - For production, compile the project: `npm run build`.

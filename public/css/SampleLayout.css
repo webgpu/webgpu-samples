@@ -13,13 +13,15 @@
   height: 100%;
   border: none;
   display: block;
+  /* should should remain white because samples in iframes expect a white background */
+  color-scheme: light;
   background-color: #fff;
 }
 
 .sampleCategory {
-  margin-top: 5px;
-  margin-bottom: 5px;
-  display: inline-block;
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+  position: relative;
 }
 
 [data-tooltip] {
@@ -29,8 +31,8 @@
 [data-tooltip]::after {
   pointer-events: none;
   content: attr(data-tooltip);
-  background-color: rgba(255, 255, 255, 1);
-  box-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.1);
+  background-color: var(--tooltip-background);
+  box-shadow: 0 0 2px 2px var(--tooltip-border);
   border-radius: 10px;
   transition: opacity 0.2s ease-in, transform 0.2s ease-out;
   padding: 0.5em;
@@ -46,6 +48,8 @@
 }
 
 nav.sourceFileNav {
+  display: flex;
+  align-items: flex-start;
 }
 
 nav.sourceFileNav ul {
@@ -54,6 +58,7 @@ nav.sourceFileNav ul {
   padding: 0;
   margin: 0;
   margin-top: 15px;
+  position: relative;
 }
 
 nav.sourceFileNav li {
@@ -98,6 +103,25 @@ nav.sourceFileNav[data-right=true]::after {
   background: linear-gradient(270deg, rgba(0, 0, 0, 0.35), transparent);
 }
 
+.sourceLR {
+  display: none;
+  cursor: pointer;
+  width: 5em;
+  padding: 10px;
+  margin-top: 15px;
+  text-align: center;
+  color: var(--source-tab-color);
+  background-color: var(--source-tab-background);
+  border-left: 1px solid rgba(0, 0, 0, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+}
+.sourceLR:hover {
+  text-decoration: underline;
+}
+.sourceLRShow .sourceLR {
+  display: block;
+}
+
 nav.sourceFileNav div.sourceFileScrollContainer {
   white-space: nowrap;
   overflow-x: auto;
@@ -129,8 +153,9 @@ nav.sourceFileNav li a {
   display: block;
   margin: 0;
   padding: 10px;
-  color: white;
-  background-color: #403e3e;
+  color: var(--source-tab-color);
+  background-color: var(--source-tab-background);
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
 }
 
 nav.sourceFileNav li:hover {
@@ -140,11 +165,11 @@ nav.sourceFileNav li:hover {
 }
 
 nav.sourceFileNav li a[data-active=true] {
-  background-color: #282823;
+  background-color: var(--source-tab-active-background);
 }
 
 nav.sourceFileNav li:has(a[data-active=true]) {
-  box-shadow: 0 -10px 0 0 rgb(167, 167, 167);
+  box-shadow: 0 -10px 0 0 var(--source-tab-active-shadow);
   border-radius: 10px;
 }
 

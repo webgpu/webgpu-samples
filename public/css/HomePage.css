@@ -1,4 +1,46 @@
+:root {
+  color-scheme: light dark;
+
+  /* these are the light colors */
+  --background: #eee;
+
+  --code-background: #ccc;
+  --link: #045b88;
+
+  --panel-color: #000;
+  --panel-background: #ddd;
+  --panel-emphasis: rgb(20, 62, 84);
+
+  --tooltip-background: #eee;
+  --tooltip-border: rgba(0, 0, 0, 0.1);
+
+  --source-tab-color: black;
+  --source-tab-background: #CCC;
+  --source-tab-active-background: #FFF;
+  --source-tab-active-shadow: #EEE;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* these are the dark colors */
+    --background: #000;
+
+    --code-background: #555;
+    --link: #02abff;
+
+    --panel-color: #02abff;
+    --panel-background: #222;
+    --panel-emphasis: rgb(115, 206, 255);
+
+    --tooltip-background: #111;
+    --tooltip-border: rgba(255, 255, 255, 0.1);
+
+    --source-tab-color: white;
+    --source-tab-background: #444;
+    --source-tab-active-background: #282828;
+    --source-tab-active-shadow: rgb(167, 167, 167);
+  }
+}
+
 .homePage {
-  background: white;
-  color: #222;
 }

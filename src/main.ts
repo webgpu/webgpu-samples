@@ -1,14 +1,16 @@
 import { createElem as el } from './utils/elem';
 import { SampleInfo, SourceInfo, pageCategories } from './samples';
 import { monokai } from '@uiw/codemirror-theme-monokai';
+import { githubLight } from '@uiw/codemirror-theme-github';
 import { EditorView } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Compartment } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { basicSetup } from 'codemirror';
 import { Converter } from 'showdown';
 
 const markdownConverter = new Converter({
   simplifiedAutoLink: true,
+  openLinksInNewWindow: true,
 });
 
 /**
@@ -31,19 +33,35 @@ const sampleContainerElem = getElem('.sampleContainer', sampleElem);
 const titleElem = getElem('#title', sampleElem);
 const descriptionElem = getElem('#description', sampleElem);
 const menuToggleElem = getElem('#menuToggle') as HTMLInputElement;
+const codeElem = getElem('#code');
+const sourceTabsElem = getElem('#sourceTabs');
+const sourceLElem = getElem('#sourceL');
+const sourceRElem = getElem('#sourceR');
+
+const darkMatcher = window.matchMedia('(prefers-color-scheme: dark)');
+
+/**
+ * Gets the CodeMirrorTheme based on light or dark
+ */
+function getCodeMirrorTheme() {
+  const isDarkMode = darkMatcher.matches;
+  return isDarkMode ? monokai : githubLight;
+}
 
 // Get the parts of a string past the last `/`
 const basename = (name: string) => name.substring(name.lastIndexOf('/') + 1);
 
 // Make a new codemirror editor
 const readOnly = EditorState.readOnly.of(true);
+const themeConfig = new Compartment();
+
 async function makeCodeMirrorEditor(parent: HTMLElement, filename: string) {
   const source = await (await fetch(filename)).text();
 
-  new EditorView({
+  return new EditorView({
     extensions: [
       basicSetup,
-      monokai,
+      themeConfig.of([getCodeMirrorTheme()]),
       EditorView.lineWrapping,
       javascript(),
       readOnly,
@@ -64,7 +82,39 @@ function setURL(url: string) {
 }
 
 // Handle when the URL changes (browser back / forward)
-window.addEventListener('popstate', parseURL);
+window.addEventListener('popstate', (e) => {
+  e.preventDefault();
+  parseURL();
+});
+
+/**
+ * Scrolls the current tab into view.
+ */
+function moveIntoView(parent: HTMLElement, element: HTMLElement) {
+  const parentLeft = parent.scrollLeft;
+  const parentRight = parentLeft + parent.clientWidth;
+
+  const elemLeft = element.offsetLeft;
+  const elemRight = elemLeft + element.clientWidth;
+
+  if (elemLeft < parentLeft) {
+    parent.scrollLeft -= parentLeft - elemLeft;
+  } else if (elemRight > parentRight) {
+    parent.scrollLeft += elemRight - parentRight;
+  }
+}
+
+/**
+ * Switches to a tab relative to the current tab
+ */
+function switchToRelativeTab(offsetFromCurrentTab: number) {
+  const tabs = [...sourceTabsElem.querySelectorAll('a')];
+  const activeNdx = tabs.findIndex((tab) => tab.dataset.active === 'true');
+  const newNdx = (activeNdx + tabs.length + offsetFromCurrentTab) % tabs.length;
+  const tab = tabs[newNdx];
+  moveIntoView(sourceTabsElem, tab.parentElement!);
+  return tab;
+}
 
 /**
  * Show/hide source tabs
@@ -75,6 +125,8 @@ function setSourceTab(sourceInfo: SourceInfo) {
     const elem = e as HTMLElement;
     elem.dataset.active = (elem.dataset.name === name).toString();
   });
+  // Effectively makes the tab entirely visible if part of it is scrolled off.
+  switchToRelativeTab(0);
 }
 
 /**
@@ -95,8 +147,23 @@ function isSameDomain(url: string) {
   return new URL(url, window.location.href).origin === window.location.origin;
 }
 
-// That current sample so we don't reload an iframe if the user picks the same sample.
+// The current sample so we don't reload an iframe if the user picks the same sample.
 let currentSampleInfo: SampleInfo | undefined;
+
+// The current set of codeMirrorEditors
+const codeMirrorEditors: Promise<EditorView>[] = [];
+
+// Switch the code mirror themes if the color preference changes.
+darkMatcher.addEventListener('change', () => {
+  const theme = getCodeMirrorTheme();
+  for (const editorViewPromise of codeMirrorEditors) {
+    editorViewPromise.then((editorView) => {
+      editorView.dispatch({
+        effects: themeConfig.reconfigure([theme]),
+      });
+    });
+  }
+});
 
 /**
  * Change the iframe (and source editors) to the given sample or none
@@ -122,6 +189,7 @@ function setSampleIFrame(
   };
 
   titleElem.textContent = name;
+  document.title = `WebGPU Samples - ${name}`;
   descriptionElem.innerHTML = markdownConverter.makeHtml(description);
 
   // Replace the iframe because changing src adds to the user's history.
@@ -153,6 +221,7 @@ function setSampleIFrame(
   codeTabsElem.innerHTML = '';
   sourcesElem.innerHTML = '';
   sourcesElem.style.display = sources.length > 0 ? '' : 'none';
+  codeMirrorEditors.length = 0;
   sources.forEach((source, i) => {
     const { path } = source;
     const active = (i === 0).toString();
@@ -181,7 +250,7 @@ function setSampleIFrame(
     });
     sourcesElem.appendChild(elem);
     const url = isSameDomain(path) ? `${filename}/${path}` : source.path;
-    makeCodeMirrorEditor(elem, url);
+    codeMirrorEditors.push(makeCodeMirrorEditor(elem, url));
   });
 }
 
@@ -240,6 +309,43 @@ for (const { title, description, samples } of pageCategories) {
     ])
   );
 }
+
+sourceLElem.addEventListener('click', () => switchToRelativeTab(-1).click());
+sourceRElem.addEventListener('click', () => switchToRelativeTab(1).click());
+
+function checkIfSourceTabsFit() {
+  const parentWidth = sourceTabsElem.clientWidth;
+  const childWidth = [...sourceTabsElem.querySelectorAll('li')].reduce(
+    (sum, elem) => sum + elem.clientWidth,
+    0
+  );
+  const showLR = childWidth > parentWidth;
+  codeElem.classList.toggle('sourceLRShow', showLR);
+}
+
+const registerResizeCallback = (() => {
+  const elemToResizeCallback = new Map<
+    Element,
+    (entry: ResizeObserverEntry) => void
+  >();
+  const observer = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const cb = elemToResizeCallback.get(entry.target);
+      if (cb) {
+        cb(entry);
+      }
+    }
+  });
+  return function (
+    elem: Element,
+    callback: (entry: ResizeObserverEntry) => void
+  ) {
+    elemToResizeCallback.set(elem, callback);
+    observer.observe(elem);
+  };
+})();
+
+registerResizeCallback(sourceTabsElem, checkIfSourceTabsFit);
 
 /**
  * Parse the page's current URL and then set the iframe appropriately.
