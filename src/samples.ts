@@ -33,6 +33,7 @@ import textRenderingMsdf from '../sample/textRenderingMsdf/meta';
 import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
+import volumeRenderingTexture3D from '../sample/volumeRenderingTexture3D/meta';
 import worker from '../sample/worker/meta';
 import workloadSimulator from '../sample/workloadSimulator/meta';
 
@@ -121,6 +122,7 @@ export const pageCategories: PageCategory[] = [
       'a-buffer': aBuffer,
       skinnedMesh,
       textRenderingMsdf,
+      volumeRenderingTexture3D,
     },
   },
 
