@@ -19,7 +19,7 @@ In the "Volume Rendering - Texture 3D" sample, the implementation uses simulated
 11. Copy the downloaded *.rawb data to this directory.
 12. Activate a Python environment with at least Python 3.12, Numpy, Scipy, and Pillow.
 13. Start a terminal in this directory.
-14. Run t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.py script.
+14. Run t1_icbm_normal_1mm_pn0_rf0.py script.
 
 === References
 

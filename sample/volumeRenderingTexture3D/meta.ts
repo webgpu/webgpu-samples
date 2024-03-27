@@ -10,7 +10,7 @@ Database, with decompression streams, to save disk space and network traffic.
 The original raw data is generated using
 [the BrainWeb Simulated Brain Database](https://brainweb.bic.mni.mcgill.ca/brainweb/)
 before processing in
-[a custom Python script](https://github.com/webgpu/webgpu-samples/tree/main/public/assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.py).`,
+[a custom Python script](https://github.com/webgpu/webgpu-samples/tree/main/public/assets/img/volume/t1_icbm_normal_1mm_pn0_rf0.py).`,
   filename: __DIRNAME__,
   sources: [{ path: 'main.ts' }, { path: 'volume.wgsl' }],
 };

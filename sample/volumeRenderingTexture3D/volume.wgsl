@@ -12,7 +12,7 @@ struct VertexOutput {
   @location(1) step : vec3f,
 }
 
-const NumSteps = 128u;
+const NumSteps = 64u;
 
 @vertex
 fn vertex_main(
