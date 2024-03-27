@@ -41,7 +41,7 @@ const pipeline = device.createRenderPipeline({
     topology: 'triangle-list',
   },
   multisample: {
-    count: 4,
+    count: sampleCount,
   },
 });
 
