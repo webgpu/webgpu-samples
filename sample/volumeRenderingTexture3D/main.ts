@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 import volumeWGSL from './volume.wgsl';
 
@@ -143,9 +143,7 @@ const uniformBindGroup = device.createBindGroup({
     },
     {
       binding: 2,
-      resource: volumeTexture.createView({
-        dimension: '3d',
-      }),
+      resource: volumeTexture.createView(),
     },
   ],
 });
@@ -166,13 +164,13 @@ let rotation = 0;
 
 function getInverseModelViewProjectionMatrix(deltaTime: number) {
   const viewMatrix = mat4.identity();
-  mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+  mat4.translate(viewMatrix, [0, 0, -4], viewMatrix);
   if (params.rotateCamera) {
     rotation += deltaTime;
   }
   mat4.rotate(
     viewMatrix,
-    vec3.fromValues(Math.sin(rotation), Math.cos(rotation), 0),
+    [Math.sin(rotation), Math.cos(rotation), 0],
     1,
     viewMatrix
   );
@@ -184,9 +182,7 @@ function getInverseModelViewProjectionMatrix(deltaTime: number) {
     params.near,
     params.far
   );
-  const modelViewProjectionMatrix = mat4.create();
-
-  mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
+  const modelViewProjectionMatrix = mat4.multiply(projectionMatrix, viewMatrix);
 
   return mat4.invert(modelViewProjectionMatrix) as Float32Array;
 }
@@ -200,13 +196,7 @@ function frame() {
 
   const inverseModelViewProjection =
     getInverseModelViewProjectionMatrix(deltaTime);
-  device.queue.writeBuffer(
-    uniformBuffer,
-    0,
-    inverseModelViewProjection.buffer,
-    inverseModelViewProjection.byteOffset,
-    inverseModelViewProjection.byteLength
-  );
+  device.queue.writeBuffer(uniformBuffer, 0, inverseModelViewProjection);
   renderPassDescriptor.colorAttachments[0].view = view;
   renderPassDescriptor.colorAttachments[0].resolveTarget = context
     .getCurrentTexture()
