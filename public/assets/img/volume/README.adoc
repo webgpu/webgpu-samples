@@ -1,0 +1,58 @@
+:toc:
+
+== Data from BrainWeb: Simulated Brain Database
+
+In the "Volume Rendering - Texture 3D" sample, the implementation uses simulated brain data from BrainWeb. The render results, as seen in the sample, were validated to be representative of standard visualization with VTK.
+
+=== Reproduction
+
+1. Go to https://brainweb.bic.mni.mcgill.ca/brainweb/selection_normal.html
+2. Set modality to T1.
+3. Set slice thickness to 1mm.
+4. Set noise to 0%.
+5. Set RF to 0%.
+6. Click Download.
+7. Set file format to raw byte.
+8. Set compression to none.
+9. Follow other instructions on the website according to your situation.
+10. Click Start Download.
+11. Copy the downloaded *.rawb data to this directory.
+12. Activate a Python environment with at least Python 3.12, Numpy, Scipy, and Pillow.
+13. Start a terminal in this directory.
+14. Run t1_icbm_normal_1mm_pn0_rf0.py script.
+
+=== References
+
+* http://www.bic.mni.mcgill.ca/brainweb/[`http://www.bic.mni.mcgill.ca/brainweb/`]
+
+* C.A. Cocosco, V. Kollokian, R.K.-S. Kwan, A.C. Evans : 
+  __"BrainWeb: Online Interface to a 3D MRI Simulated Brain Database"__ +
+  NeuroImage, vol.5, no.4, part 2/4, S425, 1997 -- Proceedings of 3-rd International Conference on Functional Mapping of the Human Brain, Copenhagen, May 1997.
+  ** abstract available in
+    http://www.bic.mni.mcgill.ca/users/crisco/HBM97_abs/HBM97_abs.html[html],
+    http://www.bic.mni.mcgill.ca/users/crisco/HBM97_abs/HBM97_abs.pdf[pdf (500Kb)],
+    or http://www.bic.mni.mcgill.ca/users/crisco/HBM97_abs/HBM97_abs.ps.gz[gnuzip-ed postscript (500Kb)].
+  ** poster available in
+    http://www.bic.mni.mcgill.ca/users/crisco/HBM97_poster/HBM97_poster.pdf[pdf (1.1Mb)],
+    or http://www.bic.mni.mcgill.ca/users/crisco/HBM97_poster/HBM97_poster.ps.gz[gnuzip-ed postscript (850Kb)].
+
+* R.K.-S. Kwan, A.C. Evans, G.B. Pike :
+  __"MRI simulation-based evaluation of image-processing and classification methods"__ +
+  IEEE Transactions on Medical Imaging. 18(11):1085-97, Nov 1999.
+
+* R.K.-S. Kwan, A.C. Evans, G.B. Pike :
+  __"An Extensible MRI Simulator for Post-Processing Evaluation"__ +
+  Visualization in Biomedical Computing (VBC'96). Lecture Notes in Computer Science, vol. 1131. Springer-Verlag, 1996. 135-140.
+  ** paper available in
+    http://www.bic.mni.mcgill.ca/users/rkwan/vbc96/paper/vbc96.html[html],
+    http://www.bic.mni.mcgill.ca/users/rkwan/vbc96/paper/vbc96.ps[postscript (1Mb)],
+    or http://www.bic.mni.mcgill.ca/users/rkwan/vbc96/paper/vbc96.ps.gz[gnuzip-ed postscript (380Kb)].
+  ** poster available in
+    http://www.bic.mni.mcgill.ca/users/rkwan/vbc96/poster/vbc96bw.ps[grey-scale postscript (5.3Mb)],
+    http://www.bic.mni.mcgill.ca/users/rkwan/vbc96/poster/vbc96bw.ps.gz[grey-scale, gnuzip-ed postscript (536Kb)],
+    or http://www.bic.mni.mcgill.ca/users/rkwan/vbc96/poster/vbc96.poster.ps.gz[colour, gnuzip-ed postscript (597Kb)].  
+
+* D.L. Collins, A.P. Zijdenbos, V. Kollokian, J.G. Sled, N.J. Kabani, C.J. Holmes, A.C. Evans :
+  __"Design and Construction of a Realistic Digital Brain Phantom"__ +
+  IEEE Transactions on Medical Imaging, vol.17, No.3, p.463--468, June 1998.
+  ** paper available in http://www.bic.mni.mcgill.ca/users/louis/papers/phantom/[html].

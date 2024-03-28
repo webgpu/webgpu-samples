@@ -1,0 +1,4 @@
+slices/
+t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin
+t1_icbm_normal_1mm_pn0_rf0.npy
+t1_icbm_normal_1mm_pn0_rf0.rawb
