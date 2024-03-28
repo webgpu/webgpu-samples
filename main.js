@@ -327,7 +327,7 @@ You can read more details [here](https://webgpufundamentals.org/webgpu/lessons/w
 
 var pristineGrid = {
     name: 'Pristine Grid',
-    description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8.
+    description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8
 
 Source at https://github.com/toji/pristine-grid-webgpu/
 `,
