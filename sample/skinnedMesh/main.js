@@ -2493,7 +2493,7 @@ function updateDisplays(controllerArray) {
 }
 var GUI$1 = GUI;
 
-/* wgpu-matrix@2.5.1, license MIT */
+/* wgpu-matrix@2.8.0, license MIT */
 /*
  * Copyright 2022 Gregg Tavares
  *
@@ -3273,60 +3273,184 @@ function getScaling$1(m, dst) {
     dst[2] = Math.sqrt(zx * zx + zy * zy + zz * zz);
     return dst;
 }
+/**
+ * Rotate a 3D vector around the x-axis
+ *
+ * @param {ReadonlyVec3} a The vec3 point to rotate
+ * @param {ReadonlyVec3} b The origin of the rotation
+ * @param {Number} rad The angle of rotation in radians
+ * @param dst - The vector to set. If not passed a new one is created.
+ * @returns the rotated vector
+ */
+function rotateX$2(a, b, rad, dst) {
+    dst = dst || new VecType$1(3);
+    const p = [];
+    const r = [];
+    //Translate point to the origin
+    p[0] = a[0] - b[0];
+    p[1] = a[1] - b[1];
+    p[2] = a[2] - b[2];
+    //perform rotation
+    r[0] = p[0];
+    r[1] = p[1] * Math.cos(rad) - p[2] * Math.sin(rad);
+    r[2] = p[1] * Math.sin(rad) + p[2] * Math.cos(rad);
+    //translate to correct position
+    dst[0] = r[0] + b[0];
+    dst[1] = r[1] + b[1];
+    dst[2] = r[2] + b[2];
+    return dst;
+}
+/**
+ * Rotate a 3D vector around the y-axis
+ *
+ * @param {ReadonlyVec3} a The vec3 point to rotate
+ * @param {ReadonlyVec3} b The origin of the rotation
+ * @param {Number} rad The angle of rotation in radians
+ * @param dst - The vector to set. If not passed a new one is created.
+ * @returns the rotated vector
+ */
+function rotateY$2(a, b, rad, dst) {
+    dst = dst || new VecType$1(3);
+    const p = [];
+    const r = [];
+    // translate point to the origin
+    p[0] = a[0] - b[0];
+    p[1] = a[1] - b[1];
+    p[2] = a[2] - b[2];
+    // perform rotation
+    r[0] = p[2] * Math.sin(rad) + p[0] * Math.cos(rad);
+    r[1] = p[1];
+    r[2] = p[2] * Math.cos(rad) - p[0] * Math.sin(rad);
+    // translate to correct position
+    dst[0] = r[0] + b[0];
+    dst[1] = r[1] + b[1];
+    dst[2] = r[2] + b[2];
+    return dst;
+}
+/**
+ * Rotate a 3D vector around the z-axis
+ *
+ * @param {ReadonlyVec3} a The vec3 point to rotate
+ * @param {ReadonlyVec3} b The origin of the rotation
+ * @param {Number} rad The angle of rotation in radians
+ * @param dst - The vector to set. If not passed a new one is created.
+ * @returns {vec3} out
+ */
+function rotateZ$2(a, b, rad, dst) {
+    dst = dst || new VecType$1(3);
+    const p = [];
+    const r = [];
+    // translate point to the origin
+    p[0] = a[0] - b[0];
+    p[1] = a[1] - b[1];
+    p[2] = a[2] - b[2];
+    // perform rotation
+    r[0] = p[0] * Math.cos(rad) - p[1] * Math.sin(rad);
+    r[1] = p[0] * Math.sin(rad) + p[1] * Math.cos(rad);
+    r[2] = p[2];
+    // translate to correct position
+    dst[0] = r[0] + b[0];
+    dst[1] = r[1] + b[1];
+    dst[2] = r[2] + b[2];
+    return dst;
+}
+/**
+ * Treat a 3D vector as a direction and set it's length
+ *
+ * @param a The vec3 to lengthen
+ * @param len The length of the resulting vector
+ * @returns The lengthened vector
+ */
+function setLength$1(a, len, dst) {
+    dst = dst || new VecType$1(3);
+    normalize$2(a, dst);
+    return mulScalar$2(dst, len, dst);
+}
+/**
+ * Ensure a vector is not longer than a max length
+ *
+ * @param a The vec3 to limit
+ * @param maxLen The longest length of the resulting vector
+ * @returns The vector, shortened to maxLen if it's too long
+ */
+function truncate$1(a, maxLen, dst) {
+    dst = dst || new VecType$1(3);
+    if (length$2(a) > maxLen) {
+        return setLength$1(a, maxLen, dst);
+    }
+    return copy$3(a, dst);
+}
+/**
+ * Return the vector exactly between 2 endpoint vectors
+ *
+ * @param a Endpoint 1
+ * @param b Endpoint 2
+ * @returns The vector exactly residing between endpoints 1 and 2
+ */
+function midpoint$1(a, b, dst) {
+    dst = dst || new VecType$1(3);
+    return lerp$2(a, b, 0.5, dst);
+}
 
 var vec3Impl = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    create: create$4,
-    setDefaultType: setDefaultType$5,
-    fromValues: fromValues$2,
-    set: set$3,
-    ceil: ceil$1,
-    floor: floor$1,
-    round: round$1,
-    clamp: clamp$1,
     add: add$2,
     addScaled: addScaled$1,
     angle: angle$1,
-    subtract: subtract$2,
-    sub: sub$2,
-    equalsApproximately: equalsApproximately$3,
+    ceil: ceil$1,
+    clamp: clamp$1,
+    clone: clone$3,
+    copy: copy$3,
+    create: create$4,
+    cross: cross,
+    dist: dist$1,
+    distSq: distSq$1,
+    distance: distance$1,
+    distanceSq: distanceSq$1,
+    div: div$1,
+    divScalar: divScalar$2,
+    divide: divide$1,
+    dot: dot$2,
     equals: equals$3,
+    equalsApproximately: equalsApproximately$3,
+    floor: floor$1,
+    fromValues: fromValues$2,
+    getAxis: getAxis$1,
+    getScaling: getScaling$1,
+    getTranslation: getTranslation$1,
+    inverse: inverse$3,
+    invert: invert$2,
+    len: len$2,
+    lenSq: lenSq$2,
+    length: length$2,
+    lengthSq: lengthSq$2,
     lerp: lerp$2,
     lerpV: lerpV$1,
     max: max$1,
+    midpoint: midpoint$1,
     min: min$1,
-    mulScalar: mulScalar$2,
-    scale: scale$3,
-    divScalar: divScalar$2,
-    inverse: inverse$3,
-    invert: invert$2,
-    cross: cross,
-    dot: dot$2,
-    length: length$2,
-    len: len$2,
-    lengthSq: lengthSq$2,
-    lenSq: lenSq$2,
-    distance: distance$1,
-    dist: dist$1,
-    distanceSq: distanceSq$1,
-    distSq: distSq$1,
-    normalize: normalize$2,
-    negate: negate$2,
-    copy: copy$3,
-    clone: clone$3,
-    multiply: multiply$3,
     mul: mul$3,
-    divide: divide$1,
-    div: div$1,
+    mulScalar: mulScalar$2,
+    multiply: multiply$3,
+    negate: negate$2,
+    normalize: normalize$2,
     random: random,
-    zero: zero$1,
+    rotateX: rotateX$2,
+    rotateY: rotateY$2,
+    rotateZ: rotateZ$2,
+    round: round$1,
+    scale: scale$3,
+    set: set$3,
+    setDefaultType: setDefaultType$5,
+    setLength: setLength$1,
+    sub: sub$2,
+    subtract: subtract$2,
+    transformMat3: transformMat3,
     transformMat4: transformMat4$1,
     transformMat4Upper3x3: transformMat4Upper3x3,
-    transformMat3: transformMat3,
     transformQuat: transformQuat,
-    getTranslation: getTranslation$1,
-    getAxis: getAxis$1,
-    getScaling: getScaling$1
+    truncate: truncate$1,
+    zero: zero$1
 });
 
 /**
@@ -4851,50 +4975,50 @@ function uniformScale(m, s, dst) {
 
 var mat4Impl = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    setDefaultType: setDefaultType$3,
+    aim: aim,
+    axisRotate: axisRotate,
+    axisRotation: axisRotation,
+    cameraAim: cameraAim,
+    clone: clone$2,
+    copy: copy$2,
     create: create$2,
-    set: set$2,
+    determinant: determinant,
+    equals: equals$2,
+    equalsApproximately: equalsApproximately$2,
     fromMat3: fromMat3,
     fromQuat: fromQuat,
-    negate: negate$1,
-    copy: copy$2,
-    clone: clone$2,
-    equalsApproximately: equalsApproximately$2,
-    equals: equals$2,
-    identity: identity$1,
-    transpose: transpose,
-    inverse: inverse$2,
-    determinant: determinant,
-    invert: invert$1,
-    multiply: multiply$2,
-    mul: mul$2,
-    setTranslation: setTranslation,
-    getTranslation: getTranslation,
-    getAxis: getAxis,
-    setAxis: setAxis,
-    getScaling: getScaling,
-    perspective: perspective,
-    ortho: ortho,
     frustum: frustum,
-    aim: aim,
-    cameraAim: cameraAim,
+    getAxis: getAxis,
+    getScaling: getScaling,
+    getTranslation: getTranslation,
+    identity: identity$1,
+    inverse: inverse$2,
+    invert: invert$1,
     lookAt: lookAt,
-    translation: translation,
-    translate: translate,
-    rotationX: rotationX,
-    rotateX: rotateX$1,
-    rotationY: rotationY,
-    rotateY: rotateY$1,
-    rotationZ: rotationZ,
-    rotateZ: rotateZ$1,
-    axisRotation: axisRotation,
-    rotation: rotation,
-    axisRotate: axisRotate,
+    mul: mul$2,
+    multiply: multiply$2,
+    negate: negate$1,
+    ortho: ortho,
+    perspective: perspective,
     rotate: rotate,
-    scaling: scaling,
+    rotateX: rotateX$1,
+    rotateY: rotateY$1,
+    rotateZ: rotateZ$1,
+    rotation: rotation,
+    rotationX: rotationX,
+    rotationY: rotationY,
+    rotationZ: rotationZ,
     scale: scale$2,
-    uniformScaling: uniformScaling,
-    uniformScale: uniformScale
+    scaling: scaling,
+    set: set$2,
+    setAxis: setAxis,
+    setDefaultType: setDefaultType$3,
+    setTranslation: setTranslation,
+    translate: translate,
+    translation: translation,
+    transpose: transpose,
+    uniformScale: uniformScale,
+    uniformScaling: uniformScaling
 });
 
 //NOTE: GLTF code is not generally extensible to all gltf models
