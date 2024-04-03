@@ -1,3 +1,4 @@
+// SDFs taken from https://iquilezles.org/articles/distfunctions2d/
 fn sdfCircle(p: vec2<f32>, r: f32) -> f32 {
   return length(p)-r;
 }
@@ -12,6 +13,26 @@ fn sdfTriangle(p_temp: vec2<f32>, r: f32) -> f32 {
   }
   p.x -= clamp( p.x, -2.0*r, 0.0 );
   return -length(p)*sign(p.y);
+}
+
+fn dot2(v: vec2<f32>) -> f32 {
+  return dot(v, v);
+}
+
+fn sdfCoolS(p_temp: vec2<f32>) -> f32 {
+  var p = p_temp;
+  var six: f32 = select(-p.x, p.x, p.y < 0.0);
+  p.x = abs(p.x);
+  p.y = abs(p.y) - 0.2;
+  var rex: f32 = p.x - min(round(p.x / 0.4), 0.4);
+  var aby: f32 = abs(p.y - 0.2) - 0.6;
+
+  var d: f32 = dot2(vec2<f32>(six, -p.y) - clamp(0.5 * (six - p.y), 0.0, 0.2));
+  d = min(d, dot2(vec2<f32>(p.x, -aby) - clamp(0.5 * (p.x - aby), 0.0, 0.4)));
+  d = min(d, dot2(vec2<f32>(rex, p.y - clamp(p.y, 0.0, 0.4))));
+
+  var s: f32 = 2.0 * p.x + aby + abs(aby + 0.4) - 0.4;
+  return sqrt(d) * sign(s);
 }
 
 struct VertexOutput {
@@ -36,6 +57,10 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
       d = sdfTriangle(input.v_uv, 1.0);
       break;
     } 
+    case 2: {
+      d = sdfCoolS(input.v_uv);
+      break;
+    }
     default: { 
       d = sdfCircle(input.v_uv, 1.0);
     }
