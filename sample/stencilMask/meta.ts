@@ -1,7 +1,7 @@
 export default {
   name: 'Stencil Mask',
   description:
-    'This example demonstrates how to use the stencil buffer to create a simple mask over a scene. The mask itself is rendered using an SDF, and the properties of the mask are adjusted by changing the stencil test properties in the render pipeline.',
+    "This example demonstrates how to use the stencil buffer to create a simple mask over a scene. The mask itself is rendered using an SDF, with options to invert the mask or change the mask's shape. The position and scale of the mask can also be adjusted via the mouse and scroll wheel respectively.",
   filename: __DIRNAME__,
   sources: [
     // Ts files

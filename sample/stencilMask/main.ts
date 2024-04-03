@@ -255,6 +255,8 @@ const createRenderPipeline = (invertMask: boolean) => {
       depthCompare: 'less',
       format: 'depth24plus-stencil8',
       stencilFront: {
+        // 'Equal': If the current value of the stencil is equal to the reference value set by setStencilReference(), keep the pixel.
+        // 'not-equal': Opposite of equal.
         compare: invertMask ? 'not-equal' : 'equal',
         passOp: 'keep',
         failOp: 'zero',
