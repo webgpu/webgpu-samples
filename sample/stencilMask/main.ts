@@ -58,14 +58,18 @@ canvas.addEventListener('wheel', (e) => {
   } else {
     settings.scaleRadius -= scaleFactor;
   }
-  settings.scaleRadius = Math.max(1.5, Math.min(10.0, settings.scaleRadius));
+  settings.scaleRadius = Math.max(1.0, Math.min(10.0, settings.scaleRadius));
 });
 
 canvas.addEventListener('mousemove', (e) => {
   const halfCanvasWidth = canvas.clientWidth / 2;
+  const quarterCanvasWidth = canvas.clientWidth / 4;
+  const halfCanvasHeight = canvas.clientHeight / 2
+  const quarterCanvasHeight = canvas.clientHeight / 4;
+
   const halfCanvasHeight = canvas.clientHeight / 2;
-  settings.offsetX = (e.clientX - halfCanvasWidth) / halfCanvasWidth;
-  settings.offsetY = (e.clientY - halfCanvasHeight) / halfCanvasHeight;
+  settings.offsetX = (e.clientX - 3 * quarterCanvasWidth) / halfCanvasWidth
+  settings.offsetY = (e.clientY - 3 * quarterCanvasHeight) / halfCanvasHeight;
 });
 
 const gui = new GUI();
