@@ -5343,7 +5343,7 @@ const renderPassDescriptor = {
     colorAttachments: [
         {
             view: undefined, // Assigned later
-            clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+            clearValue: [0, 0, 0, 1],
             loadOp: 'clear',
             storeOp: 'store',
         },

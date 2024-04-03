@@ -138,7 +138,7 @@ async function init(canvas) {
       {
         view: undefined, // Assigned later
 
-        clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
+        clearValue: [0.5, 0.5, 0.5, 1.0],
         loadOp: 'clear',
         storeOp: 'store',
       },

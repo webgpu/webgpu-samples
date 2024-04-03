@@ -2620,7 +2620,7 @@ function frame() {
         colorAttachments: [
             {
                 view: context.getCurrentTexture().createView(),
-                clearValue: { r: 0.2, g: 0.2, b: 0.2, a: 1.0 },
+                clearValue: [0.2, 0.2, 0.2, 1.0],
                 loadOp: 'clear',
                 storeOp: 'store',
             },
