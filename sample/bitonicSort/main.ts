@@ -315,7 +315,7 @@ SampleInitFactoryWebGPU(
         {
           view: undefined, // Assigned later
 
-          clearValue: { r: 0.1, g: 0.4, b: 0.5, a: 1.0 },
+          clearValue: [0.1, 0.4, 0.5, 1.0],
           loadOp: 'clear',
           storeOp: 'store',
         },

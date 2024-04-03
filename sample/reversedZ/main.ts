@@ -357,7 +357,7 @@ const drawPassDescriptor: GPURenderPassDescriptor = {
       // view is acquired and set in render loop.
       view: undefined,
 
-      clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+      clearValue: [0.0, 0.0, 0.5, 1.0],
       loadOp: 'clear',
       storeOp: 'store',
     },
@@ -396,7 +396,7 @@ const textureQuadPassDescriptor: GPURenderPassDescriptor = {
       // view is acquired and set in render loop.
       view: undefined,
 
-      clearValue: { r: 0.0, g: 0.0, b: 0.5, a: 1.0 },
+      clearValue: [0.0, 0.0, 0.5, 1.0],
       loadOp: 'clear',
       storeOp: 'store',
     },
