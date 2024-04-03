@@ -348,7 +348,7 @@ const gltfRenderPassDescriptor: GPURenderPassDescriptor = {
     {
       view: undefined, // Assigned later
 
-      clearValue: { r: 0.3, g: 0.3, b: 0.3, a: 1.0 },
+      clearValue: [0.3, 0.3, 0.3, 1.0],
       loadOp: 'clear',
       storeOp: 'store',
     },
@@ -367,7 +367,7 @@ const skinnedGridRenderPassDescriptor: GPURenderPassDescriptor = {
     {
       view: undefined, // Assigned later
 
-      clearValue: { r: 0.3, g: 0.3, b: 0.3, a: 1.0 },
+      clearValue: [0.3, 0.3, 0.3, 1.0],
       loadOp: 'clear',
       storeOp: 'store',
     },

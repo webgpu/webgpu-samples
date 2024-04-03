@@ -812,7 +812,7 @@ async function render(fromRaf, fromPostMessage) {
           view: renderAttachment,
           resolveTarget: multisampling.checked ? canvasView : undefined,
           loadOp: 'clear',
-          clearValue: { r: 1, g: 1, b: 1, a: 1 },
+          clearValue: [1, 1, 1, 1],
           storeOp: multisampling.checked ? 'discard' : 'store',
         }, ],
       });
