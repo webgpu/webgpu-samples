@@ -398,7 +398,7 @@ const tmpMat4Scene1 = mat4.create();
 // Update the transformation matrix data for each instance.
 function updateTransformationMatrix() {
   const nowScene0 = Date.now() / 1000;
-  const nowScene1 = nowScene0 + 100.0;
+  const nowScene1 = nowScene0 * 2;
 
   let m = 0,
     i = 0;

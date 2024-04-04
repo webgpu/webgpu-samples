@@ -7,7 +7,7 @@ export default {
     // Ts files
     { path: 'main.ts' },
     // Stencil Mask shaders
-    { path: 'fullscreenQuad.vert.wgsl' },
+    { path: 'positionQuad.vert.wgsl' },
     { path: 'sdf.frag.wgsl' },
     // Instanced Cube verts
     { path: '../instancedCube/instanced.vert.wgsl' },

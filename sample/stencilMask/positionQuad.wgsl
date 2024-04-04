@@ -1,6 +1,6 @@
 struct VertexOutput {
   @builtin(position) Position : vec4f,
-  @location(0) fragUV : vec2f,
+  @location(0) v_uv : vec2f,
 }
 
 struct Uniforms {
@@ -38,13 +38,15 @@ fn vertexMain(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   let mask_offset = vec2f(uniforms.offset_x, uniforms.offset_y);
   // scale_to_canvas is effectively a transformation that takes our quad positions from NDC space to canvas space.
   let scale_to_canvas = vec2<f32>(uniforms.scale_to_canvas_x, uniforms.scale_to_canvas_y);
+  // Position in canvas space
   let posCS = pos[VertexIndex] * scale_to_canvas;
+  // offset of position based on mouse cursor input in canvas space
   let offsetCS = mask_offset * scale_to_canvas;
   output.Position = vec4(
     posCS * uniforms.radius_scale + offsetCS, 
     0.0, 
     1.0
   );
-  output.fragUV = uv[VertexIndex];
+  output.v_uv = uv[VertexIndex];
   return output;
 }
