@@ -959,7 +959,7 @@ SampleInitFactoryWebGPU(
     requestAnimationFrame(frame);
   }
 ).then((init) => {
-  const canvas = document.getElementById('canvasOne') as HTMLCanvasElement;
+  const canvas = document.querySelector('canvas') as HTMLCanvasElement;
   const stats = new Stats();
   const gui = new GUI();
 
