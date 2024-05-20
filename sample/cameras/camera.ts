@@ -134,8 +134,8 @@ export class WASDCamera extends CameraBase implements Camera {
     if (options && (options.position || options.target)) {
       const position = options.position ?? vec3.create(0, 0, -5);
       const target = options.target ?? vec3.create(0, 0, 0);
-      const forward = vec3.normalize(vec3.sub(target, position));
-      this.recalculateAngles(forward);
+      const back = vec3.normalize(vec3.sub(position, target));
+      this.recalculateAngles(back);
       this.position = position;
     }
   }
