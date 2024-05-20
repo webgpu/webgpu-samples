@@ -5188,8 +5188,8 @@ class WASDCamera extends CameraBase {
         if (options && (options.position || options.target)) {
             const position = options.position ?? vec3Impl.create(0, 0, -5);
             const target = options.target ?? vec3Impl.create(0, 0, 0);
-            const forward = vec3Impl.normalize(vec3Impl.sub(target, position));
-            this.recalculateAngles(forward);
+            const back = vec3Impl.normalize(vec3Impl.sub(position, target));
+            this.recalculateAngles(back);
             this.position = position;
         }
     }
