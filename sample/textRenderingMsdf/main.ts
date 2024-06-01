@@ -294,7 +294,7 @@ function getTransformationMatrix() {
   mat4.translate(textMatrix, [-3, -0.1, 0], textMatrix);
   largeText.setTransform(textMatrix);
 
-  return modelViewProjectionMatrix as Float32Array;
+  return modelViewProjectionMatrix;
 }
 
 function frame() {

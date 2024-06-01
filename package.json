@@ -29,7 +29,7 @@
     "showdown": "^2.1.0",
     "stats.js": "github:mrdoob/stats.js#b235d9c",
     "teapot": "^1.0.0",
-    "wgpu-matrix": "^2.8.0"
+    "wgpu-matrix": "^3.0.0"
   },
   "devDependencies": {
     "@babel/runtime": "^7.24.1",

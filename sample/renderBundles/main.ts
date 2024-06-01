@@ -233,7 +233,7 @@ function createSphereBindGroup(
   return bindGroup;
 }
 
-const transform = mat4.create() as Float32Array;
+const transform = mat4.create();
 mat4.identity(transform);
 
 // Create one large central planet surrounded by a large ring of asteroids
@@ -318,7 +318,7 @@ function getTransformationMatrix() {
 
   mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
 
-  return modelViewProjectionMatrix as Float32Array;
+  return modelViewProjectionMatrix;
 }
 
 // Render bundles function as partial, limited render passes, so we can use the

@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4, Mat4, vec3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
 import vertexWGSL from './vertex.wgsl';
@@ -480,7 +480,6 @@ const uniformBindGroups = [
   }),
 ];
 
-type Mat4 = mat4.default;
 const modelMatrices = new Array<Mat4>(numInstances);
 const mvpMatricesData = new Float32Array(matrixFloatCount * numInstances);
 
@@ -517,21 +516,11 @@ const reversedRangeViewProjectionMatrix = mat4.multiply(
   viewProjectionMatrix
 );
 
-let bufferData = viewProjectionMatrix as Float32Array;
-device.queue.writeBuffer(
-  cameraMatrixBuffer,
-  0,
-  bufferData.buffer,
-  bufferData.byteOffset,
-  bufferData.byteLength
-);
-bufferData = reversedRangeViewProjectionMatrix as Float32Array;
+device.queue.writeBuffer(cameraMatrixBuffer, 0, viewProjectionMatrix);
 device.queue.writeBuffer(
   cameraMatrixReversedDepthBuffer,
   0,
-  bufferData.buffer,
-  bufferData.byteOffset,
-  bufferData.byteLength
+  reversedRangeViewProjectionMatrix
 );
 
 const tmpMat4 = mat4.create();
