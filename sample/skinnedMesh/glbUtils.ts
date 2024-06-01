@@ -1,6 +1,6 @@
-import { Quat } from 'wgpu-matrix';
+import { Quatn } from 'wgpu-matrix';
 import { Accessor, BufferView, GlTf, Scene } from './gltf';
-import { Mat4, Vec3, mat4 } from 'wgpu-matrix';
+import { Mat4, Vec3n, mat4 } from 'wgpu-matrix';
 
 //NOTE: GLTF code is not generally extensible to all gltf models
 // Modified from Will Usher code found at this link https://www.willusher.io/graphics/2023/05/16/0-to-gltf-first-mesh
@@ -511,9 +511,9 @@ type TempReturn = {
 };
 
 export class BaseTransformation {
-  position: Vec3;
-  rotation: Quat;
-  scale: Vec3;
+  position: Vec3n;
+  rotation: Quatn;
+  scale: Vec3n;
   constructor(
     // Identity translation vec3
     position = [0, 0, 0],
@@ -608,7 +608,7 @@ export class GLTFNode {
     } else {
       mat4.copy(this.localMatrix, this.worldMatrix);
     }
-    const worldMatrix = this.worldMatrix as Float32Array;
+    const worldMatrix = this.worldMatrix;
     device.queue.writeBuffer(
       this.nodeTransformGPUBuffer,
       0,
@@ -787,9 +787,9 @@ export class GLTFSkin {
     );
     for (let j = 0; j < this.joints.length; j++) {
       const joint = this.joints[j];
-      const dstMatrix: Mat4 = mat4.identity();
+      const dstMatrix = mat4.identity();
       mat4.multiply(globalWorldInverse, nodes[joint].worldMatrix, dstMatrix);
-      const toWrite = dstMatrix as Float32Array;
+      const toWrite = dstMatrix;
       device.queue.writeBuffer(
         this.jointMatricesUniformBuffer,
         j * 64,

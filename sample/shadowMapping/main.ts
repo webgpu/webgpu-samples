@@ -304,41 +304,10 @@ const modelMatrix = mat4.translation([0, -45, 0]);
 
 // The camera/light aren't moving, so write them into buffers now.
 {
-  const lightMatrixData = lightViewProjMatrix as Float32Array;
-  device.queue.writeBuffer(
-    sceneUniformBuffer,
-    0,
-    lightMatrixData.buffer,
-    lightMatrixData.byteOffset,
-    lightMatrixData.byteLength
-  );
-
-  const cameraMatrixData = viewProjMatrix as Float32Array;
-  device.queue.writeBuffer(
-    sceneUniformBuffer,
-    64,
-    cameraMatrixData.buffer,
-    cameraMatrixData.byteOffset,
-    cameraMatrixData.byteLength
-  );
-
-  const lightData = lightPosition as Float32Array;
-  device.queue.writeBuffer(
-    sceneUniformBuffer,
-    128,
-    lightData.buffer,
-    lightData.byteOffset,
-    lightData.byteLength
-  );
-
-  const modelData = modelMatrix as Float32Array;
-  device.queue.writeBuffer(
-    modelUniformBuffer,
-    0,
-    modelData.buffer,
-    modelData.byteOffset,
-    modelData.byteLength
-  );
+  device.queue.writeBuffer(sceneUniformBuffer, 0, lightViewProjMatrix);
+  device.queue.writeBuffer(sceneUniformBuffer, 64, lightViewProjMatrix);
+  device.queue.writeBuffer(sceneUniformBuffer, 128, lightPosition);
+  device.queue.writeBuffer(modelUniformBuffer, 0, modelMatrix);
 }
 
 // Rotates the camera around the origin based on time.
@@ -352,7 +321,7 @@ function getCameraViewProjMatrix() {
   const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
   mat4.multiply(projectionMatrix, viewMatrix, viewProjMatrix);
-  return viewProjMatrix as Float32Array;
+  return viewProjMatrix;
 }
 
 const shadowPassDescriptor: GPURenderPassDescriptor = {

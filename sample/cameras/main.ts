@@ -196,7 +196,7 @@ function getModelViewProjectionMatrix(deltaTime: number) {
   const camera = cameras[params.type];
   const viewMatrix = camera.update(deltaTime, inputHandler());
   mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
-  return modelViewProjectionMatrix as Float32Array;
+  return modelViewProjectionMatrix;
 }
 
 let lastFrameMS = Date.now();

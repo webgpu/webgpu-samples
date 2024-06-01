@@ -1,8 +1,6 @@
-import { mat4 } from 'wgpu-matrix';
+import { mat4, Mat4 } from 'wgpu-matrix';
 
 import msdfTextWGSL from './msdfText.wgsl';
-
-type Mat4 = mat4.default;
 
 // The kerning map stores a spare map of character ID pairs with an associated
 // X offset that should be applied to the character spacing when the second

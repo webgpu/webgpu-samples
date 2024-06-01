@@ -227,12 +227,7 @@ const surfaceBGDescriptor = createBindGroupDescriptor(
 );
 
 const aspect = canvas.width / canvas.height;
-const projectionMatrix = mat4.perspective(
-  (2 * Math.PI) / 5,
-  aspect,
-  0.1,
-  10.0
-) as Float32Array;
+const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 0.1, 10.0);
 
 function getViewMatrix() {
   return mat4.lookAt(

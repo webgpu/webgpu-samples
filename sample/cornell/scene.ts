@@ -1,5 +1,4 @@
-import { vec3 } from 'wgpu-matrix';
-type Vec3 = vec3.default;
+import { vec3, Vec3 } from 'wgpu-matrix';
 
 function reciprocal(v: Vec3) {
   const s = 1 / vec3.lenSq(v);

@@ -158,8 +158,8 @@ const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 
 const modelMatrix1 = mat4.translation(vec3.create(-2, 0, 0));
 const modelMatrix2 = mat4.translation(vec3.create(2, 0, 0));
-const modelViewProjectionMatrix1 = mat4.create() as Float32Array;
-const modelViewProjectionMatrix2 = mat4.create() as Float32Array;
+const modelViewProjectionMatrix1 = mat4.create();
+const modelViewProjectionMatrix2 = mat4.create();
 const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -7));
 
 const tmpMat41 = mat4.create();

@@ -476,18 +476,10 @@ const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 2000.0);
 
 // Move the model so it's centered.
 const modelMatrix = mat4.translation([0, -45, 0]);
-
-const modelData = modelMatrix as Float32Array;
-device.queue.writeBuffer(
-  modelUniformBuffer,
-  0,
-  modelData.buffer,
-  modelData.byteOffset,
-  modelData.byteLength
-);
+device.queue.writeBuffer(modelUniformBuffer, 0, modelMatrix);
 const invertTransposeModelMatrix = mat4.invert(modelMatrix);
 mat4.transpose(invertTransposeModelMatrix, invertTransposeModelMatrix);
-const normalModelData = invertTransposeModelMatrix as Float32Array;
+const normalModelData = invertTransposeModelMatrix;
 device.queue.writeBuffer(
   modelUniformBuffer,
   64,
@@ -504,7 +496,7 @@ function getCameraViewProjMatrix() {
 
   const viewMatrix = mat4.lookAt(rotatedEyePosition, origin, upVector);
 
-  return mat4.multiply(projectionMatrix, viewMatrix) as Float32Array;
+  return mat4.multiply(projectionMatrix, viewMatrix);
 }
 
 function frame() {
@@ -516,7 +508,7 @@ function frame() {
     cameraViewProj.byteOffset,
     cameraViewProj.byteLength
   );
-  const cameraInvViewProj = mat4.invert(cameraViewProj) as Float32Array;
+  const cameraInvViewProj = mat4.invert(cameraViewProj);
   device.queue.writeBuffer(
     cameraUniformBuffer,
     64,

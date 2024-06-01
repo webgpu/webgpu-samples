@@ -174,7 +174,7 @@ async function init(canvas) {
 
     mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
 
-    return modelViewProjectionMatrix as Float32Array;
+    return modelViewProjectionMatrix;
   }
 
   function frame() {
