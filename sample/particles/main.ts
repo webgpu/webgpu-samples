@@ -43,6 +43,7 @@ const renderPipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: particleWGSL,
     }),
+    entryPoint: 'vs_main',
     buffers: [
       {
         // instanced particles buffer
@@ -82,6 +83,7 @@ const renderPipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: particleWGSL,
     }),
+    entryPoint: 'fs_main',
     targets: [
       {
         format: presentationFormat,

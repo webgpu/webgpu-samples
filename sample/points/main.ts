@@ -98,6 +98,7 @@ const pipelines = vertModules.map((vertModule) =>
       layout: pipelineLayout,
       vertex: {
         module: vertModule,
+        entryPoint: 'vs',
         buffers: [
           {
             arrayStride: 3 * 4, // 3 floats, 4 bytes each
@@ -110,6 +111,7 @@ const pipelines = vertModules.map((vertModule) =>
       },
       fragment: {
         module: fragModule,
+        entryPoint: 'fs',
         targets: [
           {
             format: presentationFormat,

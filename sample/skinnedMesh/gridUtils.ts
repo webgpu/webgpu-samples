@@ -57,6 +57,7 @@ export const createSkinnedGridRenderPipeline = (
         label: `SkinnedGridRenderer.vertexShader`,
         code: vertexShader,
       }),
+      entryPoint: 'vertexMain',
       buffers: [
         // Vertex Positions (positions)
         {
@@ -98,6 +99,7 @@ export const createSkinnedGridRenderPipeline = (
         label: `SkinnedGridRenderer.fragmentShader`,
         code: fragmentShader,
       }),
+      entryPoint: 'fragmentMain',
       targets: [
         {
           format: presentationFormat,

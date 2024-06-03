@@ -40,11 +40,13 @@ const pipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: volumeWGSL,
     }),
+    entryPoint: 'vertex_main',
   },
   fragment: {
     module: device.createShaderModule({
       code: volumeWGSL,
     }),
+    entryPoint: 'fragment_main',
     targets: [
       {
         format: presentationFormat,

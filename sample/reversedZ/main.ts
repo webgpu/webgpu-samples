@@ -135,6 +135,7 @@ const depthPrePassRenderPipelineDescriptorBase = {
     module: device.createShaderModule({
       code: vertexDepthPrePassWGSL,
     }),
+    entryPoint: 'main',
     buffers: [
       {
         arrayStride: geometryVertexSize,
@@ -185,6 +186,7 @@ const precisionPassRenderPipelineDescriptorBase = {
     module: device.createShaderModule({
       code: vertexPrecisionErrorPassWGSL,
     }),
+    entryPoint: 'main',
     buffers: [
       {
         arrayStride: geometryVertexSize,
@@ -203,6 +205,7 @@ const precisionPassRenderPipelineDescriptorBase = {
     module: device.createShaderModule({
       code: fragmentPrecisionErrorPassWGSL,
     }),
+    entryPoint: 'main',
     targets: [
       {
         format: presentationFormat,
@@ -242,6 +245,7 @@ const colorPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     module: device.createShaderModule({
       code: vertexWGSL,
     }),
+    entryPoint: 'main',
     buffers: [
       {
         arrayStride: geometryVertexSize,
@@ -266,6 +270,7 @@ const colorPassRenderPipelineDescriptorBase: GPURenderPipelineDescriptor = {
     module: device.createShaderModule({
       code: fragmentWGSL,
     }),
+    entryPoint: 'main',
     targets: [
       {
         format: presentationFormat,
@@ -306,11 +311,13 @@ const textureQuadPassPipline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: vertexTextureQuadWGSL,
     }),
+    entryPoint: 'main',
   },
   fragment: {
     module: device.createShaderModule({
       code: fragmentTextureQuadWGSL,
     }),
+    entryPoint: 'main',
     targets: [
       {
         format: presentationFormat,

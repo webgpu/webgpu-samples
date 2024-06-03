@@ -49,6 +49,7 @@ const pipeline = device.createRenderPipeline({
   layout: 'auto',
   vertex: {
     module: shaderModule,
+    entryPoint: 'vertexMain',
     buffers: [
       {
         arrayStride: SphereLayout.vertexStride,
@@ -77,6 +78,7 @@ const pipeline = device.createRenderPipeline({
   },
   fragment: {
     module: shaderModule,
+    entryPoint: 'fragmentMain',
     targets: [
       {
         format: presentationFormat,

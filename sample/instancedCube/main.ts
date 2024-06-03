@@ -43,6 +43,7 @@ const pipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: instancedVertWGSL,
     }),
+    entryPoint: 'main',
     buffers: [
       {
         arrayStride: cubeVertexSize,
@@ -67,6 +68,7 @@ const pipeline = device.createRenderPipeline({
     module: device.createShaderModule({
       code: vertexPositionColorWGSL,
     }),
+    entryPoint: 'main',
     targets: [
       {
         format: presentationFormat,

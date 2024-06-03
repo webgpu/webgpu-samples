@@ -114,6 +114,7 @@ const pipeline = device.createRenderPipeline({
   layout: 'auto',
   vertex: {
     module,
+    entryPoint: 'vs',
     buffers: [
       {
         arrayStride: 6 * 4, // position, normal
@@ -136,6 +137,7 @@ const pipeline = device.createRenderPipeline({
   },
   fragment: {
     module,
+    entryPoint: 'fs',
     targets: [{ format: presentationFormat }],
   },
   primitive: {

@@ -85,6 +85,7 @@ export default class Raytracer {
         module: device.createShaderModule({
           code: raytracerWGSL + common.wgsl,
         }),
+        entryPoint: 'main',
         constants: {
           WorkgroupSizeX: this.kWorkgroupSizeX,
           WorkgroupSizeY: this.kWorkgroupSizeY,

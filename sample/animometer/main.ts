@@ -96,6 +96,7 @@ const pipelineDesc: GPURenderPipelineDescriptor = {
   layout: 'auto',
   vertex: {
     module: shaderModule,
+    entryPoint: 'vert_main',
     buffers: [
       {
         // vertex buffer
@@ -120,6 +121,7 @@ const pipelineDesc: GPURenderPipelineDescriptor = {
   },
   fragment: {
     module: shaderModule,
+    entryPoint: 'frag_main',
     targets: [
       {
         format: presentationFormat,

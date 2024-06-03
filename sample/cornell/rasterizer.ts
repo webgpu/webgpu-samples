@@ -101,10 +101,12 @@ export default class Rasterizer {
       }),
       vertex: {
         module: mod,
+        entryPoint: 'vs_main',
         buffers: scene.vertexBufferLayout,
       },
       fragment: {
         module: mod,
+        entryPoint: 'fs_main',
         targets: [{ format: framebuffer.format }],
       },
       primitive: {

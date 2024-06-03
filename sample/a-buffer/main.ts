@@ -85,6 +85,7 @@ const opaquePipeline = device.createRenderPipeline({
   layout: 'auto',
   vertex: {
     module: opaqueModule,
+    entryPoint: 'main_vs',
     buffers: [
       {
         arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
@@ -101,6 +102,7 @@ const opaquePipeline = device.createRenderPipeline({
   },
   fragment: {
     module: opaqueModule,
+    entryPoint: 'main_fs',
     targets: [
       {
         format: presentationFormat,
@@ -203,6 +205,7 @@ const translucentPipeline = device.createRenderPipeline({
   }),
   vertex: {
     module: translucentModule,
+    entryPoint: 'main_vs',
     buffers: [
       {
         arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
@@ -218,6 +221,7 @@ const translucentPipeline = device.createRenderPipeline({
   },
   fragment: {
     module: translucentModule,
+    entryPoint: 'main_fs',
     targets: [
       {
         format: presentationFormat,
@@ -289,9 +293,11 @@ const compositePipeline = device.createRenderPipeline({
   }),
   vertex: {
     module: compositeModule,
+    entryPoint: 'main_vs',
   },
   fragment: {
     module: compositeModule,
+    entryPoint: 'main_fs',
     targets: [
       {
         format: presentationFormat,
