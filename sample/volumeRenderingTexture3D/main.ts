@@ -184,7 +184,7 @@ function getInverseModelViewProjectionMatrix(deltaTime: number) {
   );
   const modelViewProjectionMatrix = mat4.multiply(projectionMatrix, viewMatrix);
 
-  return mat4.invert(modelViewProjectionMatrix) as Float32Array;
+  return mat4.invert(modelViewProjectionMatrix);
 }
 
 let lastFrameMS = Date.now();

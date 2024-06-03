@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4, Mat4, vec3 } from 'wgpu-matrix';
 
 import {
   cubeVertexArray,
@@ -126,7 +126,6 @@ const uniformBindGroup = device.createBindGroup({
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 
-type Mat4 = mat4.default;
 const modelMatrices = new Array<Mat4>(numInstances);
 const mvpMatricesData = new Float32Array(matrixFloatCount * numInstances);
 

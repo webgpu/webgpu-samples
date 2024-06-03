@@ -2,7 +2,7 @@ import { GUI } from 'dat.gui';
 import { convertGLBToJSONAndBinary, GLTFSkin } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
-import { Mat4, mat4, Quat, vec3 } from 'wgpu-matrix';
+import { Mat4, mat4, quat, vec3 } from 'wgpu-matrix';
 import { createBindGroupCluster } from '../bitonicSort/utils';
 import {
   createSkinnedGridBuffers,
@@ -29,6 +29,7 @@ enum SkinMode {
   OFF,
 }
 
+/*
 // Copied from toji/gl-matrix
 const getRotation = (mat: Mat4): Quat => {
   // Initialize our output quaternion
@@ -89,6 +90,7 @@ const getRotation = (mat: Mat4): Quat => {
 
   return out;
 };
+*/
 
 //Normal setup
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
@@ -301,9 +303,9 @@ const orthographicProjection = mat4.ortho(-20, 20, -10, 10, -100, 100);
 
 function getProjectionMatrix() {
   if (settings.object !== 'Skinned Grid') {
-    return perspectiveProjection as Float32Array;
+    return perspectiveProjection;
   }
-  return orthographicProjection as Float32Array;
+  return orthographicProjection;
 }
 
 function getViewMatrix() {
@@ -325,7 +327,7 @@ function getViewMatrix() {
       viewMatrix
     );
   }
-  return viewMatrix as Float32Array;
+  return viewMatrix;
 }
 
 function getModelMatrix() {
@@ -339,7 +341,7 @@ function getModelMatrix() {
   if (settings.object === 'Whale') {
     mat4.rotateY(modelMatrix, (Date.now() / 1000) * 0.5, modelMatrix);
   }
-  return modelMatrix as Float32Array;
+  return modelMatrix;
 }
 
 // Pass Descriptor for GLTFs
@@ -417,7 +419,7 @@ for (let i = 0; i < gridBoneCollection.bindPosesInv.length; i++) {
   device.queue.writeBuffer(
     skinnedGridInverseBindUniformBuffer,
     i * 64,
-    gridBoneCollection.bindPosesInv[i] as Float32Array
+    gridBoneCollection.bindPosesInv[i]
   );
 }
 
@@ -447,7 +449,7 @@ const animWhaleSkin = (skin: GLTFSkin, angle: number) => {
     // (these nodes, of course, each being nodes that represent joints/bones)
     whaleScene.nodes[joint].source.position = mat4.getTranslation(m);
     whaleScene.nodes[joint].source.scale = mat4.getScaling(m);
-    whaleScene.nodes[joint].source.rotation = getRotation(m);
+    whaleScene.nodes[joint].source.rotation = quat.fromMat(m);
   }
 };
 
@@ -493,7 +495,7 @@ function frame() {
     device.queue.writeBuffer(
       skinnedGridJointUniformBuffer,
       i * 64,
-      gridBoneCollection.transforms[i] as Float32Array
+      gridBoneCollection.transforms[i]
     );
   }
 

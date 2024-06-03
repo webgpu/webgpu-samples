@@ -194,7 +194,7 @@ const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 3000);
 
 const modelMatrix = mat4.scaling(vec3.fromValues(1000, 1000, 1000));
-const modelViewProjectionMatrix = mat4.create() as Float32Array;
+const modelViewProjectionMatrix = mat4.create();
 const viewMatrix = mat4.identity();
 
 const tmpMat4 = mat4.create();

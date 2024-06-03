@@ -32990,8 +32990,6 @@ window.addEventListener('message', (e) => {
             sampleContainerElem.style.height = `${data.height}px`;
             break;
         }
-        default:
-            throw new Error(`unknown message cmd: ${cmd}`);
     }
 });
 // Parse the first URL.

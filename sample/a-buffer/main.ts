@@ -534,7 +534,7 @@ const configure = () => {
     const viewMatrix = mat4.lookAt(eyePosition, origin, upVector);
 
     const viewProjMatrix = mat4.multiply(projectionMatrix, viewMatrix);
-    return viewProjMatrix as Float32Array;
+    return viewProjMatrix;
   }
 
   return function doDraw() {
