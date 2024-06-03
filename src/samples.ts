@@ -29,6 +29,7 @@ import samplerParameters from '../sample/samplerParameters/meta';
 import shadowMapping from '../sample/shadowMapping/meta';
 import skinnedMesh from '../sample/skinnedMesh/meta';
 import spookyball from '../sample/spookyball/meta';
+import stencilMask from '../sample/stencilMask/meta';
 import textRenderingMsdf from '../sample/textRenderingMsdf/meta';
 import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
@@ -123,6 +124,7 @@ export const pageCategories: PageCategory[] = [
       skinnedMesh,
       textRenderingMsdf,
       volumeRenderingTexture3D,
+      stencilMask,
     },
   },
 
