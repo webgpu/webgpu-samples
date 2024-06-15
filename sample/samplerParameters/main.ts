@@ -3,6 +3,7 @@ import { GUI } from 'dat.gui';
 
 import texturedSquareWGSL from './texturedSquare.wgsl';
 import showTextureWGSL from './showTexture.wgsl';
+import { initDeviceAndErrorDialog } from '../util';
 
 const kMatrices: Readonly<Float32Array> = new Float32Array([
   // Row 1: Scale by 2
@@ -27,8 +28,7 @@ const kMatrices: Readonly<Float32Array> = new Float32Array([
 ]);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const device = await initDeviceAndErrorDialog();
 
 //
 // GUI controls

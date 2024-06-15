@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { mat4, mat3 } from 'wgpu-matrix';
 import { modelData } from './models';
+import { initDeviceAndErrorDialog } from '../util';
 
 type TypedArrayView = Float32Array | Uint32Array;
 
@@ -46,8 +47,7 @@ function createVertexAndIndexBuffer(
   };
 }
 
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const device = await initDeviceAndErrorDialog();
 
 const models = Object.values(modelData).map(data => createVertexAndIndexBuffer(device, data));
 

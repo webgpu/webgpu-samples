@@ -1,14 +1,14 @@
 import { GUI } from 'dat.gui';
 import blurWGSL from './blur.wgsl';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
+import { initDeviceAndErrorDialog } from '../util';
 
 // Contants from the blur.wgsl shader.
 const tileDim = 128;
 const batch = [4, 4];
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const device = await initDeviceAndErrorDialog();
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 

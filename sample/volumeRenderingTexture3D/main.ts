@@ -1,6 +1,7 @@
 import { mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 import volumeWGSL from './volume.wgsl';
+import { initDeviceAndErrorDialog } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
@@ -17,8 +18,7 @@ gui.add(params, 'rotateCamera', true);
 gui.add(params, 'near', 2.0, 7.0);
 gui.add(params, 'far', 2.0, 7.0);
 
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const device = await initDeviceAndErrorDialog();
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
 const sampleCount = 4;

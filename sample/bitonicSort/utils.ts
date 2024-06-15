@@ -1,5 +1,6 @@
 import type { GUI } from 'dat.gui';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
+import { initDeviceAndErrorDialog } from '../util';
 
 type BindGroupBindingLayout =
   | GPUBufferBindingLayout
@@ -111,16 +112,13 @@ export const SampleInitFactoryWebGPU = async (
   callback: SampleInitCallback3D
 ): Promise<SampleInit> => {
   const init = async ({ canvas, gui, stats }) => {
-    const adapter = await navigator.gpu.requestAdapter();
-    const timestampQueryAvailable = adapter.features.has('timestamp-query');
-    let device: GPUDevice;
-    if (timestampQueryAvailable) {
-      device = await adapter.requestDevice({
-        requiredFeatures: ['timestamp-query'],
-      });
-    } else {
-      device = await adapter.requestDevice();
-    }
+    let timestampQueryAvailable;
+    const device = await initDeviceAndErrorDialog({}, (adapter) => {
+      timestampQueryAvailable = adapter.features.has('timestamp-query');
+      return {
+        requiredFeatures: timestampQueryAvailable ? ['timestamp-query'] : [],
+      };
+    });
     const context = canvas.getContext('webgpu') as GPUCanvasContext;
     const devicePixelRatio = window.devicePixelRatio;
     canvas.width = canvas.clientWidth * devicePixelRatio;

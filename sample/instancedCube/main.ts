@@ -10,10 +10,10 @@ import {
 
 import instancedVertWGSL from './instanced.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
+import { initDeviceAndErrorDialog } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const device = await initDeviceAndErrorDialog();
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
