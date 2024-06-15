@@ -4,6 +4,7 @@ import { modelData } from './models';
 import { randElement, randColor } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 import wireframeWGSL from './wireframe.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const settings = {
   barycentricCoordinatesBased: false,
@@ -60,8 +61,10 @@ function createVertexAndIndexBuffer(
   };
 }
 
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
+
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 const devicePixelRatio = window.devicePixelRatio;

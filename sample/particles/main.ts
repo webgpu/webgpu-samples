@@ -3,6 +3,7 @@ import { GUI } from 'dat.gui';
 
 import particleWGSL from './particle.wgsl';
 import probabilityMapWGSL from './probabilityMap.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const numParticles = 50000;
 const particlePositionOffset = 0;
@@ -16,8 +17,9 @@ const particleInstanceByteSize =
   0;
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 

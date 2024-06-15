@@ -1,9 +1,11 @@
 import { GUI } from 'dat.gui';
 import animometerWGSL from './animometer.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';
