@@ -1,6 +1,7 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
+import { initDeviceAndErrorDialog } from '../util';
 import { mesh } from '../../meshes/teapot';
 
 import opaqueWGSL from './opaque.wgsl';
@@ -12,8 +13,7 @@ function roundUp(n: number, k: number): number {
 }
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const device = await initDeviceAndErrorDialog();
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();

@@ -4,6 +4,7 @@ import { createSphereMesh, SphereLayout } from '../../meshes/sphere';
 import Stats from 'stats.js';
 
 import meshWGSL from './mesh.wgsl';
+import { initDeviceAndErrorDialog } from '../util';
 
 interface Renderable {
   vertices: GPUBuffer;
@@ -13,8 +14,7 @@ interface Renderable {
 }
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const device = await initDeviceAndErrorDialog();
 
 const settings = {
   useRenderBundles: true,

@@ -5,21 +5,24 @@ import Radiosity from './radiosity';
 import Rasterizer from './rasterizer';
 import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
+import { initDeviceAndErrorDialog } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
-const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-const requiredFeatures: GPUFeatureName[] =
-  presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
-const adapter = await navigator.gpu.requestAdapter();
-for (const feature of requiredFeatures) {
-  if (!adapter.features.has(feature)) {
-    throw new Error(
-      `sample requires ${feature}, but is not supported by the adapter`
-    );
+let presentationFormat;
+const device = await initDeviceAndErrorDialog({}, (adapter) => {
+  presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  const requiredFeatures: GPUFeatureName[] =
+    presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
+  for (const feature of requiredFeatures) {
+    if (!adapter.features.has(feature)) {
+      throw new Error(
+        `sample requires ${feature}, but is not supported by the adapter`
+      );
+    }
   }
-}
-const device = await adapter.requestDevice({ requiredFeatures });
+  return { requiredFeatures };
+});
 
 const params: {
   renderer: 'rasterizer' | 'raytracer';
