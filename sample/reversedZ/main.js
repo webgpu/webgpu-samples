@@ -1,4 +1,4 @@
-/* wgpu-matrix@3.0.0, license MIT */
+/* wgpu-matrix@3.0.1, license MIT */
 function wrapConstructor(OriginalConstructor, modifier) {
     return class extends OriginalConstructor {
         constructor(...args) {
@@ -5500,9 +5500,6 @@ wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
  */
 
 function ___$insertStyle(css) {
-  if (!css) {
-    return;
-  }
   if (typeof window === 'undefined') {
     return;
   }

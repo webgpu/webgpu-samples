@@ -12,9 +12,6 @@
  */
 
 function ___$insertStyle(css) {
-  if (!css) {
-    return;
-  }
   if (typeof window === 'undefined') {
     return;
   }

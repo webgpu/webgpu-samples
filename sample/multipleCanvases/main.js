@@ -1,4 +1,4 @@
-/* wgpu-matrix@3.0.0, license MIT */
+/* wgpu-matrix@3.0.1, license MIT */
 function wrapConstructor(OriginalConstructor, modifier) {
     return class extends OriginalConstructor {
         constructor(...args) {

@@ -130,9 +130,6 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
  */
 
 function ___$insertStyle(css) {
-  if (!css) {
-    return;
-  }
   if (typeof window === 'undefined') {
     return;
   }
