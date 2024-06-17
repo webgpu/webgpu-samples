@@ -1,6 +1,8 @@
 /* eslint-disable prettier/prettier */
 import { mat4, mat3 } from 'wgpu-matrix';
+import { GUI } from 'dat.gui';
 import { modelData } from './models';
+import { randElement, randColor } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 import wireframeWGSL from './wireframe.wgsl';
 
@@ -9,11 +11,11 @@ type TypedArrayView = Float32Array | Uint32Array;
 function createBufferWithData(
   device: GPUDevice,
   data: TypedArrayView,
-  usage: number
+  usage: GPUBufferUsageFlags,
 ) {
   const buffer = device.createBuffer({
     size: data.byteLength,
-    usage: usage,
+    usage,
   });
   device.queue.writeBuffer(buffer, 0, data);
   return buffer;
@@ -65,25 +67,6 @@ const depthFormat = 'depth24plus';
 
 
 const models = Object.values(modelData).map(data => createVertexAndIndexBuffer(device, data));
-
-function rand(min?: number, max?: number) {
-  if (min === undefined) {
-    max = 1;
-    min = 0;
-  } else if (max === undefined) {
-    max = min;
-    min = 0;
-  }
-  return Math.random() * (max - min) + min;
-}
-
-function randInt(min: number, max?: number) {
-  return Math.floor(rand(min, max));
-}
-
-function randColor() {
-  return [rand(), rand(), rand(), 1];
-}
 
 const litModule = device.createShaderModule({
   code: solidColorLitWGSL,
@@ -141,10 +124,47 @@ const wireframePipeline = device.createRenderPipeline({
   },
   fragment: {
     module: wireframeModule,
+    entryPoint: 'fs',
     targets: [{ format: presentationFormat }],
   },
   primitive: {
     topology: 'line-list',
+  },
+  depthStencil: {
+    depthWriteEnabled: true,
+    depthCompare: 'less-equal',
+    format: depthFormat,
+  },
+});
+
+const barycentricCoordinatesBasedWireframePipeline = device.createRenderPipeline({
+  label: 'barycentric coordinates based wireframe pipeline',
+  layout: 'auto',
+  vertex: {
+    module: wireframeModule,
+    entryPoint: 'vsIndexedU32BarycentricCoordinateBasedLines',
+  },
+  fragment: {
+    module: wireframeModule,
+    entryPoint: 'fsBarycentricCoordinateBasedLines',
+    targets: [
+      {
+        format: presentationFormat,
+        blend: {
+          color: {
+            srcFactor: 'one',
+            dstFactor: 'one-minus-src-alpha',
+          },
+          alpha: {
+            srcFactor: 'one',
+            dstFactor: 'one-minus-src-alpha',
+          },
+        },
+      },
+    ],
+  },
+  primitive: {
+    topology: 'triangle-list',
   },
   depthStencil: {
     depthWriteEnabled: true,
@@ -158,8 +178,10 @@ type ObjectInfo = {
   worldMatrixValue: Float32Array;
   uniformValues: Float32Array;
   uniformBuffer: GPUBuffer;
+  lineUniformValues: Float32Array;
+  lineUniformBuffer: GPUBuffer;
   litBindGroup: GPUBindGroup;
-  wireframeBindGroup: GPUBindGroup;
+  wireframeBindGroups: GPUBindGroup[];
   model: Model;
 };
 
@@ -187,7 +209,7 @@ for (let i = 0; i < numObjects; ++i) {
   const colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
   colorValue.set(randColor());
 
-  const model = models[randInt(models.length)];
+  const model = randElement(models);
 
   // Make a bind group for this uniform
   const litBindGroup = device.createBindGroup({
@@ -195,21 +217,39 @@ for (let i = 0; i < numObjects; ++i) {
     entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
   });
 
-  const strideValues = new Uint32Array(1 + 3);
-  const strideBuffer = device.createBuffer({
-    size: strideValues.byteLength,
+  // Note: We're making one lineUniformBuffer per object.
+  // This is only because stride might be different per object.
+  // In this sample stride is the same across all objects so
+  // we could have made just a single shared uniform buffer for 
+  // these settings.
+  const lineUniformValues = new Float32Array(3 + 1);
+  const lineUniformValuesAsU32 = new Uint32Array(lineUniformValues.buffer);
+  const lineUniformBuffer = device.createBuffer({
+    size: lineUniformValues.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  strideValues[0] = 6;
-  device.queue.writeBuffer(strideBuffer, 0, strideValues);
+  lineUniformValuesAsU32[0] = 6;  // the array stride for positions for this model.
 
+  // We're creating 2 bindGroups, one for each pipeline.
+  // We could create just one since they are identical. To do
+  // so we'd have to manually create a bindGroupLayout.
   const wireframeBindGroup = device.createBindGroup({
     layout: wireframePipeline.getBindGroupLayout(0),
     entries: [
       { binding: 0, resource: { buffer: uniformBuffer } },
       { binding: 1, resource: { buffer: model.vertexBuffer } },
       { binding: 2, resource: { buffer: model.indexBuffer } },
-      { binding: 3, resource: { buffer: strideBuffer } },
+      { binding: 3, resource: { buffer: lineUniformBuffer } },
+    ],
+  });
+
+  const barycentricCoordinatesBasedWireframeBindGroup = device.createBindGroup({
+    layout: barycentricCoordinatesBasedWireframePipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: uniformBuffer } },
+      { binding: 1, resource: { buffer: model.vertexBuffer } },
+      { binding: 2, resource: { buffer: model.indexBuffer } },
+      { binding: 3, resource: { buffer: lineUniformBuffer } },
     ],
   });
 
@@ -218,8 +258,13 @@ for (let i = 0; i < numObjects; ++i) {
     worldMatrixValue,
     uniformValues,
     uniformBuffer,
+    lineUniformValues,
+    lineUniformBuffer,
     litBindGroup,
-    wireframeBindGroup,
+    wireframeBindGroups: [
+      wireframeBindGroup,
+      barycentricCoordinatesBasedWireframeBindGroup,
+    ],
     model,
   });
 }
@@ -242,7 +287,45 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
   },
 };
 
-let depthTexture;
+const settings = {
+  barycentricCoordinatesBased: false,
+  thickness: 2,
+  alphaThreshold: 0.5,
+  lines: true,
+  models: true,
+};
+
+const gui = new GUI();
+gui.add(settings, 'barycentricCoordinatesBased').onChange(addRemoveGUI);
+gui.add(settings, 'lines');
+gui.add(settings, 'models');
+
+const guis = [];
+function addRemoveGUI() {
+  if (settings.barycentricCoordinatesBased) {
+    guis.push(
+      gui.add(settings, 'thickness', 0.0, 10).onChange(updateThickness),
+      gui.add(settings, 'alphaThreshold', 0, 1).onChange(updateThickness),
+    );
+  } else {
+    guis.forEach(g => g.remove());
+    guis.length = 0;
+  }
+}
+
+function updateThickness() {
+  objectInfos.forEach(({
+    lineUniformBuffer,
+    lineUniformValues,
+  }) => {
+    lineUniformValues[1] = settings.thickness;
+    lineUniformValues[2] = settings.alphaThreshold;
+    device.queue.writeBuffer(lineUniformBuffer, 0, lineUniformValues);
+  });
+}
+updateThickness();
+
+let depthTexture: GPUTexture | undefined;
 
 function render(time: number) {
   time *= 0.001; // convert to seconds;
@@ -311,20 +394,27 @@ function render(time: number) {
     // Upload our uniform values.
     device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
-    pass.setVertexBuffer(0, vertexBuffer);
-    pass.setIndexBuffer(indexBuffer, indexFormat);
-    pass.setBindGroup(0, litBindGroup);
-    pass.drawIndexed(vertexCount);
+    if (settings.models) {
+      pass.setVertexBuffer(0, vertexBuffer);
+      pass.setIndexBuffer(indexBuffer, indexFormat);
+      pass.setBindGroup(0, litBindGroup);
+      pass.drawIndexed(vertexCount);
+    }
   });
 
-  objectInfos.forEach(({
-      wireframeBindGroup,
-      model: { vertexCount },
-    }) => {
-    pass.setPipeline(wireframePipeline);
-    pass.setBindGroup(0, wireframeBindGroup)
-    pass.draw(vertexCount * 2);
-  });
+  if (settings.lines) {
+    // Note: If we're using the line-list based pipeline then we need to
+    // multiply the vertex count by 2 since we need to emit 6 vertices
+    // for each triangle (3 edges).
+    const [bindGroupNdx, countMult, pipeline] = settings.barycentricCoordinatesBased
+       ? [1, 1, barycentricCoordinatesBasedWireframePipeline]
+       : [0, 2, wireframePipeline];
+    pass.setPipeline(pipeline);
+    objectInfos.forEach(({ wireframeBindGroups, model: { vertexCount } }) => {
+      pass.setBindGroup(0, wireframeBindGroups[bindGroupNdx]);
+      pass.draw(vertexCount * countMult);
+    });
+  }
 
   pass.end();
 
