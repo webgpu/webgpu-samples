@@ -34,6 +34,7 @@ import texturedCube from '../sample/texturedCube/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
 import volumeRenderingTexture3D from '../sample/volumeRenderingTexture3D/meta';
+import wireframe from '../sample/wireframe/meta';
 import worker from '../sample/worker/meta';
 import workloadSimulator from '../sample/workloadSimulator/meta';
 
@@ -123,6 +124,7 @@ export const pageCategories: PageCategory[] = [
       skinnedMesh,
       textRenderingMsdf,
       volumeRenderingTexture3D,
+      wireframe,
     },
   },
 
