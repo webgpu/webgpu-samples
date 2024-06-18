@@ -4,6 +4,7 @@ import { monokai } from '@uiw/codemirror-theme-monokai';
 import { githubLight } from '@uiw/codemirror-theme-github';
 import { EditorView } from '@codemirror/view';
 import { EditorState, Compartment } from '@codemirror/state';
+import { search } from '@codemirror/search';
 import { javascript } from '@codemirror/lang-javascript';
 import { basicSetup } from 'codemirror';
 import { Converter } from 'showdown';
@@ -64,6 +65,7 @@ async function makeCodeMirrorEditor(parent: HTMLElement, filename: string) {
       themeConfig.of([getCodeMirrorTheme()]),
       EditorView.lineWrapping,
       javascript(),
+      search({ top: true }),
       readOnly,
     ],
     parent,
