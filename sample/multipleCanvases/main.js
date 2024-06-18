@@ -5862,7 +5862,6 @@ const modelData = {
     rock: flattenNormals(createSphereTypedArrays(20, 32, 16, 0.1)),
 };
 
-/* eslint-disable prettier/prettier */
 function createBufferWithData(device, data, usage) {
     const buffer = device.createBuffer({
         size: data.byteLength,
@@ -5883,7 +5882,7 @@ function createVertexAndIndexBuffer(device, { vertices, indices }) {
 }
 const adapter = await navigator.gpu.requestAdapter();
 const device = await adapter.requestDevice();
-const models = Object.values(modelData).map(data => createVertexAndIndexBuffer(device, data));
+const models = Object.values(modelData).map((data) => createVertexAndIndexBuffer(device, data));
 function rand(min, max) {
     if (min === undefined) {
         max = 1;
