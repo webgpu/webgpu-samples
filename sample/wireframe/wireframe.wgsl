@@ -38,7 +38,7 @@ struct VSOut {
   //    let twoIndices = indices[indexNdx / 2];  // indices is u32 but we want u16
   //    let index = (twoIndices >> ((indexNdx & 1) * 16)) & 0xFFFF;
   //
-  // * if you're not using indicies you could use this
+  // * if you're not using indices you could use this
   //
   //    let index = triNdx * 3 + vertNdx;
 
@@ -72,7 +72,7 @@ struct BarycentricCoordinateBasedVSOutput {
   //    let twoIndices = indices[vNdx / 2];  // indices is u32 but we want u16
   //    let index = (twoIndices >> ((vNdx & 1) * 16)) & 0xFFFF;
   //
-  // * if you're not using indicies you could use this
+  // * if you're not using indices you could use this
   //
   //    let index = vNdx;
 
@@ -101,5 +101,6 @@ fn edgeFactor(bary: vec3f) -> f32 {
   if (a < line.alphaThreshold) {
     discard;
   }
+
   return vec4((uni.color.rgb + 0.5) * a, a);
 }

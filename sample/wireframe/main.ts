@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { mat4, mat3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 import { modelData } from './models';
@@ -11,7 +10,7 @@ type TypedArrayView = Float32Array | Uint32Array;
 function createBufferWithData(
   device: GPUDevice,
   data: TypedArrayView,
-  usage: GPUBufferUsageFlags,
+  usage: GPUBufferUsageFlags
 ) {
   const buffer = device.createBuffer({
     size: data.byteLength,
@@ -30,7 +29,7 @@ type Model = {
 
 function createVertexAndIndexBuffer(
   device: GPUDevice,
-  { vertices, indices }: { vertices: Float32Array, indices: Uint32Array },
+  { vertices, indices }: { vertices: Float32Array; indices: Uint32Array }
 ): Model {
   const vertexBuffer = createBufferWithData(
     device,
@@ -65,8 +64,9 @@ context.configure({
 });
 const depthFormat = 'depth24plus';
 
-
-const models = Object.values(modelData).map(data => createVertexAndIndexBuffer(device, data));
+const models = Object.values(modelData).map((data) =>
+  createVertexAndIndexBuffer(device, data)
+);
 
 const litModule = device.createShaderModule({
   code: solidColorLitWGSL,
@@ -137,41 +137,42 @@ const wireframePipeline = device.createRenderPipeline({
   },
 });
 
-const barycentricCoordinatesBasedWireframePipeline = device.createRenderPipeline({
-  label: 'barycentric coordinates based wireframe pipeline',
-  layout: 'auto',
-  vertex: {
-    module: wireframeModule,
-    entryPoint: 'vsIndexedU32BarycentricCoordinateBasedLines',
-  },
-  fragment: {
-    module: wireframeModule,
-    entryPoint: 'fsBarycentricCoordinateBasedLines',
-    targets: [
-      {
-        format: presentationFormat,
-        blend: {
-          color: {
-            srcFactor: 'one',
-            dstFactor: 'one-minus-src-alpha',
-          },
-          alpha: {
-            srcFactor: 'one',
-            dstFactor: 'one-minus-src-alpha',
+const barycentricCoordinatesBasedWireframePipeline =
+  device.createRenderPipeline({
+    label: 'barycentric coordinates based wireframe pipeline',
+    layout: 'auto',
+    vertex: {
+      module: wireframeModule,
+      entryPoint: 'vsIndexedU32BarycentricCoordinateBasedLines',
+    },
+    fragment: {
+      module: wireframeModule,
+      entryPoint: 'fsBarycentricCoordinateBasedLines',
+      targets: [
+        {
+          format: presentationFormat,
+          blend: {
+            color: {
+              srcFactor: 'one',
+              dstFactor: 'one-minus-src-alpha',
+            },
+            alpha: {
+              srcFactor: 'one',
+              dstFactor: 'one-minus-src-alpha',
+            },
           },
         },
-      },
-    ],
-  },
-  primitive: {
-    topology: 'triangle-list',
-  },
-  depthStencil: {
-    depthWriteEnabled: true,
-    depthCompare: 'less-equal',
-    format: depthFormat,
-  },
-});
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less-equal',
+      format: depthFormat,
+    },
+  });
 
 type ObjectInfo = {
   worldViewProjectionMatrixValue: Float32Array;
@@ -201,7 +202,8 @@ for (let i = 0; i < numObjects; ++i) {
   const kColorOffset = 32;
   const worldViewProjectionMatrixValue = uniformValues.subarray(
     kWorldViewProjectionMatrixOffset,
-    kWorldViewProjectionMatrixOffset + 16);
+    kWorldViewProjectionMatrixOffset + 16
+  );
   const worldMatrixValue = uniformValues.subarray(
     kWorldMatrixOffset,
     kWorldMatrixOffset + 15
@@ -220,7 +222,7 @@ for (let i = 0; i < numObjects; ++i) {
   // Note: We're making one lineUniformBuffer per object.
   // This is only because stride might be different per object.
   // In this sample stride is the same across all objects so
-  // we could have made just a single shared uniform buffer for 
+  // we could have made just a single shared uniform buffer for
   // these settings.
   const lineUniformValues = new Float32Array(3 + 1);
   const lineUniformValuesAsU32 = new Uint32Array(lineUniformValues.buffer);
@@ -228,7 +230,7 @@ for (let i = 0; i < numObjects; ++i) {
     size: lineUniformValues.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  lineUniformValuesAsU32[0] = 6;  // the array stride for positions for this model.
+  lineUniformValuesAsU32[0] = 6; // the array stride for positions for this model.
 
   // We're creating 2 bindGroups, one for each pipeline.
   // We could create just one since they are identical. To do
@@ -305,19 +307,16 @@ function addRemoveGUI() {
   if (settings.barycentricCoordinatesBased) {
     guis.push(
       gui.add(settings, 'thickness', 0.0, 10).onChange(updateThickness),
-      gui.add(settings, 'alphaThreshold', 0, 1).onChange(updateThickness),
+      gui.add(settings, 'alphaThreshold', 0, 1).onChange(updateThickness)
     );
   } else {
-    guis.forEach(g => g.remove());
+    guis.forEach((g) => g.remove());
     guis.length = 0;
   }
 }
 
 function updateThickness() {
-  objectInfos.forEach(({
-    lineUniformBuffer,
-    lineUniformValues,
-  }) => {
+  objectInfos.forEach(({ lineUniformBuffer, lineUniformValues }) => {
     lineUniformValues[1] = settings.thickness;
     lineUniformValues[2] = settings.alphaThreshold;
     device.queue.writeBuffer(lineUniformBuffer, 0, lineUniformValues);
@@ -372,43 +371,56 @@ function render(time: number) {
   const pass = encoder.beginRenderPass(renderPassDescriptor);
   pass.setPipeline(litPipeline);
 
-  objectInfos.forEach(({
-      uniformBuffer,
-      uniformValues,
-      worldViewProjectionMatrixValue,
-      worldMatrixValue,
-      litBindGroup,
-      model: { vertexBuffer, indexBuffer, indexFormat, vertexCount },
-    }, i) => {
+  objectInfos.forEach(
+    (
+      {
+        uniformBuffer,
+        uniformValues,
+        worldViewProjectionMatrixValue,
+        worldMatrixValue,
+        litBindGroup,
+        model: { vertexBuffer, indexBuffer, indexFormat, vertexCount },
+      },
+      i
+    ) => {
+      const world = mat4.identity();
+      mat4.translate(
+        world,
+        [0, 0, Math.sin(i * 3.721 + time * 0.1) * 200],
+        world
+      );
+      mat4.rotateX(world, i * 4.567, world);
+      mat4.rotateY(world, i * 2.967, world);
+      mat4.translate(
+        world,
+        [0, 0, Math.sin(i * 9.721 + time * 0.1) * 200],
+        world
+      );
+      mat4.rotateX(world, time * 0.53 + i, world);
 
-    const world = mat4.identity();
-    mat4.translate(world, [0, 0, Math.sin(i * 3.721 + time * 0.1) * 200], world);
-    mat4.rotateX(world, i * 4.567, world);
-    mat4.rotateY(world, i * 2.967, world);
-    mat4.translate(world, [0, 0, Math.sin(i * 9.721 + time * 0.1) * 200], world);
-    mat4.rotateX(world, time * 0.53 + i, world);
+      mat4.multiply(viewProjection, world, worldViewProjectionMatrixValue);
+      mat3.fromMat4(world, worldMatrixValue);
 
-    mat4.multiply(viewProjection, world, worldViewProjectionMatrixValue);
-    mat3.fromMat4(world, worldMatrixValue);
+      // Upload our uniform values.
+      device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
-    // Upload our uniform values.
-    device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-
-    if (settings.models) {
-      pass.setVertexBuffer(0, vertexBuffer);
-      pass.setIndexBuffer(indexBuffer, indexFormat);
-      pass.setBindGroup(0, litBindGroup);
-      pass.drawIndexed(vertexCount);
+      if (settings.models) {
+        pass.setVertexBuffer(0, vertexBuffer);
+        pass.setIndexBuffer(indexBuffer, indexFormat);
+        pass.setBindGroup(0, litBindGroup);
+        pass.drawIndexed(vertexCount);
+      }
     }
-  });
+  );
 
   if (settings.lines) {
     // Note: If we're using the line-list based pipeline then we need to
     // multiply the vertex count by 2 since we need to emit 6 vertices
     // for each triangle (3 edges).
-    const [bindGroupNdx, countMult, pipeline] = settings.barycentricCoordinatesBased
-       ? [1, 1, barycentricCoordinatesBasedWireframePipeline]
-       : [0, 2, wireframePipeline];
+    const [bindGroupNdx, countMult, pipeline] =
+      settings.barycentricCoordinatesBased
+        ? [1, 1, barycentricCoordinatesBasedWireframePipeline]
+        : [0, 2, wireframePipeline];
     pass.setPipeline(pipeline);
     objectInfos.forEach(({ wireframeBindGroups, model: { vertexCount } }) => {
       pass.setBindGroup(0, wireframeBindGroups[bindGroupNdx]);
