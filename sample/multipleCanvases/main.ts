@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { mat4, mat3 } from 'wgpu-matrix';
 import { modelData } from './models';
 
@@ -26,7 +25,7 @@ type Model = {
 
 function createVertexAndIndexBuffer(
   device: GPUDevice,
-  { vertices, indices }: { vertices: Float32Array, indices: Uint32Array },
+  { vertices, indices }: { vertices: Float32Array; indices: Uint32Array }
 ): Model {
   const vertexBuffer = createBufferWithData(
     device,
@@ -49,7 +48,9 @@ function createVertexAndIndexBuffer(
 const adapter = await navigator.gpu.requestAdapter();
 const device = await adapter.requestDevice();
 
-const models = Object.values(modelData).map(data => createVertexAndIndexBuffer(device, data));
+const models = Object.values(modelData).map((data) =>
+  createVertexAndIndexBuffer(device, data)
+);
 
 function rand(min?: number, max?: number) {
   if (min === undefined) {
@@ -69,7 +70,6 @@ function randInt(min: number, max?: number) {
 function randColor() {
   return [rand(), rand(), rand(), 1];
 }
-
 
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 const depthFormat = 'depth24plus';
@@ -231,7 +231,8 @@ for (let i = 0; i < numProducts; ++i) {
   const kColorOffset = 32;
   const worldViewProjectionMatrixValue = uniformValues.subarray(
     kWorldViewProjectionMatrixOffset,
-    kWorldViewProjectionMatrixOffset + 16);
+    kWorldViewProjectionMatrixOffset + 16
+  );
   const worldMatrixValue = uniformValues.subarray(
     kWorldMatrixOffset,
     kWorldMatrixOffset + 15
