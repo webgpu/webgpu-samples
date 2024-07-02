@@ -89,18 +89,22 @@ const wireframeModule = device.createShaderModule({
 
 const litBindGroupLayout = device.createBindGroupLayout({
   label: 'lit bind group layout',
-  entries: [{
-    binding: 0,
-    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-    buffer: {},
-  }]
+  entries: [
+    {
+      binding: 0,
+      visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+      buffer: {},
+    },
+  ],
 });
 
 let litPipeline;
 function rebuildLitPipeline() {
   litPipeline = device.createRenderPipeline({
     label: 'lit pipeline',
-    layout: device.createPipelineLayout({ bindGroupLayouts: [litBindGroupLayout] }),
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [litBindGroupLayout],
+    }),
     vertex: {
       module: litModule,
       buffers: [
@@ -321,11 +325,13 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
 
 const gui = new GUI();
 gui.add(settings, 'barycentricCoordinatesBased').onChange(addRemoveGUI);
-gui.add(settings, 'lines')
+gui.add(settings, 'lines');
 gui.add(settings, 'models');
-gui.add(settings, 'animate')
+gui.add(settings, 'animate');
 gui.add(settings, 'depthBias', -1, 1, 0.05).onChange(rebuildLitPipeline);
-gui.add(settings, 'depthBiasSlopeScale', -1, 1, 0.05).onChange(rebuildLitPipeline);
+gui
+  .add(settings, 'depthBiasSlopeScale', -1, 1, 0.05)
+  .onChange(rebuildLitPipeline);
 
 const guis = [];
 function addRemoveGUI() {
