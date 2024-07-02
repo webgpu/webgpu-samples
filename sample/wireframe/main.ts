@@ -11,7 +11,7 @@ const settings = {
   alphaThreshold: 0.5,
   animate: true,
   lines: true,
-  depthBias: 0.0,
+  depthBias: 1,
   depthBiasSlopeScale: 0.5,
   models: true,
 };
@@ -328,23 +328,26 @@ gui.add(settings, 'barycentricCoordinatesBased').onChange(addRemoveGUI);
 gui.add(settings, 'lines');
 gui.add(settings, 'models');
 gui.add(settings, 'animate');
-gui.add(settings, 'depthBias', -1, 1, 0.05).onChange(rebuildLitPipeline);
-gui
-  .add(settings, 'depthBiasSlopeScale', -1, 1, 0.05)
-  .onChange(rebuildLitPipeline);
 
 const guis = [];
 function addRemoveGUI() {
+  guis.forEach((g) => g.remove());
+  guis.length = 0;
   if (settings.barycentricCoordinatesBased) {
     guis.push(
       gui.add(settings, 'thickness', 0.0, 10).onChange(updateThickness),
       gui.add(settings, 'alphaThreshold', 0, 1).onChange(updateThickness)
     );
   } else {
-    guis.forEach((g) => g.remove());
-    guis.length = 0;
+    guis.push(
+      gui.add(settings, 'depthBias', -3, 3, 1).onChange(rebuildLitPipeline),
+      gui
+        .add(settings, 'depthBiasSlopeScale', -1, 1, 0.05)
+        .onChange(rebuildLitPipeline)
+    );
   }
 }
+addRemoveGUI();
 
 function updateThickness() {
   objectInfos.forEach(({ lineUniformBuffer, lineUniformValues }) => {
