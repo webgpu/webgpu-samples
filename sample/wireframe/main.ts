@@ -5,6 +5,17 @@ import { randElement, randColor } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 import wireframeWGSL from './wireframe.wgsl';
 
+const settings = {
+  barycentricCoordinatesBased: false,
+  thickness: 2,
+  alphaThreshold: 0.5,
+  animate: true,
+  lines: true,
+  depthBias: 0.0,
+  depthBiasSlopeScale: 0.5,
+  models: true,
+};
+
 type TypedArrayView = Float32Array | Uint32Array;
 
 function createBufferWithData(
@@ -76,44 +87,67 @@ const wireframeModule = device.createShaderModule({
   code: wireframeWGSL,
 });
 
-const litPipeline = device.createRenderPipeline({
-  label: 'lit pipeline',
-  layout: 'auto',
-  vertex: {
-    module: litModule,
-    buffers: [
-      {
-        arrayStride: 6 * 4, // position, normal
-        attributes: [
-          {
-            // position
-            shaderLocation: 0,
-            offset: 0,
-            format: 'float32x3',
-          },
-          {
-            // normal
-            shaderLocation: 1,
-            offset: 3 * 4,
-            format: 'float32x3',
-          },
-        ],
-      },
-    ],
-  },
-  fragment: {
-    module: litModule,
-    targets: [{ format: presentationFormat }],
-  },
-  primitive: {
-    cullMode: 'back',
-  },
-  depthStencil: {
-    depthWriteEnabled: true,
-    depthCompare: 'less',
-    format: depthFormat,
-  },
+const litBindGroupLayout = device.createBindGroupLayout({
+  label: 'lit bind group layout',
+  entries: [
+    {
+      binding: 0,
+      visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+      buffer: {},
+    },
+  ],
 });
+
+let litPipeline;
+function rebuildLitPipeline() {
+  litPipeline = device.createRenderPipeline({
+    label: 'lit pipeline',
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [litBindGroupLayout],
+    }),
+    vertex: {
+      module: litModule,
+      buffers: [
+        {
+          arrayStride: 6 * 4, // position, normal
+          attributes: [
+            {
+              // position
+              shaderLocation: 0,
+              offset: 0,
+              format: 'float32x3',
+            },
+            {
+              // normal
+              shaderLocation: 1,
+              offset: 3 * 4,
+              format: 'float32x3',
+            },
+          ],
+        },
+      ],
+    },
+    fragment: {
+      module: litModule,
+      targets: [{ format: presentationFormat }],
+    },
+    primitive: {
+      cullMode: 'back',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      // Applying a depth bias can prevent aliasing from z-fighting with the
+      // wireframe lines. The depth bias has to be applied to the lit meshes
+      // rather that the wireframe because depthBias isn't considered when
+      // drawing line or point primitives.
+      depthBias: settings.depthBias,
+      depthBiasSlopeScale: settings.depthBiasSlopeScale,
+      format: depthFormat,
+    },
+  });
+}
+rebuildLitPipeline();
 
 const wireframePipeline = device.createRenderPipeline({
   label: 'wireframe pipeline',
@@ -215,7 +249,7 @@ for (let i = 0; i < numObjects; ++i) {
 
   // Make a bind group for this uniform
   const litBindGroup = device.createBindGroup({
-    layout: litPipeline.getBindGroupLayout(0),
+    layout: litBindGroupLayout,
     entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
   });
 
@@ -289,18 +323,15 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
   },
 };
 
-const settings = {
-  barycentricCoordinatesBased: false,
-  thickness: 2,
-  alphaThreshold: 0.5,
-  lines: true,
-  models: true,
-};
-
 const gui = new GUI();
 gui.add(settings, 'barycentricCoordinatesBased').onChange(addRemoveGUI);
 gui.add(settings, 'lines');
 gui.add(settings, 'models');
+gui.add(settings, 'animate');
+gui.add(settings, 'depthBias', -1, 1, 0.05).onChange(rebuildLitPipeline);
+gui
+  .add(settings, 'depthBiasSlopeScale', -1, 1, 0.05)
+  .onChange(rebuildLitPipeline);
 
 const guis = [];
 function addRemoveGUI() {
@@ -326,8 +357,11 @@ updateThickness();
 
 let depthTexture: GPUTexture | undefined;
 
-function render(time: number) {
-  time *= 0.001; // convert to seconds;
+let time = 0.0;
+function render(ts: number) {
+  if (settings.animate) {
+    time = ts * 0.001; // convert to seconds;
+  }
 
   // Get the current texture from the canvas context and
   // set it as the texture to render to.
