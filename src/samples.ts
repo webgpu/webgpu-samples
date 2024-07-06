@@ -17,6 +17,7 @@ import instancedCube from '../sample/instancedCube/meta';
 import metaballs from '../sample/metaballs/meta';
 import multipleCanvases from '../sample/multipleCanvases/meta';
 import normalMap from '../sample/normalMap/meta';
+import occlusionQuery from '../sample/occlusionQuery/meta';
 import particles from '../sample/particles/meta';
 import points from '../sample/points/meta';
 import pristineGrid from '../sample/pristineGrid/meta';
@@ -88,6 +89,7 @@ export const pageCategories: PageCategory[] = [
       samplerParameters,
       reversedZ,
       renderBundles,
+      occlusionQuery,
     },
   },
 
