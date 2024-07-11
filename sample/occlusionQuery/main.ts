@@ -1,6 +1,5 @@
 import { GUI } from 'dat.gui';
 import { mat4 } from 'wgpu-matrix';
-import { cssColorToRGBA } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 
 const settings = {
@@ -81,12 +80,12 @@ const pipeline = device.createRenderPipeline({
 
 // prettier-ignore
 const cubePositions = [
-  { position: [-1,  0,  0], id: '🟥', color: 'red' },
-  { position: [ 1,  0,  0], id: '🟨', color: 'yellow' },
-  { position: [ 0, -1,  0], id: '🟩', color: 'green' },
-  { position: [ 0,  1,  0], id: '🟧', color: 'orange' },
-  { position: [ 0,  0, -1], id: '🟦', color: 'blue' },
-  { position: [ 0,  0,  1], id: '🟪', color: 'purple' },
+  { position: [-1,  0,  0], id: '🟥', color: [1, 0, 0, 1] },
+  { position: [ 1,  0,  0], id: '🟨', color: [1, 1, 0, 1] },
+  { position: [ 0, -1,  0], id: '🟩', color: [0, 0.5, 0, 1] },
+  { position: [ 0,  1,  0], id: '🟧', color: [1, 0.6, 0, 1] },
+  { position: [ 0,  0, -1], id: '🟦', color: [0, 0, 1, 1] },
+  { position: [ 0,  0,  1], id: '🟪', color: [0.5, 0, 0.5, 1] },
 ];
 
 const objectInfos = cubePositions.map(({ position, id, color }) => {
@@ -100,7 +99,7 @@ const objectInfos = cubePositions.map(({ position, id, color }) => {
   const worldInverseTranspose = uniformValues.subarray(16, 32);
   const colorValue = uniformValues.subarray(32, 36);
 
-  colorValue.set(cssColorToRGBA(color));
+  colorValue.set(color);
 
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
@@ -183,9 +182,14 @@ const vertexData = new Float32Array([
    1, -1, -1,     0,  0, -1,
   -1, -1, -1,     0,  0, -1,
 ]);
+// prettier-ignore
 const indices = new Uint16Array([
-  0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14,
-  15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
+   0,  1,  2,  0,  2,  3, // +x face
+   4,  5,  6,  4,  6,  7, // -x face
+   8,  9, 10,  8, 10, 11, // +y face
+  12, 13, 14, 12, 14, 15, // -y face
+  16, 17, 18, 16, 18, 19, // +z face
+  20, 21, 22, 20, 22, 23, // -z face
 ]);
 
 const vertexBuffer = createBufferWithData(
