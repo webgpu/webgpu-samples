@@ -124,13 +124,14 @@ const occlusionQuerySet = device.createQuerySet({
 
 const resolveBuffer = device.createBuffer({
   label: 'resolveBuffer',
-  size: objectInfos.length * 8,
+  // Query results are 64bit unsigned integers.
+  size: objectInfos.length * BigUint64Array.BYTES_PER_ELEMENT,
   usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
 });
 
 const resultBuffer = device.createBuffer({
   label: 'resultBuffer',
-  size: objectInfos.length * 8,
+  size: resolveBuffer.size,
   usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
 });
 
