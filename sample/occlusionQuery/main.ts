@@ -230,7 +230,6 @@ const lerpV = (a: number[], b: number[], t: number) =>
 const pingPongSine = (t: number) => Math.sin(t * Math.PI * 2) * 0.5 + 0.5;
 
 let depthTexture: GPUTexture | undefined;
-let results: BigUint64Array | undefined;
 
 let time = 0;
 let then = 0;
@@ -331,7 +330,7 @@ function render(now: number) {
 
   if (resultBuffer.mapState === 'unmapped') {
     resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
-      results = new BigUint64Array(resultBuffer.getMappedRange()).slice();
+      const results = new BigUint64Array(resultBuffer.getMappedRange()).slice();
       resultBuffer.unmap();
 
       const visible = objectInfos
