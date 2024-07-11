@@ -297,6 +297,15 @@ var normalMap = {
     ],
 };
 
+var occlusionQuery = {
+    name: 'Occlusion Query',
+    description: `
+  This example demonstrates using Occlusion Queries.
+  `,
+    filename: "sample/occlusionQuery",
+    sources: [{ path: 'main.ts' }, { path: 'solidColorLit.wgsl' }],
+};
+
 var particles = {
     name: 'Particles',
     description: 'This example demonstrates rendering of particles simulated with compute shaders.',
@@ -607,6 +616,7 @@ const pageCategories = [
             samplerParameters,
             reversedZ,
             renderBundles,
+            occlusionQuery,
         },
     },
     // Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally provide some
