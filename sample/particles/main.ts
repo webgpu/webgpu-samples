@@ -318,7 +318,7 @@ let numMipLevels = 1;
 const simulationParams = {
   simulate: true,
   deltaTime: 0.04,
-  toneMappingMode: 'standard',
+  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
   brightnessFactor: 1.0,
 };
 
