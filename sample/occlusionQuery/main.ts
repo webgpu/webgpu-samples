@@ -117,21 +117,21 @@ const objectInfos = cubePositions.map(({ position, id, color }) => {
   };
 });
 
-const occlusionQuerySet = device.createQuerySet({
+const querySet = device.createQuerySet({
   type: 'occlusion',
   count: objectInfos.length,
 });
 
-const resolveBuffer = device.createBuffer({
+const resolveBuf = device.createBuffer({
   label: 'resolveBuffer',
   // Query results are 64bit unsigned integers.
   size: objectInfos.length * BigUint64Array.BYTES_PER_ELEMENT,
   usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
 });
 
-const resultBuffer = device.createBuffer({
+const resultBuf = device.createBuffer({
   label: 'resultBuffer',
-  size: resolveBuffer.size,
+  size: resolveBuf.size,
   usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
 });
 
@@ -147,9 +147,8 @@ function createBufferWithData(
     usage,
     mappedAtCreation: true,
   });
-  const dst = new (data.constructor as TypedArrayConstructor)(
-    buffer.getMappedRange()
-  );
+  const Ctor = data.constructor as TypedArrayConstructor;
+  const dst = new Ctor(buffer.getMappedRange());
   dst.set(data);
   buffer.unmap();
   return buffer;
@@ -193,13 +192,13 @@ const indices = new Uint16Array([
   20, 21, 22, 20, 22, 23, // -z face
 ]);
 
-const vertexBuffer = createBufferWithData(
+const vertexBuf = createBufferWithData(
   device,
   vertexData,
   GPUBufferUsage.VERTEX,
   'vertexBuffer'
 );
-const indicesBuffer = createBufferWithData(
+const indicesBuf = createBufferWithData(
   device,
   indices,
   GPUBufferUsage.INDEX,
@@ -221,7 +220,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     depthLoadOp: 'clear',
     depthStoreOp: 'store',
   },
-  occlusionQuerySet,
+  occlusionQuerySet: querySet,
 };
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -262,10 +261,7 @@ function render(now: number) {
     depthTexture.width !== canvasTexture.width ||
     depthTexture.height !== canvasTexture.height
   ) {
-    if (depthTexture) {
-      depthTexture.destroy();
-    }
-
+    depthTexture?.destroy();
     depthTexture = device.createTexture({
       size: canvasTexture, // canvasTexture has width, height, and depthOrArrayLayers properties
       format: depthFormat,
@@ -280,6 +276,8 @@ function render(now: number) {
   const encoder = device.createCommandEncoder();
   const pass = encoder.beginRenderPass(renderPassDescriptor);
   pass.setPipeline(pipeline);
+  pass.setVertexBuffer(0, vertexBuf);
+  pass.setIndexBuffer(indicesBuf, 'uint16');
 
   objectInfos.forEach(
     (
@@ -300,8 +298,6 @@ function render(now: number) {
       device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
       pass.setBindGroup(0, bindGroup);
-      pass.setVertexBuffer(0, vertexBuffer);
-      pass.setIndexBuffer(indicesBuffer, 'uint16');
       pass.beginOcclusionQuery(i);
       pass.drawIndexed(indices.length);
       pass.endOcclusionQuery();
@@ -309,35 +305,24 @@ function render(now: number) {
   );
 
   pass.end();
-  encoder.resolveQuerySet(
-    occlusionQuerySet,
-    0,
-    objectInfos.length,
-    resolveBuffer,
-    0
-  );
-  if (resultBuffer.mapState === 'unmapped') {
-    encoder.copyBufferToBuffer(
-      resolveBuffer,
-      0,
-      resultBuffer,
-      0,
-      resultBuffer.size
-    );
+  encoder.resolveQuerySet(querySet, 0, objectInfos.length, resolveBuf, 0);
+  if (resultBuf.mapState === 'unmapped') {
+    encoder.copyBufferToBuffer(resolveBuf, 0, resultBuf, 0, resultBuf.size);
   }
 
   device.queue.submit([encoder.finish()]);
 
-  if (resultBuffer.mapState === 'unmapped') {
-    resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
-      const results = new BigUint64Array(resultBuffer.getMappedRange()).slice();
-      resultBuffer.unmap();
+  if (resultBuf.mapState === 'unmapped') {
+    resultBuf.mapAsync(GPUMapMode.READ).then(() => {
+      const results = new BigUint64Array(resultBuf.getMappedRange());
 
       const visible = objectInfos
         .filter((_, i) => results[i])
         .map(({ id }) => id)
         .join('');
       info.textContent = `visible: ${visible}`;
+
+      resultBuf.unmap();
     });
   }
 
