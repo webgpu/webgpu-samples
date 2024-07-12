@@ -334,13 +334,15 @@ const simulationUBOBuffer = device.createBuffer({
 });
 
 const gui = new GUI();
+gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
-const hdrFolder = gui.addFolder('HDR Settings');
+const hdrFolder = gui.addFolder('HDR settings');
 hdrFolder
   .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
   .onChange(configureContext);
 hdrFolder.add(simulationParams, 'brightnessFactor', 0, 4, 0.1);
+hdrFolder.open();
 
 const computePipeline = device.createComputePipeline({
   layout: 'auto',

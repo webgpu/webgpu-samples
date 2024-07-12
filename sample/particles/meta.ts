@@ -1,7 +1,7 @@
 export default {
-  name: 'Particles',
+  name: 'Particles (HDR)',
   description:
-    'This example demonstrates rendering of particles simulated with compute shaders.',
+    'This example demonstrates rendering of particles (using HDR capabilities when possible) simulated with compute shaders.',
   filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
