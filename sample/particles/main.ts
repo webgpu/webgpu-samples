@@ -337,12 +337,20 @@ const gui = new GUI();
 gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
-const hdrFolder = gui.addFolder('HDR settings');
+const hdrFolder = gui.addFolder('');
 hdrFolder
   .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
   .onChange(configureContext);
 hdrFolder.add(simulationParams, 'brightnessFactor', 0, 4, 0.1);
 hdrFolder.open();
+const hdrMediaQuery = window.matchMedia('(dynamic-range: high)');
+function updateHdrFolderName() {
+  hdrFolder.name = `HDR settings ${
+    hdrMediaQuery.matches ? '' : '⚠️ Your display is not compatible'
+  }`;
+}
+updateHdrFolderName();
+hdrMediaQuery.onchange = updateHdrFolderName;
 
 const computePipeline = device.createComputePipeline({
   layout: 'auto',
