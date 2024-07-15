@@ -72,7 +72,7 @@ var animometer = {
 
 var bitonicSort = {
     name: 'Bitonic Sort',
-    description: "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at [https://poniesandlight.co.uk/reflect/bitonic&lowbar;merge&lowbar;sort/](https://poniesandlight.co.uk/reflect/bitonic_merge_sort/). Each dispatch of the bitonic sort shader dispatches a workgroup containing elements/2 invocations. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
+    description: "A naive bitonic sort algorithm executed on the GPU, based on tgfrerer's implementation at <https://poniesandlight.co.uk/reflect/bitonic_merge_sort/>. Each dispatch of the bitonic sort shader dispatches a workgroup containing elements/2 invocations. The GUI's Execution Information folder contains information about the sort's current state. The visualizer displays the sort's results as colored cells sorted from brightest to darkest.",
     filename: "sample/bitonicSort",
     sources: [
         { path: 'main.ts' },
@@ -88,7 +88,7 @@ var bundleCulling = {
     name: 'Bundle Culling',
     description: `A demonstration of using frustum culling with render bundles through indirect instanced draw calls.
 
-Source at https://github.com/toji/webgpu-bundle-culling/
+Source at <https://github.com/toji/webgpu-bundle-culling/>
 `,
     filename: "sample/bundleCulling",
     url: 'https://toji.github.io/webgpu-bundle-culling/',
@@ -112,7 +112,7 @@ var clusteredShading = {
     name: 'Clustered Shading',
     description: `Shows a simple clustered forward shading renderer.
 
-Source at https://github.com/toji/webgpu-clustered-shading/
+Source at <https://github.com/toji/webgpu-clustered-shading/>
 `,
     filename: "sample/clusteredShading",
     url: 'https://toji.github.io/webgpu-clustered-shading/',
@@ -155,7 +155,7 @@ is used to draw instanced particles.',
 
 var cubemap = {
     name: 'Cubemap',
-    description: 'This example shows how to render and sample from a cubemap texture. Cubemap image available under a Creative Commons Attribution 3.0 Unported License at https://www.humus.name/index.php?page=Textures&ID=58',
+    description: 'This example shows how to render and sample from a cubemap texture. Cubemap image available under a Creative Commons Attribution 3.0 Unported License at <https://www.humus.name/index.php?page=Textures&ID=58>',
     filename: "sample/cubemap",
     sources: [
         { path: 'main.ts' },
@@ -336,9 +336,9 @@ You can read more details [here](https://webgpufundamentals.org/webgpu/lessons/w
 
 var pristineGrid = {
     name: 'Pristine Grid',
-    description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8
+    description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: <https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8>
 
-Source at https://github.com/toji/pristine-grid-webgpu/
+Source at <https://github.com/toji/pristine-grid-webgpu/>
 `,
     filename: "sample/pristineGrid",
     url: 'https://toji.github.io/pristine-grid-webgpu/',
@@ -375,8 +375,8 @@ var resizeObserverHDDPI = {
     name: 'ResizeObserver HD-DPI Fullscreen',
     description: `This example shows how to use ResizeObserver, handle HD-DPI correctly, and Fullscreen
   
-There should be no [Moiré patterns](https://www.google.com/search?q=Moir%C3%A9%20pattern) regardless of zoom level.  
-<sup>(<a href="https://caniuse.com/mdn-api_resizeobserverentry_devicepixelcontentboxsize">except possibly in Safari</a>)</sup>`,
+There should be no [Moiré patterns](https://www.google.com/search?q=Moir%C3%A9%20pattern) regardless of zoom level
+(... [except possibly in Safari](https://caniuse.com/mdn-api_resizeobserverentry_devicepixelcontentboxsize)).`,
     filename: "sample/resizeObserverHDDPI",
     sources: [{ path: 'main.ts' }, { path: 'checker.wgsl' }],
 };
@@ -391,9 +391,9 @@ To use reversed z to render your scene, you will need depth store value to be 0.
 and remap depth range by multiplying an additional matrix to your projection matrix.
 
 Related reading:
-  - https://developer.nvidia.com/content/depth-precision-visualized
-  - https://web.archive.org/web/20220724174000/
-  - https://thxforthefish.com/posts/reverse_z/
+  - <https://developer.nvidia.com/content/depth-precision-visualized>
+  - <https://web.archive.org/web/20220724174000/>
+  - <https://thxforthefish.com/posts/reverse_z/>
     `,
     filename: "sample/reversedZ",
     sources: [
@@ -445,7 +445,7 @@ var shadowMapping = {
 
 var skinnedMesh = {
     name: 'Skinned Mesh',
-    description: 'A demonstration of basic gltf loading and mesh skinning, ported from https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file. Animations are generated progrmatically, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
+    description: 'A demonstration of basic gltf loading and mesh skinning, ported from <https://webgl2fundamentals.org/webgl/lessons/webgl-skinning.html>. Mesh data, per vertex attributes, and skin inverseBindMatrices are taken from the json parsed from the binary output of the .glb file. Animations are generated progrmatically, with animated joint matrices updated and passed to shaders per frame via uniform buffers.',
     filename: "sample/skinnedMesh",
     sources: [
         { path: 'main.ts' },
@@ -462,7 +462,7 @@ var spookyball = {
     name: 'Spookyball',
     description: `This example shows a simple game made with WebGPU.
 
-Source at https://github.com/toji/spookyball
+Source at <https://github.com/toji/spookyball>
 `,
     filename: "sample/spookyball",
     url: 'https://spookyball.com',
