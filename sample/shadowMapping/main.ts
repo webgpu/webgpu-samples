@@ -4,12 +4,14 @@ import { mesh } from '../../meshes/stanfordDragon';
 import vertexShadowWGSL from './vertexShadow.wgsl';
 import vertexWGSL from './vertex.wgsl';
 import fragmentWGSL from './fragment.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const shadowDepthTextureSize = 1024;
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 

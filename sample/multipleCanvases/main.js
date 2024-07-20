@@ -5862,6 +5862,72 @@ const modelData = {
     rock: flattenNormals(createSphereTypedArrays(20, 32, 16, 0.1)),
 };
 
+/** Shows an error dialog if getting an adapter wasn't successful. */
+function quitIfAdapterNotAvailable(adapter) {
+    if (!('gpu' in navigator)) {
+        fail('navigator.gpu is not defined - WebGPU not available in this browser');
+    }
+    if (!adapter) {
+        fail("requestAdapter returned null - this sample can't run on this system");
+    }
+}
+/**
+ * Shows an error dialog if getting a adapter or device wasn't successful,
+ * or if/when the device is lost or has an uncaptured error.
+ */
+function quitIfWebGPUNotAvailable(adapter, device) {
+    if (!device) {
+        quitIfAdapterNotAvailable(adapter);
+        fail('Unable to get a device for an unknown reason');
+    }
+    device.lost.then((reason) => {
+        fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
+    });
+    device.onuncapturederror = (ev) => {
+        fail(`Uncaptured error:\n${ev.error.message}`);
+    };
+}
+/** Fail by showing a console error, and dialog box if possible. */
+const fail = (() => {
+    function createErrorOutput() {
+        if (typeof document === 'undefined') {
+            // Not implemented in workers.
+            return {
+                show(msg) {
+                    console.error(msg);
+                },
+            };
+        }
+        const dialogBox = document.createElement('dialog');
+        dialogBox.close();
+        document.body.append(dialogBox);
+        const dialogText = document.createElement('pre');
+        dialogText.style.whiteSpace = 'pre-wrap';
+        dialogBox.append(dialogText);
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'OK';
+        closeBtn.onclick = () => dialogBox.close();
+        dialogBox.append(closeBtn);
+        return {
+            show(msg) {
+                // Don't overwrite the dialog message while it's still open
+                // (show the first error, not the most recent error).
+                if (!dialogBox.open) {
+                    dialogText.textContent = msg;
+                    dialogBox.showModal();
+                }
+            },
+        };
+    }
+    let output;
+    return (message) => {
+        if (!output)
+            output = createErrorOutput();
+        output.show(message);
+        throw new Error(message);
+    };
+})();
+
 function createBufferWithData(device, data, usage) {
     const buffer = device.createBuffer({
         size: data.byteLength,
@@ -5880,8 +5946,9 @@ function createVertexAndIndexBuffer(device, { vertices, indices }) {
         vertexCount: indices.length,
     };
 }
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 const models = Object.values(modelData).map((data) => createVertexAndIndexBuffer(device, data));
 function rand(min, max) {
     if (min === undefined) {

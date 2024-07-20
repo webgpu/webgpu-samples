@@ -10,6 +10,7 @@ import {
 import cubeWGSL from './cube.wgsl';
 import { ArcballCamera, WASDCamera } from './camera';
 import { createInputHandler } from './input';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
@@ -39,8 +40,9 @@ gui.add(params, 'type', ['arcball', 'WASD']).onChange(() => {
   oldCameraType = newCameraType;
 });
 
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
 const devicePixelRatio = window.devicePixelRatio;

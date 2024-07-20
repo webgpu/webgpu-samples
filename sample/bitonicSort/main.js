@@ -2700,6 +2700,72 @@ fn frag_main(@location(0) fragUV : vec2f) -> @location(0) vec4f {
 }
 `;
 
+/** Shows an error dialog if getting an adapter wasn't successful. */
+function quitIfAdapterNotAvailable(adapter) {
+    if (!('gpu' in navigator)) {
+        fail('navigator.gpu is not defined - WebGPU not available in this browser');
+    }
+    if (!adapter) {
+        fail("requestAdapter returned null - this sample can't run on this system");
+    }
+}
+/**
+ * Shows an error dialog if getting a adapter or device wasn't successful,
+ * or if/when the device is lost or has an uncaptured error.
+ */
+function quitIfWebGPUNotAvailable(adapter, device) {
+    if (!device) {
+        quitIfAdapterNotAvailable(adapter);
+        fail('Unable to get a device for an unknown reason');
+    }
+    device.lost.then((reason) => {
+        fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
+    });
+    device.onuncapturederror = (ev) => {
+        fail(`Uncaptured error:\n${ev.error.message}`);
+    };
+}
+/** Fail by showing a console error, and dialog box if possible. */
+const fail = (() => {
+    function createErrorOutput() {
+        if (typeof document === 'undefined') {
+            // Not implemented in workers.
+            return {
+                show(msg) {
+                    console.error(msg);
+                },
+            };
+        }
+        const dialogBox = document.createElement('dialog');
+        dialogBox.close();
+        document.body.append(dialogBox);
+        const dialogText = document.createElement('pre');
+        dialogText.style.whiteSpace = 'pre-wrap';
+        dialogBox.append(dialogText);
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'OK';
+        closeBtn.onclick = () => dialogBox.close();
+        dialogBox.append(closeBtn);
+        return {
+            show(msg) {
+                // Don't overwrite the dialog message while it's still open
+                // (show the first error, not the most recent error).
+                if (!dialogBox.open) {
+                    dialogText.textContent = msg;
+                    dialogBox.showModal();
+                }
+            },
+        };
+    }
+    let output;
+    return (message) => {
+        if (!output)
+            output = createErrorOutput();
+        output.show(message);
+        throw new Error(message);
+    };
+})();
+
 /**
  * @param {number[]} bindings - The binding value of each resource in the bind group.
  * @param {number[]} visibilities - The GPUShaderStage visibility of the resource at the corresponding index.
@@ -2746,7 +2812,8 @@ const createBindGroupCluster = (bindings, visibilities, resourceTypes, resourceL
 };
 const SampleInitFactoryWebGPU = async (callback) => {
     const init = async ({ canvas, gui, stats }) => {
-        const adapter = await navigator.gpu.requestAdapter();
+        const adapter = await navigator.gpu?.requestAdapter();
+        quitIfAdapterNotAvailable(adapter);
         const timestampQueryAvailable = adapter.features.has('timestamp-query');
         let device;
         if (timestampQueryAvailable) {
@@ -2757,6 +2824,7 @@ const SampleInitFactoryWebGPU = async (callback) => {
         else {
             device = await adapter.requestDevice();
         }
+        quitIfWebGPUNotAvailable(adapter, device);
         const context = canvas.getContext('webgpu');
         const devicePixelRatio = window.devicePixelRatio;
         canvas.width = canvas.clientWidth * devicePixelRatio;

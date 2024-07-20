@@ -5,13 +5,16 @@ import Radiosity from './radiosity';
 import Rasterizer from './rasterizer';
 import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
+import { quitIfAdapterNotAvailable, quitIfWebGPUNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 const requiredFeatures: GPUFeatureName[] =
   presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
-const adapter = await navigator.gpu.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter();
+quitIfAdapterNotAvailable(adapter);
+
 for (const feature of requiredFeatures) {
   if (!adapter.features.has(feature)) {
     throw new Error(
@@ -19,7 +22,8 @@ for (const feature of requiredFeatures) {
     );
   }
 }
-const device = await adapter.requestDevice({ requiredFeatures });
+const device = await adapter?.requestDevice({ requiredFeatures });
+quitIfWebGPUNotAvailable(adapter, device);
 
 const params: {
   renderer: 'rasterizer' | 'raytracer';

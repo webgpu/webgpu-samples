@@ -1,6 +1,7 @@
 import { GUI } from 'dat.gui';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
 import sampleExternalTextureWGSL from '../../shaders/sampleExternalTexture.frag.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 export default async function ({ useVideoFrame }: { useVideoFrame: boolean }) {
   // Set video element
@@ -11,8 +12,9 @@ export default async function ({ useVideoFrame }: { useVideoFrame: boolean }) {
   video.src = '../../assets/video/pano.webm';
   await video.play();
 
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
+  const adapter = await navigator.gpu?.requestAdapter();
+  const device = await adapter?.requestDevice();
+  quitIfWebGPUNotAvailable(adapter, device);
 
   const canvas = document.querySelector('canvas') as HTMLCanvasElement;
   const context = canvas.getContext('webgpu') as GPUCanvasContext;
