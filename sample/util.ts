@@ -3,11 +3,11 @@ export function quitIfAdapterNotAvailable(
   adapter: GPUAdapter | null
 ): asserts adapter {
   if (!('gpu' in navigator)) {
-    fail('WebGPU not available in this browser (navigator.gpu is undefined)');
+    fail('navigator.gpu is not defined - WebGPU not available in this browser');
   }
 
   if (!adapter) {
-    fail('WebGPU not available on this system (requestAdapter returned null)');
+    fail("requestAdapter returned null - this sample can't run on this system");
   }
 }
 
