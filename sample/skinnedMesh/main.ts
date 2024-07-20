@@ -9,6 +9,7 @@ import {
   createSkinnedGridRenderPipeline,
 } from './gridUtils';
 import { gridIndices } from './gridData';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const MAT4X4_BYTES = 64;
 
@@ -94,8 +95,9 @@ const getRotation = (mat: Mat4): Quat => {
 
 //Normal setup
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 

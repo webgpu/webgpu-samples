@@ -8,6 +8,7 @@ import {
   create3DRenderPipeline,
   createTextureFromImage,
 } from './utils';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const MAT4X4_BYTES = 64;
 enum TextureAtlas {
@@ -17,8 +18,9 @@ enum TextureAtlas {
 }
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;

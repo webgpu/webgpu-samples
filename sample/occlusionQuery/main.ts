@@ -1,6 +1,7 @@
 import { GUI } from 'dat.gui';
 import { mat4 } from 'wgpu-matrix';
 import solidColorLitWGSL from './solidColorLit.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
 
 const settings = {
   animate: true,
@@ -30,8 +31,10 @@ export type TypedArrayConstructor =
 
 const info = document.querySelector('#info');
 
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
+
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 const devicePixelRatio = window.devicePixelRatio;

@@ -1,6 +1,11 @@
 import { GUI } from 'dat.gui';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
 import sampleExternalTextureWGSL from '../../shaders/sampleExternalTexture.frag.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
+
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+quitIfWebGPUNotAvailable(adapter, device);
 
 // Set video element
 const video = document.createElement('video');
@@ -9,9 +14,6 @@ video.autoplay = true;
 video.muted = true;
 video.src = '../../assets/video/pano.webm';
 await video.play();
-
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
