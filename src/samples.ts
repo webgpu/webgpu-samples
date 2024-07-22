@@ -17,7 +17,7 @@ import instancedCube from '../sample/instancedCube/meta';
 import metaballs from '../sample/metaballs/meta';
 import multipleCanvases from '../sample/multipleCanvases/meta';
 import normalMap from '../sample/normalMap/meta';
-import particles from '../sample/particles/meta';
+import particlesHDR from '../sample/particlesHDR/meta';
 import points from '../sample/points/meta';
 import pristineGrid from '../sample/pristineGrid/meta';
 import renderBundles from '../sample/renderBundles/meta';
@@ -116,7 +116,7 @@ export const pageCategories: PageCategory[] = [
       normalMap,
       shadowMapping,
       deferredRendering,
-      particles,
+      'particles (HDR)': particlesHDR,
       points,
       imageBlur,
       cornell,
