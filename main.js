@@ -308,6 +308,7 @@ var occlusionQuery = {
 
 var particles = {
     name: 'Particles (HDR)',
+    tocName: 'particles (HDR)',
     description: 'This example demonstrates rendering of particles (using HDR capabilities when possible) simulated with compute shaders.',
     filename: "sample/particles",
     sources: [
@@ -643,7 +644,7 @@ const pageCategories = [
             normalMap,
             shadowMapping,
             deferredRendering,
-            'particles (HDR)': particles,
+            particles,
             points,
             imageBlur,
             cornell,
