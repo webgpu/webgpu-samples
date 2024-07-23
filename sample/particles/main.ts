@@ -26,13 +26,16 @@ const context = canvas.getContext('webgpu') as GPUCanvasContext;
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
-const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+const presentationFormat = 'rgba16float';
 
-context.configure({
-  device,
-  format: presentationFormat,
-  alphaMode: 'premultiplied',
-});
+function configureContext() {
+  context.configure({
+    device,
+    format: presentationFormat,
+    toneMapping: { mode: simulationParams.toneMappingMode },
+    alphaMode: 'premultiplied',
+  });
+}
 
 const particlesBuffer = device.createBuffer({
   size: numParticles * particleInstanceByteSize,
@@ -317,10 +320,13 @@ let numMipLevels = 1;
 const simulationParams = {
   simulate: true,
   deltaTime: 0.04,
+  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
+  brightnessFactor: 1.0,
 };
 
 const simulationUBOBufferSize =
   1 * 4 + // deltaTime
+  1 * 4 + // brightnessFactor
   3 * 4 + // padding
   4 * 4 + // seed
   0;
@@ -330,8 +336,23 @@ const simulationUBOBuffer = device.createBuffer({
 });
 
 const gui = new GUI();
+gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
+const hdrFolder = gui.addFolder('');
+hdrFolder
+  .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
+  .onChange(configureContext);
+hdrFolder.add(simulationParams, 'brightnessFactor', 0, 4, 0.1);
+hdrFolder.open();
+const hdrMediaQuery = window.matchMedia('(dynamic-range: high)');
+function updateHdrFolderName() {
+  hdrFolder.name = `HDR settings ${
+    hdrMediaQuery.matches ? '' : '⚠️ Your display is not compatible'
+  }`;
+}
+updateHdrFolderName();
+hdrMediaQuery.onchange = updateHdrFolderName;
 
 const computePipeline = device.createComputePipeline({
   layout: 'auto',
@@ -377,6 +398,7 @@ function frame() {
     0,
     new Float32Array([
       simulationParams.simulate ? simulationParams.deltaTime : 0.0,
+      simulationParams.brightnessFactor,
       0.0,
       0.0,
       0.0, // padding
@@ -438,4 +460,5 @@ function frame() {
 
   requestAnimationFrame(frame);
 }
+configureContext();
 requestAnimationFrame(frame);
