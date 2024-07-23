@@ -118,7 +118,7 @@ export const pageCategories: PageCategory[] = [
       normalMap,
       shadowMapping,
       deferredRendering,
-      'particles (HDR)': particles,
+      particles,
       points,
       imageBlur,
       cornell,

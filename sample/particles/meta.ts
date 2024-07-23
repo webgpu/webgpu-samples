@@ -1,5 +1,6 @@
 export default {
   name: 'Particles (HDR)',
+  tocName: 'particles (HDR)',
   description:
     'This example demonstrates rendering of particles (using HDR capabilities when possible) simulated with compute shaders.',
   filename: __DIRNAME__,
