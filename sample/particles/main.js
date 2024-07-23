@@ -8044,6 +8044,7 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4f {
 ////////////////////////////////////////////////////////////////////////////////
 struct SimulationParams {
   deltaTime : f32,
+  brightnessFactor : f32,
   seed : vec4f,
 }
 
@@ -8105,6 +8106,9 @@ fn simulate(@builtin(global_invocation_id) global_invocation_id : vec3u) {
     let uv = vec2f(coord) / vec2f(textureDimensions(texture));
     particle.position = vec3f((uv - 0.5) * 3.0 * vec2f(1.0, -1.0), 0.0);
     particle.color = textureLoad(texture, coord, 0);
+    particle.color.r *= sim_params.brightnessFactor;
+    particle.color.g *= sim_params.brightnessFactor;
+    particle.color.b *= sim_params.brightnessFactor;
     particle.velocity.x = (rand() - 0.5) * 0.1;
     particle.velocity.y = (rand() - 0.5) * 0.1;
     particle.velocity.z = rand() * 0.3;
@@ -8255,12 +8259,15 @@ const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
-const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-context.configure({
-    device,
-    format: presentationFormat,
-    alphaMode: 'premultiplied',
-});
+const presentationFormat = 'rgba16float';
+function configureContext() {
+    context.configure({
+        device,
+        format: presentationFormat,
+        toneMapping: { mode: simulationParams.toneMappingMode },
+        alphaMode: 'premultiplied',
+    });
+}
 const particlesBuffer = device.createBuffer({
     size: numParticles * particleInstanceByteSize,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
@@ -8518,8 +8525,11 @@ let numMipLevels = 1;
 const simulationParams = {
     simulate: true,
     deltaTime: 0.04,
+    toneMappingMode: 'standard',
+    brightnessFactor: 1.0,
 };
 const simulationUBOBufferSize = 1 * 4 + // deltaTime
+    1 * 4 + // brightnessFactor
     3 * 4 + // padding
     4 * 4 + // seed
     0;
@@ -8528,8 +8538,21 @@ const simulationUBOBuffer = device.createBuffer({
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 const gui = new GUI$1();
+gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
+const hdrFolder = gui.addFolder('');
+hdrFolder
+    .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
+    .onChange(configureContext);
+hdrFolder.add(simulationParams, 'brightnessFactor', 0, 4, 0.1);
+hdrFolder.open();
+const hdrMediaQuery = window.matchMedia('(dynamic-range: high)');
+function updateHdrFolderName() {
+    hdrFolder.name = `HDR settings ${hdrMediaQuery.matches ? '' : '⚠️ Your display is not compatible'}`;
+}
+updateHdrFolderName();
+hdrMediaQuery.onchange = updateHdrFolderName;
 const computePipeline = device.createComputePipeline({
     layout: 'auto',
     compute: {
@@ -8569,6 +8592,7 @@ const mvp = mat4.create();
 function frame() {
     device.queue.writeBuffer(simulationUBOBuffer, 0, new Float32Array([
         simulationParams.simulate ? simulationParams.deltaTime : 0.0,
+        simulationParams.brightnessFactor,
         0.0,
         0.0,
         0.0, // padding
@@ -8616,5 +8640,6 @@ function frame() {
     device.queue.submit([commandEncoder.finish()]);
     requestAnimationFrame(frame);
 }
+configureContext();
 requestAnimationFrame(frame);
 //# sourceMappingURL=main.js.map

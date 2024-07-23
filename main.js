@@ -307,8 +307,8 @@ var occlusionQuery = {
 };
 
 var particles = {
-    name: 'Particles',
-    description: 'This example demonstrates rendering of particles simulated with compute shaders.',
+    name: 'Particles (HDR)',
+    description: 'This example demonstrates rendering of particles (using HDR capabilities when possible) simulated with compute shaders.',
     filename: "sample/particles",
     sources: [
         { path: 'main.ts' },
@@ -643,7 +643,7 @@ const pageCategories = [
             normalMap,
             shadowMapping,
             deferredRendering,
-            particles,
+            'particles (HDR)': particles,
             points,
             imageBlur,
             cornell,
