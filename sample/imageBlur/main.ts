@@ -65,7 +65,7 @@ const response = await fetch('../../assets/img/Di-3d.png');
 const imageBitmap = await createImageBitmap(await response.blob());
 
 const [srcWidth, srcHeight] = [imageBitmap.width, imageBitmap.height];
-const cubeTexture = device.createTexture({
+const imageTexture = device.createTexture({
   size: [srcWidth, srcHeight, 1],
   format: 'rgba8unorm',
   usage:
@@ -75,7 +75,7 @@ const cubeTexture = device.createTexture({
 });
 device.queue.copyExternalImageToTexture(
   { source: imageBitmap },
-  { texture: cubeTexture },
+  { texture: imageTexture },
   [imageBitmap.width, imageBitmap.height]
 );
 
@@ -93,6 +93,7 @@ const textures = [0, 1].map(() => {
   });
 });
 
+// A buffer with 0 in it. Binding this buffer is used to set `flip` to 0
 const buffer0 = (() => {
   const buffer = device.createBuffer({
     size: 4,
@@ -104,6 +105,7 @@ const buffer0 = (() => {
   return buffer;
 })();
 
+// A buffer with 1 in it. Binding this buffer is used to set `flip` to 1
 const buffer1 = (() => {
   const buffer = device.createBuffer({
     size: 4,
@@ -141,7 +143,7 @@ const computeBindGroup0 = device.createBindGroup({
   entries: [
     {
       binding: 1,
-      resource: cubeTexture.createView(),
+      resource: imageTexture.createView(),
     },
     {
       binding: 2,
