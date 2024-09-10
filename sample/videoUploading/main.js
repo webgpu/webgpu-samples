@@ -2611,6 +2611,7 @@ quitIfWebGPUNotAvailable(adapter, device);
 // Set video element
 const video = document.createElement('video');
 video.loop = true;
+video.playsInline = true;
 video.autoplay = true;
 video.muted = true;
 video.src = '../../assets/video/pano.webm';
