@@ -4,9 +4,6 @@ import showMultisampleTextureWGSL from './showMultisampleTexture.wgsl';
 import renderWithAlphaToCoverageWGSL from './renderWithAlphaToCoverage.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
 
-/* eslint @typescript-eslint/no-explicit-any: "off" */
-declare const GIF: any; // from gif.js
-
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter();
 const device = await adapter?.requestDevice();
@@ -37,9 +34,6 @@ const gui = new GUI();
       Object.assign(config, kInitConfig);
       gui.updateDisplay();
     },
-    captureGif() {
-      void captureGif();
-    },
   };
 
   const settings = gui.addFolder('Settings');
@@ -55,7 +49,6 @@ const gui = new GUI();
   alphaPanel.add(config, 'pause', false);
 
   gui.add(buttons, 'initial').name('reset to initial');
-  gui.add(buttons, 'captureGif').name('capture gif (right click gif to save)');
 }
 
 //
@@ -201,41 +194,3 @@ function frame() {
 }
 
 requestAnimationFrame(frame);
-
-async function captureGif() {
-  const size = Math.max(config.width, config.height) * 32;
-  const gif = new GIF({
-    workers: 4,
-    workerScript: '../../third_party/gif.js/gif.worker.js',
-    width: size,
-    height: size,
-    debug: true,
-  });
-
-  canvas.width = canvas.height = size;
-  const frames = [];
-  // Loop through all alpha values and render a frame
-  for (let alpha = 0; alpha <= kAlphaSteps; ++alpha) {
-    config.alpha = alpha;
-    render();
-    const dataURL = canvas.toDataURL();
-    // Only save the frame into the gif if it's different from the last one
-    if (dataURL !== frames[frames.length - 1]) {
-      frames.push(dataURL);
-    }
-  }
-  for (let i = 0; i < frames.length; ++i) {
-    const img = new Image();
-    img.src = frames[i];
-    gif.addFrame(img, {
-      delay: i == 0 || i == frames.length - 1 ? 2000 : 1000,
-    });
-  }
-
-  gif.on('finished', (blob) => {
-    const imggif = document.querySelector('#imggif') as HTMLImageElement;
-    imggif.src = URL.createObjectURL(blob);
-    console.log(imggif.src);
-  });
-  gif.render();
-}

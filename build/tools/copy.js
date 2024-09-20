@@ -9,7 +9,6 @@ copyAndWatch(
     { src: 'sample/**/*', dst: 'out' },
     { src: 'samples/**/*', dst: 'out' },
     { src: 'shaders/**/*', dst: 'out' },
-    { src: 'third_party/**/*', dst: 'out' },
     { src: 'index.html', dst: 'out' },
   ],
   { watch }
