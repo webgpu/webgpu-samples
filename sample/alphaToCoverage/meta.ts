@@ -15,6 +15,9 @@ Examples: Some devices use 1x1 patterns, others 2x2, others 4x4. Not all devices
 guarantee that once a sample "pops in", it will stay there at higher alpha
 values. Some devices "move" samples around at certain alpha thresholds even
 without increasing the total sample count.
+
+More info on alpha-to-coverage:
+<https://bgolus.medium.com/anti-aliased-alpha-test-the-esoteric-alpha-to-coverage-8b177335ae4f>
 `,
   filename: __DIRNAME__,
   sources: [
