@@ -13,18 +13,31 @@ quitIfWebGPUNotAvailable(adapter, device);
 // GUI controls
 //
 
-const kAlphaSteps = 64;
-
 const kInitConfig = {
   width: 8,
   height: 8,
-  alpha: 4,
+  color1: 0x0000ff,
+  alpha1: 127,
+  color2: 0xff0000,
+  alpha2: 16,
   pause: false,
 };
 const config = { ...kInitConfig };
 const updateConfig = () => {
-  const data = new Float32Array([config.alpha / kAlphaSteps]);
-  device.queue.writeBuffer(bufConfig, 0, data);
+  // Update the colors in the (instance-step-mode) vertex buffer
+  const data = new Uint8Array([
+    // instance 0 color
+    (config.color1 >> 16) & 0xff, // R
+    (config.color1 >> 8) & 0xff, // G
+    (config.color1 >> 0) & 0xff, // B
+    config.alpha1,
+    // instance 1 color
+    (config.color2 >> 16) & 0xff, // R
+    (config.color2 >> 8) & 0xff, // G
+    (config.color2 >> 0) & 0xff, // B
+    config.alpha2,
+  ]);
+  device.queue.writeBuffer(bufInstanceColors, 0, data);
 };
 
 const gui = new GUI();
@@ -41,12 +54,16 @@ const gui = new GUI();
   settings.add(config, 'width', 1, 16, 1);
   settings.add(config, 'height', 1, 16, 1);
 
-  const alphaPanel = gui.addFolder('Alpha');
-  alphaPanel.open();
-  alphaPanel
-    .add(config, 'alpha', -2, kAlphaSteps + 2, 1)
-    .name(`alpha (of ${kAlphaSteps})`);
-  alphaPanel.add(config, 'pause', false);
+  const draw1Panel = gui.addFolder('Draw 1');
+  draw1Panel.open();
+  draw1Panel.addColor(config, 'color1').name('color');
+  draw1Panel.add(config, 'alpha1', 0, 255).name('alpha');
+
+  const draw2Panel = gui.addFolder('Draw 2');
+  draw2Panel.open();
+  draw2Panel.addColor(config, 'color2').name('color');
+  draw2Panel.add(config, 'alpha2', 0, 255).name('alpha');
+  draw2Panel.add(config, 'pause', false);
 
   gui.add(buttons, 'initial').name('reset to initial');
 }
@@ -74,8 +91,8 @@ context.configure({
 // Config buffer
 //
 
-const bufConfig = device.createBuffer({
-  usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+const bufInstanceColors = device.createBuffer({
+  usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX,
   size: 128,
 });
 
@@ -89,20 +106,22 @@ const renderWithAlphaToCoverageModule = device.createShaderModule({
 const renderWithAlphaToCoveragePipeline = device.createRenderPipeline({
   label: 'renderWithAlphaToCoveragePipeline',
   layout: 'auto',
-  vertex: { module: renderWithAlphaToCoverageModule },
+  vertex: {
+    module: renderWithAlphaToCoverageModule,
+    buffers: [
+      {
+        stepMode: 'instance',
+        arrayStride: 4,
+        attributes: [{ shaderLocation: 0, format: 'unorm8x4', offset: 0 }],
+      },
+    ],
+  },
   fragment: {
     module: renderWithAlphaToCoverageModule,
-    targets: [{ format: 'rgba16float' }],
+    targets: [{ format: 'rgba8unorm' }],
   },
   multisample: { count: 4, alphaToCoverageEnabled: true },
   primitive: { topology: 'triangle-list' },
-});
-const renderWithAlphaToCoverageBGL =
-  renderWithAlphaToCoveragePipeline.getBindGroupLayout(0);
-
-const renderWithAlphaToCoverageBG = device.createBindGroup({
-  layout: renderWithAlphaToCoverageBGL,
-  entries: [{ binding: 0, resource: { buffer: bufConfig } }],
 });
 
 //
@@ -129,16 +148,26 @@ function render() {
   updateConfig();
 
   const multisampleTexture = device.createTexture({
-    format: 'rgba16float',
+    format: 'rgba8unorm',
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     size: [config.width, config.height],
     sampleCount: 4,
   });
   const multisampleTextureView = multisampleTexture.createView();
 
+  const resolveTexture = device.createTexture({
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    size: [config.width, config.height],
+  });
+  const resolveTextureView = resolveTexture.createView();
+
   const showMultisampleTextureBG = device.createBindGroup({
     layout: showMultisampleTextureBGL,
-    entries: [{ binding: 0, resource: multisampleTextureView }],
+    entries: [
+      { binding: 0, resource: multisampleTextureView },
+      { binding: 1, resource: resolveTextureView },
+    ],
   });
 
   const commandEncoder = device.createCommandEncoder();
@@ -149,21 +178,22 @@ function render() {
       colorAttachments: [
         {
           view: multisampleTextureView,
-          clearValue: [0, 0, 0, 1], // will be overwritten
+          resolveTarget: resolveTextureView,
+          clearValue: [0, 0, 0, 1], // black background
           loadOp: 'clear',
           storeOp: 'store',
         },
       ],
     });
     pass.setPipeline(renderWithAlphaToCoveragePipeline);
-    pass.setBindGroup(0, renderWithAlphaToCoverageBG);
-    pass.draw(6);
+    pass.setVertexBuffer(0, bufInstanceColors);
+    pass.draw(6, 2);
     pass.end();
   }
   // showMultisampleTexture pass
   {
     const pass = commandEncoder.beginRenderPass({
-      label: 'showMulitsampleTexture pass',
+      label: 'showMultisampleTexture pass',
       colorAttachments: [
         {
           view: context.getCurrentTexture().createView(),
@@ -185,7 +215,10 @@ function render() {
 
 function frame() {
   if (!config.pause) {
-    config.alpha = ((performance.now() / 10000) % 1) * (kAlphaSteps + 4) - 2;
+    // scrub alpha2 over 15 seconds
+    let alpha = ((performance.now() / 15000) % 1) * (255 + 20) - 10;
+    alpha = Math.max(0, Math.min(alpha, 255));
+    config.alpha2 = alpha;
     gui.updateDisplay();
   }
   updateCanvasSize();
