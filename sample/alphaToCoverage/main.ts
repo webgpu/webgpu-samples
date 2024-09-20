@@ -16,6 +16,7 @@ quitIfWebGPUNotAvailable(adapter, device);
 const kInitConfig = {
   width: 8,
   height: 8,
+  showResolvedColor: true,
   color1: 0x0000ff,
   alpha1: 127,
   color2: 0xff0000,
@@ -23,24 +24,9 @@ const kInitConfig = {
   pause: false,
 };
 const config = { ...kInitConfig };
-const updateConfig = () => {
-  // Update the colors in the (instance-step-mode) vertex buffer
-  const data = new Uint8Array([
-    // instance 0 color
-    (config.color1 >> 16) & 0xff, // R
-    (config.color1 >> 8) & 0xff, // G
-    (config.color1 >> 0) & 0xff, // B
-    config.alpha1,
-    // instance 1 color
-    (config.color2 >> 16) & 0xff, // R
-    (config.color2 >> 8) & 0xff, // G
-    (config.color2 >> 0) & 0xff, // B
-    config.alpha2,
-  ]);
-  device.queue.writeBuffer(bufInstanceColors, 0, data);
-};
 
 const gui = new GUI();
+gui.width = 300;
 {
   const buttons = {
     initial() {
@@ -53,6 +39,7 @@ const gui = new GUI();
   settings.open();
   settings.add(config, 'width', 1, 16, 1);
   settings.add(config, 'height', 1, 16, 1);
+  settings.add(config, 'showResolvedColor', true);
 
   const draw1Panel = gui.addFolder('Draw 1');
   draw1Panel.open();
@@ -93,8 +80,25 @@ context.configure({
 
 const bufInstanceColors = device.createBuffer({
   usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX,
-  size: 128,
+  size: 8,
 });
+
+function writeConfigToGPU() {
+  // Update the colors in the (instance-step-mode) vertex buffer
+  const data = new Uint8Array([
+    // instance 0 color
+    (config.color1 >> 16) & 0xff, // R
+    (config.color1 >> 8) & 0xff, // G
+    (config.color1 >> 0) & 0xff, // B
+    config.alpha1,
+    // instance 1 color
+    (config.color2 >> 16) & 0xff, // R
+    (config.color2 >> 8) & 0xff, // G
+    (config.color2 >> 0) & 0xff, // B
+    config.alpha2,
+  ]);
+  device.queue.writeBuffer(bufInstanceColors, 0, data);
+}
 
 //
 // Pipeline to render to a multisampled texture using alpha-to-coverage
@@ -145,7 +149,7 @@ const showMultisampleTextureBGL =
   showMultisampleTexturePipeline.getBindGroupLayout(0);
 
 function render() {
-  updateConfig();
+  writeConfigToGPU();
 
   const multisampleTexture = device.createTexture({
     format: 'rgba8unorm',
@@ -171,6 +175,20 @@ function render() {
   });
 
   const commandEncoder = device.createCommandEncoder();
+  // clear resolveTextureView to gray if it won't be used
+  if (!config.showResolvedColor) {
+    const pass = commandEncoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: resolveTextureView,
+          clearValue: [0.3, 0.3, 0.3, 1],
+          loadOp: 'clear',
+          storeOp: 'store',
+        },
+      ],
+    });
+    pass.end();
+  }
   // renderWithAlphaToCoverage pass
   {
     const pass = commandEncoder.beginRenderPass({
@@ -178,7 +196,9 @@ function render() {
       colorAttachments: [
         {
           view: multisampleTextureView,
-          resolveTarget: resolveTextureView,
+          resolveTarget: config.showResolvedColor
+            ? resolveTextureView
+            : undefined,
           clearValue: [0, 0, 0, 1], // black background
           loadOp: 'clear',
           storeOp: 'store',
