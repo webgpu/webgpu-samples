@@ -63,6 +63,17 @@ var aBuffer = {
     ],
 };
 
+var alphaToCoverage = {
+    name: 'Alpha-to-Coverage',
+    description: 'Visualizes how alpha-to-coverage translates alpha values into sample coverage on your device. This varies per device; for example, not all devices guarantee that once a sample pops in, it will stay; some devices repeat at 2x2 pixels, others at 4x4; etc. The circles show the 4 samples of each pixel; the background checkerboard shows where the pixels are.',
+    filename: "sample/alphaToCoverage",
+    sources: [
+        { path: 'main.ts' },
+        { path: './renderWithAlphaToCoverage.wgsl' },
+        { path: './showMultisampleTexture.wgsl' },
+    ],
+};
+
 var animometer = {
     name: 'Animometer',
     description: 'A WebGPU port of the Animometer MotionMark benchmark.',
@@ -614,10 +625,11 @@ const pageCategories = [
         title: 'WebGPU Features',
         description: 'Highlights of important WebGPU features.',
         samples: {
-            samplerParameters,
             reversedZ,
             renderBundles,
             occlusionQuery,
+            samplerParameters,
+            alphaToCoverage,
         },
     },
     // Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally provide some

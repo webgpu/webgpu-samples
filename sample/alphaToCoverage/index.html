@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>webgpu-samples: reversedZ</title>
+    <title>webgpu-samples: alphaToCoverage</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -15,13 +15,13 @@
         place-content: center center;
       }
       canvas {
-        width: 600px;
-        height: 600px;
-        max-width: 100%;
+        width: min(100vw, 100vh);
+        height: min(100vw, 100vh);
         display: block;
       }
     </style>
-    <script defer src="main.js" type="module"></script>
+    <script src="../../third_party/gif.js/gif.js"></script>
+    <script defer type="module" src="main.js"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
