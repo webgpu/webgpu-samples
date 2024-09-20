@@ -1,4 +1,5 @@
 import aBuffer from '../sample/a-buffer/meta';
+import alphaToCoverage from '../sample/alphaToCoverage/meta';
 import animometer from '../sample/animometer/meta';
 import bitonicSort from '../sample/bitonicSort/meta';
 import bundleCulling from '../sample/bundleCulling/meta';
@@ -86,10 +87,11 @@ export const pageCategories: PageCategory[] = [
     title: 'WebGPU Features',
     description: 'Highlights of important WebGPU features.',
     samples: {
-      samplerParameters,
       reversedZ,
       renderBundles,
       occlusionQuery,
+      samplerParameters,
+      alphaToCoverage,
     },
   },
 
