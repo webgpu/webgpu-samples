@@ -19,11 +19,20 @@
         height: min(100vw, 100vh);
         display: block;
       }
+      #imggif {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        width: min(20vw, 20vh);
+        height: min(20vw, 20vh);
+      }
     </style>
-    <script defer src="main.js" type="module"></script>
+    <script src="../../third_party/gif.js/gif.js"></script>
+    <script defer type="module" src="main.js"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
     <canvas></canvas>
+    <img id=imggif></img>
   </body>
 </html>
