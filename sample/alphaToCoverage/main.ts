@@ -14,8 +14,7 @@ quitIfWebGPUNotAvailable(adapter, device);
 //
 
 const kInitConfig = {
-  width: 8,
-  height: 8,
+  sizeLog2: 3,
   showResolvedColor: true,
   color1: 0x0000ff,
   alpha1: 127,
@@ -37,8 +36,7 @@ gui.width = 300;
 
   const settings = gui.addFolder('Settings');
   settings.open();
-  settings.add(config, 'width', 1, 16, 1);
-  settings.add(config, 'height', 1, 16, 1);
+  settings.add(config, 'sizeLog2', 0, 8, 1).name('size = 2**');
   settings.add(config, 'showResolvedColor', true);
 
   const draw1Panel = gui.addFolder('Draw 1');
@@ -83,25 +81,36 @@ const bufInstanceColors = device.createBuffer({
   size: 8,
 });
 
-let multisampleTexture, multisampleTextureView;
+let multisampleTexture: GPUTexture, multisampleTextureView: GPUTextureView;
+let resolveTexture: GPUTexture, resolveTextureView: GPUTextureView;
+let lastSize = 0;
 function resetMultisampleTexture() {
-  if (
-    !multisampleTexture ||
-    multisampleTexture.width !== config.width ||
-    multisampleTexture.height !== config.height
-  ) {
+  const size = 2 ** config.sizeLog2;
+  if (lastSize !== size) {
     if (multisampleTexture) {
       multisampleTexture.destroy();
     }
-    console.log('recreate');
     multisampleTexture = device.createTexture({
       format: 'rgba8unorm',
       usage:
         GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-      size: [config.width, config.height],
+      size: [size, size],
       sampleCount: 4,
     });
     multisampleTextureView = multisampleTexture.createView();
+
+    if (resolveTexture) {
+      resolveTexture.destroy();
+    }
+    resolveTexture = device.createTexture({
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      size: [size, size],
+    });
+    resolveTextureView = resolveTexture.createView();
+
+    lastSize = size;
   }
 }
 
@@ -174,13 +183,6 @@ const showMultisampleTextureBGL =
 
 function render() {
   applyConfig();
-
-  const resolveTexture = device.createTexture({
-    format: 'rgba8unorm',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-    size: [config.width, config.height],
-  });
-  const resolveTextureView = resolveTexture.createView();
 
   const showMultisampleTextureBG = device.createBindGroup({
     layout: showMultisampleTextureBGL,
