@@ -75,7 +75,7 @@ context.configure({
 });
 
 //
-// Config buffer
+// GPU state controlled by the config gui
 //
 
 const bufInstanceColors = device.createBuffer({
@@ -83,7 +83,29 @@ const bufInstanceColors = device.createBuffer({
   size: 8,
 });
 
-function writeConfigToGPU() {
+let multisampleTexture, multisampleTextureView;
+function resetMultisampleTexture() {
+  if (
+    !multisampleTexture ||
+    multisampleTexture.width !== config.width ||
+    multisampleTexture.height !== config.height
+  ) {
+    if (multisampleTexture) {
+      multisampleTexture.destroy();
+    }
+    console.log('recreate');
+    multisampleTexture = device.createTexture({
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      size: [config.width, config.height],
+      sampleCount: 4,
+    });
+    multisampleTextureView = multisampleTexture.createView();
+  }
+}
+
+function applyConfig() {
   // Update the colors in the (instance-step-mode) vertex buffer
   const data = new Uint8Array([
     // instance 0 color
@@ -98,6 +120,8 @@ function writeConfigToGPU() {
     config.alpha2,
   ]);
   device.queue.writeBuffer(bufInstanceColors, 0, data);
+
+  resetMultisampleTexture();
 }
 
 //
@@ -149,15 +173,7 @@ const showMultisampleTextureBGL =
   showMultisampleTexturePipeline.getBindGroupLayout(0);
 
 function render() {
-  writeConfigToGPU();
-
-  const multisampleTexture = device.createTexture({
-    format: 'rgba8unorm',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-    size: [config.width, config.height],
-    sampleCount: 4,
-  });
-  const multisampleTextureView = multisampleTexture.createView();
+  applyConfig();
 
   const resolveTexture = device.createTexture({
     format: 'rgba8unorm',
@@ -229,8 +245,6 @@ function render() {
     pass.end();
   }
   device.queue.submit([commandEncoder.finish()]);
-
-  multisampleTexture.destroy();
 }
 
 function frame() {
