@@ -50,7 +50,7 @@ fn fmain(vary: Varying) -> @location(0) vec4f {
   let xyFrac = xy % vec2f(1, 1);
 
   // Show the visualization only if the resolution is large enough to see it
-  if (dpdx(xy.x) < kGridEdgeHalfWidth) & (dpdy(xy.y) < kGridEdgeHalfWidth) {
+  if (dpdx(xy.x) < kGridEdgeHalfWidth * 2) & (dpdy(xy.y) < kGridEdgeHalfWidth * 2) {
     // Check if we're close to a sample; if so, visualize the sample value
     for (var sampleIndex = 0; sampleIndex < kSampleCount; sampleIndex += 1) {
       let distanceFromSample = distance(xyFrac, kSamplePositions[sampleIndex]);
