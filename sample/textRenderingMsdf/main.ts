@@ -29,7 +29,6 @@ const depthFormat = 'depth24plus';
 context.configure({
   device,
   format: presentationFormat,
-  alphaMode: 'premultiplied',
 });
 
 const textRenderer = new MsdfTextRenderer(

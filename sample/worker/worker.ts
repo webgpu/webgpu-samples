@@ -45,7 +45,6 @@ async function init(canvas) {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
   });
 
   // Create a vertex buffer from the cube data.

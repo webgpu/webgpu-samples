@@ -18,7 +18,6 @@ canvas.height = canvas.clientHeight * devicePixelRatio;
 context.configure({
   device,
   format: presentationFormat,
-  alphaMode: 'premultiplied',
 });
 
 const sampleCount = 4;

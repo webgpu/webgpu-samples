@@ -46,7 +46,6 @@ context.configure({
   device,
   format: presentationFormat,
   usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.STORAGE_BINDING,
-  alphaMode: 'premultiplied',
 });
 
 const framebuffer = device.createTexture({
