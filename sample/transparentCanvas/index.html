@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>webgpu-samples: transparentCanvas</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html, body {
+        margin: 0;      /* remove default margin */
+        height: 100%;   /* make body fill the browser window */
+        place-content: center center;
+      }
+      /* Display the canvas as a centered element floating over the page content */
+      canvas {
+        width: 600px;
+        height: 600px;
+        max-width: 100%;
+        display: block;
+        top: 0px;
+        left: 0;
+        right: 0;
+        margin-inline: auto;
+        position: absolute;
+        z-index: 1;
+      }
+    </style>
+    <script defer src="main.js" type="module"></script>
+    <script defer type="module" src="../../js/iframe-helper.js"></script>
+  </head>
+  <body>
+    <canvas></canvas>
+    <h1>WebGPU</h1>
+    <p>WebGPU exposes an API for performing operations, such as rendering
+    and computation, on a Graphics Processing Unit.
+
+    <p>Graphics Processing Units, or GPUs for short, have been essential
+    in enabling rich rendering and computational applications in personal
+    computing. WebGPU is an API that exposes the capabilities of GPU
+    hardware for the Web. The API is designed from the ground up to
+    efficiently map to (post-2014) native GPU APIs. WebGPU is not related
+    to WebGL and does not explicitly target OpenGL ES.
+
+    <p>WebGPU sees physical GPU hardware as GPUAdapters. It provides a
+    connection to an adapter via GPUDevice, which manages resources, and
+    the device's GPUQueues, which execute commands. GPUDevice may have
+    its own memory with high-speed access to the processing units.
+    GPUBuffer and GPUTexture are the physical resources backed by GPU
+    memory. GPUCommandBuffer and GPURenderBundle are containers for
+    user-recorded commands. GPUShaderModule contains shader code. The
+    other resources, such as GPUSampler or GPUBindGroup, configure the
+    way physical resources are used by the GPU.
+
+    <p>GPUs execute commands encoded in GPUCommandBuffers by feeding data
+    through a pipeline, which is a mix of fixed-function and programmable
+    stages. Programmable stages execute shaders, which are special
+    programs designed to run on GPU hardware. Most of the state of a
+    pipeline is defined by a GPURenderPipeline or a GPUComputePipeline
+    object. The state not included in these pipeline objects is set
+    during encoding with commands, such as beginRenderPass() or
+    setBlendConstant().`
+  </body>
+</html>

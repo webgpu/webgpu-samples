@@ -527,6 +527,18 @@ var texturedCube = {
     ],
 };
 
+var transparentCanvas = {
+    name: 'Transparent Cavnas',
+    description: 'This example shows use of a transparent WebGPU canvas.',
+    filename: "sample/transparentCanvas",
+    sources: [
+        { path: 'main.ts' },
+        { path: '../../shaders/basic.vert.wgsl' },
+        { path: '../../shaders/vertexPositionColorAlpha.frag.wgsl' },
+        { path: '../../meshes/cube.ts' },
+    ],
+};
+
 var twoCubes = {
     name: 'Two Cubes',
     description: 'This example shows some of the alignment requirements \
@@ -690,6 +702,7 @@ const pageCategories = [
         samples: {
             resizeCanvas,
             resizeObserverHDDPI,
+            transparentCanvas,
             multipleCanvases,
             videoUploading,
             worker,
