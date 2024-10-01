@@ -33,6 +33,7 @@ import skinnedMesh from '../sample/skinnedMesh/meta';
 import spookyball from '../sample/spookyball/meta';
 import textRenderingMsdf from '../sample/textRenderingMsdf/meta';
 import texturedCube from '../sample/texturedCube/meta';
+import transparentCanvas from '../sample/transparentCanvas/meta';
 import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
 import volumeRenderingTexture3D from '../sample/volumeRenderingTexture3D/meta';
@@ -141,6 +142,7 @@ export const pageCategories: PageCategory[] = [
     samples: {
       resizeCanvas,
       resizeObserverHDDPI,
+      transparentCanvas,
       multipleCanvases,
       videoUploading,
       worker,
