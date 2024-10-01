@@ -50,7 +50,7 @@
     "eslint-plugin-prettier": "^4.2.1",
     "glob": "^10.4.1",
     "prettier": "^2.8.8",
-    "rollup": "^4.18.0",
+    "rollup": "^4.22.4",
     "rollup-plugin-copy": "^3.5.0",
     "servez": "^2.1.6",
     "tslib": "^2.6.3",
