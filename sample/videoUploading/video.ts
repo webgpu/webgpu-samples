@@ -27,7 +27,6 @@ export default async function ({ useVideoFrame }: { useVideoFrame: boolean }) {
   context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
   });
 
   const pipeline = device.createRenderPipeline({

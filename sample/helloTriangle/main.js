@@ -125,7 +125,7 @@ function frame() {
         colorAttachments: [
             {
                 view: textureView,
-                clearValue: [0, 0, 0, 1],
+                clearValue: [0, 0, 0, 0], // Clear to transparent
                 loadOp: 'clear',
                 storeOp: 'store',
             },

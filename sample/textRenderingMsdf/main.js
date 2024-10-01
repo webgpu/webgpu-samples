@@ -6108,7 +6108,6 @@ const depthFormat = 'depth24plus';
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 const textRenderer = new MsdfTextRenderer(device, presentationFormat, depthFormat);
 const font = await textRenderer.createFont(new URL('../../assets/font/ya-hei-ascii-msdf.json', import.meta.url).toString());

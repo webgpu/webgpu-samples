@@ -2592,7 +2592,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 const module = device.createShaderModule({
     code: checkerWGSL,

@@ -8289,7 +8289,6 @@ const context = canvas.getContext('webgpu');
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 //
 // Initialize test texture

@@ -2833,7 +2833,6 @@ const SampleInitFactoryWebGPU = async (callback) => {
         context.configure({
             device,
             format: presentationFormat,
-            alphaMode: 'premultiplied',
         });
         callback({
             canvas,

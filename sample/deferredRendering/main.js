@@ -8491,7 +8491,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 // Create the model vertex buffer.
 const kVertexStride = 8;

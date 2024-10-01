@@ -5642,7 +5642,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 // Create a vertex buffer from the cube data.
 const verticesBuffer = device.createBuffer({

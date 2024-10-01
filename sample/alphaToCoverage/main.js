@@ -2716,7 +2716,6 @@ const context = canvas.getContext('webgpu');
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 //
 // GPU state controlled by the config gui

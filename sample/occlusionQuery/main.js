@@ -8094,7 +8094,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 const depthFormat = 'depth24plus';
 const module = device.createShaderModule({

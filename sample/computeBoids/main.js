@@ -2706,7 +2706,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 const spriteShaderModule = device.createShaderModule({ code: spriteWGSL });
 const renderPipeline = device.createRenderPipeline({

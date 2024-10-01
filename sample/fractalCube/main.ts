@@ -31,7 +31,6 @@ context.configure({
   // Specify we want both RENDER_ATTACHMENT and COPY_SRC since we
   // will copy out of the swapchain texture.
   usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-  alphaMode: 'premultiplied',
 });
 
 // Create a vertex buffer from the cube data.

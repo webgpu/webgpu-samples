@@ -39,7 +39,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
   device,
   format: presentationFormat,
-  alphaMode: 'premultiplied',
   usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
 });
 
