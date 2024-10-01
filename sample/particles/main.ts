@@ -35,7 +35,7 @@ function configureContext() {
     toneMapping: { mode: simulationParams.toneMappingMode },
     alphaMode: 'premultiplied',
   });
-  updateHdrFolderName();
+  hdrFolder.name = getHdrFolderName();
 }
 
 const particlesBuffer = device.createBuffer({
@@ -347,23 +347,24 @@ hdrFolder
 hdrFolder.add(simulationParams, 'brightnessFactor', 0, 4, 0.1);
 hdrFolder.open();
 const hdrMediaQuery = window.matchMedia('(dynamic-range: high)');
-function updateHdrFolderName() {
+function getHdrFolderName() {
   if (!hdrMediaQuery.matches) {
-    hdrFolder.name = 'HDR settings ⚠️ Your display is not compatible';
-    return;
+    return "HDR settings ⚠️ Display isn't compatible";
   }
   if (!('getConfiguration' in GPUCanvasContext.prototype)) {
-    hdrFolder.name = 'HDR settings';
-    return;
+    return 'HDR settings';
   }
-  const configuration = context.getConfiguration();
-  const toneMappingModeMatches =
-    configuration.toneMapping.mode === simulationParams.toneMappingMode;
-  hdrFolder.name = `HDR settings ${
-    toneMappingModeMatches ? '' : "⚠️ Your browser doesn't support HDR canvas"
-  }`;
+  if (
+    simulationParams.toneMappingMode === 'extended' &&
+    context.getConfiguration().toneMapping.mode !== 'extended'
+  ) {
+    return "HDR settings ⚠️ Browser doesn't support HDR canvas";
+  }
+  return 'HDR settings';
 }
-hdrMediaQuery.onchange = updateHdrFolderName;
+hdrMediaQuery.onchange = () => {
+  hdrFolder.name = getHdrFolderName();
+};
 
 const computePipeline = device.createComputePipeline({
   layout: 'auto',
