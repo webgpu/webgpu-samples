@@ -69,7 +69,6 @@ const context = canvas.getContext('webgpu') as GPUCanvasContext;
 context.configure({
   device,
   format: presentationFormat,
-  alphaMode: 'premultiplied',
 });
 
 //

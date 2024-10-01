@@ -33,7 +33,6 @@ function configureContext() {
     device,
     format: presentationFormat,
     toneMapping: { mode: simulationParams.toneMappingMode },
-    alphaMode: 'premultiplied',
   });
   hdrFolder.name = getHdrFolderName();
 }
