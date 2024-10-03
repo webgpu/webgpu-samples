@@ -10,7 +10,7 @@ and remap depth range by multiplying an additional matrix to your projection mat
 Related reading:
   - <https://developer.nvidia.com/content/depth-precision-visualized>
   - <https://web.archive.org/web/20220724174000/>
-  - <https://thxforthefish.com/posts/reverse_z/>
+  - <https://iolite-engine.com/blog_posts/reverse_z_cheatsheet>
     `,
   filename: __DIRNAME__,
   sources: [
