@@ -284,6 +284,17 @@ var instancedCube = {
     ],
 };
 
+var marchingCubes = {
+    name: 'Marching Cubes',
+    description: `This example demonstrates how to dynamically generate procedural meshes using a signed distance field and a multi-pass marching cubes algorithm on the GPU.
+
+Source at <https://github.com/tcoppex/webgpu-marchingcubes>
+`,
+    filename: "sample/marchingCubes",
+    url: 'https://tcoppex.github.io/webgpu-marchingcubes/',
+    sources: [],
+};
+
 var metaballs = {
     name: 'Metaballs',
     description: `This example shows an implementation of metaballs with WebGPU.
@@ -717,6 +728,7 @@ const pageCategories = [
             pristineGrid,
             clusteredShading,
             spookyball,
+            marchingCubes,
         },
     },
     // Samples whose primary purpose is to benchmark WebGPU performance.
