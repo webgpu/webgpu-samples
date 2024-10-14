@@ -544,7 +544,7 @@ var transparentCanvas = {
     sources: [
         { path: 'main.ts' },
         { path: '../../shaders/basic.vert.wgsl' },
-        { path: '../../shaders/vertexPositionColorAlpha.frag.wgsl' },
+        { path: '../../shaders/vertexPositionColor.frag.wgsl' },
         { path: '../../meshes/cube.ts' },
     ],
 };
