@@ -3,17 +3,29 @@ import { mkdirSync } from 'fs';
 
 mkdirSync('out', { recursive: true });
 
-spawn('npm', ['run', 'watch'], {
+const spawns = [];
+
+function spawnAndCheck(cmd, args, options) {
+  const s = spawn(cmd, args, options);
+  spawns.push(s);
+  s.on('close', (code) => {
+    console.log(cmd, 'exited with code:', code);
+    spawns.forEach((s) => s.kill());
+    process.exit(code);
+  });
+}
+
+spawnAndCheck('npm', ['run', 'watch'], {
   shell: true,
   stdio: 'inherit',
 });
 
-spawn('node', ['build/tools/copy.js', '1'], {
+spawnAndCheck('node', ['build/tools/copy.js', '1'], {
   shell: true,
   stdio: 'inherit',
 });
 
-spawn('npm', ['run', 'server'], {
+spawnAndCheck('npm', ['run', 'server'], {
   shell: true,
   stdio: 'inherit',
 });

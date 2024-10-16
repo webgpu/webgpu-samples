@@ -1,6 +1,7 @@
 import chokidar from 'chokidar';
 import fs from 'fs';
 import path from 'path';
+import { globSync } from 'glob';
 
 const debug = console.log; //() => {};
 const removeLeadingSlash = (s) => s.replace(/^\//, '');
@@ -20,7 +21,7 @@ const removeLeadingSlash = (s) => s.replace(/^\//, '');
  */
 export function copyAndWatch(paths, { watch } = { watch: true }) {
   for (const { src, srcPrefix, dst } of paths) {
-    const watcher = chokidar.watch(src, {
+    const watcher = chokidar.watch(globSync(src), {
       ignored: /(^|[\/\\])\../, // ignore dot files
       persistent: watch,
     });
