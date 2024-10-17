@@ -3,15 +3,18 @@ import { mkdirSync } from 'fs';
 
 mkdirSync('out', { recursive: true });
 
-const spawns = [];
+const spawns = new Set();
 
 function spawnAndCheck(cmd, args, options) {
   const s = spawn(cmd, args, options);
-  spawns.push(s);
+  spawns.add(s);
   s.on('close', (code) => {
-    console.log(cmd, 'exited with code:', code);
-    spawns.forEach((s) => s.kill());
-    process.exit(code);
+    spawns.delete(s);
+    if (code !== 0) {
+      console.error(cmd, 'exited with code:', code);
+      [...spawns].forEach((s) => s.kill());
+      process.exit(code);
+    }
   });
 }
 
