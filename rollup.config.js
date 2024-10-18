@@ -5,6 +5,12 @@ import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
 import { readDirSyncRecursive } from './build/lib/readdir.js';
 
+const nodeVersion = parseInt(process.version.substring(1));
+if (isNaN(nodeVersion) || nodeVersion < 20) {
+  console.error('need node >= v20');
+  process.exit(1);
+}
+
 const outPath = 'out';
 
 function wgslPlugin() {
