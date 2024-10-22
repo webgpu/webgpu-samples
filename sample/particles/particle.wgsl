@@ -5,8 +5,8 @@ var<private> rand_seed : vec2f;
 
 fn init_rand(invocation_id : u32, seed : vec4f) {
   rand_seed = seed.xz;
-  rand_seed = fract(rand_seed * cos(35.456+f32(invocation_id) * seed.yw));
-  rand_seed = fract(rand_seed * cos(41.235+f32(invocation_id) * seed.xw));
+  rand_seed = fract(rand_seed * cos(35.456+f32(invocation_id) * seed.yw * 0.01f));
+  rand_seed = fract(rand_seed * cos(41.235+f32(invocation_id) * seed.xw * 0.01f));
 }
 
 fn rand() -> f32 {
