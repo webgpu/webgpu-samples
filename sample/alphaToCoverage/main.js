@@ -2716,25 +2716,24 @@ const fail = (() => {
 const kEmulatedAlphaToCoverage = {
     'Apple M1 Pro': `\
     fn emulatedAlphaToCoverage(alpha: f32, x: u32, y: u32) -> u32 {
-      let u = x % 2u;
-      let v = y % 2u;
+      let i = (y % 2) * 2 + (x % 2);
       if (alpha < 0.5 / 16) { return ${0b0000}; }
       // FIXME returning values out of an array is not working, always returns 0
-      if (alpha < 1.5 / 16) { return array(array(${0b0001}u, ${0b0000}), array(${0b0000}, ${0b0000}))[v][u]; }
-      if (alpha < 2.5 / 16) { return array(array(${0b0001}u, ${0b0000}), array(${0b0000}, ${0b0001}))[v][u]; }
-      if (alpha < 3.5 / 16) { return array(array(${0b0001}u, ${0b0001}), array(${0b0000}, ${0b0001}))[v][u]; }
-      if (alpha < 4.5 / 16) { return array(array(${0b0001}u, ${0b0001}), array(${0b0001}, ${0b0001}))[v][u]; }
-      if (alpha < 5.5 / 16) { return array(array(${0b1001}u, ${0b0001}), array(${0b0001}, ${0b0001}))[v][u]; }
-      if (alpha < 6.5 / 16) { return array(array(${0b1001}u, ${0b0001}), array(${0b0001}, ${0b1001}))[v][u]; }
-      if (alpha < 7.5 / 16) { return array(array(${0b1001}u, ${0b1001}), array(${0b0001}, ${0b1001}))[v][u]; }
-      if (alpha < 8.5 / 16) { return array(array(${0b1001}u, ${0b1001}), array(${0b1001}, ${0b1001}))[v][u]; }
-      if (alpha < 9.5 / 16) { return array(array(${0b1011}u, ${0b1001}), array(${0b1001}, ${0b1001}))[v][u]; }
-      if (alpha < 10.5 / 16) { return array(array(${0b1011}u, ${0b1001}), array(${0b1001}, ${0b1011}))[v][u]; }
-      if (alpha < 11.5 / 16) { return array(array(${0b1011}u, ${0b1011}), array(${0b1001}, ${0b1011}))[v][u]; }
-      if (alpha < 12.5 / 16) { return array(array(${0b1011}u, ${0b1011}), array(${0b1011}, ${0b1011}))[v][u]; }
-      if (alpha < 13.5 / 16) { return array(array(${0b1111}u, ${0b1011}), array(${0b1011}, ${0b1011}))[v][u]; }
-      if (alpha < 14.5 / 16) { return array(array(${0b1111}u, ${0b1011}), array(${0b1011}, ${0b1111}))[v][u]; }
-      if (alpha < 15.5 / 16) { return array(array(${0b1111}u, ${0b1111}), array(${0b1011}, ${0b1111}))[v][u]; }
+      if (alpha <  1.5 / 16) { return array(${0b0001}u, ${0b0000}, ${0b0000}, ${0b0000})[i]; }
+      if (alpha <  2.5 / 16) { return array(${0b0001}u, ${0b0000}, ${0b0000}, ${0b0001})[i]; }
+      if (alpha <  3.5 / 16) { return array(${0b0001}u, ${0b0001}, ${0b0000}, ${0b0001})[i]; }
+      if (alpha <  4.5 / 16) { return array(${0b0001}u, ${0b0001}, ${0b0001}, ${0b0001})[i]; }
+      if (alpha <  5.5 / 16) { return array(${0b1001}u, ${0b0001}, ${0b0001}, ${0b0001})[i]; }
+      if (alpha <  6.5 / 16) { return array(${0b1001}u, ${0b0001}, ${0b0001}, ${0b1001})[i]; }
+      if (alpha <  7.5 / 16) { return array(${0b1001}u, ${0b1001}, ${0b0001}, ${0b1001})[i]; }
+      if (alpha <  8.5 / 16) { return array(${0b1001}u, ${0b1001}, ${0b1001}, ${0b1001})[i]; }
+      if (alpha <  9.5 / 16) { return array(${0b1011}u, ${0b1001}, ${0b1001}, ${0b1001})[i]; }
+      if (alpha < 10.5 / 16) { return array(${0b1011}u, ${0b1001}, ${0b1001}, ${0b1011})[i]; }
+      if (alpha < 11.5 / 16) { return array(${0b1011}u, ${0b1011}, ${0b1001}, ${0b1011})[i]; }
+      if (alpha < 12.5 / 16) { return array(${0b1011}u, ${0b1011}, ${0b1011}, ${0b1011})[i]; }
+      if (alpha < 13.5 / 16) { return array(${0b1111}u, ${0b1011}, ${0b1011}, ${0b1011})[i]; }
+      if (alpha < 14.5 / 16) { return array(${0b1111}u, ${0b1011}, ${0b1011}, ${0b1111})[i]; }
+      if (alpha < 15.5 / 16) { return array(${0b1111}u, ${0b1111}, ${0b1011}, ${0b1111})[i]; }
       return ${0b1111};
     }
   `.trimEnd(),
