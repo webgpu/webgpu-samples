@@ -1,5 +1,6 @@
-@group(0) @binding(0) var tex: texture_multisampled_2d<f32>;
-@group(0) @binding(1) var resolved: texture_2d<f32>;
+@group(0) @binding(0) var tex_left: texture_multisampled_2d<f32>;
+@group(0) @binding(1) var tex_right: texture_multisampled_2d<f32>;
+@group(0) @binding(2) var resolved: texture_2d<f32>;
 
 struct Varying {
   @builtin(position) pos: vec4f,
@@ -42,7 +43,7 @@ const kSampleOuterRadius = kSampleDistanceFromCloseEdge + kGridEdgeHalfWidth;
 
 @fragment
 fn fmain(vary: Varying) -> @location(0) vec4f {
-  let dim = textureDimensions(tex);
+  let dim = textureDimensions(tex_left);
   let dimMax = max(dim.x, dim.y);
 
   let xy = vary.uv * f32(dimMax);
@@ -56,8 +57,13 @@ fn fmain(vary: Varying) -> @location(0) vec4f {
       let distanceFromSample = distance(xyFrac, kSamplePositions[sampleIndex]);
       if distanceFromSample < kSampleInnerRadius {
         // Draw a circle for the sample value
-        let val = textureLoad(tex, xyInt, sampleIndex).rgb;
-        return vec4f(val, 1);
+        if xyFrac.x < kSamplePositions[sampleIndex].x {
+          let val = textureLoad(tex_left, xyInt, sampleIndex).rgb;
+          return vec4f(val, 1);
+        } else {
+          let val = textureLoad(tex_right, xyInt, sampleIndex).rgb;
+          return vec4f(val, 1);
+        }
       } else if distanceFromSample < kSampleOuterRadius {
         // Draw a ring around the circle
         return vec4f(0, 0, 0, 1);
