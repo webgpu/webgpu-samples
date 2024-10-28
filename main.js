@@ -1906,7 +1906,7 @@ class TreeCursor {
     */
     next(enter = true) { return this.move(1, enter); }
     /**
-    Move to the next node in a last-to-first pre-order traveral. A
+    Move to the next node in a last-to-first pre-order traversal. A
     node is followed by its last child or, if it has none, its
     previous sibling or the previous sibling of the first parent
     node that has one.
@@ -1982,10 +1982,10 @@ class TreeCursor {
                 if (mustLeave && leave)
                     leave(this);
                 mustLeave = this.type.isAnonymous;
-                if (this.nextSibling())
-                    break;
                 if (!depth)
                     return;
+                if (this.nextSibling())
+                    break;
                 this.parent();
                 depth--;
                 mustLeave = true;
@@ -26270,6 +26270,8 @@ function selectedLineRanges(state) {
     for (let r of state.selection.ranges) {
         let fromLine = state.doc.lineAt(r.from);
         let toLine = r.to <= fromLine.to ? fromLine : state.doc.lineAt(r.to);
+        if (toLine.from > fromLine.from && toLine.from == r.to)
+            toLine = r.to == fromLine.to + 1 ? fromLine : state.doc.lineAt(r.to - 1);
         let last = ranges.length - 1;
         if (last >= 0 && ranges[last].to > fromLine.from)
             ranges[last].to = toLine.to;
