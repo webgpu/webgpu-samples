@@ -327,7 +327,7 @@ const simulationParams = {
 const simulationUBOBufferSize =
   1 * 4 + // deltaTime
   1 * 4 + // brightnessFactor
-  3 * 4 + // padding
+  2 * 4 + // padding
   4 * 4 + // seed
   0;
 const simulationUBOBuffer = device.createBuffer({
@@ -410,7 +410,6 @@ function frame() {
     new Float32Array([
       simulationParams.simulate ? simulationParams.deltaTime : 0.0,
       simulationParams.brightnessFactor,
-      0.0,
       0.0,
       0.0, // padding
       Math.random() * 100,
