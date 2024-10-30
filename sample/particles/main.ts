@@ -398,6 +398,11 @@ const computeBindGroup = device.createBindGroup({
   ],
 });
 
+const drawBuffer = device.createBuffer({
+  size: 16,
+  usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST,
+});
+
 const aspect = canvas.width / canvas.height;
 const projection = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 const view = mat4.create();
@@ -456,13 +461,21 @@ function frame() {
     passEncoder.dispatchWorkgroups(Math.ceil(numParticles / 64));
     passEncoder.end();
   }
+  device.queue.writeBuffer(
+    drawBuffer,
+    0,
+    new Uint32Array([
+      6, // vertex count
+      numParticles, // instance count
+    ])
+  );
   {
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, particlesBuffer);
     passEncoder.setVertexBuffer(1, quadVertexBuffer);
-    passEncoder.draw(6, numParticles, 0, 0);
+    passEncoder.drawIndirect(drawBuffer, 0);
     passEncoder.end();
   }
 
