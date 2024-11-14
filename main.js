@@ -112,12 +112,12 @@ var bitonicSort = {
 
 var bundleCulling = {
     name: 'Bundle Culling',
-    description: `A demonstration of using frustum culling with render bundles through indirect instanced draw calls.
-
-Source at <https://github.com/toji/webgpu-bundle-culling/>
-`,
+    description: `A demonstration of using frustum culling with render bundles through indirect instanced draw calls.`,
     filename: "sample/bundleCulling",
-    url: 'https://toji.github.io/webgpu-bundle-culling/',
+    external: {
+        url: 'https://toji.github.io/webgpu-bundle-culling/',
+        sourceURL: 'https://github.com/toji/webgpu-bundle-culling',
+    },
     sources: [],
 };
 
@@ -136,12 +136,12 @@ var cameras = {
 
 var clusteredShading = {
     name: 'Clustered Shading',
-    description: `Shows a simple clustered forward shading renderer.
-
-Source at <https://github.com/toji/webgpu-clustered-shading/>
-`,
+    description: `Shows a simple clustered forward shading renderer.`,
     filename: "sample/clusteredShading",
-    url: 'https://toji.github.io/webgpu-clustered-shading/',
+    external: {
+        url: 'https://toji.github.io/webgpu-clustered-shading/',
+        sourceURL: 'https://github.com/toji/webgpu-clustered-shading',
+    },
     sources: [],
 };
 
@@ -286,23 +286,23 @@ var instancedCube = {
 
 var marchingCubes = {
     name: 'Marching Cubes',
-    description: `This example demonstrates how to dynamically generate procedural meshes using a signed distance field and a multi-pass marching cubes algorithm on the GPU.
-
-Source at <https://github.com/tcoppex/webgpu-marchingcubes>
-`,
+    description: `This example demonstrates how to dynamically generate procedural meshes using a signed distance field and a multi-pass marching cubes algorithm on the GPU.`,
     filename: "sample/marchingCubes",
-    url: 'https://tcoppex.github.io/webgpu-marchingcubes/',
+    external: {
+        url: 'https://tcoppex.github.io/webgpu-marchingcubes/',
+        sourceURL: 'https://github.com/tcoppex/webgpu-marchingcubes',
+    },
     sources: [],
 };
 
 var metaballs = {
     name: 'Metaballs',
-    description: `This example shows an implementation of metaballs with WebGPU.
-
-Source at https://github.com/toji/webgpu-metaballs/
-`,
+    description: `This example shows an implementation of metaballs with WebGPU.`,
     filename: "sample/metaballs",
-    url: 'https://toji.github.io/webgpu-metaballs/',
+    external: {
+        url: 'https://toji.github.io/webgpu-metaballs/',
+        sourceURL: 'https://github.com/toji/webgpu-metaballs',
+    },
     sources: [],
 };
 
@@ -374,12 +374,12 @@ You can read more details [here](https://webgpufundamentals.org/webgpu/lessons/w
 
 var pristineGrid = {
     name: 'Pristine Grid',
-    description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: <https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8>
-
-Source at <https://github.com/toji/pristine-grid-webgpu/>
-`,
+    description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: <https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8>`,
     filename: "sample/pristineGrid",
-    url: 'https://toji.github.io/pristine-grid-webgpu/',
+    external: {
+        url: 'https://toji.github.io/pristine-grid-webgpu/',
+        sourceURL: 'https://github.com/toji/pristine-grid-webgpu',
+    },
     sources: [],
 };
 
@@ -497,12 +497,12 @@ var skinnedMesh = {
 
 var spookyball = {
     name: 'Spookyball',
-    description: `This example shows a simple game made with WebGPU.
-
-Source at <https://github.com/toji/spookyball>
-`,
+    description: `This example shows a simple game made with WebGPU.`,
     filename: "sample/spookyball",
-    url: 'https://spookyball.com',
+    external: {
+        url: 'https://spookyball.com',
+        sourceURL: 'https://github.com/toji/spookyball',
+    },
     sources: [],
 };
 
@@ -33282,6 +33282,7 @@ function getElem(selector, parent = document) {
 const sampleListElem = getElem('#samplelist');
 const sampleElem = getElem('#sample');
 const githubElem = getElem('#src');
+const standaloneElem = getElem('#standalone');
 const introElem = getElem('#intro');
 const codeTabsElem = getElem('#codeTabs');
 const sourcesElem = getElem('#sources');
@@ -33414,7 +33415,7 @@ function setSampleIFrame(sampleInfo, search = '') {
     sampleContainerElem.innerHTML = '';
     descriptionElem.innerHTML = '';
     currentSampleInfo = sampleInfo;
-    const { name, description, filename, url, sources } = sampleInfo || {
+    const { name, description, filename, external, sources } = sampleInfo || {
         name: '',
         description: '',
         filename: '',
@@ -33426,17 +33427,18 @@ function setSampleIFrame(sampleInfo, search = '') {
     // Replace the iframe because changing src adds to the user's history.
     sampleContainerElem.innerHTML = '';
     if (filename) {
-        const src = url || `${filename}${search}`;
+        const src = external ? external.url : `${filename}${search}`;
         sampleContainerElem.appendChild(createElem('iframe', { src }));
         sampleContainerElem.style.height = sources.length > 0 ? '600px' : '100%';
-        if (url) {
-            // If it's remote example, hide the github link and assume it's in the description.
-            githubElem.style.display = 'none';
+        if (external) {
+            // For remote samples, get the source URL from the metadata.
+            githubElem.href = external.sourceURL;
+            standaloneElem.href = external.url;
         }
         else {
-            // It's a local sample so show the github link.
-            githubElem.style.display = '';
+            // For local samples, generate a link to the source in this repo.
             githubElem.href = `https://github.com/webgpu/webgpu-samples/tree/main/${filename}`;
+            standaloneElem.href = filename;
         }
         // hide intro and show sample
         introElem.style.display = 'none';
@@ -33512,7 +33514,9 @@ for (const { title, description, samples } of pageCategories) {
             ]),
             ...Object.entries(samples).map(([key, sampleInfo]) => createElem('li', {}, [
                 createElem('a', {
-                    href: sampleInfo.filename,
+                    href: sampleInfo.external
+                        ? sampleInfo.external.url
+                        : sampleInfo.filename,
                     ...(!sampleInfo.openInNewTab && {
                         onClick: (e) => {
                             setSampleIFrameURL(e, sampleInfo);
