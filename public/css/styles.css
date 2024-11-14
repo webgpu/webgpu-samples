@@ -21,9 +21,13 @@ body {
 
 a {
   text-decoration: none;
-  color: var(--link)
+  color: var(--link);
 }
-
+a:not([href]), a[href=""] {
+  /* link is missing href */
+  text-decoration: wavy underline;
+  color: #f00;
+}
 a:hover {
   text-decoration: underline;
 }

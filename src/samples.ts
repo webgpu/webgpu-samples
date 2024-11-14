@@ -52,7 +52,7 @@ export type SampleInfo = {
   description: string;
   openInNewTab?: boolean;
   filename: string; // used if sample is local
-  url?: string; // used if sample is remote
+  external?: { url: string; sourceURL: string }; // used if sample is remote
   sources: SourceInfo[];
 };
 

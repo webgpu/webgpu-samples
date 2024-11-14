@@ -1,10 +1,10 @@
 export default {
   name: 'Metaballs',
-  description: `This example shows an implementation of metaballs with WebGPU.
-
-Source at https://github.com/toji/webgpu-metaballs/
-`,
+  description: `This example shows an implementation of metaballs with WebGPU.`,
   filename: __DIRNAME__,
-  url: 'https://toji.github.io/webgpu-metaballs/',
+  external: {
+    url: 'https://toji.github.io/webgpu-metaballs/',
+    sourceURL: 'https://github.com/toji/webgpu-metaballs',
+  },
   sources: [],
 };
