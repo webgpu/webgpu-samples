@@ -199,7 +199,7 @@ function setSampleIFrame(
   sampleContainerElem.innerHTML = '';
   if (filename) {
     const src = external ? external.url : `${filename}${search}`;
-    sampleContainerElem.appendChild(el('iframe', { src }));
+    sampleContainerElem.appendChild(el('iframe', { src, allowfullscreen: '' }));
     sampleContainerElem.style.height = sources.length > 0 ? '600px' : '100%';
 
     if (external) {
