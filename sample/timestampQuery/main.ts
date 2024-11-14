@@ -230,6 +230,9 @@ function frame() {
   // Read timestamp value back from GPU buffers
   timestampQueryManager
     .readAsync(timestamps => {
+      // This may happen (see spec https://gpuweb.github.io/gpuweb/#timestamp)
+      if (timestamps[1] < timestamps[0]) return;
+
       // Measure difference (in bigints)
       const elapsedNs = timestamps[1] - timestamps[0];
       // Cast into regular int (ok because value is small after difference)
