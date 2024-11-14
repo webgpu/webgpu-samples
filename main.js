@@ -538,6 +538,20 @@ var texturedCube = {
     ],
 };
 
+var timestampQuery = {
+    name: 'Timestamp Query',
+    description: 'This example shows how to use timestamp queries to measure render pass duration.',
+    filename: "sample/timestampQuery",
+    sources: [
+        { path: 'TimestampQueryManager.ts' },
+        { path: 'PerfCounter.ts' },
+        { path: 'main.ts' },
+        { path: '../../shaders/basic.vert.wgsl' },
+        { path: '../../shaders/black.frag.wgsl' },
+        { path: '../../meshes/cube.ts' },
+    ],
+};
+
 var transparentCanvas = {
     name: 'Transparent Cavnas',
     description: 'This example shows use of a transparent WebGPU canvas.',
@@ -668,6 +682,7 @@ const pageCategories = [
             occlusionQuery,
             samplerParameters,
             alphaToCoverage,
+            timestampQuery,
         },
     },
     // Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally provide some
