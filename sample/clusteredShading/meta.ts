@@ -1,10 +1,10 @@
 export default {
   name: 'Clustered Shading',
-  description: `Shows a simple clustered forward shading renderer.
-
-Source at <https://github.com/toji/webgpu-clustered-shading/>
-`,
+  description: `Shows a simple clustered forward shading renderer.`,
   filename: __DIRNAME__,
-  url: 'https://toji.github.io/webgpu-clustered-shading/',
+  external: {
+    url: 'https://toji.github.io/webgpu-clustered-shading/',
+    sourceURL: 'https://github.com/toji/webgpu-clustered-shading',
+  },
   sources: [],
 };

@@ -27,6 +27,7 @@ function getElem(
 const sampleListElem = getElem('#samplelist');
 const sampleElem = getElem('#sample');
 const githubElem = getElem('#src') as HTMLAnchorElement;
+const standaloneElem = getElem('#standalone') as HTMLAnchorElement;
 const introElem = getElem('#intro');
 const codeTabsElem = getElem('#codeTabs');
 const sourcesElem = getElem('#sources');
@@ -183,7 +184,7 @@ function setSampleIFrame(
   descriptionElem.innerHTML = '';
 
   currentSampleInfo = sampleInfo;
-  const { name, description, filename, url, sources } = sampleInfo || {
+  const { name, description, filename, external, sources } = sampleInfo || {
     name: '',
     description: '',
     filename: '',
@@ -197,17 +198,18 @@ function setSampleIFrame(
   // Replace the iframe because changing src adds to the user's history.
   sampleContainerElem.innerHTML = '';
   if (filename) {
-    const src = url || `${filename}${search}`;
+    const src = external ? external.url : `${filename}${search}`;
     sampleContainerElem.appendChild(el('iframe', { src }));
     sampleContainerElem.style.height = sources.length > 0 ? '600px' : '100%';
 
-    if (url) {
-      // If it's remote example, hide the github link and assume it's in the description.
-      githubElem.style.display = 'none';
+    if (external) {
+      // For remote samples, get the source URL from the metadata.
+      githubElem.href = external.sourceURL;
+      standaloneElem.href = external.url;
     } else {
-      // It's a local sample so show the github link.
-      githubElem.style.display = '';
+      // For local samples, generate a link to the source in this repo.
       githubElem.href = `https://github.com/webgpu/webgpu-samples/tree/main/${filename}`;
+      standaloneElem.href = filename;
     }
 
     // hide intro and show sample
@@ -294,7 +296,9 @@ for (const { title, description, samples } of pageCategories) {
         ...Object.entries(samples).map(([key, sampleInfo]) =>
           el('li', {}, [
             el('a', {
-              href: sampleInfo.filename,
+              href: sampleInfo.external
+                ? sampleInfo.external.url
+                : sampleInfo.filename,
               ...(!sampleInfo.openInNewTab && {
                 onClick: (e: PointerEvent) => {
                   setSampleIFrameURL(e, sampleInfo);
