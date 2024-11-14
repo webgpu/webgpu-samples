@@ -75,24 +75,22 @@ export default class TimestampQueryManager {
   }
 
   // Once resolved, we can read back the value of timestamps
-  readAsync(onTimestampReadBack: (timestamps: BigUint64Array) => void) {
-    if (!this.timestampSupported) return new Promise(() => {});
-    if (this.hasOngoingTimestampReadback) return new Promise(() => {});
+  readAsync(onTimestampReadBack: (timestamps: BigUint64Array) => void): void {
+    if (!this.timestampSupported) return;
+    if (this.hasOngoingTimestampReadback) return;
 
     this.hasOngoingTimestampReadback = true;
 
     const buffer = this.timestampMapBuffer;
-    return new Promise(resolve => {
-      buffer.mapAsync(GPUMapMode.READ, 0, buffer.size)
+    void buffer.mapAsync(GPUMapMode.READ)
       .then(() => {
-        const rawData = buffer.getMappedRange(0, buffer.size);
+        const rawData = buffer.getMappedRange();
         const timestamps = new BigUint64Array(rawData);
 
         onTimestampReadBack(timestamps);
 
         buffer.unmap();
         this.hasOngoingTimestampReadback = false;
-      })
-    });
+      });
   }
 }
