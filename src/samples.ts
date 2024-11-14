@@ -95,6 +95,7 @@ export const pageCategories: PageCategory[] = [
       occlusionQuery,
       samplerParameters,
       alphaToCoverage,
+      timestampQuery,
     },
   },
 
@@ -172,7 +173,6 @@ export const pageCategories: PageCategory[] = [
     samples: {
       animometer,
       workloadSimulator,
-      timestampQuery,
     },
   },
 ];

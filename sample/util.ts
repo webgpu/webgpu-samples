@@ -34,7 +34,7 @@ export function quitIfWebGPUNotAvailable(
 }
 
 /** Fail by showing a console error, and dialog box if possible. */
-export const fail = (() => {
+const fail = (() => {
   type ErrorOutput = { show(msg: string): void };
 
   function createErrorOutput() {

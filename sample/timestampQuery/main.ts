@@ -1,4 +1,3 @@
-import { GUI } from 'dat.gui';
 import { mat4, vec3 } from 'wgpu-matrix';
 
 import {
@@ -10,20 +9,46 @@ import {
 } from '../../meshes/cube';
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
-import sampleTextureMixColorWGSL from '../../shaders/red.frag.wgsl';
-import { quitIfWebGPUNotAvailable, fail } from '../util';
+import fragmentWGSL from '../../shaders/black.frag.wgsl';
+import { quitIfWebGPUNotAvailable } from '../util';
+
+import PerfCounter from './PerfCounter';
+import TimestampQueryManager from './TimestampQueryManager';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter();
-if (!adapter.features.has("timestamp-query")) {
-  fail('WebGPU timestamp queries are not supported on this system');
-}
+
+// The use of timestamps require a dedicated adapter feature:
+// The adapter may or may not support timestamp queries. If not, we simply
+// don't measure timestamps and deactivate the timer display.
+const supportsTimestampQueries = adapter?.features.has("timestamp-query");
+
 const device = await adapter?.requestDevice({
   // We request a device that has support for timestamp queries
-  requiredFeatures: [ "timestamp-query" ],
+  requiredFeatures: supportsTimestampQueries ? [ "timestamp-query" ] : [],
 });
 quitIfWebGPUNotAvailable(adapter, device);
 
+// GPU-side timer and the CPU-side counter where we accumulate statistics:
+// NB: Look for 'timestampQueryManager' in this file to locate parts of this
+// snippets that are related to timestamps. Most of the logic is in
+// TimestampQueryManager.ts.
+const timestampQueryManager = new TimestampQueryManager(device, 2);
+const renderPassDurationCounter = new PerfCounter();
+
+const context = canvas.getContext('webgpu') as GPUCanvasContext;
+
+const devicePixelRatio = window.devicePixelRatio;
+canvas.width = canvas.clientWidth * devicePixelRatio;
+canvas.height = canvas.clientHeight * devicePixelRatio;
+const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+
+context.configure({
+  device,
+  format: presentationFormat,
+});
+
+// UI for perf counter
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';
 perfDisplayContainer.style.background = 'black';
@@ -39,36 +64,9 @@ if (canvas.parentNode) {
   console.error('canvas.parentNode is null');
 }
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
-
-const devicePixelRatio = window.devicePixelRatio;
-canvas.width = canvas.clientWidth * devicePixelRatio;
-canvas.height = canvas.clientHeight * devicePixelRatio;
-const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-
-context.configure({
-  device,
-  format: presentationFormat,
-});
-
-// Create timestamp queries
-const timestampQuerySet = device.createQuerySet({
-  type: "timestamp",
-  count: 2, // begin and end
-});
-
-// Create a buffer where to store the result of GPU queries
-const timestampBufferSize = 2 * 8; // timestamps are uint64
-const timestampBuffer = device.createBuffer({
-  size: timestampBufferSize,
-  usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.QUERY_RESOLVE,
-});
-
-// Create a buffer to map the result back to the CPU
-const timestampMapBuffer = device.createBuffer({
-  size: timestampBufferSize,
-  usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-});
+if (!supportsTimestampQueries) {
+  perfDisplay.innerHTML = "Timestamp queries are not supported";
+}
 
 // Create a vertex buffer from the cube data.
 const verticesBuffer = device.createBuffer({
@@ -107,7 +105,7 @@ const pipeline = device.createRenderPipeline({
   },
   fragment: {
     module: device.createShaderModule({
-      code: sampleTextureMixColorWGSL,
+      code: fragmentWGSL,
     }),
     targets: [
       {
@@ -162,7 +160,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     {
       view: undefined, // Assigned later
 
-      clearValue: [0.5, 0.5, 0.5, 1.0],
+      clearValue: [0.95, 0.95, 0.95, 1.0],
       loadOp: 'clear',
       storeOp: 'store',
     },
@@ -176,7 +174,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
   },
   // We instruct the render pass to write to the timestamp query before/after
   timestampWrites: {
-    querySet: timestampQuerySet,
+    querySet: timestampQueryManager.timestampQuerySet,
     beginningOfPassWriteIndex: 0,
     endOfPassWriteIndex: 1,
   }
@@ -202,41 +200,6 @@ function getTransformationMatrix() {
   return modelViewProjectionMatrix;
 }
 
-// State used to avoid firing concurrent readback of timestamp values
-let hasOngoingTimestampReadback = false;
-
-// A minimalistic perf timer class that computes mean + stddev online
-class PerfCounter {
-  sampleCount: number;
-  accumulated: number;
-  accumulatedSq: number;
-
-  constructor() {
-    this.sampleCount = 0;
-    this.accumulated = 0;
-    this.accumulatedSq = 0;
-  }
-
-  addSample(value: number) {
-    this.sampleCount += 1;
-    this.accumulated += value;
-    this.accumulatedSq += value * value;
-  }
-
-  getAverage(): number {
-    return this.sampleCount === 0 ? 0 : this.accumulated / this.sampleCount;
-  }
-
-  getStddev(): number {
-    if (this.sampleCount === 0) return 0;
-    const avg = this.getAverage();
-    const variance = this.accumulatedSq / this.sampleCount - avg * avg;
-    return Math.sqrt(Math.max(0.0, variance));
-  }
-}
-
-const renderPassDurationCounter = new PerfCounter();
-
 function frame() {
   const transformationMatrix = getTransformationMatrix();
   device.queue.writeBuffer(
@@ -258,49 +221,24 @@ function frame() {
   passEncoder.draw(cubeVertexCount);
   passEncoder.end();
 
-  // After the end of the measured render pass, we resolve queries into a
-  // dedicated buffer.
-  commandEncoder.resolveQuerySet(
-    timestampQuerySet,
-    0 /* firstQuery */,
-    2 /* queryCount */,
-    timestampBuffer,
-    0, /* destinationOffset */
-  );
-
-  if (!hasOngoingTimestampReadback) {
-    // Copy values to the mapped buffer
-    commandEncoder.copyBufferToBuffer(
-      timestampBuffer, 0,
-      timestampMapBuffer, 0,
-      timestampBufferSize,
-    );
-  }
+  // Resolve timestamp queries, so that their result is available in
+  // a GPU-sude buffer.
+  timestampQueryManager.resolveAll(commandEncoder);
 
   device.queue.submit([commandEncoder.finish()]);
 
   // Read timestamp value back from GPU buffers
-  if (!hasOngoingTimestampReadback) {
-    hasOngoingTimestampReadback = true;
-    timestampMapBuffer
-      .mapAsync(GPUMapMode.READ, 0, timestampBufferSize)
-      .then(() => {
-        const buffer = timestampMapBuffer.getMappedRange(0, timestampBufferSize);
-        const timestamps = new BigUint64Array(buffer);
-
-        // Measure difference (in bigints)
-        const elapsedNs = timestamps[1] - timestamps[0];
-        // Cast into regular int (ok because value is small after difference)
-        // and convert from nanoseconds to milliseconds:
-        const elapsedMs = Number(elapsedNs) * 1e-6;
-        renderPassDurationCounter.addSample(elapsedMs);
-        console.log("timestamps (ms): elapsed", elapsedMs, "avg", renderPassDurationCounter.getAverage());
-        perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter.getAverage().toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
-
-        timestampMapBuffer.unmap();
-        hasOngoingTimestampReadback = false;
-      })
-  }
+  timestampQueryManager
+    .readAsync(timestamps => {
+      // Measure difference (in bigints)
+      const elapsedNs = timestamps[1] - timestamps[0];
+      // Cast into regular int (ok because value is small after difference)
+      // and convert from nanoseconds to milliseconds:
+      const elapsedMs = Number(elapsedNs) * 1e-6;
+      renderPassDurationCounter.addSample(elapsedMs);
+      console.log("timestamps (ms): elapsed", elapsedMs, "avg", renderPassDurationCounter.getAverage());
+      perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter.getAverage().toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
+    });
 
   requestAnimationFrame(frame);
 }
