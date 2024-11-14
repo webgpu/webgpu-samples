@@ -2,34 +2,34 @@
 export default class TimestampQueryManager {
   // The device may not support timestamp queries, on which case this whole
   // class does nothing.
-  timestampSupported: boolean
+  timestampSupported: boolean;
 
   // Number of timestamp counters
-  timestampCount: number
+  timestampCount: number;
 
   // The query objects. This is meant to be used in a ComputePassDescriptor's
   // or RenderPassDescriptor's 'timestampWrites' field.
-  timestampQuerySet: GPUQuerySet
+  timestampQuerySet: GPUQuerySet;
 
   // A buffer where to store query results
-  timestampBuffer: GPUBuffer
+  timestampBuffer: GPUBuffer;
 
   // A buffer to map this result back to CPU
-  timestampMapBuffer: GPUBuffer
+  timestampMapBuffer: GPUBuffer;
 
   // State used to avoid firing concurrent readback of timestamp values
-  hasOngoingTimestampReadback: boolean
+  hasOngoingTimestampReadback: boolean;
 
   // Device must have the "timestamp-query" feature
   constructor(device: GPUDevice, timestampCount: number) {
-    this.timestampSupported = device.features.has("timestamp-query");
+    this.timestampSupported = device.features.has('timestamp-query');
     if (!this.timestampSupported) return;
 
     this.timestampCount = timestampCount;
 
     // Create timestamp queries
     this.timestampQuerySet = device.createQuerySet({
-      type: "timestamp",
+      type: 'timestamp',
       count: timestampCount, // begin and end
     });
 
@@ -61,15 +61,17 @@ export default class TimestampQueryManager {
       0 /* firstQuery */,
       this.timestampCount /* queryCount */,
       this.timestampBuffer,
-      0, /* destinationOffset */
+      0 /* destinationOffset */
     );
 
     if (!this.hasOngoingTimestampReadback) {
       // Copy values to the mapped buffer
       commandEncoder.copyBufferToBuffer(
-        this.timestampBuffer, 0,
-        this.timestampMapBuffer, 0,
-        this.timestampBuffer.size,
+        this.timestampBuffer,
+        0,
+        this.timestampMapBuffer,
+        0,
+        this.timestampBuffer.size
       );
     }
   }
@@ -82,15 +84,14 @@ export default class TimestampQueryManager {
     this.hasOngoingTimestampReadback = true;
 
     const buffer = this.timestampMapBuffer;
-    void buffer.mapAsync(GPUMapMode.READ)
-      .then(() => {
-        const rawData = buffer.getMappedRange();
-        const timestamps = new BigUint64Array(rawData);
+    void buffer.mapAsync(GPUMapMode.READ).then(() => {
+      const rawData = buffer.getMappedRange();
+      const timestamps = new BigUint64Array(rawData);
 
-        onTimestampReadBack(timestamps);
+      onTimestampReadBack(timestamps);
 
-        buffer.unmap();
-        this.hasOngoingTimestampReadback = false;
-      });
+      buffer.unmap();
+      this.hasOngoingTimestampReadback = false;
+    });
   }
 }

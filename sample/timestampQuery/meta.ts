@@ -1,6 +1,7 @@
 export default {
   name: 'Timestamp Query',
-  description: 'This example shows how to use timestamp queries to measure render pass duration.',
+  description:
+    'This example shows how to use timestamp queries to measure render pass duration.',
   filename: __DIRNAME__,
   sources: [
     { path: 'TimestampQueryManager.ts' },

@@ -21,11 +21,11 @@ const adapter = await navigator.gpu?.requestAdapter();
 // The use of timestamps require a dedicated adapter feature:
 // The adapter may or may not support timestamp queries. If not, we simply
 // don't measure timestamps and deactivate the timer display.
-const supportsTimestampQueries = adapter?.features.has("timestamp-query");
+const supportsTimestampQueries = adapter?.features.has('timestamp-query');
 
 const device = await adapter?.requestDevice({
   // We request a device that has support for timestamp queries
-  requiredFeatures: supportsTimestampQueries ? [ "timestamp-query" ] : [],
+  requiredFeatures: supportsTimestampQueries ? ['timestamp-query'] : [],
 });
 quitIfWebGPUNotAvailable(adapter, device);
 
@@ -65,7 +65,7 @@ if (canvas.parentNode) {
 }
 
 if (!supportsTimestampQueries) {
-  perfDisplay.innerHTML = "Timestamp queries are not supported";
+  perfDisplay.innerHTML = 'Timestamp queries are not supported';
 }
 
 // Create a vertex buffer from the cube data.
@@ -177,7 +177,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     querySet: timestampQueryManager.timestampQuerySet,
     beginningOfPassWriteIndex: 0,
     endOfPassWriteIndex: 1,
-  }
+  },
 };
 
 const aspect = canvas.width / canvas.height;
@@ -228,20 +228,26 @@ function frame() {
   device.queue.submit([commandEncoder.finish()]);
 
   // Read timestamp value back from GPU buffers
-  timestampQueryManager
-    .readAsync(timestamps => {
-      // This may happen (see spec https://gpuweb.github.io/gpuweb/#timestamp)
-      if (timestamps[1] < timestamps[0]) return;
+  timestampQueryManager.readAsync((timestamps) => {
+    // This may happen (see spec https://gpuweb.github.io/gpuweb/#timestamp)
+    if (timestamps[1] < timestamps[0]) return;
 
-      // Measure difference (in bigints)
-      const elapsedNs = timestamps[1] - timestamps[0];
-      // Cast into regular int (ok because value is small after difference)
-      // and convert from nanoseconds to milliseconds:
-      const elapsedMs = Number(elapsedNs) * 1e-6;
-      renderPassDurationCounter.addSample(elapsedMs);
-      console.log("timestamps (ms): elapsed", elapsedMs, "avg", renderPassDurationCounter.getAverage());
-      perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter.getAverage().toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
-    });
+    // Measure difference (in bigints)
+    const elapsedNs = timestamps[1] - timestamps[0];
+    // Cast into regular int (ok because value is small after difference)
+    // and convert from nanoseconds to milliseconds:
+    const elapsedMs = Number(elapsedNs) * 1e-6;
+    renderPassDurationCounter.addSample(elapsedMs);
+    console.log(
+      'timestamps (ms): elapsed',
+      elapsedMs,
+      'avg',
+      renderPassDurationCounter.getAverage()
+    );
+    perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
+      .getAverage()
+      .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
+  });
 
   requestAnimationFrame(frame);
 }
