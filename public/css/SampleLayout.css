@@ -13,9 +13,26 @@
   height: 100%;
   border: none;
   display: block;
-  /* should should remain white because samples in iframes expect a white background */
-  color-scheme: light;
+  /*
+   * iframe content inherits the background color of the iframe element 
+   * in the parent but, the content might expect the default white background
+   * so we set the iframe element's background to white
+  */
   background-color: #fff;
+  /*
+   * further, the browser will ignore the color scheme in the iframe content
+   * if it matches the one in the parent iframe element. In other words
+   *
+   *   * iframe element says 'color-scheme: light dark'.
+   *   * iframe content says 'color-scheme: light dark'.
+   *
+   * result: iframe content color-scheme setting is ignored and it gets
+   * the background color from the iframe element in the parent.
+   *
+   * Solution: set the iframe element color-scheme to initial. Now the
+   * iframe content's setting will be respected.
+   */
+  color-scheme: initial;
 }
 
 .sampleCategory {
