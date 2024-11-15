@@ -4,9 +4,6 @@ export default class TimestampQueryManager {
   // class does nothing.
   timestampSupported: boolean;
 
-  // Number of timestamp counters
-  timestampCount: number;
-
   // The query objects. This is meant to be used in a ComputePassDescriptor's
   // or RenderPassDescriptor's 'timestampWrites' field.
   timestampQuerySet: GPUQuerySet;
@@ -17,37 +14,51 @@ export default class TimestampQueryManager {
   // A buffer to map this result back to CPU
   timestampMapBuffer: GPUBuffer;
 
-  // State used to avoid firing concurrent readback of timestamp values
-  hasOngoingTimestampReadback: boolean;
+  // Last times
+  timestamps: number[];
 
   // Device must have the "timestamp-query" feature
-  constructor(device: GPUDevice, timestampCount: number) {
+  constructor(device: GPUDevice, timestampPairCount: number) {
     this.timestampSupported = device.features.has('timestamp-query');
     if (!this.timestampSupported) return;
 
-    this.timestampCount = timestampCount;
+    this.timestamps = Array(timestampPairCount).fill(0);
 
     // Create timestamp queries
     this.timestampQuerySet = device.createQuerySet({
       type: 'timestamp',
-      count: timestampCount, // begin and end
+      count: timestampPairCount * 2, // begin and end
     });
 
     // Create a buffer where to store the result of GPU queries
     const timestampByteSize = 8; // timestamps are uint64
-    const timestampBufferSize = timestampCount * timestampByteSize;
     this.timestampBuffer = device.createBuffer({
-      size: timestampBufferSize,
+      size: this.timestampQuerySet.count * timestampByteSize,
       usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.QUERY_RESOLVE,
     });
 
     // Create a buffer to map the result back to the CPU
     this.timestampMapBuffer = device.createBuffer({
-      size: timestampBufferSize,
+      size: this.timestampBuffer.size,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
+  }
 
-    this.hasOngoingTimestampReadback = false;
+  // Add both a start and end timestamp.
+  addTimestampWrite(
+    renderPassDescriptor: GPURenderPassDescriptor,
+    pairId: number
+  ) {
+    if (this.timestampSupported) {
+      // We instruct the render pass to write to the timestamp query before/after
+      const ndx = pairId * 2;
+      renderPassDescriptor.timestampWrites = {
+        querySet: this.timestampQuerySet,
+        beginningOfPassWriteIndex: ndx,
+        endOfPassWriteIndex: ndx + 1,
+      };
+    }
+    return renderPassDescriptor;
   }
 
   // Resolve all timestamp queries and copy the result into the map buffer
@@ -59,13 +70,13 @@ export default class TimestampQueryManager {
     commandEncoder.resolveQuerySet(
       this.timestampQuerySet,
       0 /* firstQuery */,
-      this.timestampCount /* queryCount */,
+      this.timestampQuerySet.count /* queryCount */,
       this.timestampBuffer,
       0 /* destinationOffset */
     );
 
-    if (!this.hasOngoingTimestampReadback) {
-      // Copy values to the mapped buffer
+    if (this.timestampMapBuffer.mapState === 'unmapped') {
+      // Copy values to the mappable buffer
       commandEncoder.copyBufferToBuffer(
         this.timestampBuffer,
         0,
@@ -76,22 +87,27 @@ export default class TimestampQueryManager {
     }
   }
 
-  // Once resolved, we can read back the value of timestamps
-  readAsync(onTimestampReadBack: (timestamps: BigUint64Array) => void): void {
+  // Read the value of timestamps.
+  update(): void {
     if (!this.timestampSupported) return;
-    if (this.hasOngoingTimestampReadback) return;
-
-    this.hasOngoingTimestampReadback = true;
+    if (this.timestampMapBuffer.mapState !== 'unmapped') return;
 
     const buffer = this.timestampMapBuffer;
     void buffer.mapAsync(GPUMapMode.READ).then(() => {
       const rawData = buffer.getMappedRange();
       const timestamps = new BigUint64Array(rawData);
-
-      onTimestampReadBack(timestamps);
-
+      for (let i = 0; i < this.timestamps.length; ++i) {
+        const ndx = i * 2;
+        // Cast into number. Number can be 9007199254740991 as max integer
+        // which is 109 days of nano seconds.
+        const elapsedNs = Number(timestamps[ndx + 1] - timestamps[ndx]);
+        // It's possible elapsedNs is negative which means it's invalid
+        // (see spec https://gpuweb.github.io/gpuweb/#timestamp)
+        if (elapsedNs >= 0) {
+          this.timestamps[i] = elapsedNs;
+        }
+      }
       buffer.unmap();
-      this.hasOngoingTimestampReadback = false;
     });
   }
 }

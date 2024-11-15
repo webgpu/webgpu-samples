@@ -172,13 +172,9 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     depthLoadOp: 'clear',
     depthStoreOp: 'store',
   },
-  // We instruct the render pass to write to the timestamp query before/after
-  timestampWrites: {
-    querySet: timestampQueryManager.timestampQuerySet,
-    beginningOfPassWriteIndex: 0,
-    endOfPassWriteIndex: 1,
-  },
 };
+
+timestampQueryManager.addTimestampWrite(renderPassDescriptor, 0);
 
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
@@ -222,32 +218,19 @@ function frame() {
   passEncoder.end();
 
   // Resolve timestamp queries, so that their result is available in
-  // a GPU-sude buffer.
+  // a GPU-side buffer.
   timestampQueryManager.resolveAll(commandEncoder);
 
   device.queue.submit([commandEncoder.finish()]);
 
-  // Read timestamp value back from GPU buffers
-  timestampQueryManager.readAsync((timestamps) => {
-    // This may happen (see spec https://gpuweb.github.io/gpuweb/#timestamp)
-    if (timestamps[1] < timestamps[0]) return;
-
-    // Measure difference (in bigints)
-    const elapsedNs = timestamps[1] - timestamps[0];
-    // Cast into regular int (ok because value is small after difference)
-    // and convert from nanoseconds to milliseconds:
-    const elapsedMs = Number(elapsedNs) * 1e-6;
-    renderPassDurationCounter.addSample(elapsedMs);
-    console.log(
-      'timestamps (ms): elapsed',
-      elapsedMs,
-      'avg',
-      renderPassDurationCounter.getAverage()
-    );
-    perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
-      .getAverage()
-      .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
-  });
+  timestampQueryManager.update();
+  const elapsedNs = timestampQueryManager.timestamps[0];
+  // Convert from nanoseconds to milliseconds:
+  const elapsedMs = Number(elapsedNs) * 1e-6;
+  renderPassDurationCounter.addSample(elapsedMs);
+  perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
+    .getAverage()
+    .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
 
   requestAnimationFrame(frame);
 }
