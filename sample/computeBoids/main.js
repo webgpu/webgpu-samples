@@ -2685,7 +2685,7 @@ const device = await adapter.requestDevice({
 quitIfWebGPUNotAvailable(adapter, device);
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';
-perfDisplayContainer.style.backdropFilter = 'blur(10px)';
+perfDisplayContainer.style.background = 'black';
 perfDisplayContainer.style.position = 'absolute';
 perfDisplayContainer.style.bottom = '10px';
 perfDisplayContainer.style.left = '10px';
