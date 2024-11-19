@@ -33,7 +33,7 @@ quitIfWebGPUNotAvailable(adapter, device);
 // NB: Look for 'timestampQueryManager' in this file to locate parts of this
 // snippets that are related to timestamps. Most of the logic is in
 // TimestampQueryManager.ts.
-const timestampQueryManager = new TimestampQueryManager(device, 2);
+const timestampQueryManager = new TimestampQueryManager(device);
 const renderPassDurationCounter = new PerfCounter();
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -48,21 +48,7 @@ context.configure({
   format: presentationFormat,
 });
 
-// UI for perf counter
-const perfDisplayContainer = document.createElement('div');
-perfDisplayContainer.style.color = 'white';
-perfDisplayContainer.style.background = 'black';
-perfDisplayContainer.style.position = 'absolute';
-perfDisplayContainer.style.top = '10px';
-perfDisplayContainer.style.left = '10px';
-
-const perfDisplay = document.createElement('pre');
-perfDisplayContainer.appendChild(perfDisplay);
-if (canvas.parentNode) {
-  canvas.parentNode.appendChild(perfDisplayContainer);
-} else {
-  console.error('canvas.parentNode is null');
-}
+const perfDisplay = document.querySelector('#info pre');
 
 if (!supportsTimestampQueries) {
   perfDisplay.innerHTML = 'Timestamp queries are not supported';
@@ -172,13 +158,9 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     depthLoadOp: 'clear',
     depthStoreOp: 'store',
   },
-  // We instruct the render pass to write to the timestamp query before/after
-  timestampWrites: {
-    querySet: timestampQueryManager.timestampQuerySet,
-    beginningOfPassWriteIndex: 0,
-    endOfPassWriteIndex: 1,
-  },
 };
+
+timestampQueryManager.addTimestampWrite(renderPassDescriptor);
 
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
@@ -222,32 +204,23 @@ function frame() {
   passEncoder.end();
 
   // Resolve timestamp queries, so that their result is available in
-  // a GPU-sude buffer.
-  timestampQueryManager.resolveAll(commandEncoder);
+  // a GPU-side buffer.
+  timestampQueryManager.resolve(commandEncoder);
 
   device.queue.submit([commandEncoder.finish()]);
 
-  // Read timestamp value back from GPU buffers
-  timestampQueryManager.readAsync((timestamps) => {
-    // This may happen (see spec https://gpuweb.github.io/gpuweb/#timestamp)
-    if (timestamps[1] < timestamps[0]) return;
-
-    // Measure difference (in bigints)
-    const elapsedNs = timestamps[1] - timestamps[0];
-    // Cast into regular int (ok because value is small after difference)
-    // and convert from nanoseconds to milliseconds:
+  if (timestampQueryManager.timestampSupported) {
+    // Show the last successfully downloaded elapsed time.
+    const elapsedNs = timestampQueryManager.passDurationMeasurementNs;
+    // Convert from nanoseconds to milliseconds:
     const elapsedMs = Number(elapsedNs) * 1e-6;
     renderPassDurationCounter.addSample(elapsedMs);
-    console.log(
-      'timestamps (ms): elapsed',
-      elapsedMs,
-      'avg',
-      renderPassDurationCounter.getAverage()
-    );
     perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
       .getAverage()
       .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
-  });
+  }
+
+  timestampQueryManager.tryInitiateTimestampDownload();
 
   requestAnimationFrame(frame);
 }
