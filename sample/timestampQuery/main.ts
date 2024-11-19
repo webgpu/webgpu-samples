@@ -33,7 +33,7 @@ quitIfWebGPUNotAvailable(adapter, device);
 // NB: Look for 'timestampQueryManager' in this file to locate parts of this
 // snippets that are related to timestamps. Most of the logic is in
 // TimestampQueryManager.ts.
-const timestampQueryManager = new TimestampQueryManager(device, 2);
+const timestampQueryManager = new TimestampQueryManager(device);
 const renderPassDurationCounter = new PerfCounter();
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -48,21 +48,7 @@ context.configure({
   format: presentationFormat,
 });
 
-// UI for perf counter
-const perfDisplayContainer = document.createElement('div');
-perfDisplayContainer.style.color = 'white';
-perfDisplayContainer.style.background = 'black';
-perfDisplayContainer.style.position = 'absolute';
-perfDisplayContainer.style.top = '10px';
-perfDisplayContainer.style.left = '10px';
-
-const perfDisplay = document.createElement('pre');
-perfDisplayContainer.appendChild(perfDisplay);
-if (canvas.parentNode) {
-  canvas.parentNode.appendChild(perfDisplayContainer);
-} else {
-  console.error('canvas.parentNode is null');
-}
+const perfDisplay = document.querySelector('#info pre');
 
 if (!supportsTimestampQueries) {
   perfDisplay.innerHTML = 'Timestamp queries are not supported';
@@ -174,7 +160,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
   },
 };
 
-timestampQueryManager.addTimestampWrite(renderPassDescriptor, 0);
+timestampQueryManager.addTimestampWrite(renderPassDescriptor);
 
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
@@ -219,18 +205,22 @@ function frame() {
 
   // Resolve timestamp queries, so that their result is available in
   // a GPU-side buffer.
-  timestampQueryManager.resolveAll(commandEncoder);
+  timestampQueryManager.resolve(commandEncoder);
 
   device.queue.submit([commandEncoder.finish()]);
 
-  timestampQueryManager.update();
-  const elapsedNs = timestampQueryManager.timestamps[0];
-  // Convert from nanoseconds to milliseconds:
-  const elapsedMs = Number(elapsedNs) * 1e-6;
-  renderPassDurationCounter.addSample(elapsedMs);
-  perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
-    .getAverage()
-    .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
+  if (timestampQueryManager.timestampSupported) {
+    // Show the last successfully downloaded elapsed time.
+    const elapsedNs = timestampQueryManager.passElapsedTime;
+    // Convert from nanoseconds to milliseconds:
+    const elapsedMs = Number(elapsedNs) * 1e-6;
+    renderPassDurationCounter.addSample(elapsedMs);
+    perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
+      .getAverage()
+      .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
+  }
+
+  timestampQueryManager.tryInitiateTimestampDownload();
 
   requestAnimationFrame(frame);
 }
