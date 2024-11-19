@@ -20,11 +20,24 @@
         max-width: 100%;
         display: block;
       }
+      #info {
+        color: white;
+        background-color: black;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+      }
+      #info pre {
+        margin: 0.5em;
+      }
     </style>
     <script defer src="main.js" type="module"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
     <canvas></canvas>
+    <div id="info">
+      <pre></pre>
+    </div>
   </body>
 </html>
