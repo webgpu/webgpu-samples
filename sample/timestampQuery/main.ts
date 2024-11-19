@@ -9,13 +9,32 @@ import {
 } from '../../meshes/cube';
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
-import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
+import fragmentWGSL from '../../shaders/black.frag.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
+
+import PerfCounter from './PerfCounter';
+import TimestampQueryManager from './TimestampQueryManager';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+
+// The use of timestamps require a dedicated adapter feature:
+// The adapter may or may not support timestamp queries. If not, we simply
+// don't measure timestamps and deactivate the timer display.
+const supportsTimestampQueries = adapter?.features.has('timestamp-query');
+
+const device = await adapter?.requestDevice({
+  // We request a device that has support for timestamp queries
+  requiredFeatures: supportsTimestampQueries ? ['timestamp-query'] : [],
+});
 quitIfWebGPUNotAvailable(adapter, device);
+
+// GPU-side timer and the CPU-side counter where we accumulate statistics:
+// NB: Look for 'timestampQueryManager' in this file to locate parts of this
+// snippets that are related to timestamps. Most of the logic is in
+// TimestampQueryManager.ts.
+const timestampQueryManager = new TimestampQueryManager(device, 2);
+const renderPassDurationCounter = new PerfCounter();
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
@@ -27,9 +46,27 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
   device,
   format: presentationFormat,
-  // The canvas alphaMode defaults to 'opaque', use 'premultiplied' for transparency.
-  alphaMode: 'premultiplied',
 });
+
+// UI for perf counter
+const perfDisplayContainer = document.createElement('div');
+perfDisplayContainer.style.color = 'white';
+perfDisplayContainer.style.background = 'black';
+perfDisplayContainer.style.position = 'absolute';
+perfDisplayContainer.style.top = '10px';
+perfDisplayContainer.style.left = '10px';
+
+const perfDisplay = document.createElement('pre');
+perfDisplayContainer.appendChild(perfDisplay);
+if (canvas.parentNode) {
+  canvas.parentNode.appendChild(perfDisplayContainer);
+} else {
+  console.error('canvas.parentNode is null');
+}
+
+if (!supportsTimestampQueries) {
+  perfDisplay.innerHTML = 'Timestamp queries are not supported';
+}
 
 // Create a vertex buffer from the cube data.
 const verticesBuffer = device.createBuffer({
@@ -68,7 +105,7 @@ const pipeline = device.createRenderPipeline({
   },
   fragment: {
     module: device.createShaderModule({
-      code: vertexPositionColorWGSL,
+      code: fragmentWGSL,
     }),
     targets: [
       {
@@ -78,9 +115,15 @@ const pipeline = device.createRenderPipeline({
   },
   primitive: {
     topology: 'triangle-list',
+
+    // Backface culling since the cube is solid piece of geometry.
+    // Faces pointing away from the camera will be occluded by faces
+    // pointing toward the camera.
     cullMode: 'back',
   },
 
+  // Enable depth testing so that the fragment closest to the camera
+  // is rendered in front.
   depthStencil: {
     depthWriteEnabled: true,
     depthCompare: 'less',
@@ -117,7 +160,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     {
       view: undefined, // Assigned later
 
-      clearValue: [0, 0, 0, 0], // Clear alpha to 0
+      clearValue: [0.95, 0.95, 0.95, 1.0],
       loadOp: 'clear',
       storeOp: 'store',
     },
@@ -128,6 +171,12 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
     depthStoreOp: 'store',
+  },
+  // We instruct the render pass to write to the timestamp query before/after
+  timestampWrites: {
+    querySet: timestampQueryManager.timestampQuerySet,
+    beginningOfPassWriteIndex: 0,
+    endOfPassWriteIndex: 1,
   },
 };
 
@@ -171,7 +220,34 @@ function frame() {
   passEncoder.setVertexBuffer(0, verticesBuffer);
   passEncoder.draw(cubeVertexCount);
   passEncoder.end();
+
+  // Resolve timestamp queries, so that their result is available in
+  // a GPU-sude buffer.
+  timestampQueryManager.resolveAll(commandEncoder);
+
   device.queue.submit([commandEncoder.finish()]);
+
+  // Read timestamp value back from GPU buffers
+  timestampQueryManager.readAsync((timestamps) => {
+    // This may happen (see spec https://gpuweb.github.io/gpuweb/#timestamp)
+    if (timestamps[1] < timestamps[0]) return;
+
+    // Measure difference (in bigints)
+    const elapsedNs = timestamps[1] - timestamps[0];
+    // Cast into regular int (ok because value is small after difference)
+    // and convert from nanoseconds to milliseconds:
+    const elapsedMs = Number(elapsedNs) * 1e-6;
+    renderPassDurationCounter.addSample(elapsedMs);
+    console.log(
+      'timestamps (ms): elapsed',
+      elapsedMs,
+      'avg',
+      renderPassDurationCounter.getAverage()
+    );
+    perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
+      .getAverage()
+      .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
+  });
 
   requestAnimationFrame(frame);
 }
