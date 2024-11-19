@@ -95,6 +95,22 @@ var bitonicSort = {
     ],
 };
 
+var blending = {
+    name: 'Blending',
+    description: `
+  This example provides shows how to use blending in WebGPU. It draws a texture with diagonal lines
+  on top of a canvas with a CSS based checkerboard background. It then draws a texture with
+  3 blurry circles on top the first texture with [blending settings](https://gpuweb.github.io/gpuweb/#color-target-state).
+  This lets you see both the effect of blending settings in WebGPU and the final result when composited on top of the canvas.
+  See [this article](https://webgpufundamentals.org/webgpu/lessons/webgpu-transparency.html)
+  for a more detailed explanation.
+  The presets are equivalent to the 2d canvas context's
+  [\`globalCompositingOperation\`](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation).
+  `,
+    filename: "sample/blending",
+    sources: [{ path: 'main.ts' }, { path: 'texturedQuad.wgsl' }],
+};
+
 var bundleCulling = {
     name: 'Bundle Culling',
     description: `A demonstration of using frustum culling with render bundles through indirect instanced draw calls.`,
@@ -667,6 +683,7 @@ const pageCategories = [
             occlusionQuery,
             samplerParameters,
             timestampQuery,
+            blending,
         },
     },
     // Samples that demonstrate the GPGPU functionality of WebGPU. These samples generally provide some
