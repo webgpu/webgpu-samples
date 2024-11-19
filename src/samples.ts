@@ -1,5 +1,5 @@
 import aBuffer from '../sample/a-buffer/meta';
-import alphaToCoverage from '../sample/alphaToCoverage/meta';
+import alphaToCoverageEmulator from '../sample/alphaToCoverageEmulator/meta';
 import animometer from '../sample/animometer/meta';
 import bitonicSort from '../sample/bitonicSort/meta';
 import bundleCulling from '../sample/bundleCulling/meta';
@@ -94,7 +94,6 @@ export const pageCategories: PageCategory[] = [
       renderBundles,
       occlusionQuery,
       samplerParameters,
-      alphaToCoverage,
       timestampQuery,
     },
   },
@@ -163,6 +162,7 @@ export const pageCategories: PageCategory[] = [
       clusteredShading,
       spookyball,
       marchingCubes,
+      alphaToCoverageEmulator,
     },
   },
 
