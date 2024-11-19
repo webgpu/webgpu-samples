@@ -2,6 +2,7 @@ import aBuffer from '../sample/a-buffer/meta';
 import alphaToCoverageEmulator from '../sample/alphaToCoverageEmulator/meta';
 import animometer from '../sample/animometer/meta';
 import bitonicSort from '../sample/bitonicSort/meta';
+import blending from '../sample/blending/meta';
 import bundleCulling from '../sample/bundleCulling/meta';
 import cameras from '../sample/cameras/meta';
 import clusteredShading from '../sample/clusteredShading/meta';
@@ -95,6 +96,7 @@ export const pageCategories: PageCategory[] = [
       occlusionQuery,
       samplerParameters,
       timestampQuery,
+      blending,
     },
   },
 
