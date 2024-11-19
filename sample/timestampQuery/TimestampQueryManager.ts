@@ -14,15 +14,15 @@ export default class TimestampQueryManager {
   // A buffer to map this result back to CPU
   #timestampMapBuffer: GPUBuffer;
 
-  // Last queried elapsed time of the pass.
-  passElapsedTime: number;
+  // Last queried elapsed time of the pass in nanoseconds.
+  passDurationMeasurementNs: number;
 
   // Device must have the "timestamp-query" feature
   constructor(device: GPUDevice) {
     this.timestampSupported = device.features.has('timestamp-query');
     if (!this.timestampSupported) return;
 
-    this.passElapsedTime = 0;
+    this.passDurationMeasurementNs = 0;
 
     // Create timestamp queries
     this.#timestampQuerySet = device.createQuerySet({
@@ -101,7 +101,7 @@ export default class TimestampQueryManager {
       // It's possible elapsedNs is negative which means it's invalid
       // (see spec https://gpuweb.github.io/gpuweb/#timestamp)
       if (elapsedNs >= 0) {
-        this.passElapsedTime = elapsedNs;
+        this.passDurationMeasurementNs = elapsedNs;
       }
       buffer.unmap();
     });

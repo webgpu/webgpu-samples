@@ -211,7 +211,7 @@ function frame() {
 
   if (timestampQueryManager.timestampSupported) {
     // Show the last successfully downloaded elapsed time.
-    const elapsedNs = timestampQueryManager.passElapsedTime;
+    const elapsedNs = timestampQueryManager.passDurationMeasurementNs;
     // Convert from nanoseconds to milliseconds:
     const elapsedMs = Number(elapsedNs) * 1e-6;
     renderPassDurationCounter.addSample(elapsedMs);
