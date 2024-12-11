@@ -33,7 +33,15 @@ quitIfWebGPUNotAvailable(adapter, device);
 // NB: Look for 'timestampQueryManager' in this file to locate parts of this
 // snippets that are related to timestamps. Most of the logic is in
 // TimestampQueryManager.ts.
-const timestampQueryManager = new TimestampQueryManager(device);
+const timestampQueryManager = new TimestampQueryManager(device, (elapsedNs) => {
+  // Convert from nanoseconds to milliseconds:
+  const elapsedMs = Number(elapsedNs) * 1e-6;
+  renderPassDurationCounter.addSample(elapsedMs);
+  perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
+    .getAverage()
+    .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
+});
+
 const renderPassDurationCounter = new PerfCounter();
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -209,17 +217,7 @@ function frame() {
 
   device.queue.submit([commandEncoder.finish()]);
 
-  if (timestampQueryManager.timestampSupported) {
-    // Show the last successfully downloaded elapsed time.
-    const elapsedNs = timestampQueryManager.passDurationMeasurementNs;
-    // Convert from nanoseconds to milliseconds:
-    const elapsedMs = Number(elapsedNs) * 1e-6;
-    renderPassDurationCounter.addSample(elapsedMs);
-    perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
-      .getAverage()
-      .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
-  }
-
+  // Try to download the time stamp.
   timestampQueryManager.tryInitiateTimestampDownload();
 
   requestAnimationFrame(frame);
