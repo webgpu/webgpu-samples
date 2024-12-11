@@ -5929,14 +5929,14 @@ class TimestampQueryManager {
     #timestampBuffer;
     // A buffer to map this result back to CPU
     #timestampMapBuffer;
-    // Last queried elapsed time of the pass in nanoseconds.
-    passDurationMeasurementNs;
+    // Callback to call when results are available.
+    #callback;
     // Device must have the "timestamp-query" feature
-    constructor(device) {
+    constructor(device, callback) {
         this.timestampSupported = device.features.has('timestamp-query');
         if (!this.timestampSupported)
             return;
-        this.passDurationMeasurementNs = 0;
+        this.#callback = callback;
         // Create timestamp queries
         this.#timestampQuerySet = device.createQuerySet({
             type: 'timestamp',
@@ -5995,7 +5995,7 @@ class TimestampQueryManager {
             // It's possible elapsedNs is negative which means it's invalid
             // (see spec https://gpuweb.github.io/gpuweb/#timestamp)
             if (elapsedNs >= 0) {
-                this.passDurationMeasurementNs = elapsedNs;
+                this.#callback(elapsedNs);
             }
             buffer.unmap();
         });
@@ -6017,7 +6017,14 @@ quitIfWebGPUNotAvailable(adapter, device);
 // NB: Look for 'timestampQueryManager' in this file to locate parts of this
 // snippets that are related to timestamps. Most of the logic is in
 // TimestampQueryManager.ts.
-const timestampQueryManager = new TimestampQueryManager(device);
+const timestampQueryManager = new TimestampQueryManager(device, (elapsedNs) => {
+    // Convert from nanoseconds to milliseconds:
+    const elapsedMs = Number(elapsedNs) * 1e-6;
+    renderPassDurationCounter.addSample(elapsedMs);
+    perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
+        .getAverage()
+        .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
+});
 const renderPassDurationCounter = new PerfCounter();
 const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
@@ -6157,16 +6164,7 @@ function frame() {
     // a GPU-side buffer.
     timestampQueryManager.resolve(commandEncoder);
     device.queue.submit([commandEncoder.finish()]);
-    if (timestampQueryManager.timestampSupported) {
-        // Show the last successfully downloaded elapsed time.
-        const elapsedNs = timestampQueryManager.passDurationMeasurementNs;
-        // Convert from nanoseconds to milliseconds:
-        const elapsedMs = Number(elapsedNs) * 1e-6;
-        renderPassDurationCounter.addSample(elapsedMs);
-        perfDisplay.innerHTML = `Render Pass duration: ${renderPassDurationCounter
-            .getAverage()
-            .toFixed(3)} ms ± ${renderPassDurationCounter.getStddev().toFixed(3)} ms`;
-    }
+    // Try to download the time stamp.
     timestampQueryManager.tryInitiateTimestampDownload();
     requestAnimationFrame(frame);
 }
