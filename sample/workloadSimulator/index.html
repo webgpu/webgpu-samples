@@ -598,7 +598,7 @@ async function render(fromRaf, fromPostMessage) {
           }, 0, 2);
         const useTimestampQueries = adapter.features.has('timestamp-query');
         device = await adapter.requestDevice({
-          nonGuaranteedFeatures: useTimestampQueries ? ['timestamp-query'] : [],
+          requiredFeatures: useTimestampQueries ? ['timestamp-query'] : [],
         });
         device.addEventListener('uncapturederror', (e)=>{
           if (!errorMessage.textContent) errorMessage.textContent = 'Uncaptured error: ' + e.error.message;
@@ -731,14 +731,16 @@ async function render(fromRaf, fromPostMessage) {
     }
     try {
       const canvasView = canvasContext.getCurrentTexture().createView();
-      const commandBuffers = [];
-      device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([position[0] / size * 2 - 1, 1 - position[1] * 2 / size]));
-      let buffer = null;
 
       // Start off by writing a timestamp for the beginning of the frame.
-      const timestampEncoder = device.createCommandEncoder();
-      if (querySet) timestampEncoder.writeTimestamp(querySet, 0);
-      device.queue.submit([timestampEncoder.finish()]);
+      if (querySet) {
+        const timestampEncoder = device.createCommandEncoder();
+        timestampEncoder.beginComputePass({ timestampWrites: { querySet, beginningOfPassWriteIndex: 0, } }).end();
+        device.queue.submit([timestampEncoder.finish()]);
+      }
+
+      device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([position[0] / size * 2 - 1, 1 - position[1] * 2 / size]));
+      let buffer = null;
 
       // Upload data using createBuffer with mappedAtCreation.
       if (bufferData.value > 0) {
@@ -815,6 +817,7 @@ async function render(fromRaf, fromPostMessage) {
           clearValue: [1, 1, 1, 1],
           storeOp: multisampling.checked ? 'discard' : 'store',
         }, ],
+        timestampWrites: querySet ? { querySet, endOfPassWriteIndex: 1 } : undefined,
       });
       if (useRenderBundles.checked && renderBundle && instances == renderBundleInstances && renderBundleNumDrawCalls == numDrawCalls) {
         // If we have valid RenderBundles to use, execute them and we're done.
@@ -892,8 +895,6 @@ async function render(fromRaf, fromPostMessage) {
       if (buffer) buffer.destroy();
       let queryBuffer;
       if (querySet) {
-        // Timestamp for the end of the frame.
-        commandEncoder.writeTimestamp(querySet, 1);
         // We create a queue of staging buffers to hold the timestamps while we
         // map them into CPU memory. If the queue is empty, create a new buffer.
         if (queryBuffers.length == 0) {
@@ -908,8 +909,7 @@ async function render(fromRaf, fromPostMessage) {
         commandEncoder.resolveQuerySet(querySet, 0, 2, queryResolveBuffer, 0);
         commandEncoder.copyBufferToBuffer(queryResolveBuffer, 0, queryBuffer, 0, 16);
       }
-      commandBuffers.push(commandEncoder.finish());
-      device.queue.submit(commandBuffers);
+      device.queue.submit([commandEncoder.finish()]);
       if (querySet) {
         // Once the staging buffer is mapped we can finally calculate the frame duration
         // and put the staging buffer back into the queue.
