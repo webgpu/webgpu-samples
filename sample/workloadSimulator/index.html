@@ -551,7 +551,8 @@ async function render(fromRaf, fromPostMessage) {
       // We want to actually use this data in rendering so the graphics driver
       // can't optimize away the upload. Fill the first few bytes with our real
       // vertex data.
-      bufferDataArray.set(vertices, 0);
+      if (bufferDataArray.length > 0)
+        bufferDataArray.set(vertices, 0);
     }
   }
 
@@ -563,7 +564,8 @@ async function render(fromRaf, fromPostMessage) {
 
   if (mapAsyncArray.length * 4 != mapAsync.value * 1024 * 1024) {
     mapAsyncArray = new Float32Array(mapAsync.value * 1024 * 1024 / 4);
-    mapAsyncArray.set(vertices, 0);
+    if (mapAsyncArray.length > 0)
+      mapAsyncArray.set(vertices, 0);
   }
 
   // Calculate how many instances and draw calls we need based on slider values.
