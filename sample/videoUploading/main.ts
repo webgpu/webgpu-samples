@@ -3,7 +3,7 @@ import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgs
 import sampleExternalTextureWGSL from '../../shaders/sampleExternalTexture.frag.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
 
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({ featureLevel: 'compatibility' });
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 

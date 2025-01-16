@@ -5,7 +5,7 @@ import fragWGSL from './frag.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({ featureLevel: 'compatibility' });
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 
