@@ -41,7 +41,7 @@ gui.add(params, 'type', ['arcball', 'WASD']).onChange(() => {
 });
 
 const adapter = await navigator.gpu?.requestAdapter({
-  featureLevel: 'compatibility'
+  featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);

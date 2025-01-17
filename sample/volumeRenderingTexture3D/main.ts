@@ -19,7 +19,7 @@ gui.add(params, 'near', 2.0, 7.0);
 gui.add(params, 'far', 2.0, 7.0);
 
 const adapter = await navigator.gpu?.requestAdapter({
-  featureLevel: 'compatibility'
+  featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);

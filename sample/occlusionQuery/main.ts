@@ -32,7 +32,7 @@ export type TypedArrayConstructor =
 const info = document.querySelector('#info');
 
 const adapter = await navigator.gpu?.requestAdapter({
-  featureLevel: 'compatibility'
+  featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);

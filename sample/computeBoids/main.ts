@@ -5,7 +5,7 @@ import { GUI } from 'dat.gui';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
-  featureLevel: 'compatibility'
+  featureLevel: 'compatibility',
 });
 quitIfAdapterNotAvailable(adapter);
 
