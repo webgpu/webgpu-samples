@@ -5915,7 +5915,9 @@ self.addEventListener('message', (ev) => {
 // to the init() method for all the other samples. The remainder of this file is largely identical
 // to the rotatingCube sample.
 async function init(canvas) {
-    const adapter = await navigator.gpu?.requestAdapter();
+    const adapter = await navigator.gpu?.requestAdapter({
+        featureLevel: 'compatibility',
+    });
     const device = await adapter?.requestDevice();
     quitIfWebGPUNotAvailable(adapter, device);
     const context = canvas.getContext('webgpu');
