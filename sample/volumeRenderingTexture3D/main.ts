@@ -18,7 +18,9 @@ gui.add(params, 'rotateCamera', true);
 gui.add(params, 'near', 2.0, 7.0);
 gui.add(params, 'far', 2.0, 7.0);
 
-const adapter = await navigator.gpu?.requestAdapter({ featureLevel: 'compatibility' });
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility'
+});
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
