@@ -1,6 +1,6 @@
 @group(0) @binding(0) var gBufferNormal: texture_2d<f32>;
 @group(0) @binding(1) var gBufferAlbedo: texture_2d<f32>;
-@group(0) @binding(2) var gBufferDepth: texture_depth_2d;
+@group(0) @binding(2) var gBufferDepth: texture_2d<f32>;
 
 struct LightData {
   position : vec4f,
@@ -40,7 +40,7 @@ fn main(
     gBufferDepth,
     vec2i(floor(coord.xy)),
     0
-  );
+  ).x;
 
   // Don't light the sky.
   if (depth >= 1.0) {

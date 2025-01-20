@@ -112,18 +112,20 @@ export const SampleInitFactoryWebGPU = async (
   callback: SampleInitCallback3D
 ): Promise<SampleInit> => {
   const init = async ({ canvas, gui, stats }) => {
-    const adapter = await navigator.gpu?.requestAdapter();
+    const adapter = await navigator.gpu?.requestAdapter({
+      featureLevel: 'compatibility',
+    });
     quitIfAdapterNotAvailable(adapter);
 
     const timestampQueryAvailable = adapter.features.has('timestamp-query');
-    let device: GPUDevice;
+    let features = [];
     if (timestampQueryAvailable) {
-      device = await adapter.requestDevice({
-        requiredFeatures: ['timestamp-query'],
-      });
-    } else {
-      device = await adapter.requestDevice();
+      features = ['timestamp-query'];
     }
+    const device = await adapter.requestDevice({
+      requiredFeatures: features,
+      requiredLimits: { maxStorageBuffersInFragmentStage: 1 },
+    });
     quitIfWebGPUNotAvailable(adapter, device);
 
     const context = canvas.getContext('webgpu') as GPUCanvasContext;
