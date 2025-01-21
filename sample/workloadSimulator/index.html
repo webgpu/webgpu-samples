@@ -586,9 +586,7 @@ async function render(fromRaf, fromPostMessage) {
       try {
         if (deviceRequested) return;
         deviceRequested = true;
-        let adapter = await navigator.gpu.requestAdapter({
-          featureLevel: 'compatibility',
-        });
+        let adapter = await navigator.gpu.requestAdapter();
         featuresAndLimits.textContent = JSON.stringify(
           {
             name: adapter.name,
