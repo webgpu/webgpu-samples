@@ -2609,9 +2609,7 @@ const fail = (() => {
 })();
 
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter({
-    featureLevel: 'compatibility',
-});
+const adapter = await navigator.gpu?.requestAdapter();
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 const perfDisplayContainer = document.createElement('div');

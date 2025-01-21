@@ -2676,9 +2676,7 @@ function updateDisplays(controllerArray) {
 var GUI$1 = GUI;
 
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter({
-    featureLevel: 'compatibility',
-});
+const adapter = await navigator.gpu?.requestAdapter();
 quitIfAdapterNotAvailable(adapter);
 const hasTimestampQuery = adapter.features.has('timestamp-query');
 const device = await adapter.requestDevice({

@@ -6210,9 +6210,7 @@ function createVertexAndIndexBuffer(device, { vertices, indices }) {
         vertexCount: indices.length,
     };
 }
-const adapter = await navigator.gpu?.requestAdapter({
-    featureLevel: 'compatibility',
-});
+const adapter = await navigator.gpu?.requestAdapter();
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 const models = Object.values(modelData).map((data) => createVertexAndIndexBuffer(device, data));

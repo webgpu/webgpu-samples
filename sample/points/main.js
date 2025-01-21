@@ -8423,9 +8423,7 @@ function createFibonacciSphereVertices({ numSamples, radius, }) {
     }
     return new Float32Array(vertices);
 }
-const adapter = await navigator.gpu?.requestAdapter({
-    featureLevel: 'compatibility',
-});
+const adapter = await navigator.gpu?.requestAdapter();
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 // Get a WebGPU context from the canvas and configure it

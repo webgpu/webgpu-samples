@@ -4,9 +4,7 @@ import updateSpritesWGSL from './updateSprites.wgsl';
 import { GUI } from 'dat.gui';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter({
-  featureLevel: 'compatibility',
-});
+const adapter = await navigator.gpu?.requestAdapter();
 quitIfAdapterNotAvailable(adapter);
 
 const hasTimestampQuery = adapter.features.has('timestamp-query');
