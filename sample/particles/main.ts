@@ -182,39 +182,30 @@ quadVertexBuffer.unmap();
 //////////////////////////////////////////////////////////////////////////////
 // Texture
 //////////////////////////////////////////////////////////////////////////////
-let texture: GPUTexture;
-let textureWidth = 1;
-let textureHeight = 1;
-let numMipLevels = 1;
-{
-  const response = await fetch('../../assets/img/webgpu.png');
-  const imageBitmap = await createImageBitmap(await response.blob());
+const isPowerOf2 = (v: number) => Math.log2(v) % 1 === 0;
+const response = await fetch('../../assets/img/webgpu.png');
+const imageBitmap = await createImageBitmap(await response.blob());
+assert(imageBitmap.width === imageBitmap.height, 'image must be square');
+assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
 
-  // Calculate number of mip levels required to generate the probability map
-  while (
-    textureWidth < imageBitmap.width ||
-    textureHeight < imageBitmap.height
-  ) {
-    textureWidth *= 2;
-    textureHeight *= 2;
-    numMipLevels++;
-  }
-  texture = device.createTexture({
-    size: [imageBitmap.width, imageBitmap.height, 1],
-    mipLevelCount: numMipLevels,
-    format: 'rgba8unorm',
-    usage:
-      GPUTextureUsage.TEXTURE_BINDING |
-      GPUTextureUsage.STORAGE_BINDING |
-      GPUTextureUsage.COPY_DST |
-      GPUTextureUsage.RENDER_ATTACHMENT,
-  });
-  device.queue.copyExternalImageToTexture(
-    { source: imageBitmap },
-    { texture: texture },
-    [imageBitmap.width, imageBitmap.height]
-  );
-}
+// Calculate number of mip levels required to generate the probability map
+const mipLevelCount =
+  (Math.log2(Math.max(imageBitmap.width, imageBitmap.height)) + 1) | 0;
+const texture = device.createTexture({
+  size: [imageBitmap.width, imageBitmap.height, 1],
+  mipLevelCount,
+  format: 'rgba8unorm',
+  usage:
+    GPUTextureUsage.TEXTURE_BINDING |
+    GPUTextureUsage.STORAGE_BINDING |
+    GPUTextureUsage.COPY_DST |
+    GPUTextureUsage.RENDER_ATTACHMENT,
+});
+device.queue.copyExternalImageToTexture(
+  { source: imageBitmap },
+  { texture: texture },
+  [imageBitmap.width, imageBitmap.height]
+);
 
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
@@ -247,22 +238,22 @@ let numMipLevels = 1;
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   const buffer_a = device.createBuffer({
-    size: textureWidth * textureHeight * 4,
+    size: texture.width * texture.height * 4,
     usage: GPUBufferUsage.STORAGE,
   });
   const buffer_b = device.createBuffer({
-    size: textureWidth * textureHeight * 4,
+    size: buffer_a.size,
     usage: GPUBufferUsage.STORAGE,
   });
   device.queue.writeBuffer(
     probabilityMapUBOBuffer,
     0,
-    new Int32Array([textureWidth])
+    new Uint32Array([texture.width])
   );
   const commandEncoder = device.createCommandEncoder();
-  for (let level = 0; level < numMipLevels; level++) {
-    const levelWidth = textureWidth >> level;
-    const levelHeight = textureHeight >> level;
+  for (let level = 0; level < texture.mipLevelCount; level++) {
+    const levelWidth = Math.max(1, texture.width >> level);
+    const levelHeight = Math.max(1, texture.height >> level);
     const pipeline =
       level == 0
         ? probabilityMapImportLevelPipeline.getBindGroupLayout(0)
@@ -472,3 +463,9 @@ function frame() {
 }
 configureContext();
 requestAnimationFrame(frame);
+
+function assert(cond: boolean, msg = '') {
+  if (!cond) {
+    throw new Error(msg);
+  }
+}
