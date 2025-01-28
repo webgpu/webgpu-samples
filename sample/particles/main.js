@@ -8387,16 +8387,11 @@ var probabilityMapWGSL = `struct UBO {
   width : u32,
 }
 
-struct Buffer {
-  weights : array<f32>,
-}
-
 @binding(0) @group(0) var<uniform> ubo : UBO;
-@binding(1) @group(0) var<storage, read> buf_in : Buffer;
-@binding(2) @group(0) var<storage, read_write> buf_out : Buffer;
+@binding(1) @group(0) var<storage, read> buf_in : array<f32>;
+@binding(2) @group(0) var<storage, read_write> buf_out : array<f32>;
 @binding(3) @group(0) var tex_in : texture_2d<f32>;
 @binding(3) @group(0) var tex_out : texture_storage_2d<rgba8unorm, write>;
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // import_level
@@ -8406,9 +8401,13 @@ struct Buffer {
 ////////////////////////////////////////////////////////////////////////////////
 @compute @workgroup_size(64)
 fn import_level(@builtin(global_invocation_id) coord : vec3u) {
-  _ = &buf_in;
+  _ = &buf_in; // so the bindGroups are similar.
+  if (!all(coord.xy < vec2u(textureDimensions(tex_in)))) {
+    return;
+  }
+
   let offset = coord.x + coord.y * ubo.width;
-  buf_out.weights[offset] = textureLoad(tex_in, vec2i(coord.xy), 0).w;
+  buf_out[offset] = textureLoad(tex_in, vec2i(coord.xy), 0).w;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -8421,21 +8420,23 @@ fn import_level(@builtin(global_invocation_id) coord : vec3u) {
 ////////////////////////////////////////////////////////////////////////////////
 @compute @workgroup_size(64)
 fn export_level(@builtin(global_invocation_id) coord : vec3u) {
-  if (all(coord.xy < vec2u(textureDimensions(tex_out)))) {
-    let dst_offset = coord.x    + coord.y    * ubo.width;
-    let src_offset = coord.x*2u + coord.y*2u * ubo.width;
-
-    let a = buf_in.weights[src_offset + 0u];
-    let b = buf_in.weights[src_offset + 1u];
-    let c = buf_in.weights[src_offset + 0u + ubo.width];
-    let d = buf_in.weights[src_offset + 1u + ubo.width];
-    let sum = dot(vec4f(a, b, c, d), vec4f(1.0));
-
-    buf_out.weights[dst_offset] = sum / 4.0;
-
-    let probabilities = vec4f(a, a+b, a+b+c, sum) / max(sum, 0.0001);
-    textureStore(tex_out, vec2i(coord.xy), probabilities);
+  if (!all(coord.xy < vec2u(textureDimensions(tex_out)))) {
+    return;
   }
+
+  let dst_offset = coord.x    + coord.y    * ubo.width;
+  let src_offset = coord.x*2u + coord.y*2u * ubo.width;
+
+  let a = buf_in[src_offset + 0u];
+  let b = buf_in[src_offset + 1u];
+  let c = buf_in[src_offset + 0u + ubo.width];
+  let d = buf_in[src_offset + 1u + ubo.width];
+  let sum = a + b + c + d;
+
+  buf_out[dst_offset] = sum / 4.0;
+
+  let probabilities = vec4f(a, a+b, a+b+c, sum) / max(sum, 0.0001);
+  textureStore(tex_out, vec2i(coord.xy), probabilities);
 }
 `;
 
@@ -8667,31 +8668,23 @@ quadVertexBuffer.unmap();
 //////////////////////////////////////////////////////////////////////////////
 // Texture
 //////////////////////////////////////////////////////////////////////////////
-let texture;
-let textureWidth = 1;
-let textureHeight = 1;
-let numMipLevels = 1;
-{
-    const response = await fetch('../../assets/img/webgpu.png');
-    const imageBitmap = await createImageBitmap(await response.blob());
-    // Calculate number of mip levels required to generate the probability map
-    while (textureWidth < imageBitmap.width ||
-        textureHeight < imageBitmap.height) {
-        textureWidth *= 2;
-        textureHeight *= 2;
-        numMipLevels++;
-    }
-    texture = device.createTexture({
-        size: [imageBitmap.width, imageBitmap.height, 1],
-        mipLevelCount: numMipLevels,
-        format: 'rgba8unorm',
-        usage: GPUTextureUsage.TEXTURE_BINDING |
-            GPUTextureUsage.STORAGE_BINDING |
-            GPUTextureUsage.COPY_DST |
-            GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    device.queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: texture }, [imageBitmap.width, imageBitmap.height]);
-}
+const isPowerOf2 = (v) => Math.log2(v) % 1 === 0;
+const response = await fetch('../../assets/img/webgpu.png');
+const imageBitmap = await createImageBitmap(await response.blob());
+assert(imageBitmap.width === imageBitmap.height, 'image must be square');
+assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
+// Calculate number of mip levels required to generate the probability map
+const mipLevelCount = (Math.log2(Math.max(imageBitmap.width, imageBitmap.height)) + 1) | 0;
+const texture = device.createTexture({
+    size: [imageBitmap.width, imageBitmap.height, 1],
+    mipLevelCount,
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.STORAGE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+});
+device.queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: texture }, [imageBitmap.width, imageBitmap.height]);
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
 // The 0'th mip level of texture holds the color data and spawn-probability in
@@ -8721,18 +8714,18 @@ let numMipLevels = 1;
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     const buffer_a = device.createBuffer({
-        size: textureWidth * textureHeight * 4,
+        size: texture.width * texture.height * 4,
         usage: GPUBufferUsage.STORAGE,
     });
     const buffer_b = device.createBuffer({
-        size: textureWidth * textureHeight * 4,
+        size: buffer_a.size,
         usage: GPUBufferUsage.STORAGE,
     });
-    device.queue.writeBuffer(probabilityMapUBOBuffer, 0, new Int32Array([textureWidth]));
+    device.queue.writeBuffer(probabilityMapUBOBuffer, 0, new Uint32Array([texture.width]));
     const commandEncoder = device.createCommandEncoder();
-    for (let level = 0; level < numMipLevels; level++) {
-        const levelWidth = textureWidth >> level;
-        const levelHeight = textureHeight >> level;
+    for (let level = 0; level < texture.mipLevelCount; level++) {
+        const levelWidth = Math.max(1, texture.width >> level);
+        const levelHeight = Math.max(1, texture.height >> level);
         const pipeline = level == 0
             ? probabilityMapImportLevelPipeline.getBindGroupLayout(0)
             : probabilityMapExportLevelPipeline.getBindGroupLayout(0);
@@ -8916,4 +8909,9 @@ function frame() {
 }
 configureContext();
 requestAnimationFrame(frame);
+function assert(cond, msg = '') {
+    if (!cond) {
+        throw new Error(msg);
+    }
+}
 //# sourceMappingURL=main.js.map
