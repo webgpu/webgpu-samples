@@ -33,6 +33,7 @@ import samplerParameters from '../sample/samplerParameters/meta';
 import shadowMapping from '../sample/shadowMapping/meta';
 import skinnedMesh from '../sample/skinnedMesh/meta';
 import spookyball from '../sample/spookyball/meta';
+import stencilMask from '../sample/stencilMask/meta';
 import textRenderingMsdf from '../sample/textRenderingMsdf/meta';
 import texturedCube from '../sample/texturedCube/meta';
 import timestampQuery from '../sample/timestampQuery/meta';
@@ -131,6 +132,7 @@ export const pageCategories: PageCategory[] = [
       cornell,
       'a-buffer': aBuffer,
       skinnedMesh,
+      stencilMask,
       textRenderingMsdf,
       volumeRenderingTexture3D,
       wireframe,
