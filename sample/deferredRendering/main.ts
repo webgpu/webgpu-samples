@@ -15,8 +15,16 @@ const lightExtentMin = vec3.fromValues(-50, -30, -50);
 const lightExtentMax = vec3.fromValues(50, 50, 50);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+let limits: Record<string, GPUSize32>;
+if ('maxStorageBuffersInFragmentStage' in adapter.limits) {
+  limits = { maxStorageBuffersInFragmentStage: 1 };
+}
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -165,7 +173,7 @@ const gBufferTexturesBindGroupLayout = device.createBindGroupLayout({
       binding: 2,
       visibility: GPUShaderStage.FRAGMENT,
       texture: {
-        sampleType: 'depth',
+        sampleType: 'unfilterable-float',
       },
     },
   ],

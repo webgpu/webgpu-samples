@@ -95,8 +95,16 @@ const getRotation = (mat: Mat4): Quat => {
 
 //Normal setup
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+let limits: Record<string, GPUSize32>;
+if ('maxStorageBuffersInVertexStage' in adapter.limits) {
+  limits = { maxStorageBuffersInVertexStage: 2 };
+}
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;

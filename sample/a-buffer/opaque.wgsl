@@ -6,7 +6,7 @@ struct Uniforms {
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
-  @location(0) @interpolate(flat) instance: u32
+  @location(0) @interpolate(flat, either) instance: u32
 };
 
 @vertex
@@ -30,7 +30,7 @@ fn main_vs(@location(0) position: vec4f, @builtin(instance_index) instance: u32)
 }
 
 @fragment
-fn main_fs(@location(0) @interpolate(flat) instance: u32) -> @location(0) vec4f {
+fn main_fs(@location(0) @interpolate(flat, either) instance: u32) -> @location(0) vec4f {
   const colors = array<vec3f,6>(
       vec3(1.0, 0.0, 0.0),
       vec3(0.0, 1.0, 0.0),

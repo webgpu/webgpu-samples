@@ -66,7 +66,9 @@ const depthClearValues = {
 };
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 
@@ -98,7 +100,7 @@ const depthTextureBindGroupLayout = device.createBindGroupLayout({
       binding: 0,
       visibility: GPUShaderStage.FRAGMENT,
       texture: {
-        sampleType: 'depth',
+        sampleType: 'unfilterable-float',
       },
     },
   ],

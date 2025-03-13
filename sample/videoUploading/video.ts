@@ -13,7 +13,9 @@ export default async function ({ useVideoFrame }: { useVideoFrame: boolean }) {
   video.src = '../../assets/video/pano.webm';
   await video.play();
 
-  const adapter = await navigator.gpu?.requestAdapter();
+  const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+  });
   const device = await adapter?.requestDevice();
   quitIfWebGPUNotAvailable(adapter, device);
 

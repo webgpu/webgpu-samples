@@ -16,7 +16,9 @@ import PerfCounter from './PerfCounter';
 import TimestampQueryManager from './TimestampQueryManager';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 
 // The use of timestamps require a dedicated adapter feature:
 // The adapter may or may not support timestamp queries. If not, we simply
