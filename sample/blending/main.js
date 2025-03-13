@@ -8348,7 +8348,9 @@ struct Uniforms {
   return textureSample(ourTexture, ourSampler, fsInput.texcoord);
 }`;
 
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 // creates a CSS hsl string from 3 normalized numbers (0 to 1)

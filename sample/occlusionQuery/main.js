@@ -8346,7 +8346,9 @@ const settings = {
 const gui = new GUI$1();
 gui.add(settings, 'animate');
 const info = document.querySelector('#info');
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 const canvas = document.querySelector('canvas');

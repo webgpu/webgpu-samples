@@ -8517,7 +8517,9 @@ const particleInstanceByteSize = 3 * 4 + // position
     1 * 4 + // padding
     0;
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu');
