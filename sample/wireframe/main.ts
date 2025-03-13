@@ -4,7 +4,7 @@ import { modelData } from './models';
 import { randElement, randColor } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 import wireframeWGSL from './wireframe.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { fail, quitIfWebGPUNotAvailable } from '../util';
 
 const settings = {
   barycentricCoordinatesBased: false,
@@ -61,8 +61,17 @@ function createVertexAndIndexBuffer(
   };
 }
 
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+if (adapter.limits.maxStorageBuffersInVertexStage < 2) {
+  fail('maxStorageBuffersInVertexStage is < 2');
+}
+const device = await adapter?.requestDevice({
+  requiredLimits: {
+    maxStorageBuffersInVertexStage: 2,
+  },
+});
 quitIfWebGPUNotAvailable(adapter, device);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
