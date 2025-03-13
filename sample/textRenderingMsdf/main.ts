@@ -17,11 +17,18 @@ const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-const device = await adapter?.requestDevice({
-  requiredLimits: {
+let limits: Record<string, GPUSize32>;
+if (
+  'maxStorageBuffersInFragmentStage' in adapter.limits &&
+  'maxStorageBuffersInVertexStage' in adapter.limits
+) {
+  limits = {
     maxStorageBuffersInFragmentStage: 1,
     maxStorageBuffersInVertexStage: 2,
-  },
+  };
+}
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
 });
 quitIfWebGPUNotAvailable(adapter, device);
 

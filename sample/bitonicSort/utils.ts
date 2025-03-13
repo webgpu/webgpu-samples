@@ -119,12 +119,16 @@ export const SampleInitFactoryWebGPU = async (
 
     const timestampQueryAvailable = adapter.features.has('timestamp-query');
     let features = [];
+    let limits: Record<string, GPUSize32>;
     if (timestampQueryAvailable) {
       features = ['timestamp-query'];
     }
+    if ('maxStorageBuffersInFragmentStage' in adapter.limits) {
+      limits = { maxStorageBuffersInFragmentStage: 1 };
+    }
     const device = await adapter.requestDevice({
       requiredFeatures: features,
-      requiredLimits: { maxStorageBuffersInFragmentStage: 1 },
+      requiredLimits: limits,
     });
     quitIfWebGPUNotAvailable(adapter, device);
 

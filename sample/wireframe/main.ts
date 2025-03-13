@@ -64,8 +64,12 @@ function createVertexAndIndexBuffer(
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
+let limits: Record<string, GPUSize32>;
+if ('maxStorageBuffersInVertexStage' in adapter.limits) {
+  limits = { maxStorageBuffersInVertexStage: 2 };
+}
 const device = await adapter?.requestDevice({
-  requiredLimits: { maxStorageBuffersInVertexStage: 2 },
+  requiredLimits: limits,
 });
 quitIfWebGPUNotAvailable(adapter, device);
 
