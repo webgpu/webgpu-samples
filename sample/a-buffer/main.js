@@ -8250,6 +8250,16 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function quitIfLimitLessThan(adapter, limit, requiredValue, limits) {
+    if (limit in adapter.limits) {
+        const limitKey = limit;
+        const limitValue = adapter.limits[limitKey];
+        if (limitValue < requiredValue) {
+            fail(`This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`);
+        }
+        limits[limit] = requiredValue;
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
  * or if/when the device is lost or has an uncaptured error.
@@ -8355,7 +8365,7 @@ var opaqueWGSL = `struct Uniforms {
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
-  @location(0) @interpolate(flat) instance: u32
+  @location(0) @interpolate(flat, either) instance: u32
 };
 
 @vertex
@@ -8379,7 +8389,7 @@ fn main_vs(@location(0) position: vec4f, @builtin(instance_index) instance: u32)
 }
 
 @fragment
-fn main_fs(@location(0) @interpolate(flat) instance: u32) -> @location(0) vec4f {
+fn main_fs(@location(0) @interpolate(flat, either) instance: u32) -> @location(0) vec4f {
   const colors = array<vec3f,6>(
       vec3(1.0, 0.0, 0.0),
       vec3(0.0, 1.0, 0.0),
@@ -8421,12 +8431,12 @@ struct LinkedList {
 @binding(0) @group(0) var<uniform> uniforms: Uniforms;
 @binding(1) @group(0) var<storage, read_write> heads: Heads;
 @binding(2) @group(0) var<storage, read_write> linkedList: LinkedList;
-@binding(3) @group(0) var opaqueDepthTexture: texture_depth_2d;
+@binding(3) @group(0) var opaqueDepthTexture: texture_2d<f32>;
 @binding(4) @group(0) var<uniform> sliceInfo: SliceInfo;
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
-  @location(0) @interpolate(flat) instance: u32
+  @location(0) @interpolate(flat, either) instance: u32
 };
 
 @vertex
@@ -8451,7 +8461,7 @@ fn main_vs(@location(0) position: vec4f, @builtin(instance_index) instance: u32)
 }
 
 @fragment
-fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat) instance: u32) {
+fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat, either) instance: u32) {
   const colors = array<vec3f,6>(
     vec3(1.0, 0.0, 0.0),
     vec3(0.0, 1.0, 0.0),
@@ -8462,7 +8472,7 @@ fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat) i
   );
 
   let fragCoords = vec2i(position.xy);
-  let opaqueDepth = textureLoad(opaqueDepthTexture, fragCoords, 0);
+  let opaqueDepth = textureLoad(opaqueDepthTexture, fragCoords, 0).x;
 
   // reject fragments behind opaque objects
   if position.z >= opaqueDepth {
@@ -8585,8 +8595,14 @@ function roundUp(n, k) {
     return Math.ceil(n / k) * k;
 }
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
+const limits = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 2, limits);
+const device = await adapter?.requestDevice({
+    requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu');
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -8740,7 +8756,7 @@ const translucentBindGroupLayout = device.createBindGroupLayout({
         {
             binding: 3,
             visibility: GPUShaderStage.FRAGMENT,
-            texture: { sampleType: 'depth' },
+            texture: { sampleType: 'unfilterable-float' },
         },
         {
             binding: 4,

@@ -2709,6 +2709,16 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function quitIfLimitLessThan(adapter, limit, requiredValue, limits) {
+    if (limit in adapter.limits) {
+        const limitKey = limit;
+        const limitValue = adapter.limits[limitKey];
+        if (limitValue < requiredValue) {
+            fail(`This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`);
+        }
+        limits[limit] = requiredValue;
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
  * or if/when the device is lost or has an uncaptured error.
@@ -2813,18 +2823,21 @@ const createBindGroupCluster = (bindings, visibilities, resourceTypes, resourceL
 };
 const SampleInitFactoryWebGPU = async (callback) => {
     const init = async ({ canvas, gui, stats }) => {
-        const adapter = await navigator.gpu?.requestAdapter();
+        const adapter = await navigator.gpu?.requestAdapter({
+            featureLevel: 'compatibility',
+        });
         quitIfAdapterNotAvailable(adapter);
         const timestampQueryAvailable = adapter.features.has('timestamp-query');
-        let device;
+        let features = [];
+        const limits = {};
         if (timestampQueryAvailable) {
-            device = await adapter.requestDevice({
-                requiredFeatures: ['timestamp-query'],
-            });
+            features = ['timestamp-query'];
         }
-        else {
-            device = await adapter.requestDevice();
-        }
+        quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+        const device = await adapter.requestDevice({
+            requiredFeatures: features,
+            requiredLimits: limits,
+        });
         quitIfWebGPUNotAvailable(adapter, device);
         const context = canvas.getContext('webgpu');
         const devicePixelRatio = window.devicePixelRatio;

@@ -8,15 +8,21 @@ import fragmentWriteGBuffers from './fragmentWriteGBuffers.wgsl';
 import vertexTextureQuad from './vertexTextureQuad.wgsl';
 import fragmentGBuffersDebugView from './fragmentGBuffersDebugView.wgsl';
 import fragmentDeferredRendering from './fragmentDeferredRendering.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
 
 const kMaxNumLights = 1024;
 const lightExtentMin = vec3.fromValues(-50, -30, -50);
 const lightExtentMax = vec3.fromValues(50, 50, 50);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -165,7 +171,7 @@ const gBufferTexturesBindGroupLayout = device.createBindGroupLayout({
       binding: 2,
       visibility: GPUShaderStage.FRAGMENT,
       texture: {
-        sampleType: 'depth',
+        sampleType: 'unfilterable-float',
       },
     },
   ],

@@ -6003,7 +6003,9 @@ class TimestampQueryManager {
 }
 
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 // The use of timestamps require a dedicated adapter feature:
 // The adapter may or may not support timestamp queries. If not, we simply
 // don't measure timestamps and deactivate the timer display.

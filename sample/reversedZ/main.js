@@ -8308,13 +8308,13 @@ fn main(
 }
 `;
 
-var fragmentTextureQuadWGSL = `@group(0) @binding(0) var depthTexture: texture_depth_2d;
+var fragmentTextureQuadWGSL = `@group(0) @binding(0) var depthTexture: texture_2d<f32>;
 
 @fragment
 fn main(
   @builtin(position) coord : vec4f
 ) -> @location(0) vec4f {
-  let depthValue = textureLoad(depthTexture, vec2i(floor(coord.xy)), 0);
+  let depthValue = textureLoad(depthTexture, vec2i(floor(coord.xy)), 0).x;
   return vec4f(depthValue, depthValue, depthValue, 1.0);
 }
 `;
@@ -8346,14 +8346,14 @@ fn main(
 }
 `;
 
-var fragmentPrecisionErrorPassWGSL = `@group(1) @binding(0) var depthTexture: texture_depth_2d;
+var fragmentPrecisionErrorPassWGSL = `@group(1) @binding(0) var depthTexture: texture_2d<f32>;
 
 @fragment
 fn main(
   @builtin(position) coord: vec4f,
   @location(0) clipPos: vec4f
 ) -> @location(0) vec4f {
-  let depthValue = textureLoad(depthTexture, vec2i(floor(coord.xy)), 0);
+  let depthValue = textureLoad(depthTexture, vec2i(floor(coord.xy)), 0).x;
   let v : f32 = abs(clipPos.z / clipPos.w - depthValue) * 2000000.0;
   return vec4f(v, v, v, 1.0);
 }
@@ -8475,7 +8475,9 @@ const depthClearValues = {
     [DepthBufferMode.Reversed]: 0.0,
 };
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu');
@@ -8501,7 +8503,7 @@ const depthTextureBindGroupLayout = device.createBindGroupLayout({
             binding: 0,
             visibility: GPUShaderStage.FRAGMENT,
             texture: {
-                sampleType: 'depth',
+                sampleType: 'unfilterable-float',
             },
         },
     ],

@@ -8548,7 +8548,7 @@ fn main(
 
 var fragmentGBuffersDebugView = `@group(0) @binding(0) var gBufferNormal: texture_2d<f32>;
 @group(0) @binding(1) var gBufferAlbedo: texture_2d<f32>;
-@group(0) @binding(2) var gBufferDepth: texture_depth_2d;
+@group(0) @binding(2) var gBufferDepth: texture_2d<f32>;
 
 override canvasSizeWidth: f32;
 override canvasSizeHeight: f32;
@@ -8564,7 +8564,7 @@ fn main(
       gBufferDepth,
       vec2i(floor(coord.xy)),
       0
-    );
+    ).x;
     // remap depth into something a bit more visible
     let depth = (1.0 - rawDepth) * 50.0;
     result = vec4(depth);
@@ -8590,7 +8590,7 @@ fn main(
 
 var fragmentDeferredRendering = `@group(0) @binding(0) var gBufferNormal: texture_2d<f32>;
 @group(0) @binding(1) var gBufferAlbedo: texture_2d<f32>;
-@group(0) @binding(2) var gBufferDepth: texture_depth_2d;
+@group(0) @binding(2) var gBufferDepth: texture_2d<f32>;
 
 struct LightData {
   position : vec4f,
@@ -8630,7 +8630,7 @@ fn main(
     gBufferDepth,
     vec2i(floor(coord.xy)),
     0
-  );
+  ).x;
 
   // Don't light the sky.
   if (depth >= 1.0) {
@@ -8679,6 +8679,16 @@ function quitIfAdapterNotAvailable(adapter) {
     }
     if (!adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
+    }
+}
+function quitIfLimitLessThan(adapter, limit, requiredValue, limits) {
+    if (limit in adapter.limits) {
+        const limitKey = limit;
+        const limitValue = adapter.limits[limitKey];
+        if (limitValue < requiredValue) {
+            fail(`This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`);
+        }
+        limits[limit] = requiredValue;
     }
 }
 /**
@@ -8743,8 +8753,14 @@ const kMaxNumLights = 1024;
 const lightExtentMin = vec3.fromValues(-50, -30, -50);
 const lightExtentMax = vec3.fromValues(50, 50, 50);
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
+const limits = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+const device = await adapter?.requestDevice({
+    requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
@@ -8883,7 +8899,7 @@ const gBufferTexturesBindGroupLayout = device.createBindGroupLayout({
             binding: 2,
             visibility: GPUShaderStage.FRAGMENT,
             texture: {
-                sampleType: 'depth',
+                sampleType: 'unfilterable-float',
             },
         },
     ],

@@ -5,24 +5,36 @@ import Radiosity from './radiosity';
 import Rasterizer from './rasterizer';
 import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
-import { quitIfAdapterNotAvailable, quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfAdapterNotAvailable,
+  quitIfWebGPUNotAvailable,
+  quitIfLimitLessThan,
+} from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-const requiredFeatures: GPUFeatureName[] =
+const features: GPUFeatureName[] =
   presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 quitIfAdapterNotAvailable(adapter);
 
-for (const feature of requiredFeatures) {
+for (const feature of features) {
   if (!adapter.features.has(feature)) {
     throw new Error(
       `sample requires ${feature}, but is not supported by the adapter`
     );
   }
 }
-const device = await adapter?.requestDevice({ requiredFeatures });
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxComputeWorkgroupSizeX', 256, limits);
+quitIfLimitLessThan(adapter, 'maxComputeInvocationsPerWorkgroup', 256, limits);
+const device = await adapter?.requestDevice({
+  requiredFeatures: features,
+  requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 
 const params: {

@@ -6301,6 +6301,16 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function quitIfLimitLessThan(adapter, limit, requiredValue, limits) {
+    if (limit in adapter.limits) {
+        const limitKey = limit;
+        const limitValue = adapter.limits[limitKey];
+        if (limitValue < requiredValue) {
+            fail(`This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`);
+        }
+        limits[limit] = requiredValue;
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
  * or if/when the device is lost or has an uncaptured error.
@@ -6360,8 +6370,15 @@ const fail = (() => {
 })();
 
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
+const limits = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
+const device = await adapter?.requestDevice({
+    requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio || 1;

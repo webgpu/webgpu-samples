@@ -9112,7 +9112,7 @@ struct VertexOut {
   @builtin(position) position : vec4f,
   @location(0) uv : vec2f,
   @location(1) emissive : vec3f,
-  @interpolate(flat)
+  @interpolate(flat, either)
   @location(2) quad : u32,
 }
 
@@ -9516,6 +9516,16 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function quitIfLimitLessThan(adapter, limit, requiredValue, limits) {
+    if (limit in adapter.limits) {
+        const limitKey = limit;
+        const limitValue = adapter.limits[limitKey];
+        if (limitValue < requiredValue) {
+            fail(`This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`);
+        }
+        limits[limit] = requiredValue;
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
  * or if/when the device is lost or has an uncaptured error.
@@ -9576,15 +9586,23 @@ const fail = (() => {
 
 const canvas = document.querySelector('canvas');
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-const requiredFeatures = presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
-const adapter = await navigator.gpu?.requestAdapter();
+const features = presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 quitIfAdapterNotAvailable(adapter);
-for (const feature of requiredFeatures) {
+for (const feature of features) {
     if (!adapter.features.has(feature)) {
         throw new Error(`sample requires ${feature}, but is not supported by the adapter`);
     }
 }
-const device = await adapter?.requestDevice({ requiredFeatures });
+const limits = {};
+quitIfLimitLessThan(adapter, 'maxComputeWorkgroupSizeX', 256, limits);
+quitIfLimitLessThan(adapter, 'maxComputeInvocationsPerWorkgroup', 256, limits);
+const device = await adapter?.requestDevice({
+    requiredFeatures: features,
+    requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 const params = {
     renderer: 'rasterizer',
