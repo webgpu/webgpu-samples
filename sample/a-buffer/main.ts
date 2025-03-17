@@ -1,7 +1,7 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
 import { mesh } from '../../meshes/teapot';
 
 import opaqueWGSL from './opaque.wgsl';
@@ -16,10 +16,8 @@ const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-let limits: Record<string, GPUSize32>;
-if ('maxStorageBuffersInFragmentStage' in adapter.limits) {
-  limits = { maxStorageBuffersInFragmentStage: 2 };
-}
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 2, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });

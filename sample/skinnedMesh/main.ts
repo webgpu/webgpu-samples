@@ -9,7 +9,7 @@ import {
   createSkinnedGridRenderPipeline,
 } from './gridUtils';
 import { gridIndices } from './gridData';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
 
 const MAT4X4_BYTES = 64;
 
@@ -98,10 +98,8 @@ const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-let limits: Record<string, GPUSize32>;
-if ('maxStorageBuffersInVertexStage' in adapter.limits) {
-  limits = { maxStorageBuffersInVertexStage: 2 };
-}
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });

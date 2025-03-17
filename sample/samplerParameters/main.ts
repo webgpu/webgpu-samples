@@ -3,7 +3,7 @@ import { GUI } from 'dat.gui';
 
 import texturedSquareWGSL from './texturedSquare.wgsl';
 import showTextureWGSL from './showTexture.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
 
 const kMatrices: Readonly<Float32Array> = new Float32Array([
   // Row 1: Scale by 2
@@ -31,10 +31,8 @@ const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-let limits: Record<string, GPUSize32>;
-if ('maxStorageBuffersInVertexStage' in adapter.limits) {
-  limits = { maxStorageBuffersInVertexStage: 1 };
-}
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 1, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });

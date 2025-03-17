@@ -1,6 +1,10 @@
 import type { GUI } from 'dat.gui';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
-import { quitIfAdapterNotAvailable, quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfAdapterNotAvailable,
+  quitIfWebGPUNotAvailable,
+  quitIfLimitLessThan,
+} from '../util';
 
 type BindGroupBindingLayout =
   | GPUBufferBindingLayout
@@ -119,13 +123,11 @@ export const SampleInitFactoryWebGPU = async (
 
     const timestampQueryAvailable = adapter.features.has('timestamp-query');
     let features = [];
-    let limits: Record<string, GPUSize32>;
+    const limits: Record<string, GPUSize32> = {};
     if (timestampQueryAvailable) {
       features = ['timestamp-query'];
     }
-    if ('maxStorageBuffersInFragmentStage' in adapter.limits) {
-      limits = { maxStorageBuffersInFragmentStage: 1 };
-    }
+    quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
     const device = await adapter.requestDevice({
       requiredFeatures: features,
       requiredLimits: limits,

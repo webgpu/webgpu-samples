@@ -11,6 +11,24 @@ export function quitIfAdapterNotAvailable(
   }
 }
 
+export function quitIfLimitLessThan(
+  adapter: GPUAdapter,
+  limit: string,
+  requiredValue: number,
+  limits: Record<string, GPUSize32>
+) {
+  if (limit in adapter.limits) {
+    const limitKey = limit as keyof GPUSupportedLimits;
+    const limitValue = adapter.limits[limitKey] as number;
+    if (limitValue < requiredValue) {
+      fail(
+        `This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`
+      );
+    }
+    limits[limit] = requiredValue;
+  }
+}
+
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
  * or if/when the device is lost or has an uncaptured error.

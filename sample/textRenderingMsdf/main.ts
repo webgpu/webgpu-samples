@@ -11,22 +11,15 @@ import { MsdfTextRenderer } from './msdfText';
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-let limits: Record<string, GPUSize32>;
-if (
-  'maxStorageBuffersInFragmentStage' in adapter.limits &&
-  'maxStorageBuffersInVertexStage' in adapter.limits
-) {
-  limits = {
-    maxStorageBuffersInFragmentStage: 1,
-    maxStorageBuffersInVertexStage: 2,
-  };
-}
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });
