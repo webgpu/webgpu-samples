@@ -13,7 +13,9 @@ import sampleCubemapWGSL from './sampleCubemap.frag.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 
@@ -119,6 +121,7 @@ let cubemapTexture: GPUTexture;
 
   cubemapTexture = device.createTexture({
     dimension: '2d',
+    textureBindingViewDimension: 'cube',
     // Create a 2d array texture.
     // Assume each image has the same size.
     size: [imageBitmaps[0].width, imageBitmaps[0].height, 6],

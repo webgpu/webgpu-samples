@@ -26,12 +26,12 @@ struct LinkedList {
 @binding(0) @group(0) var<uniform> uniforms: Uniforms;
 @binding(1) @group(0) var<storage, read_write> heads: Heads;
 @binding(2) @group(0) var<storage, read_write> linkedList: LinkedList;
-@binding(3) @group(0) var opaqueDepthTexture: texture_depth_2d;
+@binding(3) @group(0) var opaqueDepthTexture: texture_2d<f32>;
 @binding(4) @group(0) var<uniform> sliceInfo: SliceInfo;
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
-  @location(0) @interpolate(flat) instance: u32
+  @location(0) @interpolate(flat, either) instance: u32
 };
 
 @vertex
@@ -56,7 +56,7 @@ fn main_vs(@location(0) position: vec4f, @builtin(instance_index) instance: u32)
 }
 
 @fragment
-fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat) instance: u32) {
+fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat, either) instance: u32) {
   const colors = array<vec3f,6>(
     vec3(1.0, 0.0, 0.0),
     vec3(0.0, 1.0, 0.0),
@@ -67,7 +67,7 @@ fn main_fs(@builtin(position) position: vec4f, @location(0) @interpolate(flat) i
   );
 
   let fragCoords = vec2i(position.xy);
-  let opaqueDepth = textureLoad(opaqueDepthTexture, fragCoords, 0);
+  let opaqueDepth = textureLoad(opaqueDepthTexture, fragCoords, 0).x;
 
   // reject fragments behind opaque objects
   if position.z >= opaqueDepth {

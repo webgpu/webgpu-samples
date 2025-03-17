@@ -1,7 +1,7 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
 import { mesh } from '../../meshes/teapot';
 
 import opaqueWGSL from './opaque.wgsl';
@@ -13,8 +13,14 @@ function roundUp(n: number, k: number): number {
 }
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 2, limits);
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
 quitIfWebGPUNotAvailable(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -185,7 +191,7 @@ const translucentBindGroupLayout = device.createBindGroupLayout({
     {
       binding: 3,
       visibility: GPUShaderStage.FRAGMENT,
-      texture: { sampleType: 'depth' },
+      texture: { sampleType: 'unfilterable-float' },
     },
     {
       binding: 4,
