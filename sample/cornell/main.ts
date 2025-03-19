@@ -13,19 +13,22 @@ import {
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
-const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-const features: GPUFeatureName[] =
-  presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 quitIfAdapterNotAvailable(adapter);
 
-for (const feature of features) {
-  if (!adapter.features.has(feature)) {
-    throw new Error(
-      `sample requires ${feature}, but is not supported by the adapter`
-    );
+const features: GPUFeatureName[] = [];
+let presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+if (presentationFormat == 'bgra8unorm') {
+  if (adapter.features.has('bgra8unorm-storage')) {
+    features.push('bgra8unorm-storage');
+  } else {
+    // If the GPU prefers BGRA for presentation but the Adapter
+    // doesn't support bgra8unorm-storage (e.g., Compatibility
+    // mode), use rgba8unorm for both. This will be slower, but will
+    // work.
+    presentationFormat = 'rgba8unorm';
   }
 }
 const limits: Record<string, GPUSize32> = {};
