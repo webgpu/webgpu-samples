@@ -12,6 +12,7 @@ import cubemap from '../sample/cubemap/meta';
 import deferredRendering from '../sample/deferredRendering/meta';
 import fractalCube from '../sample/fractalCube/meta';
 import gameOfLife from '../sample/gameOfLife/meta';
+import generateMipmap from '../sample/generateMipmap/meta';
 import helloTriangle from '../sample/helloTriangle/meta';
 import helloTriangleMSAA from '../sample/helloTriangleMSAA/meta';
 import imageBlur from '../sample/imageBlur/meta';
@@ -129,6 +130,7 @@ export const pageCategories: PageCategory[] = [
       particles,
       points,
       imageBlur,
+      generateMipmap,
       cornell,
       'a-buffer': aBuffer,
       skinnedMesh,
