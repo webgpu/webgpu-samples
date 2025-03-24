@@ -507,6 +507,21 @@ var spookyball = {
     sources: [],
 };
 
+var stencilMask = {
+    name: 'Stencil Mask',
+    description: `\
+This example shows using the stencil buffer for masking. It draws 6 planes, forming a cube,
+each plane with a different stencil value. It then draws 7 scenes of moving objects, each set to only draw when
+the stencilReference value matches the value in the stencil buffer.
+`,
+    filename: "sample/stencilMask",
+    sources: [
+        { path: 'main.ts' },
+        { path: '../../meshes/primitives.ts' },
+        { path: 'simple-lighting.wgsl' },
+    ],
+};
+
 var textRenderingMsdf = {
     name: 'Text Rendering - MSDF',
     description: `This example uses multichannel signed distance fields (MSDF) to render text. MSDF
@@ -716,6 +731,7 @@ const pageCategories = [
             cornell,
             'a-buffer': aBuffer,
             skinnedMesh,
+            stencilMask,
             textRenderingMsdf,
             volumeRenderingTexture3D,
             wireframe,
