@@ -240,6 +240,22 @@ var gameOfLife = {
     ],
 };
 
+var generateMipmap = {
+    name: 'Generate Mipmap',
+    description: `\
+This example shows one way to generate a mipmap in WebGPU in a compatibility mode compatible way.
+For more info [see this article](https://webgpufundamentals.org/webgpu/lessons/webgpu-compatibility-mode.html#a-generating-mipmaps).
+`,
+    filename: "sample/generateMipmap",
+    sources: [
+        { path: 'main.ts' },
+        { path: 'generateMipmap.ts' },
+        { path: 'generateMipmap.wgsl' },
+        { path: 'texturedGeometry.wgsl' },
+        { path: 'makeCanvasImage.ts' },
+    ],
+};
+
 var helloTriangle = {
     name: 'Hello Triangle',
     description: 'Shows rendering a basic triangle.',
@@ -728,6 +744,7 @@ const pageCategories = [
             particles,
             points,
             imageBlur,
+            generateMipmap,
             cornell,
             'a-buffer': aBuffer,
             skinnedMesh,
