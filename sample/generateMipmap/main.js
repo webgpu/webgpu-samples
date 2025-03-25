@@ -6230,12 +6230,13 @@ else {
         size: [256, 256, 6],
         mipLevelCount: 9,
         format: 'rgba8unorm',
+        textureBindingViewDimension: 'cube',
         usage: GPUTextureUsage.TEXTURE_BINDING |
             GPUTextureUsage.COPY_DST |
             GPUTextureUsage.RENDER_ATTACHMENT,
     });
     putDataInTextureCubeFallback(device, texture);
-    generateMips(device, texture);
+    generateMips(device, texture, 'cube');
     textures.push({ texture, viewDimension: 'cube' });
     document.querySelector('#cube-array').textContent = 'cube(fallback)';
 }
