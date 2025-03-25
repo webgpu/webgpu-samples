@@ -72,7 +72,7 @@ const textures: {
   });
   putDataInTexture2dArray(device, texture);
   generateMips(device, texture);
-  textures.push({ texture, viewDimension: '2d' });
+  textures.push({ texture, viewDimension: '2d-array' });
 }
 
 // Make a cube texture, put an image in each face, generate mips
@@ -93,7 +93,13 @@ const textures: {
 }
 
 // Compatibility mode might not support 'core-features-and-limits'
-if (device.features.has('core-features-and-limits')) {
+// Note: Checking for maxColorAttachments > 4 is not required by the spec
+// but some browsers have not implemented 'core-features-and-limits'.
+// We'll remove this once they do.
+if (
+  device.features.has('core-features-and-limits') ||
+  device.limits.maxColorAttachments > 4
+) {
   // Make a cube array texture, put a different image in each layer, generate mips
   const texture = device.createTexture({
     size: [256, 256, 24],
@@ -122,6 +128,7 @@ if (device.features.has('core-features-and-limits')) {
   putDataInTextureCubeFallback(device, texture);
   generateMips(device, texture);
   textures.push({ texture, viewDimension: 'cube' });
+  document.querySelector('#cube-array').textContent = 'cube(fallback)';
 }
 
 const module = device.createShaderModule({
