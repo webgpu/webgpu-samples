@@ -11,20 +11,49 @@
       html, body {
         margin: 0;      /* remove default margin */
         height: 100%;   /* make body fill the browser window */
+        width: 100%;
         display: flex;
         place-content: center center;
       }
-      canvas {
+      #container {
+        position: relative;
         width: 600px;
         height: 600px;
         max-width: 100%;
         display: block;
+      }
+      canvas, #grid {
+        width: 600px;
+        height: 600px;
+        max-width: 100%;
+        display: block;
+      }
+      #grid {
+        position: absolute;
+        left: 0;
+        top: 0;
+        display:grid;
+        grid-template-columns: 50% 50%;
+        grid-row: auto auto;
+        color: white;
+      }
+      #grid>* {
+        border: 1px solid black;
+        text-align: center;
       }
     </style>
     <script defer src="main.js" type="module"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
-    <canvas></canvas>
+    <div id="container">
+      <canvas></canvas>
+      <div id="grid">
+        <div>2d</div>
+        <div>2d-array</div>
+        <div>cube</div>
+        <div id="cube-array">cube-array</div>
+      </div>
+    </div>
   </body>
 </html>
