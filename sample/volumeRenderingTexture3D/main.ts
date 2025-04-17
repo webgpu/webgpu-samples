@@ -7,21 +7,51 @@ const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
 const gui = new GUI();
 
+const brainImages = {
+  r8unorm: {
+    bytesPerBlock: 1,
+    blockLength: 1,
+    dataPath:
+      '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz',
+  },
+  'bc4-r-unorm': {
+    bytesPerBlock: 8,
+    blockLength: 4,
+    dataPath:
+      '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin-gz',
+  },
+};
+
 // GUI parameters
-const params: { rotateCamera: boolean; near: number; far: number } = {
+const params: {
+  rotateCamera: boolean;
+  near: number;
+  far: number;
+  textureFormat: GPUTextureFormat;
+} = {
   rotateCamera: true,
   near: 2.0,
   far: 7.0,
+  textureFormat: 'r8unorm',
 };
 
 gui.add(params, 'rotateCamera', true);
 gui.add(params, 'near', 2.0, 7.0);
 gui.add(params, 'far', 2.0, 7.0);
+gui.add(params, 'textureFormat', Object.keys(brainImages)).onChange(() => {
+  createVolumeTexture(params.textureFormat);
+});
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-const device = await adapter?.requestDevice();
+const hasBCSliced3D = adapter?.features.has('texture-compression-bc-sliced-3d');
+const device = await adapter?.requestDevice({
+  requiredFeatures: hasBCSliced3D
+    ? ['texture-compression-bc', 'texture-compression-bc-sliced-3d']
+    : [],
+});
+
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
@@ -77,20 +107,17 @@ const uniformBuffer = device.createBuffer({
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 
-// Fetch the image and upload it into a GPUTexture.
 let volumeTexture: GPUTexture;
-{
+
+// Fetch the image and upload it into a GPUTexture.
+async function createVolumeTexture(format: GPUTextureFormat) {
+  const { blockLength, bytesPerBlock, dataPath } = brainImages[format];
   const width = 180;
   const height = 216;
   const depth = 180;
-  const format: GPUTextureFormat = 'r8unorm';
-  const blockLength = 1;
-  const bytesPerBlock = 1;
   const blocksWide = Math.ceil(width / blockLength);
   const blocksHigh = Math.ceil(height / blockLength);
   const bytesPerRow = blocksWide * bytesPerBlock;
-  const dataPath =
-    '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz';
 
   // Fetch the compressed data
   const response = await fetch(dataPath);
@@ -122,6 +149,8 @@ let volumeTexture: GPUTexture;
     [width, height, depth]
   );
 }
+
+await createVolumeTexture(params.textureFormat);
 
 // Create a sampler with linear filtering for smooth interpolation.
 const sampler = device.createSampler({
