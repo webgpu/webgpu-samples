@@ -20,6 +20,12 @@ const brainImages = {
     dataPath:
       '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin-gz',
   },
+  'astc-12x12-unorm': {
+    bytesPerBlock: 16,
+    blockLength: 12,
+    dataPath:
+      '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_astc_12x12.bin-gz',
+  },
 };
 
 // GUI parameters
@@ -45,12 +51,20 @@ gui.add(params, 'textureFormat', Object.keys(brainImages)).onChange(() => {
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-const hasBCSliced3D = adapter?.features.has('texture-compression-bc-sliced-3d');
-const device = await adapter?.requestDevice({
-  requiredFeatures: hasBCSliced3D
-    ? ['texture-compression-bc', 'texture-compression-bc-sliced-3d']
-    : [],
-});
+const requiredFeatures = [];
+if (adapter?.features.has('texture-compression-bc-sliced-3d')) {
+  requiredFeatures.push(
+    'texture-compression-bc',
+    'texture-compression-bc-sliced-3d'
+  );
+}
+if (adapter?.features.has('texture-compression-astc-sliced-3d')) {
+  requiredFeatures.push(
+    'texture-compression-astc',
+    'texture-compression-astc-sliced-3d'
+  );
+}
+const device = await adapter?.requestDevice({ requiredFeatures });
 
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
