@@ -160,7 +160,7 @@ const sampler = device.createSampler({
   maxAnisotropy: 16,
 });
 
-const uniformBindGroup = device.createBindGroup({
+const bindGroupDescriptor: GPUBindGroupDescriptor = {
   layout: pipeline.getBindGroupLayout(0),
   entries: [
     {
@@ -175,10 +175,10 @@ const uniformBindGroup = device.createBindGroup({
     },
     {
       binding: 2,
-      resource: volumeTexture.createView(),
+      resource: undefined, // Assigned later
     },
   ],
-});
+};
 
 const renderPassDescriptor: GPURenderPassDescriptor = {
   colorAttachments: [
@@ -233,6 +233,9 @@ function frame() {
   renderPassDescriptor.colorAttachments[0].resolveTarget = context
     .getCurrentTexture()
     .createView();
+
+  bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
+  const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
