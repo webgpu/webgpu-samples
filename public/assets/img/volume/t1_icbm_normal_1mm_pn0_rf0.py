@@ -56,7 +56,7 @@ print("Images have been successfully converted and concatenated.")
 with open("t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin", "rb") as f:
     bytes_data = f.read()
 
-gzip_filename = "t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz"
+gzip_filename = "t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin.gz"
 
 with gzip.open(gzip_filename, "wb", compresslevel=9) as f:
     f.write(bytes_data)
