@@ -44,9 +44,13 @@ const params: {
 gui.add(params, 'rotateCamera', true);
 gui.add(params, 'near', 2.0, 7.0);
 gui.add(params, 'far', 2.0, 7.0);
-gui.add(params, 'textureFormat', Object.keys(brainImages)).onChange(() => {
-  createVolumeTexture(params.textureFormat);
-});
+gui
+  .add(params, 'textureFormat', Object.keys(brainImages))
+  .onChange(async () => {
+    cancelAnimationFrame(rafId);
+    await createVolumeTexture(params.textureFormat);
+    rafId = requestAnimationFrame(frame);
+  });
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
@@ -259,6 +263,6 @@ function frame() {
   passEncoder.end();
   device.queue.submit([commandEncoder.finish()]);
 
-  requestAnimationFrame(frame);
+  rafId = requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+let rafId = requestAnimationFrame(frame);
