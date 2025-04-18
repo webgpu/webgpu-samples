@@ -20,11 +20,21 @@
         max-width: 100%;
         display: block;
       }
+      #status {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        background: darkred;
+        color: white;
+        font-family: monospace;
+        font-size: 200%;
+      }
     </style>
     <script defer src="main.js" type="module"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
     <canvas></canvas>
+    <div id=status></div>
   </body>
 </html>

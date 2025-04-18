@@ -4,6 +4,7 @@ import volumeWGSL from './volume.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+const status = document.getElementById('status') as HTMLDivElement;
 
 const gui = new GUI();
 
@@ -11,12 +12,14 @@ const brainImages = {
   r8unorm: {
     bytesPerBlock: 1,
     blockLength: 1,
+    feature: undefined,
     dataPath:
       '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin.gz',
   },
   'bc4-r-unorm': {
     bytesPerBlock: 8,
     blockLength: 4,
+    feature: 'texture-compression-bc-sliced-3d',
     dataPath:
       '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin.gz',
     // Generated with texconv from https://github.com/microsoft/DirectXTex/releases
@@ -24,6 +27,7 @@ const brainImages = {
   'astc-12x12-unorm': {
     bytesPerBlock: 16,
     blockLength: 12,
+    feature: 'texture-compression-astc-sliced-3d',
     dataPath:
       '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_astc_12x12.bin.gz',
     // Generated with astcenc from https://github.com/ARM-software/astc-encoder/releases
@@ -49,9 +53,7 @@ gui.add(params, 'far', 2.0, 7.0);
 gui
   .add(params, 'textureFormat', Object.keys(brainImages))
   .onChange(async () => {
-    cancelAnimationFrame(rafId);
     await createVolumeTexture(params.textureFormat);
-    rafId = requestAnimationFrame(frame);
   });
 
 const adapter = await navigator.gpu?.requestAdapter({
@@ -127,17 +129,26 @@ const uniformBuffer = device.createBuffer({
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 
-let volumeTexture: GPUTexture;
+let volumeTexture: GPUTexture | null = null;
 
 // Fetch the image and upload it into a GPUTexture.
 async function createVolumeTexture(format: GPUTextureFormat) {
-  const { blockLength, bytesPerBlock, dataPath } = brainImages[format];
+  volumeTexture = null;
+
+  const { blockLength, bytesPerBlock, dataPath, feature } = brainImages[format];
   const width = 180;
   const height = 216;
   const depth = 180;
   const blocksWide = Math.ceil(width / blockLength);
   const blocksHigh = Math.ceil(height / blockLength);
   const bytesPerRow = blocksWide * bytesPerBlock;
+
+  if (feature && !device.features.has(feature)) {
+    status.textContent = `${feature} not supported`;
+    return;
+  } else {
+    status.textContent = '';
+  }
 
   volumeTexture = device.createTexture({
     dimension: '3d',
@@ -150,9 +161,7 @@ async function createVolumeTexture(format: GPUTextureFormat) {
   const buffer = await response.arrayBuffer();
 
   device.queue.writeTexture(
-    {
-      texture: volumeTexture,
-    },
+    { texture: volumeTexture },
     buffer,
     { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh },
     [width, height, depth]
@@ -194,7 +203,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     {
       view: undefined, // Assigned later
 
-      clearValue: [0.5, 0.5, 0.5, 1.0],
+      clearValue: [0, 0, 0, 1.0],
       loadOp: 'clear',
       storeOp: 'discard',
     },
@@ -243,17 +252,18 @@ function frame() {
     .getCurrentTexture()
     .createView();
 
-  bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
-  const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
-
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  passEncoder.setPipeline(pipeline);
-  passEncoder.setBindGroup(0, uniformBindGroup);
-  passEncoder.draw(3);
+  if (volumeTexture) {
+    bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
+    const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, uniformBindGroup);
+    passEncoder.draw(3);
+  }
   passEncoder.end();
   device.queue.submit([commandEncoder.finish()]);
 
-  rafId = requestAnimationFrame(frame);
+  requestAnimationFrame(frame);
 }
-let rafId = requestAnimationFrame(frame);
+requestAnimationFrame(frame);
