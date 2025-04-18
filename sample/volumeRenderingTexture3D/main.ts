@@ -19,12 +19,14 @@ const brainImages = {
     blockLength: 4,
     dataPath:
       '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin-gz',
+    // Generated with texconv from https://github.com/microsoft/DirectXTex/releases
   },
   'astc-12x12-unorm': {
     bytesPerBlock: 16,
     blockLength: 12,
     dataPath:
       '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_astc_12x12.bin-gz',
+    // Generated with astcenc from https://github.com/ARM-software/astc-encoder/releases
   },
 };
 
