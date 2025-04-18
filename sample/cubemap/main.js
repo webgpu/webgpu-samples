@@ -5870,9 +5870,9 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     device.lost.then((reason) => {
         fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
     });
-    device.onuncapturederror = (ev) => {
+    device.addEventListener('uncapturederror', (ev) => {
         fail(`Uncaptured error:\n${ev.error.message}`);
-    };
+    });
 }
 /** Fail by showing a console error, and dialog box if possible. */
 const fail = (() => {
