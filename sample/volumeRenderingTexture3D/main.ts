@@ -36,8 +36,8 @@ const params: {
   textureFormat: GPUTextureFormat;
 } = {
   rotateCamera: true,
-  near: 2.0,
-  far: 7.0,
+  near: 4.3,
+  far: 4.4,
   textureFormat: 'r8unorm',
 };
 
