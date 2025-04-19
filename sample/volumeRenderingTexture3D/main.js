@@ -8383,20 +8383,20 @@ const brainImages = {
         bytesPerBlock: 1,
         blockLength: 1,
         feature: undefined,
-        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin.gz',
+        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz',
     },
     'bc4-r-unorm': {
         bytesPerBlock: 8,
         blockLength: 4,
         feature: 'texture-compression-bc-sliced-3d',
-        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin.gz',
+        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin-gz',
         // Generated with texconv from https://github.com/microsoft/DirectXTex/releases
     },
     'astc-12x12-unorm': {
         bytesPerBlock: 16,
         blockLength: 12,
         feature: 'texture-compression-astc-sliced-3d',
-        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_astc_12x12.bin.gz',
+        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_astc_12x12.bin-gz',
         // Generated with astcenc from https://github.com/ARM-software/astc-encoder/releases
     },
 };
@@ -8499,8 +8499,15 @@ async function createVolumeTexture(format) {
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
     const response = await fetch(dataPath);
-    const buffer = await response.arrayBuffer();
-    device.queue.writeTexture({ texture: volumeTexture }, buffer, { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh }, [width, height, depth]);
+    const compressedBlob = await response.blob();
+    // Decompress the data using DecompressionStream for gzip format
+    const decompressionStream = new DecompressionStream('gzip');
+    const decompressedStream = compressedBlob
+        .stream()
+        .pipeThrough(decompressionStream);
+    const decompressedArrayBuffer = await new Response(decompressedStream).arrayBuffer();
+    const byteArray = new Uint8Array(decompressedArrayBuffer);
+    device.queue.writeTexture({ texture: volumeTexture }, byteArray, { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh }, [width, height, depth]);
 }
 await createVolumeTexture(params.textureFormat);
 // Create a sampler with linear filtering for smooth interpolation.
