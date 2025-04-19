@@ -8499,12 +8499,9 @@ async function createVolumeTexture(format) {
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
     const response = await fetch(dataPath);
-    const compressedBlob = await response.blob();
     // Decompress the data using DecompressionStream for gzip format
     const decompressionStream = new DecompressionStream('gzip');
-    const decompressedStream = compressedBlob
-        .stream()
-        .pipeThrough(decompressionStream);
+    const decompressedStream = response.body.pipeThrough(decompressionStream);
     const decompressedArrayBuffer = await new Response(decompressedStream).arrayBuffer();
     const byteArray = new Uint8Array(decompressedArrayBuffer);
     device.queue.writeTexture({ texture: volumeTexture }, byteArray, { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh }, [width, height, depth]);
