@@ -15,7 +15,7 @@
     "build": "node build/tools/build.js",
     "start": "node build/tools/serve.js",
     "serve": "node build/tools/serve.js",
-    "server": "servez out",
+    "server": "servez --no-unity-hack out",
     "watch": "rollup -c -w",
     "export": "npm run build"
   },
