@@ -1,3 +1,14 @@
+// Show an error dialog if there's any uncaught exception or promise rejection.
+// This gets set up on all pages that include util.ts.
+globalThis.addEventListener('unhandledrejection', (ev) => {
+  fail(`unhandled promise rejection, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.reason}`);
+});
+globalThis.addEventListener('error', (ev) => {
+  fail(`uncaught exception, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.error}`);
+});
+
 /** Shows an error dialog if getting an adapter wasn't successful. */
 export function quitIfAdapterNotAvailable(
   adapter: GPUAdapter | null
@@ -40,7 +51,6 @@ export function quitIfWebGPUNotAvailable(
   if (!device) {
     quitIfAdapterNotAvailable(adapter);
     fail('Unable to get a device for an unknown reason');
-    return;
   }
 
   device.lost.then((reason) => {
@@ -52,7 +62,7 @@ export function quitIfWebGPUNotAvailable(
 }
 
 /** Fail by showing a console error, and dialog box if possible. */
-const fail = (() => {
+const fail: (message: string) => never = (() => {
   type ErrorOutput = { show(msg: string): void };
 
   function createErrorOutput() {
