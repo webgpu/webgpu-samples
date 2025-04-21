@@ -51,6 +51,7 @@ export function quitIfWebGPUNotAvailable(
   if (!device) {
     quitIfAdapterNotAvailable(adapter);
     fail('Unable to get a device for an unknown reason');
+    return;
   }
 
   device.lost.then((reason) => {
@@ -62,7 +63,7 @@ export function quitIfWebGPUNotAvailable(
 }
 
 /** Fail by showing a console error, and dialog box if possible. */
-const fail: (message: string) => never = (() => {
+const fail = (() => {
   type ErrorOutput = { show(msg: string): void };
 
   function createErrorOutput() {
