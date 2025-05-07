@@ -130,10 +130,11 @@ const uniformBuffer = device.createBuffer({
 });
 
 let volumeTexture: GPUTexture | null = null;
+let isVolumeTextureReady = false;
 
 // Fetch the image and upload it into a GPUTexture.
 async function createVolumeTexture(format: GPUTextureFormat) {
-  volumeTexture = null;
+  isVolumeTextureReady = false;
 
   const { blockLength, bytesPerBlock, dataPath, feature } = brainImages[format];
   const width = 180;
@@ -172,6 +173,8 @@ async function createVolumeTexture(format: GPUTextureFormat) {
     { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh },
     [width, height, depth]
   );
+  await device.queue.onSubmittedWorkDone();
+  isVolumeTextureReady = true;
 }
 
 await createVolumeTexture(params.textureFormat);
@@ -260,7 +263,7 @@ function frame() {
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  if (volumeTexture) {
+  if (isVolumeTextureReady) {
     bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
     const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
     passEncoder.setPipeline(pipeline);
