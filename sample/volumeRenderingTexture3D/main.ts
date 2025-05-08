@@ -150,13 +150,6 @@ async function createVolumeTexture(format: GPUTextureFormat) {
     status.textContent = '';
   }
 
-  volumeTexture = device.createTexture({
-    dimension: '3d',
-    size: [width, height, depth],
-    format: format,
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-  });
-
   const response = await fetch(dataPath);
 
   // Decompress the data using DecompressionStream for gzip format
@@ -165,10 +158,17 @@ async function createVolumeTexture(format: GPUTextureFormat) {
   const decompressedArrayBuffer = await new Response(
     decompressedStream
   ).arrayBuffer();
-  const byteArray = new Uint8Array(decompressedArrayBuffer);
+
+  volumeTexture = device.createTexture({
+    dimension: '3d',
+    size: [width, height, depth],
+    format: format,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+  });
+
   device.queue.writeTexture(
     { texture: volumeTexture },
-    byteArray,
+    decompressedArrayBuffer,
     { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh },
     [width, height, depth]
   );
