@@ -130,11 +130,10 @@ const uniformBuffer = device.createBuffer({
 });
 
 let volumeTexture: GPUTexture | null = null;
-let isVolumeTextureReady = false;
 
 // Fetch the image and upload it into a GPUTexture.
 async function createVolumeTexture(format: GPUTextureFormat) {
-  isVolumeTextureReady = false;
+  volumeTexture = null;
 
   const { blockLength, bytesPerBlock, dataPath, feature } = brainImages[format];
   const width = 180;
@@ -151,13 +150,6 @@ async function createVolumeTexture(format: GPUTextureFormat) {
     status.textContent = '';
   }
 
-  volumeTexture = device.createTexture({
-    dimension: '3d',
-    size: [width, height, depth],
-    format: format,
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-  });
-
   const response = await fetch(dataPath);
 
   // Decompress the data using DecompressionStream for gzip format
@@ -166,15 +158,20 @@ async function createVolumeTexture(format: GPUTextureFormat) {
   const decompressedArrayBuffer = await new Response(
     decompressedStream
   ).arrayBuffer();
-  const byteArray = new Uint8Array(decompressedArrayBuffer);
+
+  volumeTexture = device.createTexture({
+    dimension: '3d',
+    size: [width, height, depth],
+    format: format,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+  });
+
   device.queue.writeTexture(
     { texture: volumeTexture },
-    byteArray,
+    decompressedArrayBuffer,
     { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh },
     [width, height, depth]
   );
-  await device.queue.onSubmittedWorkDone();
-  isVolumeTextureReady = true;
 }
 
 await createVolumeTexture(params.textureFormat);
@@ -263,7 +260,7 @@ function frame() {
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  if (isVolumeTextureReady) {
+  if (volumeTexture) {
     bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
     const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
     passEncoder.setPipeline(pipeline);
