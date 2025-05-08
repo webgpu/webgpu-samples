@@ -8492,19 +8492,18 @@ async function createVolumeTexture(format) {
     else {
         status.textContent = '';
     }
+    const response = await fetch(dataPath);
+    // Decompress the data using DecompressionStream for gzip format
+    const decompressionStream = new DecompressionStream('gzip');
+    const decompressedStream = response.body.pipeThrough(decompressionStream);
+    const decompressedArrayBuffer = await new Response(decompressedStream).arrayBuffer();
     volumeTexture = device.createTexture({
         dimension: '3d',
         size: [width, height, depth],
         format: format,
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
-    const response = await fetch(dataPath);
-    // Decompress the data using DecompressionStream for gzip format
-    const decompressionStream = new DecompressionStream('gzip');
-    const decompressedStream = response.body.pipeThrough(decompressionStream);
-    const decompressedArrayBuffer = await new Response(decompressedStream).arrayBuffer();
-    const byteArray = new Uint8Array(decompressedArrayBuffer);
-    device.queue.writeTexture({ texture: volumeTexture }, byteArray, { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh }, [width, height, depth]);
+    device.queue.writeTexture({ texture: volumeTexture }, decompressedArrayBuffer, { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh }, [width, height, depth]);
 }
 await createVolumeTexture(params.textureFormat);
 // Create a sampler with linear filtering for smooth interpolation.
