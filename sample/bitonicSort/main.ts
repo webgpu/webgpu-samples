@@ -756,10 +756,7 @@ SampleInitFactoryWebGPU(
           );
           commandEncoder.copyBufferToBuffer(
             timestampQueryResolveBuffer,
-            0,
-            timestampQueryResultBuffer,
-            0,
-            2 * BigInt64Array.BYTES_PER_ELEMENT
+            timestampQueryResultBuffer
           );
         }
         settings['Step Index'] = settings['Step Index'] + 1;
@@ -803,18 +800,11 @@ SampleInitFactoryWebGPU(
         // Copy GPU accessible buffers to CPU accessible buffers
         commandEncoder.copyBufferToBuffer(
           elementsOutputBuffer,
-          0,
-          elementsStagingBuffer,
-          0,
-          elementsBufferSize
+          elementsStagingBuffer
         );
-
         commandEncoder.copyBufferToBuffer(
           atomicSwapsOutputBuffer,
-          0,
-          atomicSwapsStagingBuffer,
-          0,
-          Uint32Array.BYTES_PER_ELEMENT
+          atomicSwapsStagingBuffer
         );
       }
       device.queue.submit([commandEncoder.finish()]);

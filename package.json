@@ -42,7 +42,7 @@
     "@types/showdown": "^2.0.6",
     "@types/stats.js": "^0.17.3",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@webgpu/types": "^0.1.53",
+    "@webgpu/types": "^0.1.60",
     "chokidar": "^4.0.3",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^8.10.0",
