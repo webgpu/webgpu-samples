@@ -334,36 +334,17 @@ const cameraUniformBuffer = device.createBuffer({
 const sceneUniformBindGroup = device.createBindGroup({
   layout: writeGBuffersPipeline.getBindGroupLayout(0),
   entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: modelUniformBuffer,
-      },
-    },
-    {
-      binding: 1,
-      resource: {
-        buffer: cameraUniformBuffer,
-      },
-    },
+    { binding: 0, resource: modelUniformBuffer },
+    { binding: 1, resource: cameraUniformBuffer },
   ],
 });
 
 const gBufferTexturesBindGroup = device.createBindGroup({
   layout: gBufferTexturesBindGroupLayout,
   entries: [
-    {
-      binding: 0,
-      resource: gBufferTextureViews[0],
-    },
-    {
-      binding: 1,
-      resource: gBufferTextureViews[1],
-    },
-    {
-      binding: 2,
-      resource: gBufferTextureViews[2],
-    },
+    { binding: 0, resource: gBufferTextureViews[0] },
+    { binding: 1, resource: gBufferTextureViews[1] },
+    { binding: 2, resource: gBufferTextureViews[2] },
   ],
 });
 
@@ -431,21 +412,15 @@ const lightsBufferBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: {
-        buffer: lightsBuffer,
-      },
+      resource: lightsBuffer,
     },
     {
       binding: 1,
-      resource: {
-        buffer: configUniformBuffer,
-      },
+      resource: configUniformBuffer,
     },
     {
       binding: 2,
-      resource: {
-        buffer: cameraUniformBuffer,
-      },
+      resource: cameraUniformBuffer,
     },
   ],
 });
@@ -454,21 +429,15 @@ const lightsBufferComputeBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: {
-        buffer: lightsBuffer,
-      },
+      resource: lightsBuffer,
     },
     {
       binding: 1,
-      resource: {
-        buffer: configUniformBuffer,
-      },
+      resource: configUniformBuffer,
     },
     {
       binding: 2,
-      resource: {
-        buffer: lightExtentBuffer,
-      },
+      resource: lightExtentBuffer,
     },
   ],
 });

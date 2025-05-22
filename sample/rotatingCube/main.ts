@@ -108,14 +108,7 @@ const uniformBuffer = device.createBuffer({
 
 const uniformBindGroup = device.createBindGroup({
   layout: pipeline.getBindGroupLayout(0),
-  entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      },
-    },
-  ],
+  entries: [{ binding: 0, resource: uniformBuffer }],
 });
 
 const renderPassDescriptor: GPURenderPassDescriptor = {

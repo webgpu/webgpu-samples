@@ -158,11 +158,7 @@ const uniformBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-        offset: 0,
-        size: uniformBufferSize,
-      },
+      resource: uniformBuffer,
     },
     {
       binding: 1,

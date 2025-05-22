@@ -228,28 +228,9 @@ for (let i = 0; i < 2; ++i) {
   particleBindGroups[i] = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: simParamBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: {
-          buffer: particleBuffers[i],
-          offset: 0,
-          size: initialParticleData.byteLength,
-        },
-      },
-      {
-        binding: 2,
-        resource: {
-          buffer: particleBuffers[(i + 1) % 2],
-          offset: 0,
-          size: initialParticleData.byteLength,
-        },
-      },
+      { binding: 0, resource: simParamBuffer },
+      { binding: 1, resource: particleBuffers[i] },
+      { binding: 2, resource: particleBuffers[(i + 1) % 2] },
     ],
   });
 }
