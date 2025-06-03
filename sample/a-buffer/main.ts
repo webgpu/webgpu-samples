@@ -467,7 +467,6 @@ const configure = () => {
         resource: {
           buffer: sliceInfoBuffer,
           size: device.limits.minUniformBufferOffsetAlignment,
-          label: 'sliceInfoBuffer',
         },
       },
     ],
@@ -494,7 +493,6 @@ const configure = () => {
         resource: {
           buffer: sliceInfoBuffer,
           size: device.limits.minUniformBufferOffsetAlignment,
-          label: 'sliceInfoBuffer',
         },
       },
     ],
