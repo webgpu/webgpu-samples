@@ -105,8 +105,8 @@ var Common = {
     if (ARR_EACH && obj.forEach && obj.forEach === ARR_EACH) {
       obj.forEach(itr, scope);
     } else if (obj.length === obj.length + 0) {
-      var key = undefined;
-      var l = undefined;
+      var key = void 0;
+      var l = void 0;
       for (key = 0, l = obj.length; key < l; key++) {
         if (key in obj && itr.call(scope, obj[key], key) === this.BREAK) {
           return;
@@ -124,7 +124,7 @@ var Common = {
     setTimeout(fnc, 0);
   },
   debounce: function debounce(func, threshold, callImmediately) {
-    var timeout = undefined;
+    var timeout = void 0;
     return function () {
       var obj = this;
       var args = arguments;
@@ -386,8 +386,8 @@ var INTERPRETATIONS = [
     }
   }
 }];
-var result = undefined;
-var toReturn = undefined;
+var result = void 0;
+var toReturn = void 0;
 var interpret = function interpret() {
   toReturn = false;
   var original = arguments.length > 1 ? Common.toArray(arguments) : arguments[0];
@@ -408,7 +408,7 @@ var interpret = function interpret() {
   return toReturn;
 };
 
-var tmpComponent = undefined;
+var tmpComponent = void 0;
 var ColorMath = {
   hsv_to_rgb: function hsv_to_rgb(h, s, v) {
     var hi = Math.floor(h / 60) % 6;
@@ -427,8 +427,8 @@ var ColorMath = {
     var min = Math.min(r, g, b);
     var max = Math.max(r, g, b);
     var delta = max - min;
-    var h = undefined;
-    var s = undefined;
+    var h = void 0;
+    var s = void 0;
     if (max !== 0) {
       s = delta / max;
     } else {
@@ -1117,7 +1117,7 @@ var NumberControllerBox = function (_NumberController) {
     var _this2 = possibleConstructorReturn(this, (NumberControllerBox.__proto__ || Object.getPrototypeOf(NumberControllerBox)).call(this, object, property, params));
     _this2.__truncationSuspended = false;
     var _this = _this2;
-    var prevY = undefined;
+    var prevY = void 0;
     function onChange() {
       var attempted = parseFloat(_this.__input.value);
       if (!Common.isNaN(attempted)) {
@@ -1675,9 +1675,9 @@ var SUPPORTS_LOCAL_STORAGE = function () {
     return false;
   }
 }();
-var SAVE_DIALOGUE = undefined;
+var SAVE_DIALOGUE = void 0;
 var autoPlaceVirgin = true;
-var autoPlaceContainer = undefined;
+var autoPlaceContainer = void 0;
 var hide = false;
 var hideableGuis = [];
 var GUI = function GUI(pars) {
@@ -1716,8 +1716,8 @@ var GUI = function GUI(pars) {
     params.scrollable = true;
   }
   var useLocalStorage = SUPPORTS_LOCAL_STORAGE && localStorage.getItem(getLocalStorageHash(this, 'isLocal')) === 'true';
-  var saveToLocalStorage = undefined;
-  var titleRow = undefined;
+  var saveToLocalStorage = void 0;
+  var titleRow = void 0;
   Object.defineProperties(this,
   {
     parent: {
@@ -2274,7 +2274,7 @@ function recallSavedValue(gui, controller) {
     controllerMap[controller.property] = controller;
     if (root.load && root.load.remembered) {
       var presetMap = root.load.remembered;
-      var preset = undefined;
+      var preset = void 0;
       if (presetMap[gui.preset]) {
         preset = presetMap[gui.preset];
       } else if (presetMap[DEFAULT_DEFAULT_PRESET_NAME]) {
@@ -2294,7 +2294,7 @@ function _add(gui, object, property, params) {
   if (object[property] === undefined) {
     throw new Error('Object "' + object + '" has no property "' + property + '"');
   }
-  var controller = undefined;
+  var controller = void 0;
   if (params.color) {
     controller = new ColorController(object, property);
   } else {
@@ -2417,7 +2417,7 @@ function addSaveMenu(gui) {
   });
 }
 function addResizeHandle(gui) {
-  var pmouseX = undefined;
+  var pmouseX = void 0;
   gui.__resize_handle = document.createElement('div');
   Common.extend(gui.__resize_handle.style, {
     width: '6px',
@@ -2490,7 +2490,7 @@ function updateDisplays(controllerArray) {
 }
 var GUI$1 = GUI;
 
-/* wgpu-matrix@3.3.0, license MIT */
+/* wgpu-matrix@3.4.0, license MIT */
 function wrapConstructor(OriginalConstructor, modifier) {
     return class extends OriginalConstructor {
         constructor(...args) {
@@ -3065,7 +3065,7 @@ function getAPIImpl$5(Ctor) {
         return newDst;
     }
     /**
-     * transform Vec2 by 4x4 matrix
+     * Transform Vec2 by 4x4 matrix
      * @param v - the vector
      * @param m - The matrix.
      * @param dst - optional Vec2 to store result. If not passed a new one is created.
@@ -3080,7 +3080,7 @@ function getAPIImpl$5(Ctor) {
         return newDst;
     }
     /**
-     * Transforms vec4 by 3x3 matrix
+     * Transform Vec2 by 3x3 matrix
      *
      * @param v - the vector
      * @param m - The matrix.
@@ -4294,6 +4294,54 @@ function getAPIImpl$3(Ctor) {
         return newDst;
     }
     /**
+     * multiply a matrix by a scalar matrix.
+     * @param m - The matrix.
+     * @param s - the scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    function multiplyScalar(m, s, dst) {
+        const newDst = (dst ?? new Ctor(12));
+        newDst[0] = m[0] * s;
+        newDst[1] = m[1] * s;
+        newDst[2] = m[2] * s;
+        newDst[4] = m[4] * s;
+        newDst[5] = m[5] * s;
+        newDst[6] = m[6] * s;
+        newDst[8] = m[8] * s;
+        newDst[9] = m[9] * s;
+        newDst[10] = m[10] * s;
+        return newDst;
+    }
+    /**
+     * multiply a matrix by a scalar matrix.
+     * @param m - The matrix.
+     * @param s - the scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    const mulScalar = multiplyScalar;
+    /**
+     * add 2 matrices.
+     * @param a - matrix 1.
+     * @param b - matrix 2.
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns a + b.
+     */
+    function add(a, b, dst) {
+        const newDst = (dst ?? new Ctor(12));
+        newDst[0] = a[0] + b[0];
+        newDst[1] = a[1] + b[1];
+        newDst[2] = a[2] + b[2];
+        newDst[4] = a[4] + b[4];
+        newDst[5] = a[5] + b[5];
+        newDst[6] = a[6] + b[6];
+        newDst[8] = a[8] + b[8];
+        newDst[9] = a[9] + b[9];
+        newDst[10] = a[10] + b[10];
+        return newDst;
+    }
+    /**
      * Copies a matrix. (same as {@link mat3.clone})
      * Also see {@link mat3.create} and {@link mat3.set}
      * @param m - The matrix.
@@ -5025,46 +5073,49 @@ function getAPIImpl$3(Ctor) {
         return newDst;
     }
     return {
+        add,
         clone,
+        copy,
         create,
-        set,
+        determinant,
+        equals,
+        equalsApproximately,
         fromMat4,
         fromQuat,
-        negate,
-        copy,
-        equalsApproximately,
-        equals,
+        get3DScaling,
+        getAxis,
+        getScaling,
+        getTranslation,
         identity,
-        transpose,
         inverse,
         invert,
-        determinant,
         mul,
+        mulScalar,
         multiply,
-        setTranslation,
-        getTranslation,
-        getAxis,
-        setAxis,
-        getScaling,
-        get3DScaling,
-        translation,
-        translate,
-        rotation,
+        multiplyScalar,
+        negate,
         rotate,
-        rotationX,
         rotateX,
-        rotationY,
         rotateY,
-        rotationZ,
         rotateZ,
-        scaling,
+        rotation,
+        rotationX,
+        rotationY,
+        rotationZ,
         scale,
-        uniformScaling,
-        uniformScale,
-        scaling3D,
         scale3D,
-        uniformScaling3D,
+        scaling,
+        scaling3D,
+        set,
+        setAxis,
+        setTranslation,
+        translate,
+        translation,
+        transpose,
+        uniformScale,
         uniformScale3D,
+        uniformScaling,
+        uniformScaling3D,
     };
 }
 const cache$3 = new Map();
@@ -5324,6 +5375,68 @@ function getAPIImpl$2(Ctor) {
         newDst[15] = -m[15];
         return newDst;
     }
+    /**
+     * add 2 matrices.
+     * @param a - matrix 1.
+     * @param b - matrix 2.
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns a + b.
+     */
+    function add(a, b, dst) {
+        const newDst = (dst ?? new Ctor(16));
+        newDst[0] = a[0] + b[0];
+        newDst[1] = a[1] + b[1];
+        newDst[2] = a[2] + b[2];
+        newDst[3] = a[3] + b[3];
+        newDst[4] = a[4] + b[4];
+        newDst[5] = a[5] + b[5];
+        newDst[6] = a[6] + b[6];
+        newDst[7] = a[7] + b[7];
+        newDst[8] = a[8] + b[8];
+        newDst[9] = a[9] + b[9];
+        newDst[10] = a[10] + b[10];
+        newDst[11] = a[11] + b[11];
+        newDst[12] = a[12] + b[12];
+        newDst[13] = a[13] + b[13];
+        newDst[14] = a[14] + b[14];
+        newDst[15] = a[15] + b[15];
+        return newDst;
+    }
+    /**
+     * Multiplies a matrix by a scalar
+     * @param m - The matrix.
+     * @param s - The scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    function multiplyScalar(m, s, dst) {
+        const newDst = (dst ?? new Ctor(16));
+        newDst[0] = m[0] * s;
+        newDst[1] = m[1] * s;
+        newDst[2] = m[2] * s;
+        newDst[3] = m[3] * s;
+        newDst[4] = m[4] * s;
+        newDst[5] = m[5] * s;
+        newDst[6] = m[6] * s;
+        newDst[7] = m[7] * s;
+        newDst[8] = m[8] * s;
+        newDst[9] = m[9] * s;
+        newDst[10] = m[10] * s;
+        newDst[11] = m[11] * s;
+        newDst[12] = m[12] * s;
+        newDst[13] = m[13] * s;
+        newDst[14] = m[14] * s;
+        newDst[15] = m[15] * s;
+        return newDst;
+    }
+    /**
+     * Multiplies a matrix by a scalar
+     * @param m - The matrix.
+     * @param s - The scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    const mulScalar = multiplyScalar;
     /**
      * Copies a matrix. (same as {@link mat4.clone})
      * Also see {@link mat4.create} and {@link mat4.set}
@@ -6664,51 +6777,54 @@ function getAPIImpl$2(Ctor) {
         return newDst;
     }
     return {
+        add,
+        aim,
+        axisRotate,
+        axisRotation,
+        cameraAim,
+        clone,
+        copy,
         create,
-        set,
+        determinant,
+        equals,
+        equalsApproximately,
         fromMat3,
         fromQuat,
-        negate,
-        copy,
-        clone,
-        equalsApproximately,
-        equals,
-        identity,
-        transpose,
-        inverse,
-        determinant,
-        invert,
-        multiply,
-        mul,
-        setTranslation,
-        getTranslation,
-        getAxis,
-        setAxis,
-        getScaling,
-        perspective,
-        perspectiveReverseZ,
-        ortho,
         frustum,
         frustumReverseZ,
-        aim,
-        cameraAim,
+        getAxis,
+        getScaling,
+        getTranslation,
+        identity,
+        inverse,
+        invert,
         lookAt,
-        translation,
-        translate,
-        rotationX,
-        rotateX,
-        rotationY,
-        rotateY,
-        rotationZ,
-        rotateZ,
-        axisRotation,
-        rotation,
-        axisRotate,
+        mul,
+        mulScalar,
+        multiply,
+        multiplyScalar,
+        negate,
+        ortho,
+        perspective,
+        perspectiveReverseZ,
         rotate,
-        scaling,
+        rotateX,
+        rotateY,
+        rotateZ,
+        rotation,
+        rotationX,
+        rotationY,
+        rotationZ,
         scale,
-        uniformScaling,
+        scaling,
+        set,
+        setAxis,
+        setTranslation,
+        translate,
+        translation,
+        transpose,
         uniformScale,
+        uniformScaling,
     };
 }
 const cache$2 = new Map();
@@ -8209,11 +8325,6 @@ function wgpuMatrixAPI(Mat3Ctor, Mat4Ctor, QuatCtor, Vec2Ctor, Vec3Ctor, Vec4Cto
 }
 const { 
 /**
- * 3x3 Matrix functions that default to returning `Float32Array`
- * @namespace
- */
-mat3, 
-/**
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
@@ -8224,20 +8335,10 @@ mat4,
  */
 quat, 
 /**
- * Vec2 functions that default to returning `Float32Array`
- * @namespace
- */
-vec2, 
-/**
  * Vec3 functions that default to returning `Float32Array`
  * @namespace
  */
-vec3, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec4, } = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 

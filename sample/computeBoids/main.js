@@ -300,8 +300,8 @@ var Common = {
     if (ARR_EACH && obj.forEach && obj.forEach === ARR_EACH) {
       obj.forEach(itr, scope);
     } else if (obj.length === obj.length + 0) {
-      var key = undefined;
-      var l = undefined;
+      var key = void 0;
+      var l = void 0;
       for (key = 0, l = obj.length; key < l; key++) {
         if (key in obj && itr.call(scope, obj[key], key) === this.BREAK) {
           return;
@@ -319,7 +319,7 @@ var Common = {
     setTimeout(fnc, 0);
   },
   debounce: function debounce(func, threshold, callImmediately) {
-    var timeout = undefined;
+    var timeout = void 0;
     return function () {
       var obj = this;
       var args = arguments;
@@ -581,8 +581,8 @@ var INTERPRETATIONS = [
     }
   }
 }];
-var result = undefined;
-var toReturn = undefined;
+var result = void 0;
+var toReturn = void 0;
 var interpret = function interpret() {
   toReturn = false;
   var original = arguments.length > 1 ? Common.toArray(arguments) : arguments[0];
@@ -603,7 +603,7 @@ var interpret = function interpret() {
   return toReturn;
 };
 
-var tmpComponent = undefined;
+var tmpComponent = void 0;
 var ColorMath = {
   hsv_to_rgb: function hsv_to_rgb(h, s, v) {
     var hi = Math.floor(h / 60) % 6;
@@ -622,8 +622,8 @@ var ColorMath = {
     var min = Math.min(r, g, b);
     var max = Math.max(r, g, b);
     var delta = max - min;
-    var h = undefined;
-    var s = undefined;
+    var h = void 0;
+    var s = void 0;
     if (max !== 0) {
       s = delta / max;
     } else {
@@ -1312,7 +1312,7 @@ var NumberControllerBox = function (_NumberController) {
     var _this2 = possibleConstructorReturn(this, (NumberControllerBox.__proto__ || Object.getPrototypeOf(NumberControllerBox)).call(this, object, property, params));
     _this2.__truncationSuspended = false;
     var _this = _this2;
-    var prevY = undefined;
+    var prevY = void 0;
     function onChange() {
       var attempted = parseFloat(_this.__input.value);
       if (!Common.isNaN(attempted)) {
@@ -1870,9 +1870,9 @@ var SUPPORTS_LOCAL_STORAGE = function () {
     return false;
   }
 }();
-var SAVE_DIALOGUE = undefined;
+var SAVE_DIALOGUE = void 0;
 var autoPlaceVirgin = true;
-var autoPlaceContainer = undefined;
+var autoPlaceContainer = void 0;
 var hide = false;
 var hideableGuis = [];
 var GUI = function GUI(pars) {
@@ -1911,8 +1911,8 @@ var GUI = function GUI(pars) {
     params.scrollable = true;
   }
   var useLocalStorage = SUPPORTS_LOCAL_STORAGE && localStorage.getItem(getLocalStorageHash(this, 'isLocal')) === 'true';
-  var saveToLocalStorage = undefined;
-  var titleRow = undefined;
+  var saveToLocalStorage = void 0;
+  var titleRow = void 0;
   Object.defineProperties(this,
   {
     parent: {
@@ -2469,7 +2469,7 @@ function recallSavedValue(gui, controller) {
     controllerMap[controller.property] = controller;
     if (root.load && root.load.remembered) {
       var presetMap = root.load.remembered;
-      var preset = undefined;
+      var preset = void 0;
       if (presetMap[gui.preset]) {
         preset = presetMap[gui.preset];
       } else if (presetMap[DEFAULT_DEFAULT_PRESET_NAME]) {
@@ -2489,7 +2489,7 @@ function _add(gui, object, property, params) {
   if (object[property] === undefined) {
     throw new Error('Object "' + object + '" has no property "' + property + '"');
   }
-  var controller = undefined;
+  var controller = void 0;
   if (params.color) {
     controller = new ColorController(object, property);
   } else {
@@ -2612,7 +2612,7 @@ function addSaveMenu(gui) {
   });
 }
 function addResizeHandle(gui) {
-  var pmouseX = undefined;
+  var pmouseX = void 0;
   gui.__resize_handle = document.createElement('div');
   Common.extend(gui.__resize_handle.style, {
     width: '6px',
