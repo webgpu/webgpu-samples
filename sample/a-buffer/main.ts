@@ -450,21 +450,18 @@ const configure = () => {
         binding: 0,
         resource: {
           buffer: uniformBuffer,
-          label: 'uniforms',
         },
       },
       {
         binding: 1,
         resource: {
           buffer: headsBuffer,
-          label: 'headsBuffer',
         },
       },
       {
         binding: 2,
         resource: {
           buffer: linkedListBuffer,
-          label: 'linkedListBuffer',
         },
       },
       {
@@ -476,7 +473,6 @@ const configure = () => {
         resource: {
           buffer: sliceInfoBuffer,
           size: device.limits.minUniformBufferOffsetAlignment,
-          label: 'sliceInfoBuffer',
         },
       },
     ],
@@ -490,21 +486,18 @@ const configure = () => {
         binding: 0,
         resource: {
           buffer: uniformBuffer,
-          label: 'uniforms',
         },
       },
       {
         binding: 1,
         resource: {
           buffer: headsBuffer,
-          label: 'headsBuffer',
         },
       },
       {
         binding: 2,
         resource: {
           buffer: linkedListBuffer,
-          label: 'linkedListBuffer',
         },
       },
       {
@@ -512,7 +505,6 @@ const configure = () => {
         resource: {
           buffer: sliceInfoBuffer,
           size: device.limits.minUniformBufferOffsetAlignment,
-          label: 'sliceInfoBuffer',
         },
       },
     ],

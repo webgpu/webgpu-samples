@@ -4,24 +4,76 @@ import volumeWGSL from './volume.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+const status = document.getElementById('status') as HTMLDivElement;
 
 const gui = new GUI();
 
+const brainImages = {
+  r8unorm: {
+    bytesPerBlock: 1,
+    blockLength: 1,
+    feature: undefined,
+    dataPath:
+      '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz',
+  },
+  'bc4-r-unorm': {
+    bytesPerBlock: 8,
+    blockLength: 4,
+    feature: 'texture-compression-bc-sliced-3d',
+    dataPath:
+      '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin-gz',
+    // Generated with texconv from https://github.com/microsoft/DirectXTex/releases
+  },
+  'astc-12x12-unorm': {
+    bytesPerBlock: 16,
+    blockLength: 12,
+    feature: 'texture-compression-astc-sliced-3d',
+    dataPath:
+      '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_astc_12x12.bin-gz',
+    // Generated with astcenc from https://github.com/ARM-software/astc-encoder/releases
+  },
+};
+
 // GUI parameters
-const params: { rotateCamera: boolean; near: number; far: number } = {
+const params: {
+  rotateCamera: boolean;
+  near: number;
+  far: number;
+  textureFormat: GPUTextureFormat;
+} = {
   rotateCamera: true,
-  near: 2.0,
-  far: 7.0,
+  near: 4.3,
+  far: 4.4,
+  textureFormat: 'r8unorm',
 };
 
 gui.add(params, 'rotateCamera', true);
 gui.add(params, 'near', 2.0, 7.0);
 gui.add(params, 'far', 2.0, 7.0);
+gui
+  .add(params, 'textureFormat', Object.keys(brainImages))
+  .onChange(async () => {
+    await createVolumeTexture(params.textureFormat);
+  });
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-const device = await adapter?.requestDevice();
+const requiredFeatures = [];
+if (adapter?.features.has('texture-compression-bc-sliced-3d')) {
+  requiredFeatures.push(
+    'texture-compression-bc',
+    'texture-compression-bc-sliced-3d'
+  );
+}
+if (adapter?.features.has('texture-compression-astc-sliced-3d')) {
+  requiredFeatures.push(
+    'texture-compression-astc',
+    'texture-compression-astc-sliced-3d'
+  );
+}
+const device = await adapter?.requestDevice({ requiredFeatures });
+
 quitIfWebGPUNotAvailable(adapter, device);
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 
@@ -77,34 +129,35 @@ const uniformBuffer = device.createBuffer({
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 
+let volumeTexture: GPUTexture | null = null;
+
 // Fetch the image and upload it into a GPUTexture.
-let volumeTexture: GPUTexture;
-{
+async function createVolumeTexture(format: GPUTextureFormat) {
+  volumeTexture = null;
+
+  const { blockLength, bytesPerBlock, dataPath, feature } = brainImages[format];
   const width = 180;
   const height = 216;
   const depth = 180;
-  const format: GPUTextureFormat = 'r8unorm';
-  const blockLength = 1;
-  const bytesPerBlock = 1;
   const blocksWide = Math.ceil(width / blockLength);
   const blocksHigh = Math.ceil(height / blockLength);
   const bytesPerRow = blocksWide * bytesPerBlock;
-  const dataPath =
-    '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz';
 
-  // Fetch the compressed data
+  if (feature && !device.features.has(feature)) {
+    status.textContent = `${feature} not supported`;
+    return;
+  } else {
+    status.textContent = '';
+  }
+
   const response = await fetch(dataPath);
-  const compressedArrayBuffer = await response.arrayBuffer();
 
   // Decompress the data using DecompressionStream for gzip format
   const decompressionStream = new DecompressionStream('gzip');
-  const decompressedStream = new Response(
-    compressedArrayBuffer
-  ).body.pipeThrough(decompressionStream);
+  const decompressedStream = response.body.pipeThrough(decompressionStream);
   const decompressedArrayBuffer = await new Response(
     decompressedStream
   ).arrayBuffer();
-  const byteArray = new Uint8Array(decompressedArrayBuffer);
 
   volumeTexture = device.createTexture({
     dimension: '3d',
@@ -114,14 +167,14 @@ let volumeTexture: GPUTexture;
   });
 
   device.queue.writeTexture(
-    {
-      texture: volumeTexture,
-    },
-    byteArray,
+    { texture: volumeTexture },
+    decompressedArrayBuffer,
     { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh },
     [width, height, depth]
   );
 }
+
+await createVolumeTexture(params.textureFormat);
 
 // Create a sampler with linear filtering for smooth interpolation.
 const sampler = device.createSampler({
@@ -131,7 +184,7 @@ const sampler = device.createSampler({
   maxAnisotropy: 16,
 });
 
-const uniformBindGroup = device.createBindGroup({
+const bindGroupDescriptor: GPUBindGroupDescriptor = {
   layout: pipeline.getBindGroupLayout(0),
   entries: [
     {
@@ -146,17 +199,17 @@ const uniformBindGroup = device.createBindGroup({
     },
     {
       binding: 2,
-      resource: volumeTexture.createView(),
+      resource: undefined, // Assigned later
     },
   ],
-});
+};
 
 const renderPassDescriptor: GPURenderPassDescriptor = {
   colorAttachments: [
     {
       view: undefined, // Assigned later
 
-      clearValue: [0.5, 0.5, 0.5, 1.0],
+      clearValue: [0, 0, 0, 1.0],
       loadOp: 'clear',
       storeOp: 'discard',
     },
@@ -207,9 +260,13 @@ function frame() {
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  passEncoder.setPipeline(pipeline);
-  passEncoder.setBindGroup(0, uniformBindGroup);
-  passEncoder.draw(3);
+  if (volumeTexture) {
+    bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
+    const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, uniformBindGroup);
+    passEncoder.draw(3);
+  }
   passEncoder.end();
   device.queue.submit([commandEncoder.finish()]);
 
