@@ -2542,7 +2542,7 @@ fn main(
       tile[r][4 * LocalInvocationID.x + u32(c)] = textureSampleLevel(
         inputTex,
         samp,
-        (vec2f(loadIndex) + vec2f(0.25, 0.25)) / vec2f(dims),
+        (vec2f(loadIndex) + vec2f(0.5, 0.5)) / vec2f(dims),
         0.0
       ).rgb;
     }
@@ -2881,8 +2881,8 @@ const settings = {
 };
 let blockDim;
 const updateSettings = () => {
-    blockDim = tileDim - (settings.filterSize - 1);
-    device.queue.writeBuffer(blurParamsBuffer, 0, new Uint32Array([settings.filterSize, blockDim]));
+    blockDim = tileDim - settings.filterSize;
+    device.queue.writeBuffer(blurParamsBuffer, 0, new Uint32Array([settings.filterSize + 1, blockDim]));
 };
 const gui = new GUI$1();
 gui.add(settings, 'filterSize', 1, 33).step(2).onChange(updateSettings);
