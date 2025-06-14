@@ -585,7 +585,7 @@ var timestampQuery = {
 };
 
 var transparentCanvas = {
-    name: 'Transparent Cavnas',
+    name: 'Transparent Canvas',
     description: 'This example shows use of a transparent WebGPU canvas.',
     filename: "sample/transparentCanvas",
     sources: [

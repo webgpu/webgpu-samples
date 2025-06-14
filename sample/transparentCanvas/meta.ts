@@ -1,5 +1,5 @@
 export default {
-  name: 'Transparent Cavnas',
+  name: 'Transparent Canvas',
   description: 'This example shows use of a transparent WebGPU canvas.',
   filename: __DIRNAME__,
   sources: [
