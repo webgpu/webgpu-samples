@@ -6081,7 +6081,7 @@ class TimestampQueryManager {
         commandEncoder.resolveQuerySet(this.#timestampQuerySet, 0 /* firstQuery */, this.#timestampQuerySet.count /* queryCount */, this.#timestampBuffer, 0 /* destinationOffset */);
         if (this.#timestampMapBuffer.mapState === 'unmapped') {
             // Copy values to the mappable buffer
-            commandEncoder.copyBufferToBuffer(this.#timestampBuffer, 0, this.#timestampMapBuffer, 0, this.#timestampBuffer.size);
+            commandEncoder.copyBufferToBuffer(this.#timestampBuffer, this.#timestampMapBuffer);
         }
     }
     // Read the values of timestamps.

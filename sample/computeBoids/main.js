@@ -2943,7 +2943,7 @@ function frame() {
                     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
                 });
         commandEncoder.resolveQuerySet(querySet, 0, 4, resolveBuffer, 0);
-        commandEncoder.copyBufferToBuffer(resolveBuffer, 0, resultBuffer, 0, resultBuffer.size);
+        commandEncoder.copyBufferToBuffer(resolveBuffer, resultBuffer);
     }
     device.queue.submit([commandEncoder.finish()]);
     if (hasTimestampQuery) {

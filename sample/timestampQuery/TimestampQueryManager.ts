@@ -77,10 +77,7 @@ export default class TimestampQueryManager {
       // Copy values to the mappable buffer
       commandEncoder.copyBufferToBuffer(
         this.#timestampBuffer,
-        0,
-        this.#timestampMapBuffer,
-        0,
-        this.#timestampBuffer.size
+        this.#timestampMapBuffer
       );
     }
   }

@@ -8664,7 +8664,7 @@ function render(now) {
     pass.end();
     encoder.resolveQuerySet(querySet, 0, objectInfos.length, resolveBuf, 0);
     if (resultBuf.mapState === 'unmapped') {
-        encoder.copyBufferToBuffer(resolveBuf, 0, resultBuf, 0, resultBuf.size);
+        encoder.copyBufferToBuffer(resolveBuf, resultBuf);
     }
     device.queue.submit([encoder.finish()]);
     if (resultBuf.mapState === 'unmapped') {

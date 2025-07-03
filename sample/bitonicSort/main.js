@@ -3679,7 +3679,7 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
             // Resolve time passed in between beginning and end of computePass
             if (timestampQueryAvailable) {
                 commandEncoder.resolveQuerySet(querySet, 0, 2, timestampQueryResolveBuffer, 0);
-                commandEncoder.copyBufferToBuffer(timestampQueryResolveBuffer, 0, timestampQueryResultBuffer, 0, 2 * BigInt64Array.BYTES_PER_ELEMENT);
+                commandEncoder.copyBufferToBuffer(timestampQueryResolveBuffer, timestampQueryResultBuffer);
             }
             settings['Step Index'] = settings['Step Index'] + 1;
             currentStepController.setValue(`${settings['Step Index']} of ${settings['Total Steps']}`);
@@ -3720,8 +3720,8 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
                     : nextStepController.setValue('DISPERSE_LOCAL');
             }
             // Copy GPU accessible buffers to CPU accessible buffers
-            commandEncoder.copyBufferToBuffer(elementsOutputBuffer, 0, elementsStagingBuffer, 0, elementsBufferSize);
-            commandEncoder.copyBufferToBuffer(atomicSwapsOutputBuffer, 0, atomicSwapsStagingBuffer, 0, Uint32Array.BYTES_PER_ELEMENT);
+            commandEncoder.copyBufferToBuffer(elementsOutputBuffer, elementsStagingBuffer);
+            commandEncoder.copyBufferToBuffer(atomicSwapsOutputBuffer, atomicSwapsStagingBuffer);
         }
         device.queue.submit([commandEncoder.finish()]);
         if (settings.executeStep &&
