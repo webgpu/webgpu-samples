@@ -788,7 +788,7 @@ async function render(fromRaf, fromPostMessage) {
         new Float32Array(buffer.getMappedRange()).set(mapAsyncArray);
         buffer.unmap();
         const commandEncoder = device.createCommandEncoder();
-        commandEncoder.copyBufferToBuffer(buffer, 0, mapAsyncTargetBuffer, 0, mapAsyncArray.byteLength);
+        commandEncoder.copyBufferToBuffer(buffer, mapAsyncTargetBuffer);
         // TODO: combine this submit with the main one, but we'll have to delay calling mapAsync until after the submit.
         device.queue.submit([commandEncoder.finish()]);
         // TODO: use this data during rendering.

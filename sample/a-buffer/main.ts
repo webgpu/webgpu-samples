@@ -567,13 +567,7 @@ const configure = () => {
 
     for (let slice = 0; slice < numSlices; ++slice) {
       // initialize the heads buffer
-      commandEncoder.copyBufferToBuffer(
-        headsInitBuffer,
-        0,
-        headsBuffer,
-        0,
-        headsInitBuffer.size
-      );
+      commandEncoder.copyBufferToBuffer(headsInitBuffer, headsBuffer);
 
       const scissorX = 0;
       const scissorY = slice * sliceHeight;
