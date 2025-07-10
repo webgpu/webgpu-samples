@@ -377,7 +377,7 @@ function render(ts: number) {
   // Get the current texture from the canvas context and
   // set it as the texture to render to.
   const canvasTexture = context.getCurrentTexture();
-  renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
+  renderPassDescriptor.colorAttachments[0].view = canvasTexture;
 
   // If we don't have a depth texture OR if its size is different
   // from the canvasTexture when make a new depth texture
@@ -395,7 +395,7 @@ function render(ts: number) {
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
   }
-  renderPassDescriptor.depthStencilAttachment.view = depthTexture.createView();
+  renderPassDescriptor.depthStencilAttachment.view = depthTexture;
 
   const fov = (60 * Math.PI) / 180;
   const aspect = canvas.clientWidth / canvas.clientHeight;

@@ -51,12 +51,12 @@ export default class Tonemapper {
         {
           // input
           binding: 0,
-          resource: input.createView(),
+          resource: input,
         },
         {
           // output
           binding: 1,
-          resource: output.createView(),
+          resource: output,
         },
       ],
     });

@@ -54,7 +54,6 @@ const texture = device.createTexture({
   format: presentationFormat,
   usage: GPUTextureUsage.RENDER_ATTACHMENT,
 });
-const view = texture.createView();
 
 function frame() {
   const commandEncoder = device.createCommandEncoder();
@@ -62,8 +61,8 @@ function frame() {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view,
-        resolveTarget: context.getCurrentTexture().createView(),
+        view: texture,
+        resolveTarget: context.getCurrentTexture(),
         clearValue: [0, 0, 0, 0], // Clear to transparent
         loadOp: 'clear',
         storeOp: 'discard',

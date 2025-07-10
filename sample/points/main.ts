@@ -194,7 +194,7 @@ const bindGroup = device.createBindGroup({
   entries: [
     { binding: 0, resource: { buffer: uniformBuffer } },
     { binding: 1, resource: sampler },
-    { binding: 2, resource: texture.createView() },
+    { binding: 2, resource: texture },
   ],
 });
 
@@ -236,7 +236,7 @@ function render(time: number) {
   // Get the current texture from the canvas context and
   // set it as the texture to render to.
   const canvasTexture = context.getCurrentTexture();
-  renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
+  renderPassDescriptor.colorAttachments[0].view = canvasTexture;
 
   // If we don't have a depth texture OR if its size is different
   // from the canvasTexture when make a new depth texture
@@ -254,7 +254,7 @@ function render(time: number) {
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
   }
-  renderPassDescriptor.depthStencilAttachment.view = depthTexture.createView();
+  renderPassDescriptor.depthStencilAttachment.view = depthTexture;
 
   const { size, fixedSize, textured } = settings;
 

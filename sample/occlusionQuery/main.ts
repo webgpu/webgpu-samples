@@ -274,8 +274,8 @@ function render(now: number) {
   }
 
   const colorTexture = context.getCurrentTexture();
-  renderPassDescriptor.colorAttachments[0].view = colorTexture.createView();
-  renderPassDescriptor.depthStencilAttachment.view = depthTexture.createView();
+  renderPassDescriptor.colorAttachments[0].view = colorTexture;
+  renderPassDescriptor.depthStencilAttachment.view = depthTexture;
 
   const encoder = device.createCommandEncoder();
   const pass = encoder.beginRenderPass(renderPassDescriptor);

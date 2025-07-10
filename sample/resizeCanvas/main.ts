@@ -50,7 +50,6 @@ const pipeline = device.createRenderPipeline({
 });
 
 let renderTarget: GPUTexture | undefined = undefined;
-let renderTargetView: GPUTextureView;
 
 function frame() {
   const currentWidth = canvas.clientWidth * devicePixelRatio;
@@ -62,7 +61,7 @@ function frame() {
   if (
     (currentWidth !== canvas.width ||
       currentHeight !== canvas.height ||
-      !renderTargetView) &&
+      !renderTarget) &&
     currentWidth &&
     currentHeight
   ) {
@@ -83,18 +82,16 @@ function frame() {
       format: presentationFormat,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
-
-    renderTargetView = renderTarget.createView();
   }
 
-  if (renderTargetView) {
+  if (renderTarget) {
     const commandEncoder = device.createCommandEncoder();
 
     const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          view: renderTargetView,
-          resolveTarget: context.getCurrentTexture().createView(),
+          view: renderTarget,
+          resolveTarget: context.getCurrentTexture(),
           clearValue: [0.2, 0.2, 0.2, 1.0],
           loadOp: 'clear',
           storeOp: 'store',

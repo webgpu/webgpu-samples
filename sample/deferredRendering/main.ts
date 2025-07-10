@@ -87,10 +87,10 @@ const depthTexture = device.createTexture({
   usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
 });
 
-const gBufferTextureViews = [
-  gBufferTexture2DFloat16.createView(),
-  gBufferTextureAlbedo.createView(),
-  depthTexture.createView(),
+const gBufferTextures = [
+  gBufferTexture2DFloat16,
+  gBufferTextureAlbedo,
+  depthTexture,
 ];
 
 const vertexBuffers: Iterable<GPUVertexBufferLayout> = [
@@ -257,14 +257,14 @@ const deferredRenderPipeline = device.createRenderPipeline({
 const writeGBufferPassDescriptor: GPURenderPassDescriptor = {
   colorAttachments: [
     {
-      view: gBufferTextureViews[0],
+      view: gBufferTextures[0],
 
       clearValue: [0.0, 0.0, 1.0, 1.0],
       loadOp: 'clear',
       storeOp: 'store',
     },
     {
-      view: gBufferTextureViews[1],
+      view: gBufferTextures[1],
 
       clearValue: [0, 0, 0, 1],
       loadOp: 'clear',
@@ -272,7 +272,7 @@ const writeGBufferPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: depthTexture.createView(),
+    view: depthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -354,15 +354,15 @@ const gBufferTexturesBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: gBufferTextureViews[0],
+      resource: gBufferTextures[0],
     },
     {
       binding: 1,
-      resource: gBufferTextureViews[1],
+      resource: gBufferTextures[1],
     },
     {
       binding: 2,
-      resource: gBufferTextureViews[2],
+      resource: gBufferTextures[2],
     },
   ],
 });
@@ -551,9 +551,8 @@ function frame() {
       // Left: depth
       // Middle: normal
       // Right: albedo (use uv to mimic a checkerboard texture)
-      textureQuadPassDescriptor.colorAttachments[0].view = context
-        .getCurrentTexture()
-        .createView();
+      textureQuadPassDescriptor.colorAttachments[0].view =
+        context.getCurrentTexture();
       const debugViewPass = commandEncoder.beginRenderPass(
         textureQuadPassDescriptor
       );
@@ -563,9 +562,8 @@ function frame() {
       debugViewPass.end();
     } else {
       // Deferred rendering
-      textureQuadPassDescriptor.colorAttachments[0].view = context
-        .getCurrentTexture()
-        .createView();
+      textureQuadPassDescriptor.colorAttachments[0].view =
+        context.getCurrentTexture();
       const deferredRenderingPass = commandEncoder.beginRenderPass(
         textureQuadPassDescriptor
       );

@@ -119,7 +119,7 @@ export default class Radiosity {
         {
           // lightmap
           binding: 1,
-          resource: this.lightmap.createView(),
+          resource: this.lightmap,
         },
         {
           // radiosity_uniforms

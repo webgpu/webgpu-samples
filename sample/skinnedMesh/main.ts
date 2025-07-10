@@ -363,7 +363,7 @@ const gltfRenderPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: depthTexture.createView(),
+    view: depthTexture,
     depthLoadOp: 'clear',
     depthClearValue: 1.0,
     depthStoreOp: 'store',
@@ -507,13 +507,11 @@ function frame() {
   }
 
   // Difference between these two render passes is just the presence of depthTexture
-  gltfRenderPassDescriptor.colorAttachments[0].view = context
-    .getCurrentTexture()
-    .createView();
+  gltfRenderPassDescriptor.colorAttachments[0].view =
+    context.getCurrentTexture();
 
-  skinnedGridRenderPassDescriptor.colorAttachments[0].view = context
-    .getCurrentTexture()
-    .createView();
+  skinnedGridRenderPassDescriptor.colorAttachments[0].view =
+    context.getCurrentTexture();
 
   // Update node matrixes
   for (const scene of whaleScene.scenes) {

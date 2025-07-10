@@ -144,11 +144,11 @@ const computeBindGroup0 = device.createBindGroup({
   entries: [
     {
       binding: 1,
-      resource: imageTexture.createView(),
+      resource: imageTexture,
     },
     {
       binding: 2,
-      resource: textures[0].createView(),
+      resource: textures[0],
     },
     {
       binding: 3,
@@ -164,11 +164,11 @@ const computeBindGroup1 = device.createBindGroup({
   entries: [
     {
       binding: 1,
-      resource: textures[0].createView(),
+      resource: textures[0],
     },
     {
       binding: 2,
-      resource: textures[1].createView(),
+      resource: textures[1],
     },
     {
       binding: 3,
@@ -184,11 +184,11 @@ const computeBindGroup2 = device.createBindGroup({
   entries: [
     {
       binding: 1,
-      resource: textures[1].createView(),
+      resource: textures[1],
     },
     {
       binding: 2,
-      resource: textures[0].createView(),
+      resource: textures[0],
     },
     {
       binding: 3,
@@ -208,7 +208,7 @@ const showResultBindGroup = device.createBindGroup({
     },
     {
       binding: 1,
-      resource: textures[1].createView(),
+      resource: textures[1],
     },
   ],
 });
@@ -271,7 +271,7 @@ function frame() {
   const passEncoder = commandEncoder.beginRenderPass({
     colorAttachments: [
       {
-        view: context.getCurrentTexture().createView(),
+        view: context.getCurrentTexture(),
         clearValue: [0, 0, 0, 1],
         loadOp: 'clear',
         storeOp: 'store',

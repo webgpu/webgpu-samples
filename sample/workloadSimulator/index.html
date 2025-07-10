@@ -712,7 +712,7 @@ async function render(fromRaf, fromPostMessage) {
           entries: [
             { binding: 0, resource: { buffer: uniformBuffer } },
             { binding: 1, resource: sampler },
-            { binding: 2, resource: texture.createView() },
+            { binding: 2, resource: texture },
           ],
         });
       } catch(e) {
@@ -729,7 +729,7 @@ async function render(fromRaf, fromPostMessage) {
       return;
     }
     try {
-      const canvasView = canvasContext.getCurrentTexture().createView();
+      const canvasTexture = canvasContext.getCurrentTexture();
 
       device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([position[0] / size * 2 - 1, 1 - position[1] * 2 / size]));
       let buffer = null;
@@ -797,14 +797,14 @@ async function render(fromRaf, fromPostMessage) {
 
       // Record command buffer.
       const commandEncoder = device.createCommandEncoder();
-      let renderAttachment = canvasView;
+      let renderAttachment = canvasTexture;
       if (multisampling.checked) {
-        renderAttachment = multisampleRenderAttachment.createView();
+        renderAttachment = multisampleRenderAttachment;
       }
       const passEncoder = commandEncoder.beginRenderPass({
         colorAttachments: [ {
           view: renderAttachment,
-          resolveTarget: multisampling.checked ? canvasView : undefined,
+          resolveTarget: multisampling.checked ? canvasTexture : undefined,
           loadOp: 'clear',
           clearValue: [1, 1, 1, 1],
           storeOp: multisampling.checked ? 'discard' : 'store',

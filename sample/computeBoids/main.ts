@@ -259,9 +259,7 @@ let computePassDurationSum = 0;
 let renderPassDurationSum = 0;
 let timerSamples = 0;
 function frame() {
-  renderPassDescriptor.colorAttachments[0].view = context
-    .getCurrentTexture()
-    .createView();
+  renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture();
 
   const commandEncoder = device.createCommandEncoder();
   {

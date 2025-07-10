@@ -225,7 +225,7 @@ function render(time: number) {
   time *= 0.001;
 
   const canvasTexture = context.getCurrentTexture();
-  renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
+  renderPassDescriptor.colorAttachments[0].view = canvasTexture;
 
   const aspect = canvas.clientWidth / canvas.clientHeight;
   const projection = mat4.perspective((90 * Math.PI) / 180, aspect, 0.1, 20);

@@ -91,12 +91,11 @@ function frame() {
   });
 
   const commandEncoder = device.createCommandEncoder();
-  const textureView = context.getCurrentTexture().createView();
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: textureView,
+        view: context.getCurrentTexture(),
         clearValue: [0, 0, 0, 1],
         loadOp: 'clear',
         storeOp: 'store',

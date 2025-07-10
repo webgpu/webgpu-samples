@@ -63,7 +63,6 @@ const shadowDepthTexture = device.createTexture({
   usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
   format: 'depth32float',
 });
-const shadowDepthTextureView = shadowDepthTexture.createView();
 
 // Create some common descriptors used for both the shadow pipeline
 // and the color rendering pipeline.
@@ -203,7 +202,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: depthTexture.createView(),
+    view: depthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -251,7 +250,7 @@ const sceneBindGroupForRender = device.createBindGroup({
     },
     {
       binding: 1,
-      resource: shadowDepthTextureView,
+      resource: shadowDepthTexture,
     },
     {
       binding: 2,
@@ -330,7 +329,7 @@ function getCameraViewProjMatrix() {
 const shadowPassDescriptor: GPURenderPassDescriptor = {
   colorAttachments: [],
   depthStencilAttachment: {
-    view: shadowDepthTextureView,
+    view: shadowDepthTexture,
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
     depthStoreOp: 'store',
@@ -347,9 +346,7 @@ function frame() {
     cameraViewProj.byteLength
   );
 
-  renderPassDescriptor.colorAttachments[0].view = context
-    .getCurrentTexture()
-    .createView();
+  renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture();
 
   const commandEncoder = device.createCommandEncoder();
   {

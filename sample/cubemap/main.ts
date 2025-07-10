@@ -186,7 +186,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: depthTexture.createView(),
+    view: depthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -234,9 +234,7 @@ function frame() {
     modelViewProjectionMatrix.byteLength
   );
 
-  renderPassDescriptor.colorAttachments[0].view = context
-    .getCurrentTexture()
-    .createView();
+  renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture();
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);

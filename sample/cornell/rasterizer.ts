@@ -35,14 +35,14 @@ export default class Rasterizer {
       label: 'RasterizerRenderer.renderPassDescriptor',
       colorAttachments: [
         {
-          view: framebuffer.createView(),
+          view: framebuffer,
           clearValue: [0.1, 0.2, 0.3, 1],
           loadOp: 'clear',
           storeOp: 'store',
         },
       ],
       depthStencilAttachment: {
-        view: depthTexture.createView(),
+        view: depthTexture,
         depthClearValue: 1.0,
         depthLoadOp: 'clear',
         depthStoreOp: 'store',
@@ -74,7 +74,7 @@ export default class Rasterizer {
         {
           // lightmap
           binding: 0,
-          resource: radiosity.lightmap.createView(),
+          resource: radiosity.lightmap,
         },
         {
           // sampler

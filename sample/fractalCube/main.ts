@@ -139,7 +139,7 @@ const uniformBindGroup = device.createBindGroup({
     },
     {
       binding: 2,
-      resource: cubeTexture.createView(),
+      resource: cubeTexture,
     },
   ],
 });
@@ -155,7 +155,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: depthTexture.createView(),
+    view: depthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -194,8 +194,7 @@ function frame() {
   );
 
   const swapChainTexture = context.getCurrentTexture();
-  // prettier-ignore
-  renderPassDescriptor.colorAttachments[0].view = swapChainTexture.createView();
+  renderPassDescriptor.colorAttachments[0].view = swapChainTexture;
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);

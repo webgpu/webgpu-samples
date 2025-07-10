@@ -365,10 +365,6 @@ const configure = () => {
     label: 'depthTexture',
   });
 
-  const depthTextureView = depthTexture.createView({
-    label: 'depthTextureView',
-  });
-
   // Determines how much memory is allocated to store linked-list elements
   const averageLayersPerFragment = 4;
 
@@ -466,7 +462,7 @@ const configure = () => {
       },
       {
         binding: 3,
-        resource: depthTextureView,
+        resource: depthTexture,
       },
       {
         binding: 4,
@@ -510,7 +506,7 @@ const configure = () => {
     ],
   });
 
-  opaquePassDescriptor.depthStencilAttachment.view = depthTextureView;
+  opaquePassDescriptor.depthStencilAttachment.view = depthTexture;
 
   // Rotates the camera around the origin based on time.
   function getCameraViewProjMatrix() {
@@ -552,10 +548,10 @@ const configure = () => {
     }
 
     const commandEncoder = device.createCommandEncoder();
-    const textureView = context.getCurrentTexture().createView();
+    const canvasTexture = context.getCurrentTexture();
 
     // Draw the opaque objects
-    opaquePassDescriptor.colorAttachments[0].view = textureView;
+    opaquePassDescriptor.colorAttachments[0].view = canvasTexture;
     const opaquePassEncoder =
       commandEncoder.beginRenderPass(opaquePassDescriptor);
     opaquePassEncoder.setPipeline(opaquePipeline);
@@ -577,7 +573,7 @@ const configure = () => {
         slice * sliceHeight;
 
       // Draw the translucent objects
-      translucentPassDescriptor.colorAttachments[0].view = textureView;
+      translucentPassDescriptor.colorAttachments[0].view = canvasTexture;
       const translucentPassEncoder = commandEncoder.beginRenderPass(
         translucentPassDescriptor
       );
@@ -600,7 +596,7 @@ const configure = () => {
       translucentPassEncoder.end();
 
       // Composite the opaque and translucent objects
-      compositePassDescriptor.colorAttachments[0].view = textureView;
+      compositePassDescriptor.colorAttachments[0].view = canvasTexture;
       const compositePassEncoder = commandEncoder.beginRenderPass(
         compositePassDescriptor
       );
