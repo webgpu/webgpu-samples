@@ -193,7 +193,7 @@ const srcBindGroupUnpremultipliedAlpha = device.createBindGroup({
   layout: bindGroupLayout,
   entries: [
     { binding: 0, resource: sampler },
-    { binding: 1, resource: srcTextureUnpremultipliedAlpha.createView() },
+    { binding: 1, resource: srcTextureUnpremultipliedAlpha },
     { binding: 2, resource: { buffer: srcUniform.buffer } },
   ],
 });
@@ -202,7 +202,7 @@ const dstBindGroupUnpremultipliedAlpha = device.createBindGroup({
   layout: bindGroupLayout,
   entries: [
     { binding: 0, resource: sampler },
-    { binding: 1, resource: dstTextureUnpremultipliedAlpha.createView() },
+    { binding: 1, resource: dstTextureUnpremultipliedAlpha },
     { binding: 2, resource: { buffer: dstUniform.buffer } },
   ],
 });
@@ -211,7 +211,7 @@ const srcBindGroupPremultipliedAlpha = device.createBindGroup({
   layout: bindGroupLayout,
   entries: [
     { binding: 0, resource: sampler },
-    { binding: 1, resource: srcTexturePremultipliedAlpha.createView() },
+    { binding: 1, resource: srcTexturePremultipliedAlpha },
     { binding: 2, resource: { buffer: srcUniform.buffer } },
   ],
 });
@@ -220,7 +220,7 @@ const dstBindGroupPremultipliedAlpha = device.createBindGroup({
   layout: bindGroupLayout,
   entries: [
     { binding: 0, resource: sampler },
-    { binding: 1, resource: dstTexturePremultipliedAlpha.createView() },
+    { binding: 1, resource: dstTexturePremultipliedAlpha },
     { binding: 2, resource: { buffer: dstUniform.buffer } },
   ],
 });
@@ -518,7 +518,7 @@ function render() {
   const canvasTexture = context.getCurrentTexture();
   // Get the current texture from the canvas context and
   // set it as the texture to render to.
-  renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
+  renderPassDescriptor.colorAttachments[0].view = canvasTexture;
 
   // Apply the clearValue, pre-multiplying or not it based on the settings.
   {

@@ -221,11 +221,10 @@ function resetGameData() {
 
   loopTimes = 0;
   render = () => {
-    const view = context.getCurrentTexture().createView();
     const renderPass: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          view,
+          view: context.getCurrentTexture(),
           loadOp: 'clear',
           storeOp: 'store',
         },

@@ -57,7 +57,7 @@ export default class Raytracer {
       entries: [
         {
           binding: 0,
-          resource: radiosity.lightmap.createView(),
+          resource: radiosity.lightmap,
         },
         {
           binding: 1,
@@ -71,7 +71,7 @@ export default class Raytracer {
         },
         {
           binding: 2,
-          resource: framebuffer.createView(),
+          resource: framebuffer,
         },
       ],
     });

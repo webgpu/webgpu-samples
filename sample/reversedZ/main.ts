@@ -330,19 +330,17 @@ const depthTexture = device.createTexture({
   format: depthBufferFormat,
   usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
 });
-const depthTextureView = depthTexture.createView();
 
 const defaultDepthTexture = device.createTexture({
   size: [canvas.width, canvas.height],
   format: depthBufferFormat,
   usage: GPUTextureUsage.RENDER_ATTACHMENT,
 });
-const defaultDepthTextureView = defaultDepthTexture.createView();
 
 const depthPrePassDescriptor: GPURenderPassDescriptor = {
   colorAttachments: [],
   depthStencilAttachment: {
-    view: depthTextureView,
+    view: depthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -366,7 +364,7 @@ const drawPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: defaultDepthTextureView,
+    view: defaultDepthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -384,7 +382,7 @@ const drawPassLoadDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: defaultDepthTextureView,
+    view: defaultDepthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -426,7 +424,7 @@ const depthTextureBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: depthTextureView,
+      resource: depthTexture,
     },
   ],
 });
@@ -557,7 +555,7 @@ function frame() {
     mvpMatricesData.byteLength
   );
 
-  const attachment = context.getCurrentTexture().createView();
+  const attachment = context.getCurrentTexture();
   const commandEncoder = device.createCommandEncoder();
   if (settings.mode === 'color') {
     for (const m of depthBufferModes) {

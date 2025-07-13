@@ -298,9 +298,7 @@ function configure() {
     uniformTime[0] = (timestamp - startTime) / 1000;
     device.queue.writeBuffer(uniformBuffer, timeOffset, uniformTime.buffer);
 
-    renderPassDescriptor.colorAttachments[0].view = context
-      .getCurrentTexture()
-      .createView();
+    renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture();
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);

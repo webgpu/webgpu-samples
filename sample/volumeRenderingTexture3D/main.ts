@@ -121,7 +121,6 @@ const texture = device.createTexture({
   format: presentationFormat,
   usage: GPUTextureUsage.RENDER_ATTACHMENT,
 });
-const view = texture.createView();
 
 const uniformBufferSize = 4 * 16; // 4x4 matrix
 const uniformBuffer = device.createBuffer({
@@ -253,15 +252,14 @@ function frame() {
   const inverseModelViewProjection =
     getInverseModelViewProjectionMatrix(deltaTime);
   device.queue.writeBuffer(uniformBuffer, 0, inverseModelViewProjection);
-  renderPassDescriptor.colorAttachments[0].view = view;
-  renderPassDescriptor.colorAttachments[0].resolveTarget = context
-    .getCurrentTexture()
-    .createView();
+  renderPassDescriptor.colorAttachments[0].view = texture;
+  renderPassDescriptor.colorAttachments[0].resolveTarget =
+    context.getCurrentTexture();
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
   if (volumeTexture) {
-    bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
+    bindGroupDescriptor.entries[2].resource = volumeTexture;
     const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);

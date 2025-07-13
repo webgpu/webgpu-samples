@@ -313,7 +313,7 @@ export class MsdfTextRenderer {
         {
           binding: 0,
           // TODO: Allow multi-page fonts
-          resource: pageTextures[0].createView(),
+          resource: pageTextures[0],
         },
         {
           binding: 1,

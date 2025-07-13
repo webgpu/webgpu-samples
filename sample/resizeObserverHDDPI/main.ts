@@ -118,7 +118,7 @@ function frame() {
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: context.getCurrentTexture().createView(),
+        view: context.getCurrentTexture(),
         clearValue: [0.2, 0.2, 0.2, 1.0],
         loadOp: 'clear',
         storeOp: 'store',

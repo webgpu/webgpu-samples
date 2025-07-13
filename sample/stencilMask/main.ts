@@ -461,8 +461,8 @@ function drawScene(
 ) {
   const { objectInfos } = scene;
 
-  renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
-  renderPassDescriptor.depthStencilAttachment.view = depthTexture.createView();
+  renderPassDescriptor.colorAttachments[0].view = canvasTexture;
+  renderPassDescriptor.depthStencilAttachment.view = depthTexture;
 
   const pass = encoder.beginRenderPass(renderPassDescriptor);
   pass.setPipeline(pipeline);

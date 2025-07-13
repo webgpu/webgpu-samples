@@ -717,9 +717,8 @@ SampleInitFactoryWebGPU(
 
       device.queue.writeBuffer(computeUniformsBuffer, 8, stepDetails);
 
-      renderPassDescriptor.colorAttachments[0].view = context
-        .getCurrentTexture()
-        .createView();
+      renderPassDescriptor.colorAttachments[0].view =
+        context.getCurrentTexture();
 
       const commandEncoder = device.createCommandEncoder();
       bitonicDisplayRenderer.startRun(commandEncoder, {

@@ -202,7 +202,6 @@ const checkerboard = device.createTexture({
   size: [kTextureBaseSize, kTextureBaseSize],
   mipLevelCount: 4,
 });
-const checkerboardView = checkerboard.createView();
 
 const kColorForLevel = [
   [255, 255, 255, 255],
@@ -248,7 +247,7 @@ const showTexturePipeline = device.createRenderPipeline({
 
 const showTextureBG = device.createBindGroup({
   layout: showTexturePipeline.getBindGroupLayout(0),
-  entries: [{ binding: 0, resource: checkerboardView }],
+  entries: [{ binding: 0, resource: checkerboard }],
 });
 
 //
@@ -312,18 +311,16 @@ function frame() {
       { binding: 0, resource: { buffer: bufConfig } },
       { binding: 1, resource: { buffer: bufMatrices } },
       { binding: 2, resource: sampler },
-      { binding: 3, resource: checkerboardView },
+      { binding: 3, resource: checkerboard },
     ],
   });
-
-  const textureView = context.getCurrentTexture().createView();
 
   const commandEncoder = device.createCommandEncoder();
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: textureView,
+        view: context.getCurrentTexture(),
         clearValue: [0.2, 0.2, 0.2, 1.0],
         loadOp: 'clear',
         storeOp: 'store',

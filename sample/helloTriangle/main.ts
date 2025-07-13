@@ -45,12 +45,12 @@ const pipeline = device.createRenderPipeline({
 
 function frame() {
   const commandEncoder = device.createCommandEncoder();
-  const textureView = context.getCurrentTexture().createView();
+  const canvasTexture = context.getCurrentTexture();
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
     colorAttachments: [
       {
-        view: textureView,
+        view: canvasTexture,
         clearValue: [0, 0, 0, 0], // Clear to transparent
         loadOp: 'clear',
         storeOp: 'store',

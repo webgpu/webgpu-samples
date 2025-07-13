@@ -166,7 +166,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: depthTexture.createView(),
+    view: depthTexture,
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -206,23 +206,13 @@ const surfaceBGDescriptor = createBindGroupDescriptor(
   ],
   // Multiple bindgroups that accord to the layout defined above
   [
+    [sampler, woodAlbedoTexture, spiralNormalTexture, spiralHeightTexture],
+    [sampler, woodAlbedoTexture, toyboxNormalTexture, toyboxHeightTexture],
     [
       sampler,
-      woodAlbedoTexture.createView(),
-      spiralNormalTexture.createView(),
-      spiralHeightTexture.createView(),
-    ],
-    [
-      sampler,
-      woodAlbedoTexture.createView(),
-      toyboxNormalTexture.createView(),
-      toyboxHeightTexture.createView(),
-    ],
-    [
-      sampler,
-      brickwallAlbedoTexture.createView(),
-      brickwallNormalTexture.createView(),
-      brickwallHeightTexture.createView(),
+      brickwallAlbedoTexture,
+      brickwallNormalTexture,
+      brickwallHeightTexture,
     ],
   ],
   'Surface',
@@ -360,9 +350,7 @@ function frame() {
   mapInfoView.setFloat32(24, settings.depthLayers, true);
   device.queue.writeBuffer(mapInfoBuffer, 0, mapInfoArray);
 
-  renderPassDescriptor.colorAttachments[0].view = context
-    .getCurrentTexture()
-    .createView();
+  renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture();
 
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
