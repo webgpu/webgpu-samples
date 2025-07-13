@@ -2616,9 +2616,7 @@ const fail = (() => {
     };
 })();
 
-const adapter = await navigator.gpu?.requestAdapter({
-    featureLevel: 'compatibility',
-});
+const adapter = await navigator.gpu?.requestAdapter();
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 // Set video element
