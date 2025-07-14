@@ -1,30 +1,38 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>WebGPU Samples</title>
+    <meta
+      name="description"
+      content="The WebGPU Samples are a set of samples demonstrating the use of the WebGPU API."
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>WebGPU Samples</title>
-  <meta name="description" content="The WebGPU Samples are a set of samples demonstrating the use of the WebGPU API." />
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link
+      href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="favicon.ico"
+    />
 
-  <link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet" />
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link href="css/styles.css" rel="stylesheet">
 
-  <link href="css/styles.css" rel="stylesheet">
-
-</head>
-<script defer type="module" src="main.js"></script>
-
-<body>
-  <div class="wrapper">
-    <nav class="panel container">
-      <h1>
-        <a href="./">WebGPU Samples</a>
-      </h1>
-      <input type="checkbox" id="menuToggle">
-      <label class="expand" for="menuToggle"></label>
-      <div class="panelContents">
+  </head>
+  <script defer type="module" src="main.js"></script>
+  <body>
+    <div class="wrapper">
+      <nav class="panel container">
+        <h1>
+          <a href="./">WebGPU Samples</a>
+        </h1>
         <search>
           <hr>
           <label>
@@ -39,43 +47,44 @@
           </label>
           <hr>
         </search>
-
-        <a href="https://github.com/webgpu/webgpu-samples">
-          Github
-        </a>
-        <hr>
-        <div id="samplelist"></div>
-      </div>
-    </nav>
-
-    <main>
-      <div id="intro">
-        <p>
-          The WebGPU Samples are a set of samples and demos demonstrating the use
-          of the <a href="//webgpu.dev">WebGPU API</a>. Please see the current
-          implementation status and how to run WebGPU in your browser at
-          <a href="//webgpu.io">webgpu.io</a>.
-        </p>
-      </div>
-      <div id="sample" style="display: none;">
-        <div class="sampleInfo">
-          <h1 id="title"></h1>
-          <a id="src" target="_blank" rel="noreferrer" href="">View source!</a>
-          &mdash; <a id="standalone" target="_blank" rel="noreferrer" href="">View as standalone webpage</a>
-          <p id="description"></p>
+        <input type="checkbox" id="menuToggle">
+        <label class="expand" for="menuToggle"></label>
+        <div class="panelContents">
+          <a href="https://github.com/webgpu/webgpu-samples">
+              Github
+          </a>
+          <hr>
+          <div id="samplelist"></div>
         </div>
-        <div class="sampleContainer"></div>
-      </div>
-      <nav id="code" class="sourceFileNav">
-        <div class="sourceLR" id="sourceL">&lt;</div>
-        <div id="sourceTabs" class="sourceFileScrollContainer">
-          <ul id="codeTabs"></ul>
-        </div>
-        <div class="sourceLR" id="sourceR">&gt;</div>
       </nav>
-      <div id="sources"></div>
-    </main>
-  </div>
-</body>
 
+      <main>
+        <div id="intro">
+          <p>
+            The WebGPU Samples are a set of samples and demos demonstrating the use
+            of the <a href="//webgpu.dev">WebGPU API</a>. Please see the current
+            implementation status and how to run WebGPU in your browser at
+            <a href="//webgpu.io">webgpu.io</a>.
+          </p>
+        </div>
+        <div id="sample" style="display: none;">
+          <div class="sampleInfo">
+            <h1 id="title"></h1>
+            <a id="src" target="_blank" rel="noreferrer" href="">View source!</a>
+            &mdash; <a id="standalone" target="_blank" rel="noreferrer" href="">View as standalone webpage</a>
+            <p id="description"></p>
+          </div>
+          <div class="sampleContainer"></div>
+        </div>
+        <nav id="code" class="sourceFileNav">
+          <div class="sourceLR" id="sourceL">&lt;</div>
+          <div id="sourceTabs" class="sourceFileScrollContainer">
+            <ul id="codeTabs"></ul>
+          </div>
+          <div class="sourceLR" id="sourceR">&gt;</div>
+        </nav>
+        <div id="sources"></div>
+      </main>
+    </div>
+  </body>
 </html>
