@@ -68,12 +68,12 @@ search {
   inline-size: 100%;
   margin-block-end: 20px;
 
-  &>hr {
+  & > hr {
     border-color: var(--tooltip-border);
     margin-block: 0;
   }
 
-  &>label {
+  & > label {
     display: flex;
     justify-content: flex-start;
     align-items: center;
@@ -81,15 +81,15 @@ search {
     inline-size: 100%;
     block-size: 50px;
 
-    &:has(input:focus)>svg {
+    &:has(input:focus) > svg {
       display: none;
     }
 
-    &>svg {
+    & > svg {
       margin-inline-start: 10px;
     }
 
-    &>input {
+    & > input {
       opacity: 0;
       border: none;
       block-size: 100%;
@@ -103,7 +103,6 @@ search {
       }
     }
   }
-
 }
 
 @media only screen and (max-width: 768px) {
@@ -115,12 +114,12 @@ search {
     overflow: visible;
   }
 
-  #menuToggle~.panelContents {
+  #menuToggle ~ .panelContents {
     max-height: 0;
     overflow: hidden;
   }
 
-  #menuToggle:checked~.panelContents {
+  #menuToggle:checked ~ .panelContents {
     max-height: 2000px;
   }
 
@@ -139,5 +138,4 @@ search {
   .expand {
     display: inline-block;
   }
-
 }
