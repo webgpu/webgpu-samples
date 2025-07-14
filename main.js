@@ -33809,39 +33809,78 @@ function setSampleIFrameURL(e, sampleInfo) {
     setURL(url.toString());
     setSampleIFrame(sampleInfo);
 }
+const searchInput = document.querySelector('input[type="search"]');
+let debounceTimer;
+searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => {
+        const q = searchInput.value.trim();
+        const url = new URL(window.location.href);
+        if (q) {
+            url.searchParams.set('q', q);
+        }
+        else {
+            url.searchParams.delete('q');
+        }
+        // Do NOT touch 'sample' param — we preserve it
+        history.replaceState(null, '', url.toString());
+        // Re-render the list
+        sampleListElem.innerHTML = '';
+        samplesByKey.clear();
+        renderSampleList();
+    }, 200); // debounce delay
+});
 // Samples are looked up by `?sample=key` so this is a map
 // from those keys to each sample.
 const samplesByKey = new Map();
+renderSampleList();
 // Generate the list of samples
-for (const { title, description, samples } of pageCategories) {
-    for (const [key, sampleInfo] of Object.entries(samples)) {
-        samplesByKey.set(key, sampleInfo);
-    }
-    sampleListElem.appendChild(createElem('ul', { className: 'exampleList' }, [
-        createElem('div', {}, [
-            createElem('div', { className: 'sampleCategory' }, [
-                createElem('h3', {
-                    style: { 'margin-top': '5px' },
-                    textContent: title,
-                    dataset: { tooltip: description },
-                }),
-            ]),
-            ...Object.entries(samples).map(([key, sampleInfo]) => createElem('li', {}, [
-                createElem('a', {
-                    href: sampleInfo.external
-                        ? sampleInfo.external.url
-                        : sampleInfo.filename,
-                    ...(!sampleInfo.openInNewTab && {
-                        onClick: (e) => {
-                            setSampleIFrameURL(e, sampleInfo);
-                        },
+function renderSampleList() {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get('q')?.toLowerCase().trim() || '';
+    sampleListElem.innerHTML = '';
+    samplesByKey.clear();
+    for (const { title, description, samples } of pageCategories) {
+        const filteredSamples = Object.entries(samples).filter(([, sample]) => {
+            if (!q)
+                return true;
+            const name = sample.name?.toLowerCase() || '';
+            const tocName = sample.tocName?.toLowerCase() || '';
+            const titleMatch = title.toLowerCase().includes(q);
+            return name.includes(q) || tocName.includes(q) || titleMatch;
+        });
+        // Skip categories with no matches
+        if (filteredSamples.length === 0)
+            continue;
+        for (const [key, sampleInfo] of filteredSamples) {
+            samplesByKey.set(key, sampleInfo);
+        }
+        sampleListElem.appendChild(createElem('ul', { className: 'exampleList' }, [
+            createElem('div', {}, [
+                createElem('div', { className: 'sampleCategory' }, [
+                    createElem('h3', {
+                        style: { 'margin-top': '5px' },
+                        textContent: title,
+                        dataset: { tooltip: description },
                     }),
-                    textContent: `${sampleInfo.tocName || key}${sampleInfo.openInNewTab ? ' ↗️' : ''}`,
-                    ...(sampleInfo.openInNewTab && { target: '_blank' }),
-                }),
-            ])),
-        ]),
-    ]));
+                ]),
+                ...filteredSamples.map(([key, sampleInfo]) => createElem('li', {}, [
+                    createElem('a', {
+                        href: sampleInfo.external
+                            ? sampleInfo.external.url
+                            : sampleInfo.filename,
+                        ...(!sampleInfo.openInNewTab && {
+                            onClick: (e) => {
+                                setSampleIFrameURL(e, sampleInfo);
+                            },
+                        }),
+                        textContent: `${sampleInfo.tocName || key}${sampleInfo.openInNewTab ? ' ↗️' : ''}`,
+                        ...(sampleInfo.openInNewTab && { target: '_blank' }),
+                    }),
+                ])),
+            ]),
+        ]));
+    }
 }
 sourceLElem.addEventListener('click', () => switchToRelativeTab(-1).click());
 sourceRElem.addEventListener('click', () => switchToRelativeTab(1).click());
