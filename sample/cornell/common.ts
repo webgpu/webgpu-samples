@@ -55,20 +55,12 @@ export default class Common {
         {
           // common_uniforms
           binding: 0,
-          resource: {
-            buffer: this.uniformBuffer,
-            offset: 0,
-            size: this.uniformBuffer.size,
-          },
+          resource: this.uniformBuffer,
         },
         {
           // quads
           binding: 1,
-          resource: {
-            buffer: quads,
-            offset: 0,
-            size: quads.size,
-          },
+          resource: quads,
         },
       ],
     });
