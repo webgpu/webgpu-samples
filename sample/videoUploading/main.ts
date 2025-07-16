@@ -5,9 +5,7 @@ import sampleExternalTextureWGSL from './sampleExternalTexture.frag.wgsl';
 import sampleExternalTextureAsPanoramaWGSL from './sampleExternalTextureAsPanorama.wgsl';
 import { quitIfWebGPUNotAvailable } from '../util';
 
-const adapter = await navigator.gpu?.requestAdapter({
-  featureLevel: 'compatibility',
-});
+const adapter = await navigator.gpu?.requestAdapter();
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 
