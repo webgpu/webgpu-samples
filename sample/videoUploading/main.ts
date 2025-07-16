@@ -101,7 +101,7 @@ const params = new URLSearchParams(window.location.search);
 const settings = {
   requestFrame: 'requestAnimationFrame',
   videoSource: params.get('videoSource') || 'videoElement',
-  video: 'giraffe (2d)' as keyof typeof videos,
+  video: Object.keys(videos)[0] as keyof typeof videos,
 };
 playVideo(settings.video);
 
