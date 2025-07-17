@@ -9,6 +9,7 @@ import clusteredShading from '../sample/clusteredShading/meta';
 import cornell from '../sample/cornell/meta';
 import computeBoids from '../sample/computeBoids/meta';
 import cubemap from '../sample/cubemap/meta';
+import cursorControl from '../sample/cursorControl/meta';
 import deferredRendering from '../sample/deferredRendering/meta';
 import fractalCube from '../sample/fractalCube/meta';
 import gameOfLife from '../sample/gameOfLife/meta';
@@ -148,6 +149,7 @@ export const pageCategories: PageCategory[] = [
     description:
       'Demos integrating WebGPU with other functionalities of the web platform.',
     samples: {
+      cursorControl,
       resizeCanvas,
       resizeObserverHDDPI,
       transparentCanvas,
