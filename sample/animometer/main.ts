@@ -168,7 +168,7 @@ function configure() {
   const alignedUniformFloats =
     alignedUniformBytes / Float32Array.BYTES_PER_ELEMENT;
   const uniformBuffer = device.createBuffer({
-    size: numTriangles * alignedUniformBytes + Float32Array.BYTES_PER_ELEMENT,
+    size: Math.max(numTriangles, 1) * alignedUniformBytes + Float32Array.BYTES_PER_ELEMENT,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
   const uniformBufferData = new Float32Array(
