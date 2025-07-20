@@ -32,7 +32,7 @@ context.configure({
 });
 
 let mousePos = { x: 0, y: 0 };
-canvas.addEventListener('mousemove', (e) => {
+canvas.addEventListener('pointermove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
