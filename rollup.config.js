@@ -63,7 +63,7 @@ function writeRedirect(filename) {
     filepath,
     `\
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
       <meta
         http-equiv="refresh"
