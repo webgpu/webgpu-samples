@@ -12,7 +12,6 @@ import {
   VertexData,
 } from '../../meshes/primitives';
 import { quitIfWebGPUNotAvailable } from '../util';
-import { GUI } from 'dat.gui';
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
@@ -39,12 +38,6 @@ canvas.addEventListener('mousemove', (e) => {
   const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
   mousePos = { x, y };
 });
-
-const settings = {
-  mouseControl: true,
-};
-const gui = new GUI();
-gui.add(settings, 'mouseControl');
 
 // Creates a buffer and puts data in it.
 function createBufferWithData(
@@ -351,9 +344,7 @@ function updateMask(
     mat4.identity(worldMatrix);
     const worldX = mousePos.x * 10;
     const worldY = mousePos.y * 10;
-    if (settings.mouseControl) {
-      mat4.translate(worldMatrix, [worldX, worldY, 0], worldMatrix);
-    }
+    mat4.translate(worldMatrix, [worldX, worldY, 0], worldMatrix);
     mat4.rotateX(worldMatrix, time * 0.25, worldMatrix);
     mat4.rotateY(worldMatrix, time * 0.15, worldMatrix);
     mat4.rotateX(worldMatrix, rotation[0] * Math.PI, worldMatrix);
