@@ -31,6 +31,14 @@ context.configure({
   format: presentationFormat,
 });
 
+let mousePos = { x: 0, y: 0 };
+canvas.addEventListener('pointermove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+  mousePos = { x, y };
+});
+
 // Creates a buffer and puts data in it.
 function createBufferWithData(
   device: GPUDevice,
@@ -334,6 +342,9 @@ function updateMask(
 
   objectInfos.forEach(({ uniformBuffer, uniformValues, worldMatrix }) => {
     mat4.identity(worldMatrix);
+    const worldX = mousePos.x * 10;
+    const worldY = mousePos.y * 10;
+    mat4.translate(worldMatrix, [worldX, worldY, 0], worldMatrix);
     mat4.rotateX(worldMatrix, time * 0.25, worldMatrix);
     mat4.rotateY(worldMatrix, time * 0.15, worldMatrix);
     mat4.rotateX(worldMatrix, rotation[0] * Math.PI, worldMatrix);
