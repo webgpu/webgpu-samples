@@ -10,7 +10,10 @@ import {
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfWebGPUNotAvailable,
+  workerRegisterErrorMessagePort,
+} from '../util';
 
 // The worker process can instantiate a WebGPU device immediately, but it still needs an
 // OffscreenCanvas to be able to display anything. Here we listen for an 'init' message from the
@@ -19,6 +22,8 @@ import { quitIfWebGPUNotAvailable } from '../util';
 self.addEventListener('message', (ev) => {
   switch (ev.data.type) {
     case 'init': {
+      workerRegisterErrorMessagePort(ev.data.errorMessagePort);
+
       try {
         init(ev.data.offscreenCanvas);
       } catch (err) {
