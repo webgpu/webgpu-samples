@@ -8921,7 +8921,7 @@ function getHdrFolderName() {
         return 'HDR settings';
     }
     if (simulationParams.toneMappingMode === 'extended' &&
-        context.getConfiguration().toneMapping.mode !== 'extended') {
+        context.getConfiguration().toneMapping?.mode !== 'extended') {
         return "HDR settings ⚠️ Browser doesn't support HDR canvas";
     }
     return 'HDR settings';
