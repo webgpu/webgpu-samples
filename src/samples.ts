@@ -24,6 +24,7 @@ import normalMap from '../sample/normalMap/meta';
 import occlusionQuery from '../sample/occlusionQuery/meta';
 import particles from '../sample/particles/meta';
 import points from '../sample/points/meta';
+import primitivePicking from '../sample/primitivePicking/meta';
 import pristineGrid from '../sample/pristineGrid/meta';
 import renderBundles from '../sample/renderBundles/meta';
 import resizeCanvas from '../sample/resizeCanvas/meta';
@@ -129,6 +130,7 @@ export const pageCategories: PageCategory[] = [
       deferredRendering,
       particles,
       points,
+      primitivePicking,
       imageBlur,
       generateMipmap,
       cornell,
