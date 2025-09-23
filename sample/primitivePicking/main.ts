@@ -1,4 +1,4 @@
-import { mat4, vec2, vec3, vec4 } from 'wgpu-matrix';
+import { mat4, vec2, vec3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 import { mesh } from '../../meshes/teapot';
 
@@ -14,7 +14,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const limits: Record<string, GPUSize32> = {};
-//@ts-ignore This ignore is needed until primitive-index is added as a feature name to the WebGPU defines.
+//@ts-expect-error primitive-index is not yet part of the Typescript definitions.
 const features: Array<GPUFeatureName> = ['primitive-index'];
 quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
 const device = await adapter?.requestDevice({
@@ -166,7 +166,7 @@ const primitivesDebugViewPipeline = device.createRenderPipeline({
       {
         format: presentationFormat,
       },
-    ]
+    ],
   },
   primitive,
 });
@@ -176,7 +176,7 @@ const pickBindGroupLayout = device.createBindGroupLayout({
     {
       binding: 0,
       visibility: GPUShaderStage.COMPUTE,
-      buffer: { type: 'storage' }
+      buffer: { type: 'storage' },
     },
     {
       binding: 1,
@@ -190,15 +190,13 @@ const pickBindGroupLayout = device.createBindGroupLayout({
 
 const pickPipeline = device.createComputePipeline({
   layout: device.createPipelineLayout({
-    bindGroupLayouts: [
-      pickBindGroupLayout,
-    ],
+    bindGroupLayouts: [pickBindGroupLayout],
   }),
   compute: {
-    module:  device.createShaderModule({
+    module: device.createShaderModule({
       code: computePickPrimitive,
     }),
-  }
+  },
 });
 
 const forwardRenderPassDescriptor: GPURenderPassDescriptor = {
@@ -254,8 +252,9 @@ const modelUniformBuffer = device.createBuffer({
 });
 
 const cameraUniformBuffer = device.createBuffer({
-  size: (4 * 16 * 2) + (4 * 4), // two 4x4 matrix + a u32
-  usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  size: 4 * 16 * 2 + 4 * 4, // two 4x4 matrix + a u32
+  usage:
+    GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
 });
 
 const sceneUniformBindGroup = device.createBindGroup({
@@ -282,7 +281,7 @@ const primitiveTextureBindGroup = device.createBindGroup({
     {
       binding: 0,
       resource: primitiveIndexTexture.createView(),
-    }
+    },
   ],
 });
 
@@ -296,7 +295,7 @@ const pickBindGroup = device.createBindGroup({
     {
       binding: 1,
       resource: primitiveIndexTexture.createView(),
-    }
+    },
   ],
 });
 
@@ -328,7 +327,7 @@ device.queue.writeBuffer(
 function onPointerEvent(event: PointerEvent) {
   // Only track the primary pointer
   if (event.isPrimary) {
-    let clientRect = (event.target as Element).getBoundingClientRect();
+    const clientRect = (event.target as Element).getBoundingClientRect();
     pickCoord[0] = (event.clientX - clientRect.x) * devicePixelRatio;
     pickCoord[1] = (event.clientY - clientRect.y) * devicePixelRatio;
   }
