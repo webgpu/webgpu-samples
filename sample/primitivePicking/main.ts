@@ -7,19 +7,17 @@ import vertexForwardRendering from './vertexForwardRendering.wgsl';
 import fragmentForwardRendering from './fragmentForwardRendering.wgsl';
 import vertexTextureQuad from './vertexTextureQuad.wgsl';
 import fragmentPrimitivesDebugView from './fragmentPrimitivesDebugView.wgsl';
-import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
+import { quitIfWebGPUNotAvailable, quitIfFeaturesNotAvailable } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-const limits: Record<string, GPUSize32> = {};
 //@ts-expect-error primitive-index is not yet part of the Typescript definitions.
-const features: Array<GPUFeatureName> = ['primitive-index'];
-quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+const requiredFeatures: Array<GPUFeatureName> = ['primitive-index'];
+quitIfFeaturesNotAvailable(adapter, requiredFeatures);
 const device = await adapter?.requestDevice({
-  requiredLimits: limits,
-  requiredFeatures: features,
+  requiredFeatures,
 });
 quitIfWebGPUNotAvailable(adapter, device);
 
@@ -68,6 +66,9 @@ const indexBuffer = device.createBuffer({
 }
 
 // Render targets
+
+// The primitive index for each triangle will be written out to this texture.
+// Using a r32uint texture ensures we can store the full range of primitive indices.
 const primitiveIndexTexture = device.createTexture({
   size: [canvas.width, canvas.height],
   usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
@@ -95,19 +96,14 @@ const vertexBuffers: Iterable<GPUVertexBufferLayout> = [
         offset: Float32Array.BYTES_PER_ELEMENT * 3,
         format: 'float32x3',
       },
-      {
-        // uv
-        shaderLocation: 2,
-        offset: Float32Array.BYTES_PER_ELEMENT * 6,
-        format: 'float32x2',
-      },
     ],
   },
 ];
 
 const primitive: GPUPrimitiveState = {
   topology: 'triangle-list',
-  cullMode: 'back',
+  // Using `none` because the teapot has gaps that you can see the backfaces through.
+  cullMode: 'none',
 };
 
 const forwardRenderingPipeline = device.createRenderPipeline({
@@ -202,6 +198,7 @@ const pickPipeline = device.createComputePipeline({
 const forwardRenderPassDescriptor: GPURenderPassDescriptor = {
   colorAttachments: [
     {
+      // view is acquired and set in render loop.
       view: undefined,
 
       clearValue: [0.0, 0.0, 1.0, 1.0],
@@ -211,7 +208,6 @@ const forwardRenderPassDescriptor: GPURenderPassDescriptor = {
     {
       view: primitiveIndexTexture.createView(),
 
-      clearValue: [0, 0, 0, 1],
       loadOp: 'clear',
       storeOp: 'store',
     },
@@ -246,13 +242,16 @@ const gui = new GUI();
 gui.add(settings, 'mode', ['rendering', 'primitive indexes']);
 gui.add(settings, 'rotate');
 
+const MatrixSizeBytes = Float32Array.BYTES_PER_ELEMENT * 16;
+const PickUniformsSizeBytes = Float32Array.BYTES_PER_ELEMENT * 4;
+
 const modelUniformBuffer = device.createBuffer({
-  size: 4 * 16 * 2, // two 4x4 matrix
+  size: MatrixSizeBytes * 2, // two 4x4 matrix
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 
-const cameraUniformBuffer = device.createBuffer({
-  size: 4 * 16 * 2 + 4 * 4, // two 4x4 matrix + a u32
+const frameUniformBuffer = device.createBuffer({
+  size: MatrixSizeBytes * 2 + PickUniformsSizeBytes, // two 4x4 matrix + a vec4's worth of picking uniforms
   usage:
     GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
 });
@@ -269,7 +268,7 @@ const sceneUniformBindGroup = device.createBindGroup({
     {
       binding: 1,
       resource: {
-        buffer: cameraUniformBuffer,
+        buffer: frameUniformBuffer,
       },
     },
   ],
@@ -290,7 +289,7 @@ const pickBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: cameraUniformBuffer,
+      resource: frameUniformBuffer,
     },
     {
       binding: 1,
@@ -305,7 +304,6 @@ const pickBindGroup = device.createBindGroup({
 const eyePosition = vec3.fromValues(0, 12, -25);
 const upVector = vec3.fromValues(0, 1, 0);
 const origin = vec3.fromValues(0, 0, 0);
-const pickCoord = vec2.fromValues(0, 0);
 
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 2000.0);
 
@@ -322,12 +320,14 @@ device.queue.writeBuffer(
   normalModelData.byteOffset,
   normalModelData.byteLength
 );
-// TODO: Write mouse/touch coords
 
+// Pointer tracking
+const pickCoord = vec2.fromValues(0, 0);
 function onPointerEvent(event: PointerEvent) {
   // Only track the primary pointer
   if (event.isPrimary) {
     const clientRect = (event.target as Element).getBoundingClientRect();
+    // Get the pixel offset from the top-left of the canvas element.
     pickCoord[0] = (event.clientX - clientRect.x) * devicePixelRatio;
     pickCoord[1] = (event.clientY - clientRect.y) * devicePixelRatio;
   }
@@ -352,7 +352,7 @@ function getCameraViewProjMatrix() {
 function frame() {
   const cameraViewProj = getCameraViewProjMatrix();
   device.queue.writeBuffer(
-    cameraUniformBuffer,
+    frameUniformBuffer,
     0,
     cameraViewProj.buffer,
     cameraViewProj.byteOffset,
@@ -360,14 +360,14 @@ function frame() {
   );
   const cameraInvViewProj = mat4.invert(cameraViewProj);
   device.queue.writeBuffer(
-    cameraUniformBuffer,
+    frameUniformBuffer,
     64,
     cameraInvViewProj.buffer,
     cameraInvViewProj.byteOffset,
     cameraInvViewProj.byteLength
   );
   device.queue.writeBuffer(
-    cameraUniformBuffer,
+    frameUniformBuffer,
     128,
     pickCoord.buffer,
     pickCoord.byteOffset,
@@ -376,7 +376,7 @@ function frame() {
 
   const commandEncoder = device.createCommandEncoder();
   {
-    // Forward rendering
+    // Forward rendering pass
     forwardRenderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
       .createView();
@@ -408,6 +408,11 @@ function frame() {
     }
   }
   {
+    // Picking pass. Executes a single instance of a compue shader that loads
+    // the primitive index at the pointer coordinates from the primitive index
+    // texture written in the forward pass. The selected primitive index is
+    // saved in the frameUniformBuffer and used for highlighting on the next
+    // render. This means that the highlighted primitive is always a frame behind.
     const pickPass = commandEncoder.beginComputePass();
     pickPass.setPipeline(pickPipeline);
     pickPass.setBindGroup(0, pickBindGroup);

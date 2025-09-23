@@ -9,6 +9,8 @@ struct Frame {
 
 @compute @workgroup_size(1)
 fn main() {
+  // Load the primitive index from the picking texture and store it in the
+  // pickedPrimitive value (exposed to the rendering shaders as a uniform).
   let texel = vec2u(frame.pickCoord);
   frame.pickedPrimitive = textureLoad(primitiveTex, texel, 0).x;
 }

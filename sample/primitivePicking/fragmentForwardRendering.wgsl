@@ -18,6 +18,7 @@ fn main(
   @location(0) fragNormal: vec3f,
   @builtin(primitive_index) primIndex: u32
 ) -> PassOutput {
+  // Very simple N-dot-L lighting model
   let lightDirection = normalize(vec3f(4, 10, 6));
   let light = dot(normalize(fragNormal), lightDirection) * 0.5 + 0.5;
   let surfaceColor = vec4f(0.8, 0.8, 0.8, 1.0);
@@ -31,7 +32,7 @@ fn main(
     output.color = vec4f(surfaceColor.xyz * light, surfaceColor.a);
   }
 
-  // Adding one to each primitive so that 0 can mean "nothing picked"
+  // Adding one to each primitive index so that 0 can mean "nothing picked"
   output.primitive = primIndex+1;
   return output;
 }
