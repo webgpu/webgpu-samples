@@ -5,15 +5,15 @@ struct Uniforms {
 struct Frame {
   viewProjectionMatrix : mat4x4f,
   invViewProjectionMatrix : mat4x4f,
-  pickCoord: vec2u,
-  pickedPrimitive: u32,
+  pickCoord : vec2u,
+  pickedPrimitive : u32,
 }
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
 @group(0) @binding(1) var<uniform> frame : Frame;
 
 struct VertexOutput {
   @builtin(position) Position : vec4f,
-  @location(0) fragNormal: vec3f, // normal in world space
+  @location(0) fragNormal : vec3f, // normal in world space
 }
 
 @vertex

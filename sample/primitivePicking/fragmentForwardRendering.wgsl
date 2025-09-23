@@ -3,8 +3,8 @@ enable primitive_index;
 struct Frame {
   viewProjectionMatrix : mat4x4f,
   invViewProjectionMatrix : mat4x4f,
-  pickCoord: vec2f,
-  pickedPrimitive: u32,
+  pickCoord : vec2f,
+  pickedPrimitive : u32,
 }
 @group(0) @binding(1) var<uniform> frame : Frame;
 
@@ -15,8 +15,8 @@ struct PassOutput {
 
 @fragment
 fn main(
-  @location(0) fragNormal: vec3f,
-  @builtin(primitive_index) primIndex: u32
+  @location(0) fragNormal : vec3f,
+  @builtin(primitive_index) primIndex : u32
 ) -> PassOutput {
   // Very simple N-dot-L lighting model
   let lightDirection = normalize(vec3f(4, 10, 6));
