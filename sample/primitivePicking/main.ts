@@ -13,10 +13,11 @@ const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-//@ts-expect-error primitive-index is not yet part of the Typescript definitions.
+
 const requiredFeatures: Array<GPUFeatureName> = ['primitive-index'];
 quitIfFeaturesNotAvailable(adapter, requiredFeatures);
-const device = await adapter?.requestDevice({
+
+const device = await adapter.requestDevice({
   requiredFeatures,
 });
 quitIfWebGPUNotAvailable(adapter, device);
@@ -34,7 +35,7 @@ context.configure({
 });
 
 // Create the model vertex buffer.
-const kVertexStride = 8;
+const kVertexStride = 6;
 const vertexBuffer = device.createBuffer({
   // position: vec3, normal: vec3
   size: mesh.positions.length * kVertexStride * Float32Array.BYTES_PER_ELEMENT,
@@ -82,7 +83,7 @@ const depthTexture = device.createTexture({
 
 const vertexBuffers: Iterable<GPUVertexBufferLayout> = [
   {
-    arrayStride: Float32Array.BYTES_PER_ELEMENT * 8,
+    arrayStride: Float32Array.BYTES_PER_ELEMENT * kVertexStride,
     attributes: [
       {
         // position
@@ -242,16 +243,16 @@ const gui = new GUI();
 gui.add(settings, 'mode', ['rendering', 'primitive indexes']);
 gui.add(settings, 'rotate');
 
-const MatrixSizeBytes = Float32Array.BYTES_PER_ELEMENT * 16;
-const PickUniformsSizeBytes = Float32Array.BYTES_PER_ELEMENT * 4;
+const kMatrixSizeBytes = Float32Array.BYTES_PER_ELEMENT * 16;
+const kPickUniformsSizeBytes = Float32Array.BYTES_PER_ELEMENT * 4;
 
 const modelUniformBuffer = device.createBuffer({
-  size: MatrixSizeBytes * 2, // two 4x4 matrix
+  size: kMatrixSizeBytes * 2, // two 4x4 matrix
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 
 const frameUniformBuffer = device.createBuffer({
-  size: MatrixSizeBytes * 2 + PickUniformsSizeBytes, // two 4x4 matrix + a vec4's worth of picking uniforms
+  size: kMatrixSizeBytes * 2 + kPickUniformsSizeBytes, // two 4x4 matrix + a vec4's worth of picking uniforms
   usage:
     GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
 });
@@ -408,7 +409,7 @@ function frame() {
     }
   }
   {
-    // Picking pass. Executes a single instance of a compue shader that loads
+    // Picking pass. Executes a single instance of a compute shader that loads
     // the primitive index at the pointer coordinates from the primitive index
     // texture written in the forward pass. The selected primitive index is
     // saved in the frameUniformBuffer and used for highlighting on the next
