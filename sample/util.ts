@@ -41,6 +41,26 @@ export function quitIfLimitLessThan(
 }
 
 /**
+ * Shows an error dialog if getting an adapter wasn't successful or the adapter
+ * does not support the given list of features.
+ */
+export function quitIfFeaturesNotAvailable(
+  adapter: GPUAdapter | null,
+  requiredFeatures: GPUFeatureName[]
+): asserts adapter {
+  quitIfAdapterNotAvailable(adapter);
+
+  for (const feature of requiredFeatures) {
+    if (!adapter.features.has(feature)) {
+      fail(
+        `This sample requires the '${feature}' feature, which is not supported by this system.`
+      );
+      return;
+    }
+  }
+}
+
+/**
  * Shows an error dialog if getting a adapter or device wasn't successful,
  * or if/when the device is lost or has an uncaptured error.
  */
