@@ -389,6 +389,25 @@ You can read more details [here](https://webgpufundamentals.org/webgpu/lessons/w
     ],
 };
 
+var primitivePicking = {
+    name: 'Primitive Picking',
+    description: `This example demonstrates use of the primitive_index WGSL builtin.
+    It is used to render a unique ID for each primitive to a buffer, which is
+    then read at the current cursor/touch location to determine which primitive
+    has been selected. That primitive is then highlighted when rendering the
+    next frame.
+    `,
+    filename: "sample/primitivePicking",
+    sources: [
+        { path: 'main.ts' },
+        { path: 'vertexForwardRendering.wgsl' },
+        { path: 'fragmentForwardRendering.wgsl' },
+        { path: 'vertexTextureQuad.wgsl' },
+        { path: 'fragmentPrimitivesDebugView.wgsl' },
+        { path: 'computePickPrimitive.wgsl' },
+    ],
+};
+
 var pristineGrid = {
     name: 'Pristine Grid',
     description: `A simple WebGPU implementation of the "Pristine Grid" technique described in this wonderful little blog post: <https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8>`,
@@ -749,6 +768,7 @@ const pageCategories = [
             deferredRendering,
             particles,
             points,
+            primitivePicking,
             imageBlur,
             generateMipmap,
             cornell,
