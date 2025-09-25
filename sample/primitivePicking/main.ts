@@ -14,7 +14,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 
-const requiredFeatures: Array<GPUFeatureName> = ['primitive-index'];
+const requiredFeatures: GPUFeatureName[] = ['primitive-index'];
 quitIfFeaturesNotAvailable(adapter, requiredFeatures);
 
 const device = await adapter.requestDevice({
