@@ -1,3 +1,7 @@
+:root {
+  interpolate-size: allow-keywords;
+}
+
 .container {
   padding-left: 15px;
   padding-right: 15px;
@@ -64,6 +68,12 @@ main {
   overflow: auto;
 }
 
+section {
+  & > h1 {
+    font-size: 1.5rem;
+  }
+}
+
 search {
   inline-size: 100%;
   margin-block-end: 20px;
@@ -114,13 +124,13 @@ search {
     overflow: visible;
   }
 
-  #menuToggle ~ .panelContents {
+  section:has(#menuToggle) ~ .panelContents {
     max-height: 0;
     overflow: hidden;
   }
 
-  #menuToggle:checked ~ .panelContents {
-    max-height: 2000px;
+  section:has(#menuToggle:checked) ~ .panelContents {
+    max-height: max-content;
   }
 
   .panel .panelContents {
@@ -138,6 +148,4 @@ search {
   .expand {
     display: inline-block;
   }
-
 }
-
