@@ -6243,12 +6243,10 @@ const hsl = (h, s, l) => `hsl(${h * 360} ${s * 100}% ${l * 100}%)`;
 const adapter = await navigator.gpu?.requestAdapter({
     featureLevel: 'compatibility',
 });
-const device = await adapter?.requestDevice({
-    requiredFeatures: [
-        ...(adapter.features.has('core-features-and-limits')
-            ? ['core-features-and-limits']
-            : []),
-    ],
+const device = await adapter.requestDevice({
+    requiredFeatures: adapter.features.has('core-features-and-limits')
+        ? ['core-features-and-limits']
+        : [],
 });
 quitIfWebGPUNotAvailable(adapter, device);
 const canvas = document.querySelector('canvas');
