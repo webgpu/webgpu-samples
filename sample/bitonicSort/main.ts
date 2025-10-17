@@ -1,5 +1,4 @@
 import { GUI } from 'dat.gui';
-import Stats from 'stats.js';
 import { createBindGroupCluster, SampleInitFactoryWebGPU } from './utils';
 import BitonicDisplayRenderer from './bitonicDisplay';
 import { NaiveBitonicCompute } from './bitonicCompute';
@@ -632,8 +631,8 @@ SampleInitFactoryWebGPU(
       'Next Swap Span'
     );
 
-    // Timestamp information for Chrome 121+ or other compatible browsers
-    const timestampFolder = gui.addFolder('Timestamp Info (Chrome 121+)');
+    // Timestamp information
+    const timestampFolder = gui.addFolder('Timestamp Info');
     const stepTimeController = timestampFolder.add(settings, 'Step Time');
     const sortTimeController = timestampFolder.add(settings, 'Sort Time');
     const averageSortTimeController = timestampFolder.add(
@@ -894,10 +893,7 @@ SampleInitFactoryWebGPU(
   }
 ).then((init) => {
   const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-  const stats = new Stats();
   const gui = new GUI();
 
-  document.body.appendChild(stats.dom);
-
-  init({ canvas, stats, gui });
+  init({ canvas, gui });
 });
