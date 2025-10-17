@@ -41,7 +41,7 @@
     "@types/dat.gui": "^0.7.13",
     "@types/showdown": "^2.0.6",
     "@types/stats.js": "^0.17.4",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
     "@webgpu/types": "^0.1.61",
     "chokidar": "^4.0.3",
     "eslint": "^8.57.1",

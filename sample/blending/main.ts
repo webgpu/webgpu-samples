@@ -353,13 +353,7 @@ const presets: {
   },
 } as const;
 
-export function keysOf<T extends string>(obj: {
-  [k in T]: unknown;
-}): readonly T[] {
-  return Object.keys(obj) as unknown[] as T[];
-}
-const kPresets = keysOf(presets);
-type Preset = (typeof kPresets)[number];
+type Preset = keyof typeof presets;
 
 const color: GPUBlendComponent = {
   operation: 'add',
