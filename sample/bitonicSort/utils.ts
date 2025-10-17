@@ -91,7 +91,6 @@ export type ShaderKeyInterface<T extends string[]> = {
 export type SampleInitParams = {
   canvas: HTMLCanvasElement;
   gui?: GUI;
-  stats?: Stats;
 };
 
 interface DeviceInitParms {
@@ -115,7 +114,7 @@ export type SampleInit = (params: SampleInitParams) => void;
 export const SampleInitFactoryWebGPU = async (
   callback: SampleInitCallback3D
 ): Promise<SampleInit> => {
-  const init = async ({ canvas, gui, stats }) => {
+  const init = async ({ canvas, gui }) => {
     const adapter = await navigator.gpu?.requestAdapter({
       featureLevel: 'compatibility',
     });
@@ -150,7 +149,6 @@ export const SampleInitFactoryWebGPU = async (
       device,
       context,
       presentationFormat,
-      stats,
       timestampQueryAvailable,
     });
   };
