@@ -133,7 +133,7 @@ export const SampleInitFactoryWebGPU = async (
     });
     quitIfWebGPUNotAvailable(adapter, device);
 
-    const context = canvas.getContext('webgpu') as GPUCanvasContext;
+    const context = canvas.getContext('webgpu');
     const devicePixelRatio = window.devicePixelRatio;
     canvas.width = canvas.clientWidth * devicePixelRatio;
     canvas.height = canvas.clientHeight * devicePixelRatio;

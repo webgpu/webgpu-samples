@@ -75,7 +75,7 @@ if (adapter?.features.has('texture-compression-astc-sliced-3d')) {
 const device = await adapter?.requestDevice({ requiredFeatures });
 
 quitIfWebGPUNotAvailable(adapter, device);
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const sampleCount = 4;
 
