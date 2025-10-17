@@ -32,7 +32,7 @@ gui.add(settings, 'asteroidCount', 1000, 10000, 1000).onChange(() => {
   updateRenderBundle();
 });
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
