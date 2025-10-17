@@ -8725,9 +8725,6 @@ const presets = {
         },
     },
 };
-function keysOf(obj) {
-    return Object.keys(obj);
-}
 const color = {
     operation: 'add',
     srcFactor: 'one',
@@ -8896,6 +8893,4 @@ function render() {
 }
 applyPreset();
 render();
-
-export { keysOf };
 //# sourceMappingURL=main.js.map
