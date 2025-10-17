@@ -72,7 +72,7 @@ const adapter = await navigator.gpu?.requestAdapter({
 const device = await adapter?.requestDevice();
 quitIfWebGPUNotAvailable(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;

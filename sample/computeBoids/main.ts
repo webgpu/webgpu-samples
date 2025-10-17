@@ -32,7 +32,7 @@ if (canvas.parentNode) {
   console.error('canvas.parentNode is null');
 }
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;

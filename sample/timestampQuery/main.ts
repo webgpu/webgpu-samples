@@ -46,7 +46,7 @@ const timestampQueryManager = new TimestampQueryManager(device, (elapsedNs) => {
 
 const renderPassDurationCounter = new PerfCounter();
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;

@@ -31,7 +31,7 @@ const settings = {
   dynamicOffsets: Boolean(params.get('dynamicOffsets')),
 };
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;

@@ -176,7 +176,7 @@ canvas.width = canvas.height = kCanvasSize;
 canvas.style.minWidth = canvas.style.maxWidth = kCanvasCSSSize + 'px';
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 context.configure({
   device,
   format: presentationFormat,
