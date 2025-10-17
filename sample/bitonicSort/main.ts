@@ -792,9 +792,11 @@ SampleInitFactoryWebGPU(
           }
         } else {
           // Otherwise, execute the next disperse operation
-          settings['Next Swap Span'] > settings['Workgroup Size'] * 2
-            ? nextStepController.setValue('DISPERSE_GLOBAL')
-            : nextStepController.setValue('DISPERSE_LOCAL');
+          if (settings['Next Swap Span'] > settings['Workgroup Size'] * 2) {
+            nextStepController.setValue('DISPERSE_GLOBAL');
+          } else {
+            nextStepController.setValue('DISPERSE_LOCAL');
+          }
         }
 
         // Copy GPU accessible buffers to CPU accessible buffers
