@@ -22,6 +22,7 @@ import metaballs from '../sample/metaballs/meta';
 import multipleCanvases from '../sample/multipleCanvases/meta';
 import normalMap from '../sample/normalMap/meta';
 import occlusionQuery from '../sample/occlusionQuery/meta';
+import particleLife from '../sample/particleLife/meta';
 import particles from '../sample/particles/meta';
 import points from '../sample/points/meta';
 import primitivePicking from '../sample/primitivePicking/meta';
@@ -171,6 +172,7 @@ export const pageCategories: PageCategory[] = [
       spookyball,
       marchingCubes,
       alphaToCoverageEmulator,
+      particleLife
     },
   },
 
