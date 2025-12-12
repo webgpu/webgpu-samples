@@ -172,7 +172,7 @@ export const pageCategories: PageCategory[] = [
       spookyball,
       marchingCubes,
       alphaToCoverageEmulator,
-      particleLife
+      particleLife,
     },
   },
 
