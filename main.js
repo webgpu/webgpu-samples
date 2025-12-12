@@ -360,6 +360,17 @@ var occlusionQuery = {
     sources: [{ path: 'main.ts' }, { path: 'solidColorLit.wgsl' }],
 };
 
+var particleLife = {
+    name: 'Particle Life',
+    description: `This example demonstrates how to simulate large numbers of particles using a few spatial partitioning methods.`,
+    filename: "sample/particleLife",
+    external: {
+        url: 'https://gpu-life.silverspace.io?sample',
+        sourceURL: 'https://github.com/SilverSpace505/gpu-life',
+    },
+    sources: [],
+};
+
 var particles = {
     name: 'Particles (HDR)',
     tocName: 'particles (HDR)',
@@ -806,6 +817,7 @@ const pageCategories = [
             spookyball,
             marchingCubes,
             alphaToCoverageEmulator,
+            particleLife,
         },
     },
     // Samples whose primary purpose is to benchmark WebGPU performance.
