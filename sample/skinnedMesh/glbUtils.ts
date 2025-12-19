@@ -578,14 +578,7 @@ export class GLTFNode {
     });
     this.nodeTransformBindGroup = device.createBindGroup({
       layout: bgLayout,
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: this.nodeTransformGPUBuffer,
-          },
-        },
-      ],
+      entries: [{ binding: 0, resource: this.nodeTransformGPUBuffer }],
     });
     this.skin = skin;
   }
@@ -765,18 +758,8 @@ export class GLTFSkin {
       layout: GLTFSkin.skinBindGroupLayout,
       label: 'StaticGLTFSkin.bindGroup',
       entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: this.jointMatricesUniformBuffer,
-          },
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: this.inverseBindMatricesUniformBuffer,
-          },
-        },
+        { binding: 0, resource: this.jointMatricesUniformBuffer },
+        { binding: 1, resource: this.inverseBindMatricesUniformBuffer },
       ],
     });
   }

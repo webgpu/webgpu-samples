@@ -450,35 +450,15 @@ const uniformBindGroups = [
   device.createBindGroup({
     layout: uniformBindGroupLayout,
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: {
-          buffer: cameraMatrixBuffer,
-        },
-      },
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: cameraMatrixBuffer },
     ],
   }),
   device.createBindGroup({
     layout: uniformBindGroupLayout,
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: {
-          buffer: cameraMatrixReversedDepthBuffer,
-        },
-      },
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: cameraMatrixReversedDepthBuffer },
     ],
   }),
 ];
