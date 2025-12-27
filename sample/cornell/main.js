@@ -8712,7 +8712,7 @@ fn raytrace(ray : Ray) -> HitInfo {
   return hit;
 }
 
-// A psuedo random number. Initialized with init_rand(), updated with rand().
+// A pseudo random number. Initialized with init_rand(), updated with rand().
 var<private> rnd : vec3u;
 
 // Initializes the random number generator.

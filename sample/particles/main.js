@@ -8340,18 +8340,27 @@ var GUI$1 = GUI;
 var particleWGSL = `////////////////////////////////////////////////////////////////////////////////
 // Utilities
 ////////////////////////////////////////////////////////////////////////////////
-var<private> rand_seed : vec2f;
+// A pseudo random number. Initialized with init_rand(), updated with rand().
+var<private> rnd : vec4u;
 
-fn init_rand(invocation_id : u32, seed : vec4f) {
-  rand_seed = seed.xz;
-  rand_seed = fract(rand_seed * cos(35.456+f32(invocation_id) * seed.yw));
-  rand_seed = fract(rand_seed * cos(41.235+f32(invocation_id) * seed.xw));
+// Initializes the random number generator.
+fn init_rand(invocation_id : u32, seed : vec4u) {
+  const A = vec4(1741651 * 1009,
+                 140893  * 1609 * 13,
+                 6521    * 983  * 7  * 2,
+                 1109    * 509  * 83 * 11 * 3);
+  rnd = (A * vec4u(invocation_id)) ^ seed;
 }
 
+// Returns a random number between 0 and 1.
 fn rand() -> f32 {
-  rand_seed.x = fract(cos(dot(rand_seed, vec2f(23.14077926, 232.61690225))) * 136.8168);
-  rand_seed.y = fract(cos(dot(rand_seed, vec2f(54.47856553, 345.84153136))) * 534.7645);
-  return rand_seed.y;
+  const C = vec4(60493  * 9377,
+                 11279  * 2539 * 23,
+                 7919   * 631  * 5  * 3,
+                 1277   * 211  * 19 * 7 * 2);
+
+  rnd = (rnd * C) ^ (rnd.yzwx >> vec4(4u));
+  return f32(rnd.x ^ rnd.y) / f32(0xffffffff);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -8404,7 +8413,7 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4f {
 struct SimulationParams {
   deltaTime : f32,
   brightnessFactor : f32,
-  seed : vec4f,
+  seed : vec4u,
 }
 
 struct Particle {
@@ -8966,16 +8975,16 @@ const projection = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 const view = mat4.create();
 const mvp = mat4.create();
 function frame() {
-    device.queue.writeBuffer(simulationUBOBuffer, 0, new Float32Array([
-        simulationParams.simulate ? simulationParams.deltaTime : 0.0,
-        simulationParams.brightnessFactor,
-        0.0,
-        0.0, // padding
-        Math.random() * 100,
-        Math.random() * 100, // seed.xy
-        1 + Math.random(),
-        1 + Math.random(), // seed.zw
-    ]));
+    const uboDataF32 = new Float32Array(simulationUBOBuffer.size / 4);
+    const uboDataU32 = new Uint32Array(uboDataF32);
+    uboDataF32[0] = simulationParams.simulate ? simulationParams.deltaTime : 0.0;
+    uboDataF32[1] = simulationParams.brightnessFactor;
+    // [2] [3] are alignment padding
+    uboDataU32[4] = 0xffffffff * Math.random(); // seed.x
+    uboDataU32[5] = 0xffffffff * Math.random(); // seed.y
+    uboDataU32[6] = 0xffffffff * Math.random(); // seed.z
+    uboDataU32[7] = 0xffffffff * Math.random(); // seed.w
+    device.queue.writeBuffer(simulationUBOBuffer, 0, uboDataF32);
     mat4.identity(view);
     mat4.translate(view, vec3.fromValues(0, 0, -3), view);
     mat4.rotateX(view, Math.PI * -0.2, view);
