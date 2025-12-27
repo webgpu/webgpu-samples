@@ -1,18 +1,27 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Utilities
 ////////////////////////////////////////////////////////////////////////////////
-var<private> rand_seed : vec2f;
+// A pseudo random number. Initialized with init_rand(), updated with rand().
+var<private> rnd : vec4u;
 
-fn init_rand(invocation_id : u32, seed : vec4f) {
-  rand_seed = seed.xz;
-  rand_seed = fract(rand_seed * cos(35.456+f32(invocation_id) * seed.yw));
-  rand_seed = fract(rand_seed * cos(41.235+f32(invocation_id) * seed.xw));
+// Initializes the random number generator.
+fn init_rand(invocation_id : u32, seed : vec4u) {
+  const A = vec4(1741651 * 1009,
+                 140893  * 1609 * 13,
+                 6521    * 983  * 7  * 2,
+                 1109    * 509  * 83 * 11 * 3);
+  rnd = (A * vec4u(invocation_id)) ^ seed;
 }
 
+// Returns a random number between 0 and 1.
 fn rand() -> f32 {
-  rand_seed.x = fract(cos(dot(rand_seed, vec2f(23.14077926, 232.61690225))) * 136.8168);
-  rand_seed.y = fract(cos(dot(rand_seed, vec2f(54.47856553, 345.84153136))) * 534.7645);
-  return rand_seed.y;
+  const C = vec4(60493  * 9377,
+                 11279  * 2539 * 23,
+                 7919   * 631  * 5  * 3,
+                 1277   * 211  * 19 * 7 * 2);
+
+  rnd = (rnd * C) ^ (rnd.yzwx >> vec4(4u));
+  return f32(rnd.x ^ rnd.y) / f32(0xffffffff);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,7 +74,7 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4f {
 struct SimulationParams {
   deltaTime : f32,
   brightnessFactor : f32,
-  seed : vec4f,
+  seed : vec4u,
 }
 
 struct Particle {
