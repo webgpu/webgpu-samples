@@ -285,16 +285,41 @@ SampleInitFactoryWebGPU(
       device
     );
 
-    let computePipeline = device.createComputePipeline({
-      layout: device.createPipelineLayout({
-        bindGroupLayouts: [computeBGCluster.bindGroupLayout],
-      }),
-      compute: {
-        module: device.createShaderModule({
-          code: NaiveBitonicCompute(settings['Workgroup Size']),
-        }),
-      },
+    // When dynamically constructing multiple pipelines, the WebGPU program may pass the same arguments to
+    // an new pipeline that were used to create an existing one, effectively recreating it.
+    // Rather than potentially recreating the same pipelines multiple times, we can instead reuse them
+    // by placing them inside of a pipeline cache object. Relevant pipelines are accessed via a key string
+    // that reflects the arguments that were passed to that pipeline. This key is then used to determine
+    // whether a pipeline created with that set of arguments has already been generated. If not, we simply
+    // create a new pipeline with those arguments, and then save it within the cache map for future use.
+    // Although the observable performance benefits of such an approach in this particular sample are limited,
+    // employing pipeline caching does represent best practices for pipeline creation in more demanding situations,
+    // such as when the program switches between dozens of pipelines multiple pipelines each frame.
+    // Additional information on the use and impetus behind WebGPU pipline caching can be found at this page:
+    // https://toji.dev/webgpu-gltf-case-study/
+    const computePipelineCache: Map<string, GPUComputePipeline> = new Map();
+    // Layout is the same in each new version of computePipeline, and thus is only created once.
+    const computePipelineLayout = device.createPipelineLayout({
+      bindGroupLayouts: [computeBGCluster.bindGroupLayout],
     });
+
+    // Create the pipeline inside the cache
+    computePipelineCache.set(
+      settings['Workgroup Size'].toString(),
+      device.createComputePipeline({
+        layout: computePipelineLayout,
+        compute: {
+          module: device.createShaderModule({
+            code: NaiveBitonicCompute(settings['Workgroup Size']),
+          }),
+        },
+      })
+    );
+
+    // Assign the cached pipeline to the computePipeline variable.
+    let computePipeline = computePipelineCache.get(
+      settings['Workgroup Size'].toString()
+    );
 
     // Simple pipeline that zeros out an atomic value at group 0 binding 3
     const atomicToZeroComputePipeline = device.createComputePipeline({
@@ -413,19 +438,36 @@ SampleInitFactoryWebGPU(
 
       resetExecutionInformation();
 
-      // Create new shader invocation with workgroupSize that reflects number of invocations
-      computePipeline = device.createComputePipeline({
-        layout: device.createPipelineLayout({
-          bindGroupLayouts: [computeBGCluster.bindGroupLayout],
-        }),
-        compute: {
-          module: device.createShaderModule({
-            code: NaiveBitonicCompute(
-              Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
-            ),
-          }),
-        },
-      });
+      // Get the arguments for the new compute pipeline
+      const computePipelineArguments = Math.min(
+        settings['Total Elements'] / 2,
+        settings['Size Limit']
+      );
+      // Convert the argument to a key string
+      const cacheKey = computePipelineArguments.toString();
+
+      // Determine whether the cache already holds the relevant pipeline
+      if (!computePipelineCache.has(cacheKey)) {
+        // Create new shader invocation with workgroupSize that reflects number of invocations
+        computePipelineCache.set(
+          cacheKey,
+          device.createComputePipeline({
+            layout: computePipelineLayout,
+            compute: {
+              module: device.createShaderModule({
+                code: NaiveBitonicCompute(
+                  Math.min(
+                    settings['Total Elements'] / 2,
+                    settings['Size Limit']
+                  )
+                ),
+              }),
+            },
+          })
+        );
+      }
+      // Once pipeline has been created in the cache, assign it to the computePipeline variable.
+      computePipeline = computePipelineCache.get(cacheKey);
       // Randomize array elements
       randomizeElementArray();
       highestBlockHeight = 2;
@@ -529,19 +571,33 @@ SampleInitFactoryWebGPU(
           (settings['Total Elements'] - 1) / (settings['Size Limit'] * 2);
         workgroupSizeController.setValue(constraint);
         workgroupsPerStepController.setValue(Math.ceil(workgroupsPerStep));
-        // Apply new compute resources values to the sort's compute pipeline
-        computePipeline = computePipeline = device.createComputePipeline({
-          layout: device.createPipelineLayout({
-            bindGroupLayouts: [computeBGCluster.bindGroupLayout],
-          }),
-          compute: {
-            module: device.createShaderModule({
-              code: NaiveBitonicCompute(
-                Math.min(settings['Total Elements'] / 2, settings['Size Limit'])
-              ),
-            }),
-          },
-        });
+
+        // Pipeline cache
+        const computePipelineArguments = Math.min(
+          settings['Total Elements'] / 2,
+          settings['Size Limit']
+        );
+        const cacheKey = computePipelineArguments.toString();
+        if (!computePipelineCache.has(cacheKey)) {
+          computePipelineCache.set(
+            cacheKey,
+            device.createComputePipeline({
+              layout: computePipelineLayout,
+              compute: {
+                module: device.createShaderModule({
+                  code: NaiveBitonicCompute(
+                    Math.min(
+                      settings['Total Elements'] / 2,
+                      settings['Size Limit']
+                    )
+                  ),
+                }),
+              },
+            })
+          );
+        }
+        computePipeline = computePipelineCache.get(cacheKey);
+
         // Create new config key for current element + size limit configuration
         const currConfigKey = `${settings['Total Elements']} ${settings['Size Limit']}`;
         // If configKey doesn't exist in the map, create it.
