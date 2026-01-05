@@ -16,11 +16,7 @@ const videos = {
     url: '../../assets/video/5214261-hd_1920_1080_25fps.mp4',
     mode: 'cover',
   },
-  'lhc (360)': {
-    url: '../../assets/video/pano.webm',
-    mode: '360',
-  },
-  'lake (360)': {
+  'lake (360, drag to aim)': {
     url: '../../assets/video/Video_360°._Timelapse._Bled_Lake_in_Slovenia..webm.720p.vp9.webm',
     mode: '360',
   },
