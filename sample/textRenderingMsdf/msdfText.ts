@@ -321,7 +321,7 @@ export class MsdfTextRenderer {
         },
         {
           binding: 2,
-          resource: { buffer: charsBuffer },
+          resource: charsBuffer,
         },
       ],
     });
@@ -400,14 +400,8 @@ export class MsdfTextRenderer {
       label: 'msdf text bind group',
       layout: this.textBindGroupLayout,
       entries: [
-        {
-          binding: 0,
-          resource: { buffer: this.cameraUniformBuffer },
-        },
-        {
-          binding: 1,
-          resource: { buffer: textBuffer },
-        },
+        { binding: 0, resource: this.cameraUniformBuffer },
+        { binding: 1, resource: textBuffer },
       ],
     });
 
