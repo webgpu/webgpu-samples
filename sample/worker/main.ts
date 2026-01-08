@@ -1,3 +1,5 @@
+import { mainThreadCreateErrorMessagePortForWorker } from '../util';
+
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
 // The web worker is created by passing a path to the worker's source file, which will then be
@@ -26,8 +28,18 @@ const devicePixelRatio = window.devicePixelRatio;
 offscreenCanvas.width = canvas.clientWidth * devicePixelRatio;
 offscreenCanvas.height = canvas.clientHeight * devicePixelRatio;
 
+// Set up a port for any error messages so we can show them to the user.
+const errorMessagePort = mainThreadCreateErrorMessagePortForWorker();
+
 // Send a message to the worker telling it to initialize WebGPU with the OffscreenCanvas. The
 // array passed as the second argument here indicates that the OffscreenCanvas is to be
 // transferred to the worker, meaning this main thread will lose access to it and it will be
 // fully owned by the worker.
-worker.postMessage({ type: 'init', offscreenCanvas }, [offscreenCanvas]);
+worker.postMessage(
+  {
+    type: 'init',
+    offscreenCanvas,
+    errorMessagePort,
+  },
+  [offscreenCanvas, errorMessagePort]
+);
