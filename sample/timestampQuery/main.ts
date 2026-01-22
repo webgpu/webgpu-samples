@@ -10,7 +10,7 @@ import {
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import fragmentWGSL from '../../shaders/black.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 import PerfCounter from './PerfCounter';
 import TimestampQueryManager from './TimestampQueryManager';
@@ -29,7 +29,7 @@ const device = await adapter?.requestDevice({
   // We request a device that has support for timestamp queries
   requiredFeatures: supportsTimestampQueries ? ['timestamp-query'] : [],
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 // GPU-side timer and the CPU-side counter where we accumulate statistics:
 // NB: Look for 'timestampQueryManager' in this file to locate parts of this

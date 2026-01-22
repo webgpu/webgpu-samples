@@ -3,7 +3,10 @@ import { GUI } from 'dat.gui';
 
 import texturedSquareWGSL from './texturedSquare.wgsl';
 import showTextureWGSL from './showTexture.wgsl';
-import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const kMatrices: Readonly<Float32Array> = new Float32Array([
   // Row 1: Scale by 2
@@ -36,7 +39,7 @@ quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 1, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 //
 // GUI controls

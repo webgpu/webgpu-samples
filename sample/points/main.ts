@@ -5,7 +5,7 @@ import distanceSizedPointsVertWGSL from './distance-sized-points.vert.wgsl';
 import fixedSizePointsVertWGSL from './fixed-size-points.vert.wgsl';
 import orangeFragWGSL from './orange.frag.wgsl';
 import texturedFragWGSL from './textured.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 // See: https://www.google.com/search?q=fibonacci+sphere
 function createFibonacciSphereVertices({
@@ -33,7 +33,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 // Get a WebGPU context from the canvas and configure it
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;

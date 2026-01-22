@@ -1,13 +1,13 @@
 import { mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 import texturedQuadWGSL from './texturedQuad.wgsl';
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 // creates a CSS hsl string from 3 normalized numbers (0 to 1)
 const hsl = (hue: number, saturation: number, lightness: number) =>

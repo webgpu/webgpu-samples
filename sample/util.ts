@@ -152,7 +152,7 @@ function supportsDirectTextureAttachments(device: GPUDevice): boolean {
  * or if/when the device is lost or has an uncaptured error. Also checks
  * for direct buffer binding, direct texture binding, and direct texture attachment binding.
  */
-export function quitIfWebGPUNotAvailable(
+export function quitIfWebGPUNotAvailableOrMissingFeatures(
   adapter: GPUAdapter | null,
   device: GPUDevice | null
 ): asserts device {

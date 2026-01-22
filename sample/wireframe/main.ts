@@ -4,7 +4,10 @@ import { modelData } from './models';
 import { randElement, randColor } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 import wireframeWGSL from './wireframe.wgsl';
-import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const settings = {
   barycentricCoordinatesBased: false,
@@ -69,7 +72,7 @@ quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu');

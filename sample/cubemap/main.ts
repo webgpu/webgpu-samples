@@ -10,14 +10,14 @@ import {
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import sampleCubemapWGSL from './sampleCubemap.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const context = canvas.getContext('webgpu');
 

@@ -11,7 +11,10 @@ import { MsdfTextRenderer } from './msdfText';
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
@@ -23,7 +26,7 @@ quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const context = canvas.getContext('webgpu');
 

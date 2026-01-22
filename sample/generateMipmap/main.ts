@@ -1,6 +1,6 @@
 import { mat4 } from 'wgpu-matrix';
 import { generateMips } from './generateMipmap';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 import { makeCanvasImage } from './makeCanvasImage';
 import {
   cubeVertexArray,
@@ -23,7 +23,7 @@ const device = await adapter.requestDevice({
     ? ['core-features-and-limits']
     : [],
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu');

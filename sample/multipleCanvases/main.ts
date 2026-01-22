@@ -1,6 +1,6 @@
 import { mat4, mat3 } from 'wgpu-matrix';
 import { modelData } from './models';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 type TypedArrayView = Float32Array | Uint32Array;
 
@@ -50,7 +50,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const models = Object.values(modelData).map((data) =>
   createVertexAndIndexBuffer(device, data)

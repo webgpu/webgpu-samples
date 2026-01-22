@@ -11,13 +11,13 @@ import {
   reorientInPlace,
   VertexData,
 } from '../../meshes/primitives';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 // Get a WebGPU context from the canvas and configure it
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;

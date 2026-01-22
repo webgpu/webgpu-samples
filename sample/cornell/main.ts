@@ -7,7 +7,7 @@ import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
 import {
   quitIfAdapterNotAvailable,
-  quitIfWebGPUNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
   quitIfLimitLessThan,
 } from '../util';
 
@@ -38,7 +38,7 @@ const device = await adapter?.requestDevice({
   requiredFeatures: features,
   requiredLimits: limits,
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const params: {
   renderer: 'rasterizer' | 'raytracer';
