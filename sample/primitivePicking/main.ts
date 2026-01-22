@@ -7,7 +7,10 @@ import vertexForwardRendering from './vertexForwardRendering.wgsl';
 import fragmentForwardRendering from './fragmentForwardRendering.wgsl';
 import vertexTextureQuad from './vertexTextureQuad.wgsl';
 import fragmentPrimitivesDebugView from './fragmentPrimitivesDebugView.wgsl';
-import { quitIfWebGPUNotAvailable, quitIfFeaturesNotAvailable } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfFeaturesNotAvailable,
+} from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
@@ -20,7 +23,7 @@ quitIfFeaturesNotAvailable(adapter, requiredFeatures);
 const device = await adapter.requestDevice({
   requiredFeatures,
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
 

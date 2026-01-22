@@ -1,4 +1,7 @@
-import { quitIfAdapterNotAvailable, quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfAdapterNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+} from '../util';
 import spriteWGSL from './sprite.wgsl';
 import updateSpritesWGSL from './updateSprites.wgsl';
 import { GUI } from 'dat.gui';
@@ -13,7 +16,7 @@ const hasTimestampQuery = adapter.features.has('timestamp-query');
 const device = await adapter.requestDevice({
   requiredFeatures: hasTimestampQuery ? ['timestamp-query'] : [],
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';

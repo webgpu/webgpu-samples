@@ -8,7 +8,7 @@ import vertexTextureQuadWGSL from './vertexTextureQuad.wgsl';
 import fragmentTextureQuadWGSL from './fragmentTextureQuad.wgsl';
 import vertexPrecisionErrorPassWGSL from './vertexPrecisionErrorPass.wgsl';
 import fragmentPrecisionErrorPassWGSL from './fragmentPrecisionErrorPass.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 // Two planes close to each other for depth precision test
 const geometryVertexSize = 4 * 8; // Byte size of one geometry vertex.
@@ -70,7 +70,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const context = canvas.getContext('webgpu');
 
