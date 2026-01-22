@@ -2,7 +2,7 @@ import type { GUI } from 'dat.gui';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 import {
   quitIfAdapterNotAvailable,
-  quitIfWebGPUNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
   quitIfLimitLessThan,
 } from '../util';
 
@@ -131,7 +131,7 @@ export const SampleInitFactoryWebGPU = async (
       requiredFeatures: features,
       requiredLimits: limits,
     });
-    quitIfWebGPUNotAvailable(adapter, device);
+    quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
     const context = canvas.getContext('webgpu');
     const devicePixelRatio = window.devicePixelRatio;

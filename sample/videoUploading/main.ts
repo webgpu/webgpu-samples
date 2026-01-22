@@ -3,13 +3,13 @@ import { mat3, mat4 } from 'wgpu-matrix';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
 import sampleExternalTextureWGSL from './sampleExternalTexture.frag.wgsl';
 import sampleExternalTextureAsPanoramaWGSL from './sampleExternalTextureAsPanorama.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const videos = {
   'giraffe (2d)': {

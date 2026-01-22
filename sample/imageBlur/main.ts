@@ -1,7 +1,7 @@
 import { GUI } from 'dat.gui';
 import blurWGSL from './blur.wgsl';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 // Contants from the blur.wgsl shader.
 const tileDim = 128;
@@ -12,7 +12,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const context = canvas.getContext('webgpu');
 

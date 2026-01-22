@@ -8408,11 +8408,100 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function supportsDirectBufferBinding(device) {
+    const buffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM,
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: buffer }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        buffer.destroy();
+    }
+}
+function supportsDirectTextureBinding(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.TEXTURE_BINDING,
+        format: 'rgba8unorm',
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: texture }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        texture.destroy();
+    }
+}
+function supportsDirectTextureAttachments(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+        sampleCount: 4,
+    });
+    const resolveTarget = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+    });
+    const depthTexture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'depth16unorm',
+        sampleCount: 4,
+    });
+    const encoder = device.createCommandEncoder();
+    try {
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [
+                { view: texture, resolveTarget, loadOp: 'load', storeOp: 'store' },
+            ],
+            depthStencilAttachment: {
+                view: depthTexture,
+                depthLoadOp: 'load',
+                depthStoreOp: 'store',
+            },
+        });
+        pass.end();
+        return true;
+    }
+    catch (e) {
+        console.error(e);
+        return false;
+    }
+    finally {
+        encoder.finish();
+        texture.destroy();
+        resolveTarget.destroy();
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
- * or if/when the device is lost or has an uncaptured error.
+ * or if/when the device is lost or has an uncaptured error. Also checks
+ * for direct buffer binding, direct texture binding, and direct texture attachment binding.
  */
-function quitIfWebGPUNotAvailable(adapter, device) {
+function quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device) {
     if (!device) {
         quitIfAdapterNotAvailable(adapter);
         fail('Unable to get a device for an unknown reason');
@@ -8424,6 +8513,11 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     device.addEventListener('uncapturederror', (ev) => {
         fail(`Uncaptured error:\n${ev.error.message}`);
     });
+    if (!supportsDirectBufferBinding(device) ||
+        !supportsDirectTextureBinding(device) ||
+        !supportsDirectTextureAttachments(device)) {
+        fail('Core features of WebGPU are unavailable. Please update your browser to a newer version.');
+    }
 }
 /** Fail by showing a console error, and dialog box if possible. */
 const fail = (() => {
@@ -8517,7 +8611,7 @@ if (adapter?.features.has('texture-compression-astc-sliced-3d')) {
     requiredFeatures.push('texture-compression-astc', 'texture-compression-astc-sliced-3d');
 }
 const device = await adapter?.requestDevice({ requiredFeatures });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 const context = canvas.getContext('webgpu');
 const sampleCount = 4;
 const devicePixelRatio = window.devicePixelRatio;
