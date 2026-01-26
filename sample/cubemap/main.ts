@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 
 import {
   cubeVertexArray,
@@ -193,7 +193,7 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 3000);
 
-const modelMatrix = mat4.scaling(vec3.fromValues(1000, 1000, 1000));
+const modelMatrix = mat4.scaling([1000, 1000, 1000]);
 const modelViewProjectionMatrix = mat4.create();
 const viewMatrix = mat4.identity();
 
@@ -204,13 +204,8 @@ const tmpMat4 = mat4.create();
 function updateTransformationMatrix() {
   const now = Date.now() / 800;
 
-  mat4.rotate(
-    viewMatrix,
-    vec3.fromValues(1, 0, 0),
-    (Math.PI / 10) * Math.sin(now),
-    tmpMat4
-  );
-  mat4.rotate(tmpMat4, vec3.fromValues(0, 1, 0), now * 0.2, tmpMat4);
+  mat4.rotate(viewMatrix, [1, 0, 0], (Math.PI / 10) * Math.sin(now), tmpMat4);
+  mat4.rotate(tmpMat4, [0, 1, 0], now * 0.2, tmpMat4);
 
   mat4.multiply(tmpMat4, modelMatrix, modelViewProjectionMatrix);
   mat4.multiply(

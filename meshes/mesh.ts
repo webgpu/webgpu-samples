@@ -74,7 +74,7 @@ export const getMeshPosAtIndex = (mesh: Mesh, index: number) => {
     index * mesh.vertexStride + 0,
     3
   );
-  return vec3.fromValues(arr[0], arr[1], arr[2]);
+  return [arr[0], arr[1], arr[2]];
 };
 
 export const getMeshNormalAtIndex = (mesh: Mesh, index: number) => {
@@ -83,7 +83,7 @@ export const getMeshNormalAtIndex = (mesh: Mesh, index: number) => {
     index * mesh.vertexStride + 3 * Float32Array.BYTES_PER_ELEMENT,
     3
   );
-  return vec3.fromValues(arr[0], arr[1], arr[2]);
+  return [arr[0], arr[1], arr[2]];
 };
 
 export const getMeshUVAtIndex = (mesh: Mesh, index: number) => {

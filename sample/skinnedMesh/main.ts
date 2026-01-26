@@ -2,7 +2,7 @@ import { GUI } from 'dat.gui';
 import { convertGLBToJSONAndBinary, GLTFSkin } from './glbUtils';
 import gltfWGSL from './gltf.wgsl';
 import gridWGSL from './grid.wgsl';
-import { Mat4, mat4, quat, vec3 } from 'wgpu-matrix';
+import { Mat4, mat4, quat } from 'wgpu-matrix';
 import { createBindGroupCluster } from '../bitonicSort/utils';
 import {
   createSkinnedGridBuffers,
@@ -323,17 +323,17 @@ function getViewMatrix() {
   if (settings.object === 'Skinned Grid') {
     mat4.translate(
       viewMatrix,
-      vec3.fromValues(
+      [
         settings.cameraX * settings.objectScale,
         settings.cameraY * settings.objectScale,
-        settings.cameraZ
-      ),
+        settings.cameraZ,
+      ],
       viewMatrix
     );
   } else {
     mat4.translate(
       viewMatrix,
-      vec3.fromValues(settings.cameraX, settings.cameraY, settings.cameraZ),
+      [settings.cameraX, settings.cameraY, settings.cameraZ],
       viewMatrix
     );
   }
@@ -342,11 +342,11 @@ function getViewMatrix() {
 
 function getModelMatrix() {
   const modelMatrix = mat4.identity();
-  const scaleVector = vec3.fromValues(
+  const scaleVector = [
     settings.objectScale,
     settings.objectScale,
-    settings.objectScale
-  );
+    settings.objectScale,
+  ];
   mat4.scale(modelMatrix, scaleVector, modelMatrix);
   if (settings.object === 'Whale') {
     mat4.rotateY(modelMatrix, (Date.now() / 1000) * 0.5, modelMatrix);
@@ -389,9 +389,9 @@ const skinnedGridRenderPassDescriptor: GPURenderPassDescriptor = {
 const animSkinnedGrid = (boneTransforms: Mat4[], angle: number) => {
   const m = mat4.identity();
   mat4.rotateZ(m, angle, boneTransforms[0]);
-  mat4.translate(boneTransforms[0], vec3.create(4, 0, 0), m);
+  mat4.translate(boneTransforms[0], [4, 0, 0], m);
   mat4.rotateZ(m, angle, boneTransforms[1]);
-  mat4.translate(boneTransforms[1], vec3.create(4, 0, 0), m);
+  mat4.translate(boneTransforms[1], [4, 0, 0], m);
   mat4.rotateZ(m, angle, boneTransforms[2]);
 };
 

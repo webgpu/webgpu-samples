@@ -295,9 +295,9 @@ const pickBindGroup = device.createBindGroup({
 //--------------------
 
 // Scene matrices
-const eyePosition = vec3.fromValues(0, 12, -25);
-const upVector = vec3.fromValues(0, 1, 0);
-const origin = vec3.fromValues(0, 0, 0);
+const eyePosition = [0, 12, -25];
+const upVector = [0, 1, 0];
+const origin = [0, 0, 0];
 
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 2000.0);
 

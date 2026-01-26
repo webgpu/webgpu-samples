@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
 import particleWGSL from './particle.wgsl';
@@ -388,7 +388,7 @@ function frame() {
   device.queue.writeBuffer(simulationUBOBuffer, 0, uboDataF32);
 
   mat4.identity(view);
-  mat4.translate(view, vec3.fromValues(0, 0, -3), view);
+  mat4.translate(view, [0, 0, -3], view);
   mat4.rotateX(view, Math.PI * -0.2, view);
   mat4.multiply(projection, view, mvp);
 
