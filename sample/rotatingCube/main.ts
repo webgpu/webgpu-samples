@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 
 import {
   cubeVertexArray,
@@ -136,14 +136,9 @@ const modelViewProjectionMatrix = mat4.create();
 
 function getTransformationMatrix() {
   const viewMatrix = mat4.identity();
-  mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+  mat4.translate(viewMatrix, [0, 0, -4], viewMatrix);
   const now = Date.now() / 1000;
-  mat4.rotate(
-    viewMatrix,
-    vec3.fromValues(Math.sin(now), Math.cos(now), 0),
-    1,
-    viewMatrix
-  );
+  mat4.rotate(viewMatrix, [Math.sin(now), Math.cos(now), 0], 1, viewMatrix);
 
   mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
 

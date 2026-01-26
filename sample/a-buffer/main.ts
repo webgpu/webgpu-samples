@@ -514,9 +514,9 @@ const configure = () => {
       2000.0
     );
 
-    const upVector = vec3.fromValues(0, 1, 0);
-    const origin = vec3.fromValues(0, 0, 0);
-    const eyePosition = vec3.fromValues(0, 5, -100);
+    const upVector = [0, 1, 0];
+    const origin = [0, 0, 0];
+    const eyePosition = [0, 5, -100];
 
     const rad = Math.PI * (Date.now() / 5000);
     const rotation = mat4.rotateY(mat4.translation(origin), rad);
