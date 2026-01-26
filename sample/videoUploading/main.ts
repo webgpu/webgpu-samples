@@ -130,20 +130,14 @@ function drawVideo() {
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
     entries: [
-      {
-        binding: 1,
-        resource: sampler,
-      },
+      { binding: 1, resource: sampler },
       {
         binding: 2,
         resource: device.importExternalTexture({
           source: externalTextureSource,
         }),
       },
-      {
-        binding: 3,
-        resource: { buffer: uniformBuffer },
-      },
+      { binding: 3, resource: uniformBuffer },
     ],
   });
 
