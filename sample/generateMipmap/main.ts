@@ -1,6 +1,6 @@
 import { mat4 } from 'wgpu-matrix';
 import { generateMips } from './generateMipmap';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 import { makeCanvasImage } from './makeCanvasImage';
 import {
   cubeVertexArray,
@@ -18,17 +18,15 @@ const hsl = (h: number, s: number, l: number) =>
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
-const device = await adapter?.requestDevice({
-  requiredFeatures: [
-    ...(adapter.features.has('core-features-and-limits')
-      ? ['core-features-and-limits' as GPUFeatureName]
-      : []),
-  ],
+const device = await adapter.requestDevice({
+  requiredFeatures: adapter.features.has('core-features-and-limits')
+    ? ['core-features-and-limits']
+    : [],
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;

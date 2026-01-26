@@ -4,7 +4,7 @@ import { createSphereMesh, SphereLayout } from '../../meshes/sphere';
 import Stats from 'stats.js';
 
 import meshWGSL from './mesh.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 interface Renderable {
   vertices: GPUBuffer;
@@ -18,7 +18,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const settings = {
   useRenderBundles: true,
@@ -32,7 +32,7 @@ gui.add(settings, 'asteroidCount', 1000, 10000, 1000).onChange(() => {
   updateRenderBundle();
 });
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;

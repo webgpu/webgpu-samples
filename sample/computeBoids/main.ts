@@ -1,4 +1,7 @@
-import { quitIfAdapterNotAvailable, quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfAdapterNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+} from '../util';
 import spriteWGSL from './sprite.wgsl';
 import updateSpritesWGSL from './updateSprites.wgsl';
 import { GUI } from 'dat.gui';
@@ -13,7 +16,7 @@ const hasTimestampQuery = adapter.features.has('timestamp-query');
 const device = await adapter.requestDevice({
   requiredFeatures: hasTimestampQuery ? ['timestamp-query'] : [],
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';
@@ -32,7 +35,7 @@ if (canvas.parentNode) {
   console.error('canvas.parentNode is null');
 }
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
@@ -270,13 +273,7 @@ function frame() {
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
       });
     commandEncoder.resolveQuerySet(querySet, 0, 4, resolveBuffer, 0);
-    commandEncoder.copyBufferToBuffer(
-      resolveBuffer,
-      0,
-      resultBuffer,
-      0,
-      resultBuffer.size
-    );
+    commandEncoder.copyBufferToBuffer(resolveBuffer, resultBuffer);
   }
 
   device.queue.submit([commandEncoder.finish()]);

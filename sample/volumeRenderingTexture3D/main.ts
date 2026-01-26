@@ -1,7 +1,7 @@
 import { mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 import volumeWGSL from './volume.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const status = document.getElementById('status') as HTMLDivElement;
@@ -74,8 +74,8 @@ if (adapter?.features.has('texture-compression-astc-sliced-3d')) {
 }
 const device = await adapter?.requestDevice({ requiredFeatures });
 
-quitIfWebGPUNotAvailable(adapter, device);
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
+const context = canvas.getContext('webgpu');
 
 const sampleCount = 4;
 

@@ -1,5 +1,4 @@
 import { GUI } from 'dat.gui';
-import Stats from 'stats.js';
 import { createBindGroupCluster, SampleInitFactoryWebGPU } from './utils';
 import BitonicDisplayRenderer from './bitonicDisplay';
 import { NaiveBitonicCompute } from './bitonicCompute';
@@ -632,8 +631,8 @@ SampleInitFactoryWebGPU(
       'Next Swap Span'
     );
 
-    // Timestamp information for Chrome 121+ or other compatible browsers
-    const timestampFolder = gui.addFolder('Timestamp Info (Chrome 121+)');
+    // Timestamp information
+    const timestampFolder = gui.addFolder('Timestamp Info');
     const stepTimeController = timestampFolder.add(settings, 'Step Time');
     const sortTimeController = timestampFolder.add(settings, 'Sort Time');
     const averageSortTimeController = timestampFolder.add(
@@ -756,10 +755,7 @@ SampleInitFactoryWebGPU(
           );
           commandEncoder.copyBufferToBuffer(
             timestampQueryResolveBuffer,
-            0,
-            timestampQueryResultBuffer,
-            0,
-            2 * BigInt64Array.BYTES_PER_ELEMENT
+            timestampQueryResultBuffer
           );
         }
         settings['Step Index'] = settings['Step Index'] + 1;
@@ -795,26 +791,21 @@ SampleInitFactoryWebGPU(
           }
         } else {
           // Otherwise, execute the next disperse operation
-          settings['Next Swap Span'] > settings['Workgroup Size'] * 2
-            ? nextStepController.setValue('DISPERSE_GLOBAL')
-            : nextStepController.setValue('DISPERSE_LOCAL');
+          if (settings['Next Swap Span'] > settings['Workgroup Size'] * 2) {
+            nextStepController.setValue('DISPERSE_GLOBAL');
+          } else {
+            nextStepController.setValue('DISPERSE_LOCAL');
+          }
         }
 
         // Copy GPU accessible buffers to CPU accessible buffers
         commandEncoder.copyBufferToBuffer(
           elementsOutputBuffer,
-          0,
-          elementsStagingBuffer,
-          0,
-          elementsBufferSize
+          elementsStagingBuffer
         );
-
         commandEncoder.copyBufferToBuffer(
           atomicSwapsOutputBuffer,
-          0,
-          atomicSwapsStagingBuffer,
-          0,
-          Uint32Array.BYTES_PER_ELEMENT
+          atomicSwapsStagingBuffer
         );
       }
       device.queue.submit([commandEncoder.finish()]);
@@ -904,10 +895,7 @@ SampleInitFactoryWebGPU(
   }
 ).then((init) => {
   const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-  const stats = new Stats();
   const gui = new GUI();
 
-  document.body.appendChild(stats.dom);
-
-  init({ canvas, stats, gui });
+  init({ canvas, gui });
 });

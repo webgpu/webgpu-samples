@@ -2,7 +2,7 @@ import type { GUI } from 'dat.gui';
 import fullscreenTexturedQuad from '../../shaders/fullscreenTexturedQuad.wgsl';
 import {
   quitIfAdapterNotAvailable,
-  quitIfWebGPUNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
   quitIfLimitLessThan,
 } from '../util';
 
@@ -91,7 +91,6 @@ export type ShaderKeyInterface<T extends string[]> = {
 export type SampleInitParams = {
   canvas: HTMLCanvasElement;
   gui?: GUI;
-  stats?: Stats;
 };
 
 interface DeviceInitParms {
@@ -115,7 +114,7 @@ export type SampleInit = (params: SampleInitParams) => void;
 export const SampleInitFactoryWebGPU = async (
   callback: SampleInitCallback3D
 ): Promise<SampleInit> => {
-  const init = async ({ canvas, gui, stats }) => {
+  const init = async ({ canvas, gui }) => {
     const adapter = await navigator.gpu?.requestAdapter({
       featureLevel: 'compatibility',
     });
@@ -132,9 +131,9 @@ export const SampleInitFactoryWebGPU = async (
       requiredFeatures: features,
       requiredLimits: limits,
     });
-    quitIfWebGPUNotAvailable(adapter, device);
+    quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-    const context = canvas.getContext('webgpu') as GPUCanvasContext;
+    const context = canvas.getContext('webgpu');
     const devicePixelRatio = window.devicePixelRatio;
     canvas.width = canvas.clientWidth * devicePixelRatio;
     canvas.height = canvas.clientHeight * devicePixelRatio;
@@ -150,7 +149,6 @@ export const SampleInitFactoryWebGPU = async (
       device,
       context,
       presentationFormat,
-      stats,
       timestampQueryAvailable,
     });
   };

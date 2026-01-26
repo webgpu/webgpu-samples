@@ -7,7 +7,7 @@ import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
 import {
   quitIfAdapterNotAvailable,
-  quitIfWebGPUNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
   quitIfLimitLessThan,
 } from '../util';
 
@@ -38,7 +38,7 @@ const device = await adapter?.requestDevice({
   requiredFeatures: features,
   requiredLimits: limits,
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const params: {
   renderer: 'rasterizer' | 'raytracer';
@@ -56,7 +56,7 @@ const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 context.configure({
   device,
   format: presentationFormat,

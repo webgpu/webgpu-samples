@@ -1,7 +1,10 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
-import { quitIfWebGPUNotAvailable, quitIfLimitLessThan } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 import { mesh } from '../../meshes/teapot';
 
 import opaqueWGSL from './opaque.wgsl';
@@ -21,9 +24,9 @@ quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 2, limits);
 const device = await adapter?.requestDevice({
   requiredLimits: limits,
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
 context.configure({
@@ -555,13 +558,7 @@ const configure = () => {
 
     for (let slice = 0; slice < numSlices; ++slice) {
       // initialize the heads buffer
-      commandEncoder.copyBufferToBuffer(
-        headsInitBuffer,
-        0,
-        headsBuffer,
-        0,
-        headsInitBuffer.size
-      );
+      commandEncoder.copyBufferToBuffer(headsInitBuffer, headsBuffer);
 
       const scissorX = 0;
       const scissorY = slice * sliceHeight;

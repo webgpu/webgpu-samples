@@ -3,7 +3,7 @@ import { GUI } from 'dat.gui';
 
 import particleWGSL from './particle.wgsl';
 import probabilityMapWGSL from './probabilityMap.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const numParticles = 50000;
 const particlePositionOffset = 0;
@@ -21,9 +21,9 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -341,7 +341,7 @@ function getHdrFolderName() {
   }
   if (
     simulationParams.toneMappingMode === 'extended' &&
-    context.getConfiguration().toneMapping.mode !== 'extended'
+    context.getConfiguration().toneMapping?.mode !== 'extended'
   ) {
     return "HDR settings ⚠️ Browser doesn't support HDR canvas";
   }
@@ -375,20 +375,17 @@ const view = mat4.create();
 const mvp = mat4.create();
 
 function frame() {
-  device.queue.writeBuffer(
-    simulationUBOBuffer,
-    0,
-    new Float32Array([
-      simulationParams.simulate ? simulationParams.deltaTime : 0.0,
-      simulationParams.brightnessFactor,
-      0.0,
-      0.0, // padding
-      Math.random() * 100,
-      Math.random() * 100, // seed.xy
-      1 + Math.random(),
-      1 + Math.random(), // seed.zw
-    ])
-  );
+  const uboDataF32 = new Float32Array(simulationUBOBuffer.size / 4);
+  const uboDataU32 = new Uint32Array(uboDataF32);
+  uboDataF32[0] = simulationParams.simulate ? simulationParams.deltaTime : 0.0;
+  uboDataF32[1] = simulationParams.brightnessFactor;
+  // [2] [3] are alignment padding
+  uboDataU32[4] = 0xffffffff * Math.random(); // seed.x
+  uboDataU32[5] = 0xffffffff * Math.random(); // seed.y
+  uboDataU32[6] = 0xffffffff * Math.random(); // seed.z
+  uboDataU32[7] = 0xffffffff * Math.random(); // seed.w
+
+  device.queue.writeBuffer(simulationUBOBuffer, 0, uboDataF32);
 
   mat4.identity(view);
   mat4.translate(view, vec3.fromValues(0, 0, -3), view);

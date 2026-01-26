@@ -1,7 +1,7 @@
 import { GUI } from 'dat.gui';
 import blurWGSL from './blur.wgsl';
 import fullscreenTexturedQuadWGSL from '../../shaders/fullscreenTexturedQuad.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 // Contants from the blur.wgsl shader.
 const tileDim = 128;
@@ -12,9 +12,9 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -173,11 +173,11 @@ const settings = {
 
 let blockDim: number;
 const updateSettings = () => {
-  blockDim = tileDim - (settings.filterSize - 1);
+  blockDim = tileDim - settings.filterSize;
   device.queue.writeBuffer(
     blurParamsBuffer,
     0,
-    new Uint32Array([settings.filterSize, blockDim])
+    new Uint32Array([settings.filterSize + 1, blockDim])
   );
 };
 const gui = new GUI();

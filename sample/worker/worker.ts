@@ -10,7 +10,7 @@ import {
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 // The worker process can instantiate a WebGPU device immediately, but it still needs an
 // OffscreenCanvas to be able to display anything. Here we listen for an 'init' message from the
@@ -39,7 +39,7 @@ async function init(canvas) {
     featureLevel: 'compatibility',
   });
   const device = await adapter?.requestDevice();
-  quitIfWebGPUNotAvailable(adapter, device);
+  quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
   const context = canvas.getContext('webgpu');
 
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();

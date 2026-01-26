@@ -1,13 +1,13 @@
 import { GUI } from 'dat.gui';
 import animometerWGSL from './animometer.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';
@@ -31,7 +31,7 @@ const settings = {
   dynamicOffsets: Boolean(params.get('dynamicOffsets')),
 };
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -168,7 +168,9 @@ function configure() {
   const alignedUniformFloats =
     alignedUniformBytes / Float32Array.BYTES_PER_ELEMENT;
   const uniformBuffer = device.createBuffer({
-    size: numTriangles * alignedUniformBytes + Float32Array.BYTES_PER_ELEMENT,
+    size:
+      Math.max(numTriangles, 1) * alignedUniformBytes +
+      Float32Array.BYTES_PER_ELEMENT,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
   const uniformBufferData = new Float32Array(
