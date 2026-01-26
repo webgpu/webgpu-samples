@@ -6201,20 +6201,9 @@ const sampler = device.createSampler({
 const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
     entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: uniformBuffer,
-            },
-        },
-        {
-            binding: 1,
-            resource: sampler,
-        },
-        {
-            binding: 2,
-            resource: cubeTexture.createView(),
-        },
+        { binding: 0, resource: uniformBuffer },
+        { binding: 1, resource: sampler },
+        { binding: 2, resource: cubeTexture.createView() },
     ],
 });
 const renderPassDescriptor = {

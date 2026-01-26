@@ -8822,20 +8822,12 @@ class Common {
                 {
                     // common_uniforms
                     binding: 0,
-                    resource: {
-                        buffer: this.uniformBuffer,
-                        offset: 0,
-                        size: this.uniformBuffer.size,
-                    },
+                    resource: this.uniformBuffer,
                 },
                 {
                     // quads
                     binding: 1,
-                    resource: {
-                        buffer: quads,
-                        offset: 0,
-                        size: quads.size,
-                    },
+                    resource: quads,
                 },
             ],
         });
@@ -9105,10 +9097,7 @@ class Radiosity {
                 {
                     // accumulation buffer
                     binding: 0,
-                    resource: {
-                        buffer: this.accumulationBuffer,
-                        size: this.accumulationBuffer.size,
-                    },
+                    resource: this.accumulationBuffer,
                 },
                 {
                     // lightmap
@@ -9118,10 +9107,7 @@ class Radiosity {
                 {
                     // radiosity_uniforms
                     binding: 2,
-                    resource: {
-                        buffer: this.uniformBuffer,
-                        size: this.uniformBuffer.size,
-                    },
+                    resource: this.uniformBuffer,
                 },
             ],
         });

@@ -451,21 +451,15 @@ const configure = () => {
     entries: [
       {
         binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
+        resource: uniformBuffer,
       },
       {
         binding: 1,
-        resource: {
-          buffer: headsBuffer,
-        },
+        resource: headsBuffer,
       },
       {
         binding: 2,
-        resource: {
-          buffer: linkedListBuffer,
-        },
+        resource: linkedListBuffer,
       },
       {
         binding: 3,
@@ -487,21 +481,15 @@ const configure = () => {
     entries: [
       {
         binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
+        resource: uniformBuffer,
       },
       {
         binding: 1,
-        resource: {
-          buffer: headsBuffer,
-        },
+        resource: headsBuffer,
       },
       {
         binding: 2,
-        resource: {
-          buffer: linkedListBuffer,
-        },
+        resource: linkedListBuffer,
       },
       {
         binding: 3,

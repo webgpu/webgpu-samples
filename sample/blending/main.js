@@ -8671,7 +8671,7 @@ const srcBindGroupUnpremultipliedAlpha = device.createBindGroup({
     entries: [
         { binding: 0, resource: sampler },
         { binding: 1, resource: srcTextureUnpremultipliedAlpha.createView() },
-        { binding: 2, resource: { buffer: srcUniform.buffer } },
+        { binding: 2, resource: srcUniform.buffer },
     ],
 });
 const dstBindGroupUnpremultipliedAlpha = device.createBindGroup({
@@ -8679,7 +8679,7 @@ const dstBindGroupUnpremultipliedAlpha = device.createBindGroup({
     entries: [
         { binding: 0, resource: sampler },
         { binding: 1, resource: dstTextureUnpremultipliedAlpha.createView() },
-        { binding: 2, resource: { buffer: dstUniform.buffer } },
+        { binding: 2, resource: dstUniform.buffer },
     ],
 });
 const srcBindGroupPremultipliedAlpha = device.createBindGroup({
@@ -8687,7 +8687,7 @@ const srcBindGroupPremultipliedAlpha = device.createBindGroup({
     entries: [
         { binding: 0, resource: sampler },
         { binding: 1, resource: srcTexturePremultipliedAlpha.createView() },
-        { binding: 2, resource: { buffer: srcUniform.buffer } },
+        { binding: 2, resource: srcUniform.buffer },
     ],
 });
 const dstBindGroupPremultipliedAlpha = device.createBindGroup({
@@ -8695,7 +8695,7 @@ const dstBindGroupPremultipliedAlpha = device.createBindGroup({
     entries: [
         { binding: 0, resource: sampler },
         { binding: 1, resource: dstTexturePremultipliedAlpha.createView() },
-        { binding: 2, resource: { buffer: dstUniform.buffer } },
+        { binding: 2, resource: dstUniform.buffer },
     ],
 });
 const textureSets = [

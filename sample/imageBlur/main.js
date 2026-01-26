@@ -2887,86 +2887,39 @@ const blurParamsBuffer = device.createBuffer({
 const computeConstants = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(0),
     entries: [
-        {
-            binding: 0,
-            resource: sampler,
-        },
-        {
-            binding: 1,
-            resource: {
-                buffer: blurParamsBuffer,
-            },
-        },
+        { binding: 0, resource: sampler },
+        { binding: 1, resource: blurParamsBuffer },
     ],
 });
 const computeBindGroup0 = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(1),
     entries: [
-        {
-            binding: 1,
-            resource: imageTexture.createView(),
-        },
-        {
-            binding: 2,
-            resource: textures[0].createView(),
-        },
-        {
-            binding: 3,
-            resource: {
-                buffer: buffer0,
-            },
-        },
+        { binding: 1, resource: imageTexture.createView() },
+        { binding: 2, resource: textures[0].createView() },
+        { binding: 3, resource: buffer0 },
     ],
 });
 const computeBindGroup1 = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(1),
     entries: [
-        {
-            binding: 1,
-            resource: textures[0].createView(),
-        },
-        {
-            binding: 2,
-            resource: textures[1].createView(),
-        },
-        {
-            binding: 3,
-            resource: {
-                buffer: buffer1,
-            },
-        },
+        { binding: 1, resource: textures[0].createView() },
+        { binding: 2, resource: textures[1].createView() },
+        { binding: 3, resource: buffer1 },
     ],
 });
 const computeBindGroup2 = device.createBindGroup({
     layout: blurPipeline.getBindGroupLayout(1),
     entries: [
-        {
-            binding: 1,
-            resource: textures[1].createView(),
-        },
-        {
-            binding: 2,
-            resource: textures[0].createView(),
-        },
-        {
-            binding: 3,
-            resource: {
-                buffer: buffer0,
-            },
-        },
+        { binding: 1, resource: textures[1].createView() },
+        { binding: 2, resource: textures[0].createView() },
+        { binding: 3, resource: buffer0 },
     ],
 });
 const showResultBindGroup = device.createBindGroup({
     layout: fullscreenQuadPipeline.getBindGroupLayout(0),
     entries: [
-        {
-            binding: 0,
-            resource: sampler,
-        },
-        {
-            binding: 1,
-            resource: textures[1].createView(),
-        },
+        { binding: 0, resource: sampler },
+        { binding: 1, resource: textures[1].createView() },
     ],
 });
 const settings = {

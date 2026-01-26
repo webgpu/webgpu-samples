@@ -6531,23 +6531,14 @@ const sceneUniformBuffer = device.createBuffer({
 });
 const sceneBindGroupForShadow = device.createBindGroup({
     layout: uniformBufferBindGroupLayout,
-    entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: sceneUniformBuffer,
-            },
-        },
-    ],
+    entries: [{ binding: 0, resource: sceneUniformBuffer }],
 });
 const sceneBindGroupForRender = device.createBindGroup({
     layout: bglForRender,
     entries: [
         {
             binding: 0,
-            resource: {
-                buffer: sceneUniformBuffer,
-            },
+            resource: sceneUniformBuffer,
         },
         {
             binding: 1,
@@ -6563,14 +6554,7 @@ const sceneBindGroupForRender = device.createBindGroup({
 });
 const modelBindGroup = device.createBindGroup({
     layout: uniformBufferBindGroupLayout,
-    entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: modelUniformBuffer,
-            },
-        },
-    ],
+    entries: [{ binding: 0, resource: modelUniformBuffer }],
 });
 const eyePosition = vec3.fromValues(0, 50, -100);
 const upVector = vec3.fromValues(0, 1, 0);

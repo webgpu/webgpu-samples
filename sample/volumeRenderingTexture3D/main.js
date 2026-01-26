@@ -8703,9 +8703,7 @@ const bindGroupDescriptor = {
     entries: [
         {
             binding: 0,
-            resource: {
-                buffer: uniformBuffer,
-            },
+            resource: uniformBuffer,
         },
         {
             binding: 1,

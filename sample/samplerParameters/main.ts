@@ -312,8 +312,8 @@ function frame() {
   const bindGroup = device.createBindGroup({
     layout: texturedSquareBGL,
     entries: [
-      { binding: 0, resource: { buffer: bufConfig } },
-      { binding: 1, resource: { buffer: bufMatrices } },
+      { binding: 0, resource: bufConfig },
+      { binding: 1, resource: bufMatrices },
       { binding: 2, resource: sampler },
       { binding: 3, resource: checkerboardView },
     ],

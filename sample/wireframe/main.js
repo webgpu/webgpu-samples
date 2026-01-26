@@ -9052,7 +9052,7 @@ for (let i = 0; i < numObjects; ++i) {
     // Make a bind group for this uniform
     const litBindGroup = device.createBindGroup({
         layout: litBindGroupLayout,
-        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+        entries: [{ binding: 0, resource: uniformBuffer }],
     });
     // Note: We're making one lineUniformBuffer per object.
     // This is only because stride might be different per object.
@@ -9072,19 +9072,19 @@ for (let i = 0; i < numObjects; ++i) {
     const wireframeBindGroup = device.createBindGroup({
         layout: wireframePipeline.getBindGroupLayout(0),
         entries: [
-            { binding: 0, resource: { buffer: uniformBuffer } },
-            { binding: 1, resource: { buffer: model.vertexBuffer } },
-            { binding: 2, resource: { buffer: model.indexBuffer } },
-            { binding: 3, resource: { buffer: lineUniformBuffer } },
+            { binding: 0, resource: uniformBuffer },
+            { binding: 1, resource: model.vertexBuffer },
+            { binding: 2, resource: model.indexBuffer },
+            { binding: 3, resource: lineUniformBuffer },
         ],
     });
     const barycentricCoordinatesBasedWireframeBindGroup = device.createBindGroup({
         layout: barycentricCoordinatesBasedWireframePipeline.getBindGroupLayout(0),
         entries: [
-            { binding: 0, resource: { buffer: uniformBuffer } },
-            { binding: 1, resource: { buffer: model.vertexBuffer } },
-            { binding: 2, resource: { buffer: model.indexBuffer } },
-            { binding: 3, resource: { buffer: lineUniformBuffer } },
+            { binding: 0, resource: uniformBuffer },
+            { binding: 1, resource: model.vertexBuffer },
+            { binding: 2, resource: model.indexBuffer },
+            { binding: 3, resource: lineUniformBuffer },
         ],
     });
     objectInfos.push({

@@ -8915,18 +8915,8 @@ const frameUniformBuffer = device.createBuffer({
 const sceneUniformBindGroup = device.createBindGroup({
     layout: forwardRenderingPipeline.getBindGroupLayout(0),
     entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: modelUniformBuffer,
-            },
-        },
-        {
-            binding: 1,
-            resource: {
-                buffer: frameUniformBuffer,
-            },
-        },
+        { binding: 0, resource: modelUniformBuffer },
+        { binding: 1, resource: frameUniformBuffer },
     ],
 });
 const primitiveTextureBindGroup = device.createBindGroup({

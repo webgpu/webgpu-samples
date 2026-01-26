@@ -6621,8 +6621,8 @@ function makeScene(numInstances, hue, geometries) {
         const bindGroup = device.createBindGroup({
             layout: bindGroupLayout,
             entries: [
-                { binding: 0, resource: { buffer: uniformBuffer } },
-                { binding: 1, resource: { buffer: sharedUniformBuffer } },
+                { binding: 0, resource: uniformBuffer },
+                { binding: 1, resource: sharedUniformBuffer },
             ],
         });
         objectInfos.push({

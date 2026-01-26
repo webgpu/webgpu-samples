@@ -8837,14 +8837,7 @@ const uniformBuffer = device.createBuffer({
 });
 const uniformBindGroup = device.createBindGroup({
     layout: renderPipeline.getBindGroupLayout(0),
-    entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: uniformBuffer,
-            },
-        },
-    ],
+    entries: [{ binding: 0, resource: uniformBuffer }],
 });
 const renderPassDescriptor = {
     colorAttachments: [
@@ -8946,17 +8939,17 @@ device.queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: text
                 {
                     // ubo
                     binding: 0,
-                    resource: { buffer: probabilityMapUBOBuffer },
+                    resource: probabilityMapUBOBuffer,
                 },
                 {
                     // buf_in
                     binding: 1,
-                    resource: { buffer: level & 1 ? buffer_a : buffer_b },
+                    resource: level & 1 ? buffer_a : buffer_b,
                 },
                 {
                     // buf_out
                     binding: 2,
-                    resource: { buffer: level & 1 ? buffer_b : buffer_a },
+                    resource: level & 1 ? buffer_b : buffer_a,
                 },
                 {
                     // tex_in / tex_out
@@ -9044,24 +9037,9 @@ const computePipeline = device.createComputePipeline({
 const computeBindGroup = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
     entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: simulationUBOBuffer,
-            },
-        },
-        {
-            binding: 1,
-            resource: {
-                buffer: particlesBuffer,
-                offset: 0,
-                size: numParticles * particleInstanceByteSize,
-            },
-        },
-        {
-            binding: 2,
-            resource: texture.createView(),
-        },
+        { binding: 0, resource: simulationUBOBuffer },
+        { binding: 1, resource: particlesBuffer },
+        { binding: 2, resource: texture.createView() },
     ],
 });
 const aspect = canvas.width / canvas.height;

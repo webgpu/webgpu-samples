@@ -6189,14 +6189,7 @@ const uniformBuffer = device.createBuffer({
 });
 const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: uniformBuffer,
-            },
-        },
-    ],
+    entries: [{ binding: 0, resource: uniformBuffer }],
 });
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);

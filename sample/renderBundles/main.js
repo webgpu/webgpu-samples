@@ -8959,20 +8959,9 @@ function createSphereBindGroup(texture, transform) {
     const bindGroup = device.createBindGroup({
         layout: pipeline.getBindGroupLayout(1),
         entries: [
-            {
-                binding: 0,
-                resource: {
-                    buffer: uniformBuffer,
-                },
-            },
-            {
-                binding: 1,
-                resource: sampler,
-            },
-            {
-                binding: 2,
-                resource: texture.createView(),
-            },
+            { binding: 0, resource: uniformBuffer },
+            { binding: 1, resource: sampler },
+            { binding: 2, resource: texture.createView() },
         ],
     });
     return bindGroup;
@@ -9030,14 +9019,7 @@ const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 const modelViewProjectionMatrix = mat4.create();
 const frameBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: uniformBuffer,
-            },
-        },
-    ],
+    entries: [{ binding: 0, resource: uniformBuffer }],
 });
 function getTransformationMatrix() {
     const viewMatrix = mat4.identity();

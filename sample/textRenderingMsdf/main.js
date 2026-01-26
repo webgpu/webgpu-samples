@@ -6226,7 +6226,7 @@ class MsdfTextRenderer {
                 },
                 {
                     binding: 2,
-                    resource: { buffer: charsBuffer },
+                    resource: charsBuffer,
                 },
             ],
         });
@@ -6277,14 +6277,8 @@ class MsdfTextRenderer {
             label: 'msdf text bind group',
             layout: this.textBindGroupLayout,
             entries: [
-                {
-                    binding: 0,
-                    resource: { buffer: this.cameraUniformBuffer },
-                },
-                {
-                    binding: 1,
-                    resource: { buffer: textBuffer },
-                },
+                { binding: 0, resource: this.cameraUniformBuffer },
+                { binding: 1, resource: textBuffer },
             ],
         });
         const encoder = this.device.createRenderBundleEncoder(this.renderBundleDescriptor);
@@ -6752,14 +6746,7 @@ const uniformBuffer = device.createBuffer({
 });
 const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [
-        {
-            binding: 0,
-            resource: {
-                buffer: uniformBuffer,
-            },
-        },
-    ],
+    entries: [{ binding: 0, resource: uniformBuffer }],
 });
 const renderPassDescriptor = {
     colorAttachments: [

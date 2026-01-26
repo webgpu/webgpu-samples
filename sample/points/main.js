@@ -8753,7 +8753,7 @@ device.queue.copyExternalImageToTexture({ source: ctx.canvas, flipY: true }, { t
 const bindGroup = device.createBindGroup({
     layout: bindGroupLayout,
     entries: [
-        { binding: 0, resource: { buffer: uniformBuffer } },
+        { binding: 0, resource: uniformBuffer },
         { binding: 1, resource: sampler },
         { binding: 2, resource: texture.createView() },
     ],

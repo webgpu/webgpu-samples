@@ -2864,17 +2864,17 @@ function resetGameData() {
     const bindGroup0 = device.createBindGroup({
         layout: bindGroupLayoutCompute,
         entries: [
-            { binding: 0, resource: { buffer: sizeBuffer } },
-            { binding: 1, resource: { buffer: buffer0 } },
-            { binding: 2, resource: { buffer: buffer1 } },
+            { binding: 0, resource: sizeBuffer },
+            { binding: 1, resource: buffer0 },
+            { binding: 2, resource: buffer1 },
         ],
     });
     const bindGroup1 = device.createBindGroup({
         layout: bindGroupLayoutCompute,
         entries: [
-            { binding: 0, resource: { buffer: sizeBuffer } },
-            { binding: 1, resource: { buffer: buffer1 } },
-            { binding: 2, resource: { buffer: buffer0 } },
+            { binding: 0, resource: sizeBuffer },
+            { binding: 1, resource: buffer1 },
+            { binding: 2, resource: buffer0 },
         ],
     });
     const renderPipeline = device.createRenderPipeline({
@@ -2902,11 +2902,7 @@ function resetGameData() {
         entries: [
             {
                 binding: 0,
-                resource: {
-                    buffer: sizeBuffer,
-                    offset: 0,
-                    size: 2 * Uint32Array.BYTES_PER_ELEMENT,
-                },
+                resource: sizeBuffer,
             },
         ],
     });
