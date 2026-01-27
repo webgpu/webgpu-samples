@@ -5840,92 +5840,44 @@ mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Fl
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
-const cubeVertexSize = 4 * 10; // Byte size of one cube vertex.
-const cubePositionOffset = 0;
-const cubeUVOffset = 4 * 8;
-const cubeVertexCount = 36;
-// prettier-ignore
-const cubeVertexArray = new Float32Array([
-    // float4 position, float4 color, float2 uv,
-    1, -1, 1, 1, 1, 0, 1, 1, 0, 1,
-    -1, -1, 1, 1, 0, 0, 1, 1, 1, 1,
-    -1, -1, -1, 1, 0, 0, 0, 1, 1, 0,
-    1, -1, -1, 1, 1, 0, 0, 1, 0, 0,
-    1, -1, 1, 1, 1, 0, 1, 1, 0, 1,
-    -1, -1, -1, 1, 0, 0, 0, 1, 1, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-    1, -1, 1, 1, 1, 0, 1, 1, 1, 1,
-    1, -1, -1, 1, 1, 0, 0, 1, 1, 0,
-    1, 1, -1, 1, 1, 1, 0, 1, 0, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-    1, -1, -1, 1, 1, 0, 0, 1, 1, 0,
-    -1, 1, 1, 1, 0, 1, 1, 1, 0, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, -1, 1, 1, 1, 0, 1, 1, 0,
-    -1, 1, -1, 1, 0, 1, 0, 1, 0, 0,
-    -1, 1, 1, 1, 0, 1, 1, 1, 0, 1,
-    1, 1, -1, 1, 1, 1, 0, 1, 1, 0,
-    -1, -1, 1, 1, 0, 0, 1, 1, 0, 1,
-    -1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-    -1, 1, -1, 1, 0, 1, 0, 1, 1, 0,
-    -1, -1, -1, 1, 0, 0, 0, 1, 0, 0,
-    -1, -1, 1, 1, 0, 0, 1, 1, 0, 1,
-    -1, 1, -1, 1, 0, 1, 0, 1, 1, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-    -1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-    -1, -1, 1, 1, 0, 0, 1, 1, 1, 0,
-    -1, -1, 1, 1, 0, 0, 1, 1, 1, 0,
-    1, -1, 1, 1, 1, 0, 1, 1, 0, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-    1, -1, -1, 1, 1, 0, 0, 1, 0, 1,
-    -1, -1, -1, 1, 0, 0, 0, 1, 1, 1,
-    -1, 1, -1, 1, 0, 1, 0, 1, 1, 0,
-    1, 1, -1, 1, 1, 1, 0, 1, 0, 0,
-    1, -1, -1, 1, 1, 0, 0, 1, 0, 1,
-    -1, 1, -1, 1, 0, 1, 0, 1, 1, 0,
-]);
-
-var basicVertWGSL = `struct Uniforms {
-  modelViewProjectionMatrix : mat4x4f,
-}
-@binding(0) @group(0) var<uniform> uniforms : Uniforms;
-
-struct VertexOutput {
-  @builtin(position) Position : vec4f,
-  @location(0) fragUV : vec2f,
-  @location(1) fragPosition: vec4f,
-}
-
-@vertex
-fn main(
-  @location(0) position : vec4f,
-  @location(1) uv : vec2f
-) -> VertexOutput {
-  var output : VertexOutput;
-  output.Position = uniforms.modelViewProjectionMatrix * position;
-  output.fragUV = uv;
-  output.fragPosition = 0.5 * (position + vec4(1.0, 1.0, 1.0, 1.0));
-  return output;
-}
-`;
-
-var sampleCubemapWGSL = `@group(0) @binding(1) var mySampler: sampler;
+var sampleCubemapWGSL = `@group(0) @binding(0) var<uniform> viewDirectionProjectionInverse: mat4x4f;
+@group(0) @binding(1) var mySampler: sampler;
 @group(0) @binding(2) var myTexture: texture_cube<f32>;
 
+struct VertexOutput {
+  @builtin(position) position: vec4f,
+  @location(1) direction: vec4f,
+};
+
+@vertex
+fn mainVS(
+  @builtin(vertex_index) vertexIndex: u32
+) -> VertexOutput {
+  // A triangle large enough to cover all of clip space.
+  let pos = array(
+    vec2f(-1, -1),
+    vec2f(-1,  3),
+    vec2f( 3, -1),
+  );
+  let p = pos[vertexIndex];
+  // We return the position twice. Once for @builtin(position)
+  // Once for the fragment shader. The values in the fragment shader
+  // will go from -1,-1 to 1,1 across the entire texture.
+  return VertexOutput(
+    vec4f(p, 0, 1),
+    vec4f(p, -1, 1),
+  );
+}
+
 @fragment
-fn main(
-  @location(0) fragUV: vec2f,
-  @location(1) fragPosition: vec4f
+fn mainFS(
+  in: VertexOutput,
 ) -> @location(0) vec4f {
-  // Our camera and the skybox cube are both centered at (0, 0, 0)
-  // so we can use the cube geometry position to get viewing vector to sample
-  // the cube texture. The magnitude of the vector doesn't matter.
-  var cubemapVec = fragPosition.xyz - vec3(0.5);
-  // When viewed from the inside, cubemaps are left-handed (z away from viewer),
-  // but common camera matrix convention results in a right-handed world space
-  // (z toward viewer), so we have to flip it.
-  cubemapVec.z *= -1;
-  return textureSample(myTexture, mySampler, cubemapVec);
+  // orient the direction to the view
+  let t = viewDirectionProjectionInverse * in.direction;
+  // remove the perspective.
+  let uvw = normalize(t.xyz / t.w);
+  return textureSample(myTexture, mySampler, uvw);
 }
 `;
 
@@ -6115,69 +6067,18 @@ context.configure({
     device,
     format: presentationFormat,
 });
-// Create a vertex buffer from the cube data.
-const verticesBuffer = device.createBuffer({
-    size: cubeVertexArray.byteLength,
-    usage: GPUBufferUsage.VERTEX,
-    mappedAtCreation: true,
-});
-new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
-verticesBuffer.unmap();
+const module$1 = device.createShaderModule({ code: sampleCubemapWGSL });
 const pipeline = device.createRenderPipeline({
     layout: 'auto',
-    vertex: {
-        module: device.createShaderModule({
-            code: basicVertWGSL,
-        }),
-        buffers: [
-            {
-                arrayStride: cubeVertexSize,
-                attributes: [
-                    {
-                        // position
-                        shaderLocation: 0,
-                        offset: cubePositionOffset,
-                        format: 'float32x4',
-                    },
-                    {
-                        // uv
-                        shaderLocation: 1,
-                        offset: cubeUVOffset,
-                        format: 'float32x2',
-                    },
-                ],
-            },
-        ],
-    },
+    vertex: { module: module$1 },
     fragment: {
-        module: device.createShaderModule({
-            code: sampleCubemapWGSL,
-        }),
+        module: module$1,
         targets: [
             {
                 format: presentationFormat,
             },
         ],
     },
-    primitive: {
-        topology: 'triangle-list',
-        // Since we are seeing from inside of the cube
-        // and we are using the regular cube geomtry data with outward-facing normals,
-        // the cullMode should be 'front' or 'none'.
-        cullMode: 'none',
-    },
-    // Enable depth testing so that the fragment closest to the camera
-    // is rendered in front.
-    depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less',
-        format: 'depth24plus',
-    },
-});
-const depthTexture = device.createTexture({
-    size: [canvas.width, canvas.height],
-    format: 'depth24plus',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT,
 });
 // Fetch the 6 separate images for negative/positive x, y, z axis of a cubemap
 // and upload it into a GPUTexture.
@@ -6249,40 +6150,34 @@ const renderPassDescriptor = {
             storeOp: 'store',
         },
     ],
-    depthStencilAttachment: {
-        view: depthTexture.createView(),
-        depthClearValue: 1.0,
-        depthLoadOp: 'clear',
-        depthStoreOp: 'store',
-    },
 };
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 3000);
-const modelMatrix = mat4.scaling([1000, 1000, 1000]);
-const modelViewProjectionMatrix = mat4.create();
+const modelMatrix = mat4.identity();
+const modelViewProjectionInverseMatrix = mat4.create();
 const viewMatrix = mat4.identity();
 const tmpMat4 = mat4.create();
-// Comppute camera movement:
+// Compute camera movement:
 // It rotates around Y axis with a slight pitch movement.
 function updateTransformationMatrix() {
     const now = Date.now() / 800;
     mat4.rotate(viewMatrix, [1, 0, 0], (Math.PI / 10) * Math.sin(now), tmpMat4);
     mat4.rotate(tmpMat4, [0, 1, 0], now * 0.2, tmpMat4);
-    mat4.multiply(tmpMat4, modelMatrix, modelViewProjectionMatrix);
-    mat4.multiply(projectionMatrix, modelViewProjectionMatrix, modelViewProjectionMatrix);
+    mat4.multiply(tmpMat4, modelMatrix, modelViewProjectionInverseMatrix);
+    mat4.multiply(projectionMatrix, modelViewProjectionInverseMatrix, modelViewProjectionInverseMatrix);
+    mat4.inverse(modelViewProjectionInverseMatrix, modelViewProjectionInverseMatrix);
 }
 function frame() {
     updateTransformationMatrix();
-    device.queue.writeBuffer(uniformBuffer, 0, modelViewProjectionMatrix.buffer, modelViewProjectionMatrix.byteOffset, modelViewProjectionMatrix.byteLength);
+    device.queue.writeBuffer(uniformBuffer, 0, modelViewProjectionInverseMatrix.buffer, modelViewProjectionInverseMatrix.byteOffset, modelViewProjectionInverseMatrix.byteLength);
     renderPassDescriptor.colorAttachments[0].view = context
         .getCurrentTexture()
         .createView();
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
     passEncoder.setPipeline(pipeline);
-    passEncoder.setVertexBuffer(0, verticesBuffer);
     passEncoder.setBindGroup(0, uniformBindGroup);
-    passEncoder.draw(cubeVertexCount);
+    passEncoder.draw(3);
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
     requestAnimationFrame(frame);
