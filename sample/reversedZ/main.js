@@ -5836,12 +5836,7 @@ const {
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -9037,12 +9032,16 @@ for (let x = 0; x < xCount; x++) {
     for (let y = 0; y < yCount; y++) {
         const z = -800 * m;
         const s = 1 + 50 * m;
-        modelMatrices[m] = mat4.translation(vec3.fromValues(x - xCount / 2 + 0.5, (4.0 - 0.2 * z) * (y - yCount / 2 + 1.0), z));
-        mat4.scale(modelMatrices[m], vec3.fromValues(s, s, s), modelMatrices[m]);
+        modelMatrices[m] = mat4.translation([
+            x - xCount / 2 + 0.5,
+            (4.0 - 0.2 * z) * (y - yCount / 2 + 1.0),
+            z,
+        ]);
+        mat4.scale(modelMatrices[m], [s, s, s], modelMatrices[m]);
         m++;
     }
 }
-const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -12));
+const viewMatrix = mat4.translation([0, 0, -12]);
 const aspect = (0.5 * canvas.width) / canvas.height;
 // wgpu-matrix perspective doesn't handle zFar === Infinity now.
 // https://github.com/greggman/wgpu-matrix/issues/9
@@ -9056,7 +9055,7 @@ const tmpMat4 = mat4.create();
 function updateTransformationMatrix() {
     const now = Date.now() / 1000;
     for (let i = 0, m = 0; i < numInstances; i++, m += matrixFloatCount) {
-        mat4.rotate(modelMatrices[i], vec3.fromValues(Math.sin(now), Math.cos(now), 0), (Math.PI / 180) * 30, tmpMat4);
+        mat4.rotate(modelMatrices[i], [Math.sin(now), Math.cos(now), 0], (Math.PI / 180) * 30, tmpMat4);
         mvpMatricesData.set(tmpMat4, m);
     }
 }

@@ -8837,7 +8837,7 @@ class Common {
     update(params) {
         const projectionMatrix = mat4.perspective((2 * Math.PI) / 8, params.aspect, 0.5, 100);
         const viewRotation = params.rotateCamera ? this.frame / 1000 : 0;
-        const viewMatrix = mat4.lookAt(vec3.fromValues(Math.sin(viewRotation) * 15, 5, Math.cos(viewRotation) * 15), vec3.fromValues(0, 5, 0), vec3.fromValues(0, 1, 0));
+        const viewMatrix = mat4.lookAt([Math.sin(viewRotation) * 15, 5, Math.cos(viewRotation) * 15], [0, 5, 0], [0, 1, 0]);
         const mvp = mat4.multiply(projectionMatrix, viewMatrix);
         const invMVP = mat4.invert(mvp);
         const uniformDataF32 = new Float32Array(this.uniformBuffer.size / 4);

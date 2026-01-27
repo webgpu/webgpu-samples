@@ -9023,7 +9023,7 @@ const frameBindGroup = device.createBindGroup({
 });
 function getTransformationMatrix() {
     const viewMatrix = mat4.identity();
-    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+    mat4.translate(viewMatrix, [0, 0, -4], viewMatrix);
     const now = Date.now() / 1000;
     // Tilt the view matrix so the planet looks like it's off-axis.
     mat4.rotateZ(viewMatrix, Math.PI * 0.1, viewMatrix);

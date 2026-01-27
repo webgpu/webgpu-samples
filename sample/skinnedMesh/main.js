@@ -8333,12 +8333,7 @@ mat4,
  * Quaternion functions that default to returning `Float32Array`
  * @namespace
  */
-quat, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+quat} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -9941,16 +9936,24 @@ function getProjectionMatrix() {
 function getViewMatrix() {
     const viewMatrix = mat4.identity();
     if (settings.object === 'Skinned Grid') {
-        mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX * settings.objectScale, settings.cameraY * settings.objectScale, settings.cameraZ), viewMatrix);
+        mat4.translate(viewMatrix, [
+            settings.cameraX * settings.objectScale,
+            settings.cameraY * settings.objectScale,
+            settings.cameraZ,
+        ], viewMatrix);
     }
     else {
-        mat4.translate(viewMatrix, vec3.fromValues(settings.cameraX, settings.cameraY, settings.cameraZ), viewMatrix);
+        mat4.translate(viewMatrix, [settings.cameraX, settings.cameraY, settings.cameraZ], viewMatrix);
     }
     return viewMatrix;
 }
 function getModelMatrix() {
     const modelMatrix = mat4.identity();
-    const scaleVector = vec3.fromValues(settings.objectScale, settings.objectScale, settings.objectScale);
+    const scaleVector = [
+        settings.objectScale,
+        settings.objectScale,
+        settings.objectScale,
+    ];
     mat4.scale(modelMatrix, scaleVector, modelMatrix);
     if (settings.object === 'Whale') {
         mat4.rotateY(modelMatrix, (Date.now() / 1000) * 0.5, modelMatrix);
@@ -9988,9 +9991,9 @@ const skinnedGridRenderPassDescriptor = {
 const animSkinnedGrid = (boneTransforms, angle) => {
     const m = mat4.identity();
     mat4.rotateZ(m, angle, boneTransforms[0]);
-    mat4.translate(boneTransforms[0], vec3.create(4, 0, 0), m);
+    mat4.translate(boneTransforms[0], [4, 0, 0], m);
     mat4.rotateZ(m, angle, boneTransforms[1]);
-    mat4.translate(boneTransforms[1], vec3.create(4, 0, 0), m);
+    mat4.translate(boneTransforms[1], [4, 0, 0], m);
     mat4.rotateZ(m, angle, boneTransforms[2]);
 };
 // Create a group of bones

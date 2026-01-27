@@ -5836,12 +5836,7 @@ const {
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -6263,7 +6258,7 @@ const renderPassDescriptor = {
 };
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 3000);
-const modelMatrix = mat4.scaling(vec3.fromValues(1000, 1000, 1000));
+const modelMatrix = mat4.scaling([1000, 1000, 1000]);
 const modelViewProjectionMatrix = mat4.create();
 const viewMatrix = mat4.identity();
 const tmpMat4 = mat4.create();
@@ -6271,8 +6266,8 @@ const tmpMat4 = mat4.create();
 // It rotates around Y axis with a slight pitch movement.
 function updateTransformationMatrix() {
     const now = Date.now() / 800;
-    mat4.rotate(viewMatrix, vec3.fromValues(1, 0, 0), (Math.PI / 10) * Math.sin(now), tmpMat4);
-    mat4.rotate(tmpMat4, vec3.fromValues(0, 1, 0), now * 0.2, tmpMat4);
+    mat4.rotate(viewMatrix, [1, 0, 0], (Math.PI / 10) * Math.sin(now), tmpMat4);
+    mat4.rotate(tmpMat4, [0, 1, 0], now * 0.2, tmpMat4);
     mat4.multiply(tmpMat4, modelMatrix, modelViewProjectionMatrix);
     mat4.multiply(projectionMatrix, modelViewProjectionMatrix, modelViewProjectionMatrix);
 }

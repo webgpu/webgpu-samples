@@ -5836,12 +5836,7 @@ const {
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -6224,17 +6219,17 @@ const renderPassDescriptor = {
 };
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
-const modelMatrix1 = mat4.translation(vec3.create(-2, 0, 0));
-const modelMatrix2 = mat4.translation(vec3.create(2, 0, 0));
+const modelMatrix1 = mat4.translation([-2, 0, 0]);
+const modelMatrix2 = mat4.translation([2, 0, 0]);
 const modelViewProjectionMatrix1 = mat4.create();
 const modelViewProjectionMatrix2 = mat4.create();
-const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -7));
+const viewMatrix = mat4.translation([0, 0, -7]);
 const tmpMat41 = mat4.create();
 const tmpMat42 = mat4.create();
 function updateTransformationMatrix() {
     const now = Date.now() / 1000;
-    mat4.rotate(modelMatrix1, vec3.fromValues(Math.sin(now), Math.cos(now), 0), 1, tmpMat41);
-    mat4.rotate(modelMatrix2, vec3.fromValues(Math.cos(now), Math.sin(now), 0), 1, tmpMat42);
+    mat4.rotate(modelMatrix1, [Math.sin(now), Math.cos(now), 0], 1, tmpMat41);
+    mat4.rotate(modelMatrix2, [Math.cos(now), Math.sin(now), 0], 1, tmpMat42);
     mat4.multiply(viewMatrix, tmpMat41, modelViewProjectionMatrix1);
     mat4.multiply(projectionMatrix, modelViewProjectionMatrix1, modelViewProjectionMatrix1);
     mat4.multiply(viewMatrix, tmpMat42, modelViewProjectionMatrix2);

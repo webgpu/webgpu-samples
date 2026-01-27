@@ -258,9 +258,9 @@ const modelBindGroup = device.createBindGroup({
   entries: [{ binding: 0, resource: modelUniformBuffer }],
 });
 
-const eyePosition = vec3.fromValues(0, 50, -100);
-const upVector = vec3.fromValues(0, 1, 0);
-const origin = vec3.fromValues(0, 0, 0);
+const eyePosition = [0, 50, -100];
+const upVector = [0, 1, 0];
+const origin = [0, 0, 0];
 
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 2000.0);
 
@@ -299,7 +299,7 @@ const modelMatrix = mat4.translation([0, -45, 0]);
 
 // Rotates the camera around the origin based on time.
 function getCameraViewProjMatrix() {
-  const eyePosition = vec3.fromValues(0, 50, -100);
+  const eyePosition = [0, 50, -100];
 
   const rad = Math.PI * (Date.now() / 2000);
   const rotation = mat4.rotateY(mat4.translation(origin), rad);

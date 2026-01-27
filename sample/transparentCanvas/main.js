@@ -5836,12 +5836,7 @@ const {
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -6200,9 +6195,9 @@ const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 const modelViewProjectionMatrix = mat4.create();
 function getTransformationMatrix() {
     const viewMatrix = mat4.identity();
-    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+    mat4.translate(viewMatrix, [0, 0, -4], viewMatrix);
     const now = Date.now() / 1000;
-    mat4.rotate(viewMatrix, vec3.fromValues(Math.sin(now), Math.cos(now), 0), 1, viewMatrix);
+    mat4.rotate(viewMatrix, [Math.sin(now), Math.cos(now), 0], 1, viewMatrix);
     mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
     return modelViewProjectionMatrix;
 }

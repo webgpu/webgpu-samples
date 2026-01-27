@@ -5836,12 +5836,7 @@ const {
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -6200,11 +6195,15 @@ const step = 4.0;
 let m = 0;
 for (let x = 0; x < xCount; x++) {
     for (let y = 0; y < yCount; y++) {
-        modelMatrices[m] = mat4.translation(vec3.fromValues(step * (x - xCount / 2 + 0.5), step * (y - yCount / 2 + 0.5), 0));
+        modelMatrices[m] = mat4.translation([
+            step * (x - xCount / 2 + 0.5),
+            step * (y - yCount / 2 + 0.5),
+            0,
+        ]);
         m++;
     }
 }
-const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -12));
+const viewMatrix = mat4.translation([0, 0, -12]);
 const tmpMat4 = mat4.create();
 // Update the transformation matrix data for each instance.
 function updateTransformationMatrix() {
@@ -6212,7 +6211,7 @@ function updateTransformationMatrix() {
     let m = 0, i = 0;
     for (let x = 0; x < xCount; x++) {
         for (let y = 0; y < yCount; y++) {
-            mat4.rotate(modelMatrices[i], vec3.fromValues(Math.sin((x + 0.5) * now), Math.cos((y + 0.5) * now), 0), 1, tmpMat4);
+            mat4.rotate(modelMatrices[i], [Math.sin((x + 0.5) * now), Math.cos((y + 0.5) * now), 0], 1, tmpMat4);
             mat4.multiply(viewMatrix, tmpMat4, tmpMat4);
             mat4.multiply(projectionMatrix, tmpMat4, tmpMat4);
             mvpMatricesData.set(tmpMat4, m);

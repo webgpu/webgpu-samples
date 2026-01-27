@@ -5836,12 +5836,7 @@ const {
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -9058,7 +9053,7 @@ function frame() {
     uboDataU32[7] = 0xffffffff * Math.random(); // seed.w
     device.queue.writeBuffer(simulationUBOBuffer, 0, uboDataF32);
     mat4.identity(view);
-    mat4.translate(view, vec3.fromValues(0, 0, -3), view);
+    mat4.translate(view, [0, 0, -3], view);
     mat4.rotateX(view, Math.PI * -0.2, view);
     mat4.multiply(projection, view, mvp);
     // prettier-ignore

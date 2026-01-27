@@ -9239,9 +9239,9 @@ const configure = () => {
     function getCameraViewProjMatrix() {
         const aspect = canvas.width / canvas.height;
         const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 2000.0);
-        const upVector = vec3.fromValues(0, 1, 0);
-        const origin = vec3.fromValues(0, 0, 0);
-        const eyePosition = vec3.fromValues(0, 5, -100);
+        const upVector = [0, 1, 0];
+        const origin = [0, 0, 0];
+        const eyePosition = [0, 5, -100];
         const rad = Math.PI * (Date.now() / 5000);
         const rotation = mat4.rotateY(mat4.translation(origin), rad);
         vec3.transformMat4(eyePosition, rotation, eyePosition);

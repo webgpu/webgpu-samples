@@ -9185,7 +9185,11 @@ function frame() {
         ...worldViewMatrix,
     ]);
     // Update mapInfoBuffer
-    const lightPosWS = vec3.create(settings.lightPosX, settings.lightPosY, settings.lightPosZ);
+    const lightPosWS = [
+        settings.lightPosX,
+        settings.lightPosY,
+        settings.lightPosZ,
+    ];
     const lightPosVS = vec3.transformMat4(lightPosWS, viewMatrix);
     const mode = getMode();
     device.queue.writeBuffer(spaceTransformsBuffer, 0, matrices.buffer, matrices.byteOffset, matrices.byteLength);

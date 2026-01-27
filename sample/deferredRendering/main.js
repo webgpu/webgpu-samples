@@ -8955,8 +8955,8 @@ const fail = (() => {
 })();
 
 const kMaxNumLights = 1024;
-const lightExtentMin = vec3.fromValues(-50, -30, -50);
-const lightExtentMax = vec3.fromValues(50, 50, 50);
+const lightExtentMin = [-50, -30, -50];
+const lightExtentMax = [50, 50, 50];
 const canvas = document.querySelector('canvas');
 const adapter = await navigator.gpu?.requestAdapter({
     featureLevel: 'compatibility',
@@ -9357,9 +9357,9 @@ const lightsBufferComputeBindGroup = device.createBindGroup({
 });
 //--------------------
 // Scene matrices
-const eyePosition = vec3.fromValues(0, 50, -100);
-const upVector = vec3.fromValues(0, 1, 0);
-const origin = vec3.fromValues(0, 0, 0);
+const eyePosition = [0, 50, -100];
+const upVector = [0, 1, 0];
+const origin = [0, 0, 0];
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 2000.0);
 // Move the model so it's centered.
 const modelMatrix = mat4.translation([0, -45, 0]);

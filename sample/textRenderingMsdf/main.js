@@ -5836,12 +5836,7 @@ const {
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -6771,10 +6766,10 @@ const start = Date.now();
 function getTransformationMatrix() {
     const now = Date.now() / 5000;
     const viewMatrix = mat4.identity();
-    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -5), viewMatrix);
+    mat4.translate(viewMatrix, [0, 0, -5], viewMatrix);
     const modelMatrix = mat4.identity();
-    mat4.translate(modelMatrix, vec3.fromValues(0, 2, -3), modelMatrix);
-    mat4.rotate(modelMatrix, vec3.fromValues(Math.sin(now), Math.cos(now), 0), 1, modelMatrix);
+    mat4.translate(modelMatrix, [0, 2, -3], modelMatrix);
+    mat4.rotate(modelMatrix, [Math.sin(now), Math.cos(now), 0], 1, modelMatrix);
     // Update the matrix for the cube
     mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
     mat4.multiply(modelViewProjectionMatrix, modelMatrix, modelViewProjectionMatrix);
