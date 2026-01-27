@@ -8557,13 +8557,13 @@ context.configure({
     format: presentationFormat,
 });
 const depthFormat = 'depth24plus';
-const module = device.createShaderModule({
+const module$1 = device.createShaderModule({
     code: solidColorLitWGSL,
 });
 const pipeline = device.createRenderPipeline({
     layout: 'auto',
     vertex: {
-        module,
+        module: module$1,
         buffers: [
             {
                 arrayStride: 6 * 4, // 3x2 floats, 4 bytes each
@@ -8575,7 +8575,7 @@ const pipeline = device.createRenderPipeline({
         ],
     },
     fragment: {
-        module,
+        module: module$1,
         targets: [{ format: presentationFormat }],
     },
     primitive: {

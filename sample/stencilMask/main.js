@@ -6523,11 +6523,11 @@ const bindGroupLayout = device.createBindGroupLayout({
 const layout = device.createPipelineLayout({
     bindGroupLayouts: [bindGroupLayout],
 });
-const module = device.createShaderModule({ code: simpleLightingWGSL });
+const module$1 = device.createShaderModule({ code: simpleLightingWGSL });
 const pipelineDesc = {
     layout,
     vertex: {
-        module,
+        module: module$1,
         buffers: [
             {
                 arrayStride: 32,
@@ -6540,7 +6540,7 @@ const pipelineDesc = {
         ],
     },
     fragment: {
-        module,
+        module: module$1,
         targets: [{ format: presentationFormat }],
     },
     primitive: {

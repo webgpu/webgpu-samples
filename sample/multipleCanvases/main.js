@@ -6438,7 +6438,7 @@ function randColor() {
 }
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 const depthFormat = 'depth24plus';
-const module = device.createShaderModule({
+const module$1 = device.createShaderModule({
     code: `
     struct Uniforms {
       worldViewProjectionMatrix: mat4x4f,
@@ -6476,7 +6476,7 @@ const pipeline = device.createRenderPipeline({
     label: 'our hardcoded red triangle pipeline',
     layout: 'auto',
     vertex: {
-        module,
+        module: module$1,
         buffers: [
             {
                 arrayStride: 6 * 4, // position, normal
@@ -6498,7 +6498,7 @@ const pipeline = device.createRenderPipeline({
         ],
     },
     fragment: {
-        module,
+        module: module$1,
         targets: [{ format: presentationFormat }],
     },
     primitive: {

@@ -866,6 +866,7 @@ class NodeProp {
         this.deserialize = config.deserialize || (() => {
             throw new Error("This node type doesn't define a deserialize function");
         });
+        this.combine = config.combine || null;
     }
     /**
     This is meant to be used with
@@ -965,10 +966,17 @@ class MountedTree {
     /**
     The parser used to create this subtree.
     */
-    parser) {
+    parser, 
+    /**
+    [Indicates](#common.IterMode.EnterBracketed) that the nested
+    content is delineated with some kind
+    of bracket token.
+    */
+    bracketed = false) {
         this.tree = tree;
         this.overlay = overlay;
         this.parser = parser;
+        this.bracketed = bracketed;
     }
     /**
     @internal
@@ -1130,7 +1138,10 @@ class NodeSet {
                 if (add) {
                     if (!newProps)
                         newProps = Object.assign({}, type.props);
-                    newProps[add[0].id] = add[1];
+                    let value = add[1], prop = add[0];
+                    if (prop.combine && prop.id in newProps)
+                        value = prop.combine(newProps[prop.id], value);
+                    newProps[prop.id] = value;
                 }
             }
             newTypes.push(newProps ? new NodeType(type.name, newProps, type.id, type.flags) : type);
@@ -1170,6 +1181,13 @@ var IterMode;
     position.
     */
     IterMode[IterMode["IgnoreOverlays"] = 8] = "IgnoreOverlays";
+    /**
+    When set, positions on the boundary of a mounted overlay tree
+    that has its [`bracketed`](#common.NestedParse.bracketed) flag
+    set will enter that tree regardless of side. Only supported in
+    [`enter`](#common.SyntaxNode.enter), not in cursors.
+    */
+    IterMode[IterMode["EnterBracketed"] = 16] = "EnterBracketed";
 })(IterMode || (IterMode = {}));
 /**
 A piece of syntax tree. There are two ways to approach these
@@ -1567,10 +1585,13 @@ class TreeNode extends BaseNode {
     get name() { return this._tree.type.name; }
     get to() { return this.from + this._tree.length; }
     nextChild(i, dir, pos, side, mode = 0) {
+        var _a;
         for (let parent = this;;) {
             for (let { children, positions } = parent._tree, e = dir > 0 ? children.length : -1; i != e; i += dir) {
                 let next = children[i], start = positions[i] + parent.from;
-                if (!checkSide(side, pos, start, start + next.length))
+                if (!((mode & IterMode.EnterBracketed) && next instanceof Tree &&
+                    ((_a = MountedTree.get(next)) === null || _a === void 0 ? void 0 : _a.overlay) === null && (start >= pos || start + next.length <= pos)) &&
+                    !checkSide(side, pos, start, start + next.length))
                     continue;
                 if (next instanceof TreeBuffer) {
                     if (mode & IterMode.ExcludeBuffers)
@@ -1585,7 +1606,7 @@ class TreeNode extends BaseNode {
                         return new TreeNode(mounted.tree, start, i, parent);
                     let inner = new TreeNode(next, start, i, parent);
                     return (mode & IterMode.IncludeAnonymous) || !inner.type.isAnonymous ? inner
-                        : inner.nextChild(dir < 0 ? next.children.length - 1 : 0, dir, pos, side);
+                        : inner.nextChild(dir < 0 ? next.children.length - 1 : 0, dir, pos, side, mode);
                 }
             }
             if ((mode & IterMode.IncludeAnonymous) || !parent.type.isAnonymous)
@@ -1603,13 +1624,14 @@ class TreeNode extends BaseNode {
     get lastChild() { return this.nextChild(this._tree.children.length - 1, -1, 0, 4 /* Side.DontCare */); }
     childAfter(pos) { return this.nextChild(0, 1, pos, 2 /* Side.After */); }
     childBefore(pos) { return this.nextChild(this._tree.children.length - 1, -1, pos, -2 /* Side.Before */); }
+    prop(prop) { return this._tree.prop(prop); }
     enter(pos, side, mode = 0) {
         let mounted;
         if (!(mode & IterMode.IgnoreOverlays) && (mounted = MountedTree.get(this._tree)) && mounted.overlay) {
-            let rPos = pos - this.from;
+            let rPos = pos - this.from, enterBracketed = (mode & IterMode.EnterBracketed) && mounted.bracketed;
             for (let { from, to } of mounted.overlay) {
-                if ((side > 0 ? from <= rPos : from < rPos) &&
-                    (side < 0 ? to >= rPos : to > rPos))
+                if ((side > 0 || enterBracketed ? from <= rPos : from < rPos) &&
+                    (side < 0 || enterBracketed ? to >= rPos : to > rPos))
                     return new TreeNode(mounted.tree, mounted.overlay[0].from + this.from, -1, this);
             }
         }
@@ -1696,6 +1718,7 @@ class BufferNode extends BaseNode {
     get lastChild() { return this.child(-1, 0, 4 /* Side.DontCare */); }
     childAfter(pos) { return this.child(1, pos, 2 /* Side.After */); }
     childBefore(pos) { return this.child(-1, pos, -2 /* Side.Before */); }
+    prop(prop) { return this.type.prop(prop); }
     enter(pos, side, mode = 0) {
         if (mode & IterMode.ExcludeBuffers)
             return null;
@@ -1797,12 +1820,7 @@ class TreeCursor {
     /**
     @internal
     */
-    constructor(node, 
-    /**
-    @internal
-    */
-    mode = 0) {
-        this.mode = mode;
+    constructor(node, mode = 0) {
         /**
         @internal
         */
@@ -1813,6 +1831,7 @@ class TreeCursor {
         */
         this.index = 0;
         this.bufferNode = null;
+        this.mode = mode & ~IterMode.EnterBracketed;
         if (node instanceof TreeNode) {
             this.yieldNode(node);
         }
@@ -2113,7 +2132,7 @@ function buildTree(data) {
     function takeNode(parentStart, minPos, children, positions, inRepeat, depth) {
         let { id, start, end, size } = cursor;
         let lookAheadAtStart = lookAhead, contextAtStart = contextHash;
-        while (size < 0) {
+        if (size < 0) {
             cursor.next();
             if (size == -1 /* SpecialRecord.Reuse */) {
                 let node = reused[id];
@@ -2277,7 +2296,7 @@ function buildTree(data) {
             fork.next();
             while (fork.pos > startPos) {
                 if (fork.size < 0) {
-                    if (fork.size == -3 /* SpecialRecord.ContextChange */)
+                    if (fork.size == -3 /* SpecialRecord.ContextChange */ || fork.size == -4 /* SpecialRecord.LookAhead */)
                         localSkipped += 4;
                     else
                         break scan;
@@ -2756,7 +2775,7 @@ must be quoted as JSON strings.
 For example:
 
 ```javascript
-parser.withProps(
+parser.configure({props: [
   styleTags({
     // Style Number and BigNumber nodes
     "Number BigNumber": tags.number,
@@ -2771,7 +2790,7 @@ parser.withProps(
     // Style the node named "/" as punctuation
     '"/"': tags.punctuation
   })
-)
+]})
 ```
 */
 function styleTags(spec) {
@@ -2813,7 +2832,30 @@ function styleTags(spec) {
     }
     return ruleNodeProp.add(byName);
 }
-const ruleNodeProp = new NodeProp();
+const ruleNodeProp = new NodeProp({
+    combine(a, b) {
+        let cur, root, take;
+        while (a || b) {
+            if (!a || b && a.depth >= b.depth) {
+                take = b;
+                b = b.next;
+            }
+            else {
+                take = a;
+                a = a.next;
+            }
+            if (cur && cur.mode == take.mode && !take.context && !cur.context)
+                continue;
+            let copy = new Rule(take.tags, take.mode, take.context);
+            if (cur)
+                cur.next = copy;
+            else
+                root = copy;
+            cur = copy;
+        }
+        return root;
+    }
+});
 class Rule {
     constructor(tags, mode, context, next) {
         this.tags = tags;
@@ -4881,7 +4923,7 @@ class SelectionRange {
     Compare this range to another range.
     */
     eq(other, includeAssoc = false) {
-        return this.anchor == other.anchor && this.head == other.head &&
+        return this.anchor == other.anchor && this.head == other.head && this.goalColumn == other.goalColumn &&
             (!includeAssoc || !this.empty || this.assoc == other.assoc);
     }
     /**
@@ -6370,7 +6412,8 @@ class EditorState {
      - Other (anything else)
     */
     charCategorizer(at) {
-        return makeCategorizer(this.languageDataAt("wordChars", at).join(""));
+        let chars = this.languageDataAt("wordChars", at);
+        return makeCategorizer(chars.length ? chars[0] : "");
     }
     /**
     Find the word at the given position, meaning the range
@@ -6556,6 +6599,9 @@ class RangeValue {
 RangeValue.prototype.startSide = RangeValue.prototype.endSide = 0;
 RangeValue.prototype.point = false;
 RangeValue.prototype.mapMode = MapMode.TrackDel;
+function cmpVal(a, b) {
+    return a == b || a.constructor == b.constructor && a.eq(b);
+}
 /**
 A range associates a value with a range of positions.
 */
@@ -6862,7 +6908,7 @@ class RangeSet {
         for (;;) {
             if (sideA.to != sideB.to ||
                 !sameValues(sideA.active, sideB.active) ||
-                sideA.point && (!sideB.point || !sideA.point.eq(sideB.point)))
+                sideA.point && (!sideB.point || !cmpVal(sideA.point, sideB.point)))
                 return false;
             if (sideA.to > to)
                 return true;
@@ -7337,22 +7383,27 @@ function compare(a, startA, b, startB, length, comparator) {
     b.goto(startB);
     let endB = startB + length;
     let pos = startB, dPos = startB - startA;
-    for (;;) {
+    let bounds = !!comparator.boundChange;
+    for (let boundChange = false;;) {
         let dEnd = (a.to + dPos) - b.to, diff = dEnd || a.endSide - b.endSide;
         let end = diff < 0 ? a.to + dPos : b.to, clipEnd = Math.min(end, endB);
-        if (a.point || b.point) {
-            if (!(a.point && b.point && (a.point == b.point || a.point.eq(b.point)) &&
+        let point = a.point || b.point;
+        if (point) {
+            if (!(a.point && b.point && cmpVal(a.point, b.point) &&
                 sameValues(a.activeForPoint(a.to), b.activeForPoint(b.to))))
                 comparator.comparePoint(pos, clipEnd, a.point, b.point);
+            boundChange = false;
         }
         else {
+            if (boundChange)
+                comparator.boundChange(pos);
             if (clipEnd > pos && !sameValues(a.active, b.active))
                 comparator.compareRange(pos, clipEnd, a.active, b.active);
+            if (bounds && clipEnd < endB && (dEnd || a.openEnd(end) != b.openEnd(end)))
+                boundChange = true;
         }
         if (end > endB)
             break;
-        if ((dEnd || a.openEnd != b.openEnd) && comparator.boundChange)
-            comparator.boundChange(end);
         pos = end;
         if (diff <= 0)
             a.next();
@@ -7364,7 +7415,7 @@ function sameValues(a, b) {
     if (a.length != b.length)
         return false;
     for (let i = 0; i < a.length; i++)
-        if (a[i] != b[i] && !a[i].eq(b[i]))
+        if (a[i] != b[i] && !cmpVal(a[i], b[i]))
             return false;
     return true;
 }
@@ -7746,6 +7797,419 @@ function add(elt, child) {
   }
 }
 
+let nav = typeof navigator != "undefined" ? navigator : { userAgent: "", vendor: "", platform: "" };
+let doc = typeof document != "undefined" ? document : { documentElement: { style: {} } };
+const ie_edge = /*@__PURE__*//Edge\/(\d+)/.exec(nav.userAgent);
+const ie_upto10 = /*@__PURE__*//MSIE \d/.test(nav.userAgent);
+const ie_11up = /*@__PURE__*//Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav.userAgent);
+const ie = !!(ie_upto10 || ie_11up || ie_edge);
+const gecko = !ie && /*@__PURE__*//gecko\/(\d+)/i.test(nav.userAgent);
+const chrome = !ie && /*@__PURE__*//Chrome\/(\d+)/.exec(nav.userAgent);
+const webkit = "webkitFontSmoothing" in doc.documentElement.style;
+const safari = !ie && /*@__PURE__*//Apple Computer/.test(nav.vendor);
+const ios = safari && (/*@__PURE__*//Mobile\/\w+/.test(nav.userAgent) || nav.maxTouchPoints > 2);
+var browser = {
+    mac: ios || /*@__PURE__*//Mac/.test(nav.platform),
+    windows: /*@__PURE__*//Win/.test(nav.platform),
+    linux: /*@__PURE__*//Linux|X11/.test(nav.platform),
+    ie,
+    ie_version: ie_upto10 ? doc.documentMode || 6 : ie_11up ? +ie_11up[1] : ie_edge ? +ie_edge[1] : 0,
+    gecko,
+    gecko_version: gecko ? +(/*@__PURE__*//Firefox\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
+    chrome: !!chrome,
+    chrome_version: chrome ? +chrome[1] : 0,
+    ios,
+    android: /*@__PURE__*//Android\b/.test(nav.userAgent),
+    webkit_version: webkit ? +(/*@__PURE__*//\bAppleWebKit\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
+    safari,
+    safari_version: safari ? +(/*@__PURE__*//\bVersion\/(\d+(\.\d+)?)/.exec(nav.userAgent) || [0, 0])[1] : 0,
+    tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
+};
+
+function combineAttrs(source, target) {
+    for (let name in source) {
+        if (name == "class" && target.class)
+            target.class += " " + source.class;
+        else if (name == "style" && target.style)
+            target.style += ";" + source.style;
+        else
+            target[name] = source[name];
+    }
+    return target;
+}
+const noAttrs$1 = /*@__PURE__*/Object.create(null);
+function attrsEq(a, b, ignore) {
+    if (a == b)
+        return true;
+    if (!a)
+        a = noAttrs$1;
+    if (!b)
+        b = noAttrs$1;
+    let keysA = Object.keys(a), keysB = Object.keys(b);
+    if (keysA.length - (0) !=
+        keysB.length - (0))
+        return false;
+    for (let key of keysA) {
+        if (key != ignore && (keysB.indexOf(key) == -1 || a[key] !== b[key]))
+            return false;
+    }
+    return true;
+}
+function setAttrs(dom, attrs) {
+    for (let i = dom.attributes.length - 1; i >= 0; i--) {
+        let name = dom.attributes[i].name;
+        if (attrs[name] == null)
+            dom.removeAttribute(name);
+    }
+    for (let name in attrs) {
+        let value = attrs[name];
+        if (name == "style")
+            dom.style.cssText = value;
+        else if (dom.getAttribute(name) != value)
+            dom.setAttribute(name, value);
+    }
+}
+function updateAttrs(dom, prev, attrs) {
+    let changed = false;
+    if (prev)
+        for (let name in prev)
+            if (!(attrs && name in attrs)) {
+                changed = true;
+                if (name == "style")
+                    dom.style.cssText = "";
+                else
+                    dom.removeAttribute(name);
+            }
+    if (attrs)
+        for (let name in attrs)
+            if (!(prev && prev[name] == attrs[name])) {
+                changed = true;
+                if (name == "style")
+                    dom.style.cssText = attrs[name];
+                else
+                    dom.setAttribute(name, attrs[name]);
+            }
+    return changed;
+}
+function getAttrs(dom) {
+    let attrs = Object.create(null);
+    for (let i = 0; i < dom.attributes.length; i++) {
+        let attr = dom.attributes[i];
+        attrs[attr.name] = attr.value;
+    }
+    return attrs;
+}
+
+/**
+Widgets added to the content are described by subclasses of this
+class. Using a description object like that makes it possible to
+delay creating of the DOM structure for a widget until it is
+needed, and to avoid redrawing widgets even if the decorations
+that define them are recreated.
+*/
+class WidgetType {
+    /**
+    Compare this instance to another instance of the same type.
+    (TypeScript can't express this, but only instances of the same
+    specific class will be passed to this method.) This is used to
+    avoid redrawing widgets when they are replaced by a new
+    decoration of the same type. The default implementation just
+    returns `false`, which will cause new instances of the widget to
+    always be redrawn.
+    */
+    eq(widget) { return false; }
+    /**
+    Update a DOM element created by a widget of the same type (but
+    different, non-`eq` content) to reflect this widget. May return
+    true to indicate that it could update, false to indicate it
+    couldn't (in which case the widget will be redrawn). The default
+    implementation just returns false.
+    */
+    updateDOM(dom, view) { return false; }
+    /**
+    @internal
+    */
+    compare(other) {
+        return this == other || this.constructor == other.constructor && this.eq(other);
+    }
+    /**
+    The estimated height this widget will have, to be used when
+    estimating the height of content that hasn't been drawn. May
+    return -1 to indicate you don't know. The default implementation
+    returns -1.
+    */
+    get estimatedHeight() { return -1; }
+    /**
+    For inline widgets that are displayed inline (as opposed to
+    `inline-block`) and introduce line breaks (through `<br>` tags
+    or textual newlines), this must indicate the amount of line
+    breaks they introduce. Defaults to 0.
+    */
+    get lineBreaks() { return 0; }
+    /**
+    Can be used to configure which kinds of events inside the widget
+    should be ignored by the editor. The default is to ignore all
+    events.
+    */
+    ignoreEvent(event) { return true; }
+    /**
+    Override the way screen coordinates for positions at/in the
+    widget are found. `pos` will be the offset into the widget, and
+    `side` the side of the position that is being queried—less than
+    zero for before, greater than zero for after, and zero for
+    directly at that position.
+    */
+    coordsAt(dom, pos, side) { return null; }
+    /**
+    @internal
+    */
+    get isHidden() { return false; }
+    /**
+    @internal
+    */
+    get editable() { return false; }
+    /**
+    This is called when the an instance of the widget is removed
+    from the editor view.
+    */
+    destroy(dom) { }
+}
+/**
+The different types of blocks that can occur in an editor view.
+*/
+var BlockType = /*@__PURE__*/(function (BlockType) {
+    /**
+    A line of text.
+    */
+    BlockType[BlockType["Text"] = 0] = "Text";
+    /**
+    A block widget associated with the position after it.
+    */
+    BlockType[BlockType["WidgetBefore"] = 1] = "WidgetBefore";
+    /**
+    A block widget associated with the position before it.
+    */
+    BlockType[BlockType["WidgetAfter"] = 2] = "WidgetAfter";
+    /**
+    A block widget [replacing](https://codemirror.net/6/docs/ref/#view.Decoration^replace) a range of content.
+    */
+    BlockType[BlockType["WidgetRange"] = 3] = "WidgetRange";
+return BlockType})(BlockType || (BlockType = {}));
+/**
+A decoration provides information on how to draw or style a piece
+of content. You'll usually use it wrapped in a
+[`Range`](https://codemirror.net/6/docs/ref/#state.Range), which adds a start and end position.
+@nonabstract
+*/
+class Decoration extends RangeValue {
+    constructor(
+    /**
+    @internal
+    */
+    startSide, 
+    /**
+    @internal
+    */
+    endSide, 
+    /**
+    @internal
+    */
+    widget, 
+    /**
+    The config object used to create this decoration. You can
+    include additional properties in there to store metadata about
+    your decoration.
+    */
+    spec) {
+        super();
+        this.startSide = startSide;
+        this.endSide = endSide;
+        this.widget = widget;
+        this.spec = spec;
+    }
+    /**
+    @internal
+    */
+    get heightRelevant() { return false; }
+    /**
+    Create a mark decoration, which influences the styling of the
+    content in its range. Nested mark decorations will cause nested
+    DOM elements to be created. Nesting order is determined by
+    precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), with
+    the higher-precedence decorations creating the inner DOM nodes.
+    Such elements are split on line boundaries and on the boundaries
+    of lower-precedence decorations.
+    */
+    static mark(spec) {
+        return new MarkDecoration(spec);
+    }
+    /**
+    Create a widget decoration, which displays a DOM element at the
+    given position.
+    */
+    static widget(spec) {
+        let side = Math.max(-1e4, Math.min(10000, spec.side || 0)), block = !!spec.block;
+        side += (block && !spec.inlineOrder)
+            ? (side > 0 ? 300000000 /* Side.BlockAfter */ : -4e8 /* Side.BlockBefore */)
+            : (side > 0 ? 100000000 /* Side.InlineAfter */ : -1e8 /* Side.InlineBefore */);
+        return new PointDecoration(spec, side, side, block, spec.widget || null, false);
+    }
+    /**
+    Create a replace decoration which replaces the given range with
+    a widget, or simply hides it.
+    */
+    static replace(spec) {
+        let block = !!spec.block, startSide, endSide;
+        if (spec.isBlockGap) {
+            startSide = -5e8 /* Side.GapStart */;
+            endSide = 400000000 /* Side.GapEnd */;
+        }
+        else {
+            let { start, end } = getInclusive(spec, block);
+            startSide = (start ? (block ? -3e8 /* Side.BlockIncStart */ : -1 /* Side.InlineIncStart */) : 500000000 /* Side.NonIncStart */) - 1;
+            endSide = (end ? (block ? 200000000 /* Side.BlockIncEnd */ : 1 /* Side.InlineIncEnd */) : -6e8 /* Side.NonIncEnd */) + 1;
+        }
+        return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
+    }
+    /**
+    Create a line decoration, which can add DOM attributes to the
+    line starting at the given position.
+    */
+    static line(spec) {
+        return new LineDecoration(spec);
+    }
+    /**
+    Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
+    decorated range or ranges. If the ranges aren't already sorted,
+    pass `true` for `sort` to make the library sort them for you.
+    */
+    static set(of, sort = false) {
+        return RangeSet.of(of, sort);
+    }
+    /**
+    @internal
+    */
+    hasHeight() { return this.widget ? this.widget.estimatedHeight > -1 : false; }
+}
+/**
+The empty set of decorations.
+*/
+Decoration.none = RangeSet.empty;
+class MarkDecoration extends Decoration {
+    constructor(spec) {
+        let { start, end } = getInclusive(spec);
+        super(start ? -1 /* Side.InlineIncStart */ : 500000000 /* Side.NonIncStart */, end ? 1 /* Side.InlineIncEnd */ : -6e8 /* Side.NonIncEnd */, null, spec);
+        this.tagName = spec.tagName || "span";
+        this.attrs = spec.class && spec.attributes ? combineAttrs(spec.attributes, { class: spec.class })
+            : spec.class ? { class: spec.class } : spec.attributes || noAttrs$1;
+    }
+    eq(other) {
+        return this == other || other instanceof MarkDecoration && this.tagName == other.tagName && attrsEq(this.attrs, other.attrs);
+    }
+    range(from, to = from) {
+        if (from >= to)
+            throw new RangeError("Mark decorations may not be empty");
+        return super.range(from, to);
+    }
+}
+MarkDecoration.prototype.point = false;
+class LineDecoration extends Decoration {
+    constructor(spec) {
+        super(-2e8 /* Side.Line */, -2e8 /* Side.Line */, null, spec);
+    }
+    eq(other) {
+        return other instanceof LineDecoration &&
+            this.spec.class == other.spec.class &&
+            attrsEq(this.spec.attributes, other.spec.attributes);
+    }
+    range(from, to = from) {
+        if (to != from)
+            throw new RangeError("Line decoration ranges must be zero-length");
+        return super.range(from, to);
+    }
+}
+LineDecoration.prototype.mapMode = MapMode.TrackBefore;
+LineDecoration.prototype.point = true;
+class PointDecoration extends Decoration {
+    constructor(spec, startSide, endSide, block, widget, isReplace) {
+        super(startSide, endSide, widget, spec);
+        this.block = block;
+        this.isReplace = isReplace;
+        this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
+    }
+    // Only relevant when this.block == true
+    get type() {
+        return this.startSide != this.endSide ? BlockType.WidgetRange
+            : this.startSide <= 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
+    }
+    get heightRelevant() {
+        return this.block || !!this.widget && (this.widget.estimatedHeight >= 5 || this.widget.lineBreaks > 0);
+    }
+    eq(other) {
+        return other instanceof PointDecoration &&
+            widgetsEq(this.widget, other.widget) &&
+            this.block == other.block &&
+            this.startSide == other.startSide && this.endSide == other.endSide;
+    }
+    range(from, to = from) {
+        if (this.isReplace && (from > to || (from == to && this.startSide > 0 && this.endSide <= 0)))
+            throw new RangeError("Invalid range for replacement decoration");
+        if (!this.isReplace && to != from)
+            throw new RangeError("Widget decorations can only have zero-length ranges");
+        return super.range(from, to);
+    }
+}
+PointDecoration.prototype.point = true;
+function getInclusive(spec, block = false) {
+    let { inclusiveStart: start, inclusiveEnd: end } = spec;
+    if (start == null)
+        start = spec.inclusive;
+    if (end == null)
+        end = spec.inclusive;
+    return { start: start !== null && start !== void 0 ? start : block, end: end !== null && end !== void 0 ? end : block };
+}
+function widgetsEq(a, b) {
+    return a == b || !!(a && b && a.compare(b));
+}
+function addRange(from, to, ranges, margin = 0) {
+    let last = ranges.length - 1;
+    if (last >= 0 && ranges[last] + margin >= from)
+        ranges[last] = Math.max(ranges[last], to);
+    else
+        ranges.push(from, to);
+}
+/**
+A block wrapper defines a DOM node that wraps lines or other block
+wrappers at the top of the document. It affects any line or block
+widget that starts inside its range, including blocks starting
+directly at `from` but not including `to`.
+*/
+class BlockWrapper extends RangeValue {
+    constructor(tagName, attributes) {
+        super();
+        this.tagName = tagName;
+        this.attributes = attributes;
+    }
+    eq(other) {
+        return other == this ||
+            other instanceof BlockWrapper && this.tagName == other.tagName && attrsEq(this.attributes, other.attributes);
+    }
+    /**
+    Create a block wrapper object with the given tag name and
+    attributes.
+    */
+    static create(spec) {
+        return new BlockWrapper(spec.tagName, spec.attributes || noAttrs$1);
+    }
+    /**
+    Create a range set from the given block wrapper ranges.
+    */
+    static set(of, sort = false) {
+        return RangeSet.of(of, sort);
+    }
+}
+BlockWrapper.prototype.startSide = BlockWrapper.prototype.endSide = -1;
+
 function getSelection(root) {
     let target;
     // Browsers differ on whether shadow roots have a getSelection
@@ -7996,6 +8460,9 @@ class DOMSelectionState {
     }
 }
 let preventScrollSupported = null;
+// Safari 26 breaks preventScroll support
+if (browser.safari && browser.safari_version >= 26)
+    preventScrollSupported = false;
 // Feature-detects support for .focus({preventScroll: true}), and uses
 // a fallback kludge when not supported.
 function focusPreventScroll(dom) {
@@ -8052,10 +8519,6 @@ function getRoot(node) {
         node = node.assignedSlot || node.parentNode;
     }
     return null;
-}
-function clearAttributes(node) {
-    while (node.attributes.length)
-        node.removeAttributeNode(node.attributes[0]);
 }
 function atElementStart(doc, selection) {
     let node = selection.focusNode, offset = selection.focusOffset;
@@ -8127,7 +8590,6 @@ function textNodeAfter(startNode, startOffset) {
         }
     }
 }
-
 class DOMPos {
     constructor(node, offset, precise = true) {
         this.node = node;
@@ -8137,1487 +8599,6 @@ class DOMPos {
     static before(dom, precise) { return new DOMPos(dom.parentNode, domIndex(dom), precise); }
     static after(dom, precise) { return new DOMPos(dom.parentNode, domIndex(dom) + 1, precise); }
 }
-const noChildren = [];
-class ContentView {
-    constructor() {
-        this.parent = null;
-        this.dom = null;
-        this.flags = 2 /* ViewFlag.NodeDirty */;
-    }
-    get overrideDOMText() { return null; }
-    get posAtStart() {
-        return this.parent ? this.parent.posBefore(this) : 0;
-    }
-    get posAtEnd() {
-        return this.posAtStart + this.length;
-    }
-    posBefore(view) {
-        let pos = this.posAtStart;
-        for (let child of this.children) {
-            if (child == view)
-                return pos;
-            pos += child.length + child.breakAfter;
-        }
-        throw new RangeError("Invalid child in posBefore");
-    }
-    posAfter(view) {
-        return this.posBefore(view) + view.length;
-    }
-    sync(view, track) {
-        if (this.flags & 2 /* ViewFlag.NodeDirty */) {
-            let parent = this.dom;
-            let prev = null, next;
-            for (let child of this.children) {
-                if (child.flags & 7 /* ViewFlag.Dirty */) {
-                    if (!child.dom && (next = prev ? prev.nextSibling : parent.firstChild)) {
-                        let contentView = ContentView.get(next);
-                        if (!contentView || !contentView.parent && contentView.canReuseDOM(child))
-                            child.reuseDOM(next);
-                    }
-                    child.sync(view, track);
-                    child.flags &= -8 /* ViewFlag.Dirty */;
-                }
-                next = prev ? prev.nextSibling : parent.firstChild;
-                if (track && !track.written && track.node == parent && next != child.dom)
-                    track.written = true;
-                if (child.dom.parentNode == parent) {
-                    while (next && next != child.dom)
-                        next = rm$1(next);
-                }
-                else {
-                    parent.insertBefore(child.dom, next);
-                }
-                prev = child.dom;
-            }
-            next = prev ? prev.nextSibling : parent.firstChild;
-            if (next && track && track.node == parent)
-                track.written = true;
-            while (next)
-                next = rm$1(next);
-        }
-        else if (this.flags & 1 /* ViewFlag.ChildDirty */) {
-            for (let child of this.children)
-                if (child.flags & 7 /* ViewFlag.Dirty */) {
-                    child.sync(view, track);
-                    child.flags &= -8 /* ViewFlag.Dirty */;
-                }
-        }
-    }
-    reuseDOM(_dom) { }
-    localPosFromDOM(node, offset) {
-        let after;
-        if (node == this.dom) {
-            after = this.dom.childNodes[offset];
-        }
-        else {
-            let bias = maxOffset(node) == 0 ? 0 : offset == 0 ? -1 : 1;
-            for (;;) {
-                let parent = node.parentNode;
-                if (parent == this.dom)
-                    break;
-                if (bias == 0 && parent.firstChild != parent.lastChild) {
-                    if (node == parent.firstChild)
-                        bias = -1;
-                    else
-                        bias = 1;
-                }
-                node = parent;
-            }
-            if (bias < 0)
-                after = node;
-            else
-                after = node.nextSibling;
-        }
-        if (after == this.dom.firstChild)
-            return 0;
-        while (after && !ContentView.get(after))
-            after = after.nextSibling;
-        if (!after)
-            return this.length;
-        for (let i = 0, pos = 0;; i++) {
-            let child = this.children[i];
-            if (child.dom == after)
-                return pos;
-            pos += child.length + child.breakAfter;
-        }
-    }
-    domBoundsAround(from, to, offset = 0) {
-        let fromI = -1, fromStart = -1, toI = -1, toEnd = -1;
-        for (let i = 0, pos = offset, prevEnd = offset; i < this.children.length; i++) {
-            let child = this.children[i], end = pos + child.length;
-            if (pos < from && end > to)
-                return child.domBoundsAround(from, to, pos);
-            if (end >= from && fromI == -1) {
-                fromI = i;
-                fromStart = pos;
-            }
-            if (pos > to && child.dom.parentNode == this.dom) {
-                toI = i;
-                toEnd = prevEnd;
-                break;
-            }
-            prevEnd = end;
-            pos = end + child.breakAfter;
-        }
-        return { from: fromStart, to: toEnd < 0 ? offset + this.length : toEnd,
-            startDOM: (fromI ? this.children[fromI - 1].dom.nextSibling : null) || this.dom.firstChild,
-            endDOM: toI < this.children.length && toI >= 0 ? this.children[toI].dom : null };
-    }
-    markDirty(andParent = false) {
-        this.flags |= 2 /* ViewFlag.NodeDirty */;
-        this.markParentsDirty(andParent);
-    }
-    markParentsDirty(childList) {
-        for (let parent = this.parent; parent; parent = parent.parent) {
-            if (childList)
-                parent.flags |= 2 /* ViewFlag.NodeDirty */;
-            if (parent.flags & 1 /* ViewFlag.ChildDirty */)
-                return;
-            parent.flags |= 1 /* ViewFlag.ChildDirty */;
-            childList = false;
-        }
-    }
-    setParent(parent) {
-        if (this.parent != parent) {
-            this.parent = parent;
-            if (this.flags & 7 /* ViewFlag.Dirty */)
-                this.markParentsDirty(true);
-        }
-    }
-    setDOM(dom) {
-        if (this.dom == dom)
-            return;
-        if (this.dom)
-            this.dom.cmView = null;
-        this.dom = dom;
-        dom.cmView = this;
-    }
-    get rootView() {
-        for (let v = this;;) {
-            let parent = v.parent;
-            if (!parent)
-                return v;
-            v = parent;
-        }
-    }
-    replaceChildren(from, to, children = noChildren) {
-        this.markDirty();
-        for (let i = from; i < to; i++) {
-            let child = this.children[i];
-            if (child.parent == this && children.indexOf(child) < 0)
-                child.destroy();
-        }
-        if (children.length < 250)
-            this.children.splice(from, to - from, ...children);
-        else
-            this.children = [].concat(this.children.slice(0, from), children, this.children.slice(to));
-        for (let i = 0; i < children.length; i++)
-            children[i].setParent(this);
-    }
-    ignoreMutation(_rec) { return false; }
-    ignoreEvent(_event) { return false; }
-    childCursor(pos = this.length) {
-        return new ChildCursor(this.children, pos, this.children.length);
-    }
-    childPos(pos, bias = 1) {
-        return this.childCursor().findPos(pos, bias);
-    }
-    toString() {
-        let name = this.constructor.name.replace("View", "");
-        return name + (this.children.length ? "(" + this.children.join() + ")" :
-            this.length ? "[" + (name == "Text" ? this.text : this.length) + "]" : "") +
-            (this.breakAfter ? "#" : "");
-    }
-    static get(node) { return node.cmView; }
-    get isEditable() { return true; }
-    get isWidget() { return false; }
-    get isHidden() { return false; }
-    merge(from, to, source, hasStart, openStart, openEnd) {
-        return false;
-    }
-    become(other) { return false; }
-    canReuseDOM(other) {
-        return other.constructor == this.constructor && !((this.flags | other.flags) & 8 /* ViewFlag.Composition */);
-    }
-    // When this is a zero-length view with a side, this should return a
-    // number <= 0 to indicate it is before its position, or a
-    // number > 0 when after its position.
-    getSide() { return 0; }
-    destroy() {
-        for (let child of this.children)
-            if (child.parent == this)
-                child.destroy();
-        this.parent = null;
-    }
-}
-ContentView.prototype.breakAfter = 0;
-// Remove a DOM node and return its next sibling.
-function rm$1(dom) {
-    let next = dom.nextSibling;
-    dom.parentNode.removeChild(dom);
-    return next;
-}
-class ChildCursor {
-    constructor(children, pos, i) {
-        this.children = children;
-        this.pos = pos;
-        this.i = i;
-        this.off = 0;
-    }
-    findPos(pos, bias = 1) {
-        for (;;) {
-            if (pos > this.pos || pos == this.pos &&
-                (bias > 0 || this.i == 0 || this.children[this.i - 1].breakAfter)) {
-                this.off = pos - this.pos;
-                return this;
-            }
-            let next = this.children[--this.i];
-            this.pos -= next.length + next.breakAfter;
-        }
-    }
-}
-function replaceRange(parent, fromI, fromOff, toI, toOff, insert, breakAtStart, openStart, openEnd) {
-    let { children } = parent;
-    let before = children.length ? children[fromI] : null;
-    let last = insert.length ? insert[insert.length - 1] : null;
-    let breakAtEnd = last ? last.breakAfter : breakAtStart;
-    // Change within a single child
-    if (fromI == toI && before && !breakAtStart && !breakAtEnd && insert.length < 2 &&
-        before.merge(fromOff, toOff, insert.length ? last : null, fromOff == 0, openStart, openEnd))
-        return;
-    if (toI < children.length) {
-        let after = children[toI];
-        // Make sure the end of the child after the update is preserved in `after`
-        if (after && (toOff < after.length || after.breakAfter && (last === null || last === void 0 ? void 0 : last.breakAfter))) {
-            // If we're splitting a child, separate part of it to avoid that
-            // being mangled when updating the child before the update.
-            if (fromI == toI) {
-                after = after.split(toOff);
-                toOff = 0;
-            }
-            // If the element after the replacement should be merged with
-            // the last replacing element, update `content`
-            if (!breakAtEnd && last && after.merge(0, toOff, last, true, 0, openEnd)) {
-                insert[insert.length - 1] = after;
-            }
-            else {
-                // Remove the start of the after element, if necessary, and
-                // add it to `content`.
-                if (toOff || after.children.length && !after.children[0].length)
-                    after.merge(0, toOff, null, false, 0, openEnd);
-                insert.push(after);
-            }
-        }
-        else if (after === null || after === void 0 ? void 0 : after.breakAfter) {
-            // The element at `toI` is entirely covered by this range.
-            // Preserve its line break, if any.
-            if (last)
-                last.breakAfter = 1;
-            else
-                breakAtStart = 1;
-        }
-        // Since we've handled the next element from the current elements
-        // now, make sure `toI` points after that.
-        toI++;
-    }
-    if (before) {
-        before.breakAfter = breakAtStart;
-        if (fromOff > 0) {
-            if (!breakAtStart && insert.length && before.merge(fromOff, before.length, insert[0], false, openStart, 0)) {
-                before.breakAfter = insert.shift().breakAfter;
-            }
-            else if (fromOff < before.length || before.children.length && before.children[before.children.length - 1].length == 0) {
-                before.merge(fromOff, before.length, null, false, openStart, 0);
-            }
-            fromI++;
-        }
-    }
-    // Try to merge widgets on the boundaries of the replacement
-    while (fromI < toI && insert.length) {
-        if (children[toI - 1].become(insert[insert.length - 1])) {
-            toI--;
-            insert.pop();
-            openEnd = insert.length ? 0 : openStart;
-        }
-        else if (children[fromI].become(insert[0])) {
-            fromI++;
-            insert.shift();
-            openStart = insert.length ? 0 : openEnd;
-        }
-        else {
-            break;
-        }
-    }
-    if (!insert.length && fromI && toI < children.length && !children[fromI - 1].breakAfter &&
-        children[toI].merge(0, 0, children[fromI - 1], false, openStart, openEnd))
-        fromI--;
-    if (fromI < toI || insert.length)
-        parent.replaceChildren(fromI, toI, insert);
-}
-function mergeChildrenInto(parent, from, to, insert, openStart, openEnd) {
-    let cur = parent.childCursor();
-    let { i: toI, off: toOff } = cur.findPos(to, 1);
-    let { i: fromI, off: fromOff } = cur.findPos(from, -1);
-    let dLen = from - to;
-    for (let view of insert)
-        dLen += view.length;
-    parent.length += dLen;
-    replaceRange(parent, fromI, fromOff, toI, toOff, insert, 0, openStart, openEnd);
-}
-
-let nav = typeof navigator != "undefined" ? navigator : { userAgent: "", vendor: "", platform: "" };
-let doc = typeof document != "undefined" ? document : { documentElement: { style: {} } };
-const ie_edge = /*@__PURE__*//Edge\/(\d+)/.exec(nav.userAgent);
-const ie_upto10 = /*@__PURE__*//MSIE \d/.test(nav.userAgent);
-const ie_11up = /*@__PURE__*//Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav.userAgent);
-const ie = !!(ie_upto10 || ie_11up || ie_edge);
-const gecko = !ie && /*@__PURE__*//gecko\/(\d+)/i.test(nav.userAgent);
-const chrome = !ie && /*@__PURE__*//Chrome\/(\d+)/.exec(nav.userAgent);
-const webkit = "webkitFontSmoothing" in doc.documentElement.style;
-const safari = !ie && /*@__PURE__*//Apple Computer/.test(nav.vendor);
-const ios = safari && (/*@__PURE__*//Mobile\/\w+/.test(nav.userAgent) || nav.maxTouchPoints > 2);
-var browser = {
-    mac: ios || /*@__PURE__*//Mac/.test(nav.platform),
-    windows: /*@__PURE__*//Win/.test(nav.platform),
-    linux: /*@__PURE__*//Linux|X11/.test(nav.platform),
-    ie,
-    ie_version: ie_upto10 ? doc.documentMode || 6 : ie_11up ? +ie_11up[1] : ie_edge ? +ie_edge[1] : 0,
-    gecko,
-    gecko_version: gecko ? +(/*@__PURE__*//Firefox\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
-    chrome: !!chrome,
-    chrome_version: chrome ? +chrome[1] : 0,
-    ios,
-    android: /*@__PURE__*//Android\b/.test(nav.userAgent),
-    safari,
-    webkit_version: webkit ? +(/*@__PURE__*//\bAppleWebKit\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
-    tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
-};
-
-const MaxJoinLen = 256;
-class TextView extends ContentView {
-    constructor(text) {
-        super();
-        this.text = text;
-    }
-    get length() { return this.text.length; }
-    createDOM(textDOM) {
-        this.setDOM(textDOM || document.createTextNode(this.text));
-    }
-    sync(view, track) {
-        if (!this.dom)
-            this.createDOM();
-        if (this.dom.nodeValue != this.text) {
-            if (track && track.node == this.dom)
-                track.written = true;
-            this.dom.nodeValue = this.text;
-        }
-    }
-    reuseDOM(dom) {
-        if (dom.nodeType == 3)
-            this.createDOM(dom);
-    }
-    merge(from, to, source) {
-        if ((this.flags & 8 /* ViewFlag.Composition */) ||
-            source && (!(source instanceof TextView) ||
-                this.length - (to - from) + source.length > MaxJoinLen ||
-                (source.flags & 8 /* ViewFlag.Composition */)))
-            return false;
-        this.text = this.text.slice(0, from) + (source ? source.text : "") + this.text.slice(to);
-        this.markDirty();
-        return true;
-    }
-    split(from) {
-        let result = new TextView(this.text.slice(from));
-        this.text = this.text.slice(0, from);
-        this.markDirty();
-        result.flags |= this.flags & 8 /* ViewFlag.Composition */;
-        return result;
-    }
-    localPosFromDOM(node, offset) {
-        return node == this.dom ? offset : offset ? this.text.length : 0;
-    }
-    domAtPos(pos) { return new DOMPos(this.dom, pos); }
-    domBoundsAround(_from, _to, offset) {
-        return { from: offset, to: offset + this.length, startDOM: this.dom, endDOM: this.dom.nextSibling };
-    }
-    coordsAt(pos, side) {
-        return textCoords(this.dom, pos, side);
-    }
-}
-class MarkView extends ContentView {
-    constructor(mark, children = [], length = 0) {
-        super();
-        this.mark = mark;
-        this.children = children;
-        this.length = length;
-        for (let ch of children)
-            ch.setParent(this);
-    }
-    setAttrs(dom) {
-        clearAttributes(dom);
-        if (this.mark.class)
-            dom.className = this.mark.class;
-        if (this.mark.attrs)
-            for (let name in this.mark.attrs)
-                dom.setAttribute(name, this.mark.attrs[name]);
-        return dom;
-    }
-    canReuseDOM(other) {
-        return super.canReuseDOM(other) && !((this.flags | other.flags) & 8 /* ViewFlag.Composition */);
-    }
-    reuseDOM(node) {
-        if (node.nodeName == this.mark.tagName.toUpperCase()) {
-            this.setDOM(node);
-            this.flags |= 4 /* ViewFlag.AttrsDirty */ | 2 /* ViewFlag.NodeDirty */;
-        }
-    }
-    sync(view, track) {
-        if (!this.dom)
-            this.setDOM(this.setAttrs(document.createElement(this.mark.tagName)));
-        else if (this.flags & 4 /* ViewFlag.AttrsDirty */)
-            this.setAttrs(this.dom);
-        super.sync(view, track);
-    }
-    merge(from, to, source, _hasStart, openStart, openEnd) {
-        if (source && (!(source instanceof MarkView && source.mark.eq(this.mark)) ||
-            (from && openStart <= 0) || (to < this.length && openEnd <= 0)))
-            return false;
-        mergeChildrenInto(this, from, to, source ? source.children.slice() : [], openStart - 1, openEnd - 1);
-        this.markDirty();
-        return true;
-    }
-    split(from) {
-        let result = [], off = 0, detachFrom = -1, i = 0;
-        for (let elt of this.children) {
-            let end = off + elt.length;
-            if (end > from)
-                result.push(off < from ? elt.split(from - off) : elt);
-            if (detachFrom < 0 && off >= from)
-                detachFrom = i;
-            off = end;
-            i++;
-        }
-        let length = this.length - from;
-        this.length = from;
-        if (detachFrom > -1) {
-            this.children.length = detachFrom;
-            this.markDirty();
-        }
-        return new MarkView(this.mark, result, length);
-    }
-    domAtPos(pos) {
-        return inlineDOMAtPos(this, pos);
-    }
-    coordsAt(pos, side) {
-        return coordsInChildren(this, pos, side);
-    }
-}
-function textCoords(text, pos, side) {
-    let length = text.nodeValue.length;
-    if (pos > length)
-        pos = length;
-    let from = pos, to = pos, flatten = 0;
-    if (pos == 0 && side < 0 || pos == length && side >= 0) {
-        if (!(browser.chrome || browser.gecko)) { // These browsers reliably return valid rectangles for empty ranges
-            if (pos) {
-                from--;
-                flatten = 1;
-            } // FIXME this is wrong in RTL text
-            else if (to < length) {
-                to++;
-                flatten = -1;
-            }
-        }
-    }
-    else {
-        if (side < 0)
-            from--;
-        else if (to < length)
-            to++;
-    }
-    let rects = textRange(text, from, to).getClientRects();
-    if (!rects.length)
-        return null;
-    let rect = rects[(flatten ? flatten < 0 : side >= 0) ? 0 : rects.length - 1];
-    if (browser.safari && !flatten && rect.width == 0)
-        rect = Array.prototype.find.call(rects, r => r.width) || rect;
-    return flatten ? flattenRect(rect, flatten < 0) : rect || null;
-}
-// Also used for collapsed ranges that don't have a placeholder widget!
-class WidgetView extends ContentView {
-    static create(widget, length, side) {
-        return new WidgetView(widget, length, side);
-    }
-    constructor(widget, length, side) {
-        super();
-        this.widget = widget;
-        this.length = length;
-        this.side = side;
-        this.prevWidget = null;
-    }
-    split(from) {
-        let result = WidgetView.create(this.widget, this.length - from, this.side);
-        this.length -= from;
-        return result;
-    }
-    sync(view) {
-        if (!this.dom || !this.widget.updateDOM(this.dom, view)) {
-            if (this.dom && this.prevWidget)
-                this.prevWidget.destroy(this.dom);
-            this.prevWidget = null;
-            this.setDOM(this.widget.toDOM(view));
-            if (!this.widget.editable)
-                this.dom.contentEditable = "false";
-        }
-    }
-    getSide() { return this.side; }
-    merge(from, to, source, hasStart, openStart, openEnd) {
-        if (source && (!(source instanceof WidgetView) || !this.widget.compare(source.widget) ||
-            from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
-            return false;
-        this.length = from + (source ? source.length : 0) + (this.length - to);
-        return true;
-    }
-    become(other) {
-        if (other instanceof WidgetView && other.side == this.side &&
-            this.widget.constructor == other.widget.constructor) {
-            if (!this.widget.compare(other.widget))
-                this.markDirty(true);
-            if (this.dom && !this.prevWidget)
-                this.prevWidget = this.widget;
-            this.widget = other.widget;
-            this.length = other.length;
-            return true;
-        }
-        return false;
-    }
-    ignoreMutation() { return true; }
-    ignoreEvent(event) { return this.widget.ignoreEvent(event); }
-    get overrideDOMText() {
-        if (this.length == 0)
-            return Text.empty;
-        let top = this;
-        while (top.parent)
-            top = top.parent;
-        let { view } = top, text = view && view.state.doc, start = this.posAtStart;
-        return text ? text.slice(start, start + this.length) : Text.empty;
-    }
-    domAtPos(pos) {
-        return (this.length ? pos == 0 : this.side > 0)
-            ? DOMPos.before(this.dom)
-            : DOMPos.after(this.dom, pos == this.length);
-    }
-    domBoundsAround() { return null; }
-    coordsAt(pos, side) {
-        let custom = this.widget.coordsAt(this.dom, pos, side);
-        if (custom)
-            return custom;
-        let rects = this.dom.getClientRects(), rect = null;
-        if (!rects.length)
-            return null;
-        let fromBack = this.side ? this.side < 0 : pos > 0;
-        for (let i = fromBack ? rects.length - 1 : 0;; i += (fromBack ? -1 : 1)) {
-            rect = rects[i];
-            if (pos > 0 ? i == 0 : i == rects.length - 1 || rect.top < rect.bottom)
-                break;
-        }
-        return flattenRect(rect, !fromBack);
-    }
-    get isEditable() { return false; }
-    get isWidget() { return true; }
-    get isHidden() { return this.widget.isHidden; }
-    destroy() {
-        super.destroy();
-        if (this.dom)
-            this.widget.destroy(this.dom);
-    }
-}
-// These are drawn around uneditable widgets to avoid a number of
-// browser bugs that show up when the cursor is directly next to
-// uneditable inline content.
-class WidgetBufferView extends ContentView {
-    constructor(side) {
-        super();
-        this.side = side;
-    }
-    get length() { return 0; }
-    merge() { return false; }
-    become(other) {
-        return other instanceof WidgetBufferView && other.side == this.side;
-    }
-    split() { return new WidgetBufferView(this.side); }
-    sync() {
-        if (!this.dom) {
-            let dom = document.createElement("img");
-            dom.className = "cm-widgetBuffer";
-            dom.setAttribute("aria-hidden", "true");
-            this.setDOM(dom);
-        }
-    }
-    getSide() { return this.side; }
-    domAtPos(pos) { return this.side > 0 ? DOMPos.before(this.dom) : DOMPos.after(this.dom); }
-    localPosFromDOM() { return 0; }
-    domBoundsAround() { return null; }
-    coordsAt(pos) {
-        return this.dom.getBoundingClientRect();
-    }
-    get overrideDOMText() {
-        return Text.empty;
-    }
-    get isHidden() { return true; }
-}
-TextView.prototype.children = WidgetView.prototype.children = WidgetBufferView.prototype.children = noChildren;
-function inlineDOMAtPos(parent, pos) {
-    let dom = parent.dom, { children } = parent, i = 0;
-    for (let off = 0; i < children.length; i++) {
-        let child = children[i], end = off + child.length;
-        if (end == off && child.getSide() <= 0)
-            continue;
-        if (pos > off && pos < end && child.dom.parentNode == dom)
-            return child.domAtPos(pos - off);
-        if (pos <= off)
-            break;
-        off = end;
-    }
-    for (let j = i; j > 0; j--) {
-        let prev = children[j - 1];
-        if (prev.dom.parentNode == dom)
-            return prev.domAtPos(prev.length);
-    }
-    for (let j = i; j < children.length; j++) {
-        let next = children[j];
-        if (next.dom.parentNode == dom)
-            return next.domAtPos(0);
-    }
-    return new DOMPos(dom, 0);
-}
-// Assumes `view`, if a mark view, has precisely 1 child.
-function joinInlineInto(parent, view, open) {
-    let last, { children } = parent;
-    if (open > 0 && view instanceof MarkView && children.length &&
-        (last = children[children.length - 1]) instanceof MarkView && last.mark.eq(view.mark)) {
-        joinInlineInto(last, view.children[0], open - 1);
-    }
-    else {
-        children.push(view);
-        view.setParent(parent);
-    }
-    parent.length += view.length;
-}
-function coordsInChildren(view, pos, side) {
-    let before = null, beforePos = -1, after = null, afterPos = -1;
-    function scan(view, pos) {
-        for (let i = 0, off = 0; i < view.children.length && off <= pos; i++) {
-            let child = view.children[i], end = off + child.length;
-            if (end >= pos) {
-                if (child.children.length) {
-                    scan(child, pos - off);
-                }
-                else if ((!after || after.isHidden && (side > 0 || onSameLine(after, child))) &&
-                    (end > pos || off == end && child.getSide() > 0)) {
-                    after = child;
-                    afterPos = pos - off;
-                }
-                else if (off < pos || (off == end && child.getSide() < 0) && !child.isHidden) {
-                    before = child;
-                    beforePos = pos - off;
-                }
-            }
-            off = end;
-        }
-    }
-    scan(view, pos);
-    let target = (side < 0 ? before : after) || before || after;
-    if (target)
-        return target.coordsAt(Math.max(0, target == before ? beforePos : afterPos), side);
-    return fallbackRect(view);
-}
-function fallbackRect(view) {
-    let last = view.dom.lastChild;
-    if (!last)
-        return view.dom.getBoundingClientRect();
-    let rects = clientRectsFor(last);
-    return rects[rects.length - 1] || null;
-}
-function onSameLine(a, b) {
-    let posA = a.coordsAt(0, 1), posB = b.coordsAt(0, 1);
-    return posA && posB && posB.top < posA.bottom;
-}
-
-function combineAttrs(source, target) {
-    for (let name in source) {
-        if (name == "class" && target.class)
-            target.class += " " + source.class;
-        else if (name == "style" && target.style)
-            target.style += ";" + source.style;
-        else
-            target[name] = source[name];
-    }
-    return target;
-}
-const noAttrs$1 = /*@__PURE__*/Object.create(null);
-function attrsEq(a, b, ignore) {
-    if (a == b)
-        return true;
-    if (!a)
-        a = noAttrs$1;
-    if (!b)
-        b = noAttrs$1;
-    let keysA = Object.keys(a), keysB = Object.keys(b);
-    if (keysA.length - (ignore && keysA.indexOf(ignore) > -1 ? 1 : 0) !=
-        keysB.length - (ignore && keysB.indexOf(ignore) > -1 ? 1 : 0))
-        return false;
-    for (let key of keysA) {
-        if (key != ignore && (keysB.indexOf(key) == -1 || a[key] !== b[key]))
-            return false;
-    }
-    return true;
-}
-function updateAttrs(dom, prev, attrs) {
-    let changed = false;
-    if (prev)
-        for (let name in prev)
-            if (!(attrs && name in attrs)) {
-                changed = true;
-                if (name == "style")
-                    dom.style.cssText = "";
-                else
-                    dom.removeAttribute(name);
-            }
-    if (attrs)
-        for (let name in attrs)
-            if (!(prev && prev[name] == attrs[name])) {
-                changed = true;
-                if (name == "style")
-                    dom.style.cssText = attrs[name];
-                else
-                    dom.setAttribute(name, attrs[name]);
-            }
-    return changed;
-}
-function getAttrs(dom) {
-    let attrs = Object.create(null);
-    for (let i = 0; i < dom.attributes.length; i++) {
-        let attr = dom.attributes[i];
-        attrs[attr.name] = attr.value;
-    }
-    return attrs;
-}
-
-/**
-Widgets added to the content are described by subclasses of this
-class. Using a description object like that makes it possible to
-delay creating of the DOM structure for a widget until it is
-needed, and to avoid redrawing widgets even if the decorations
-that define them are recreated.
-*/
-class WidgetType {
-    /**
-    Compare this instance to another instance of the same type.
-    (TypeScript can't express this, but only instances of the same
-    specific class will be passed to this method.) This is used to
-    avoid redrawing widgets when they are replaced by a new
-    decoration of the same type. The default implementation just
-    returns `false`, which will cause new instances of the widget to
-    always be redrawn.
-    */
-    eq(widget) { return false; }
-    /**
-    Update a DOM element created by a widget of the same type (but
-    different, non-`eq` content) to reflect this widget. May return
-    true to indicate that it could update, false to indicate it
-    couldn't (in which case the widget will be redrawn). The default
-    implementation just returns false.
-    */
-    updateDOM(dom, view) { return false; }
-    /**
-    @internal
-    */
-    compare(other) {
-        return this == other || this.constructor == other.constructor && this.eq(other);
-    }
-    /**
-    The estimated height this widget will have, to be used when
-    estimating the height of content that hasn't been drawn. May
-    return -1 to indicate you don't know. The default implementation
-    returns -1.
-    */
-    get estimatedHeight() { return -1; }
-    /**
-    For inline widgets that are displayed inline (as opposed to
-    `inline-block`) and introduce line breaks (through `<br>` tags
-    or textual newlines), this must indicate the amount of line
-    breaks they introduce. Defaults to 0.
-    */
-    get lineBreaks() { return 0; }
-    /**
-    Can be used to configure which kinds of events inside the widget
-    should be ignored by the editor. The default is to ignore all
-    events.
-    */
-    ignoreEvent(event) { return true; }
-    /**
-    Override the way screen coordinates for positions at/in the
-    widget are found. `pos` will be the offset into the widget, and
-    `side` the side of the position that is being queried—less than
-    zero for before, greater than zero for after, and zero for
-    directly at that position.
-    */
-    coordsAt(dom, pos, side) { return null; }
-    /**
-    @internal
-    */
-    get isHidden() { return false; }
-    /**
-    @internal
-    */
-    get editable() { return false; }
-    /**
-    This is called when the an instance of the widget is removed
-    from the editor view.
-    */
-    destroy(dom) { }
-}
-/**
-The different types of blocks that can occur in an editor view.
-*/
-var BlockType = /*@__PURE__*/(function (BlockType) {
-    /**
-    A line of text.
-    */
-    BlockType[BlockType["Text"] = 0] = "Text";
-    /**
-    A block widget associated with the position after it.
-    */
-    BlockType[BlockType["WidgetBefore"] = 1] = "WidgetBefore";
-    /**
-    A block widget associated with the position before it.
-    */
-    BlockType[BlockType["WidgetAfter"] = 2] = "WidgetAfter";
-    /**
-    A block widget [replacing](https://codemirror.net/6/docs/ref/#view.Decoration^replace) a range of content.
-    */
-    BlockType[BlockType["WidgetRange"] = 3] = "WidgetRange";
-return BlockType})(BlockType || (BlockType = {}));
-/**
-A decoration provides information on how to draw or style a piece
-of content. You'll usually use it wrapped in a
-[`Range`](https://codemirror.net/6/docs/ref/#state.Range), which adds a start and end position.
-@nonabstract
-*/
-class Decoration extends RangeValue {
-    constructor(
-    /**
-    @internal
-    */
-    startSide, 
-    /**
-    @internal
-    */
-    endSide, 
-    /**
-    @internal
-    */
-    widget, 
-    /**
-    The config object used to create this decoration. You can
-    include additional properties in there to store metadata about
-    your decoration.
-    */
-    spec) {
-        super();
-        this.startSide = startSide;
-        this.endSide = endSide;
-        this.widget = widget;
-        this.spec = spec;
-    }
-    /**
-    @internal
-    */
-    get heightRelevant() { return false; }
-    /**
-    Create a mark decoration, which influences the styling of the
-    content in its range. Nested mark decorations will cause nested
-    DOM elements to be created. Nesting order is determined by
-    precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), with
-    the higher-precedence decorations creating the inner DOM nodes.
-    Such elements are split on line boundaries and on the boundaries
-    of lower-precedence decorations.
-    */
-    static mark(spec) {
-        return new MarkDecoration(spec);
-    }
-    /**
-    Create a widget decoration, which displays a DOM element at the
-    given position.
-    */
-    static widget(spec) {
-        let side = Math.max(-1e4, Math.min(10000, spec.side || 0)), block = !!spec.block;
-        side += (block && !spec.inlineOrder)
-            ? (side > 0 ? 300000000 /* Side.BlockAfter */ : -4e8 /* Side.BlockBefore */)
-            : (side > 0 ? 100000000 /* Side.InlineAfter */ : -1e8 /* Side.InlineBefore */);
-        return new PointDecoration(spec, side, side, block, spec.widget || null, false);
-    }
-    /**
-    Create a replace decoration which replaces the given range with
-    a widget, or simply hides it.
-    */
-    static replace(spec) {
-        let block = !!spec.block, startSide, endSide;
-        if (spec.isBlockGap) {
-            startSide = -5e8 /* Side.GapStart */;
-            endSide = 400000000 /* Side.GapEnd */;
-        }
-        else {
-            let { start, end } = getInclusive(spec, block);
-            startSide = (start ? (block ? -3e8 /* Side.BlockIncStart */ : -1 /* Side.InlineIncStart */) : 500000000 /* Side.NonIncStart */) - 1;
-            endSide = (end ? (block ? 200000000 /* Side.BlockIncEnd */ : 1 /* Side.InlineIncEnd */) : -6e8 /* Side.NonIncEnd */) + 1;
-        }
-        return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
-    }
-    /**
-    Create a line decoration, which can add DOM attributes to the
-    line starting at the given position.
-    */
-    static line(spec) {
-        return new LineDecoration(spec);
-    }
-    /**
-    Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
-    decorated range or ranges. If the ranges aren't already sorted,
-    pass `true` for `sort` to make the library sort them for you.
-    */
-    static set(of, sort = false) {
-        return RangeSet.of(of, sort);
-    }
-    /**
-    @internal
-    */
-    hasHeight() { return this.widget ? this.widget.estimatedHeight > -1 : false; }
-}
-/**
-The empty set of decorations.
-*/
-Decoration.none = RangeSet.empty;
-class MarkDecoration extends Decoration {
-    constructor(spec) {
-        let { start, end } = getInclusive(spec);
-        super(start ? -1 /* Side.InlineIncStart */ : 500000000 /* Side.NonIncStart */, end ? 1 /* Side.InlineIncEnd */ : -6e8 /* Side.NonIncEnd */, null, spec);
-        this.tagName = spec.tagName || "span";
-        this.class = spec.class || "";
-        this.attrs = spec.attributes || null;
-    }
-    eq(other) {
-        var _a, _b;
-        return this == other ||
-            other instanceof MarkDecoration &&
-                this.tagName == other.tagName &&
-                (this.class || ((_a = this.attrs) === null || _a === void 0 ? void 0 : _a.class)) == (other.class || ((_b = other.attrs) === null || _b === void 0 ? void 0 : _b.class)) &&
-                attrsEq(this.attrs, other.attrs, "class");
-    }
-    range(from, to = from) {
-        if (from >= to)
-            throw new RangeError("Mark decorations may not be empty");
-        return super.range(from, to);
-    }
-}
-MarkDecoration.prototype.point = false;
-class LineDecoration extends Decoration {
-    constructor(spec) {
-        super(-2e8 /* Side.Line */, -2e8 /* Side.Line */, null, spec);
-    }
-    eq(other) {
-        return other instanceof LineDecoration &&
-            this.spec.class == other.spec.class &&
-            attrsEq(this.spec.attributes, other.spec.attributes);
-    }
-    range(from, to = from) {
-        if (to != from)
-            throw new RangeError("Line decoration ranges must be zero-length");
-        return super.range(from, to);
-    }
-}
-LineDecoration.prototype.mapMode = MapMode.TrackBefore;
-LineDecoration.prototype.point = true;
-class PointDecoration extends Decoration {
-    constructor(spec, startSide, endSide, block, widget, isReplace) {
-        super(startSide, endSide, widget, spec);
-        this.block = block;
-        this.isReplace = isReplace;
-        this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
-    }
-    // Only relevant when this.block == true
-    get type() {
-        return this.startSide != this.endSide ? BlockType.WidgetRange
-            : this.startSide <= 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
-    }
-    get heightRelevant() {
-        return this.block || !!this.widget && (this.widget.estimatedHeight >= 5 || this.widget.lineBreaks > 0);
-    }
-    eq(other) {
-        return other instanceof PointDecoration &&
-            widgetsEq(this.widget, other.widget) &&
-            this.block == other.block &&
-            this.startSide == other.startSide && this.endSide == other.endSide;
-    }
-    range(from, to = from) {
-        if (this.isReplace && (from > to || (from == to && this.startSide > 0 && this.endSide <= 0)))
-            throw new RangeError("Invalid range for replacement decoration");
-        if (!this.isReplace && to != from)
-            throw new RangeError("Widget decorations can only have zero-length ranges");
-        return super.range(from, to);
-    }
-}
-PointDecoration.prototype.point = true;
-function getInclusive(spec, block = false) {
-    let { inclusiveStart: start, inclusiveEnd: end } = spec;
-    if (start == null)
-        start = spec.inclusive;
-    if (end == null)
-        end = spec.inclusive;
-    return { start: start !== null && start !== void 0 ? start : block, end: end !== null && end !== void 0 ? end : block };
-}
-function widgetsEq(a, b) {
-    return a == b || !!(a && b && a.compare(b));
-}
-function addRange(from, to, ranges, margin = 0) {
-    let last = ranges.length - 1;
-    if (last >= 0 && ranges[last] + margin >= from)
-        ranges[last] = Math.max(ranges[last], to);
-    else
-        ranges.push(from, to);
-}
-
-class LineView extends ContentView {
-    constructor() {
-        super(...arguments);
-        this.children = [];
-        this.length = 0;
-        this.prevAttrs = undefined;
-        this.attrs = null;
-        this.breakAfter = 0;
-    }
-    // Consumes source
-    merge(from, to, source, hasStart, openStart, openEnd) {
-        if (source) {
-            if (!(source instanceof LineView))
-                return false;
-            if (!this.dom)
-                source.transferDOM(this); // Reuse source.dom when appropriate
-        }
-        if (hasStart)
-            this.setDeco(source ? source.attrs : null);
-        mergeChildrenInto(this, from, to, source ? source.children.slice() : [], openStart, openEnd);
-        return true;
-    }
-    split(at) {
-        let end = new LineView;
-        end.breakAfter = this.breakAfter;
-        if (this.length == 0)
-            return end;
-        let { i, off } = this.childPos(at);
-        if (off) {
-            end.append(this.children[i].split(off), 0);
-            this.children[i].merge(off, this.children[i].length, null, false, 0, 0);
-            i++;
-        }
-        for (let j = i; j < this.children.length; j++)
-            end.append(this.children[j], 0);
-        while (i > 0 && this.children[i - 1].length == 0)
-            this.children[--i].destroy();
-        this.children.length = i;
-        this.markDirty();
-        this.length = at;
-        return end;
-    }
-    transferDOM(other) {
-        if (!this.dom)
-            return;
-        this.markDirty();
-        other.setDOM(this.dom);
-        other.prevAttrs = this.prevAttrs === undefined ? this.attrs : this.prevAttrs;
-        this.prevAttrs = undefined;
-        this.dom = null;
-    }
-    setDeco(attrs) {
-        if (!attrsEq(this.attrs, attrs)) {
-            if (this.dom) {
-                this.prevAttrs = this.attrs;
-                this.markDirty();
-            }
-            this.attrs = attrs;
-        }
-    }
-    append(child, openStart) {
-        joinInlineInto(this, child, openStart);
-    }
-    // Only called when building a line view in ContentBuilder
-    addLineDeco(deco) {
-        let attrs = deco.spec.attributes, cls = deco.spec.class;
-        if (attrs)
-            this.attrs = combineAttrs(attrs, this.attrs || {});
-        if (cls)
-            this.attrs = combineAttrs({ class: cls }, this.attrs || {});
-    }
-    domAtPos(pos) {
-        return inlineDOMAtPos(this, pos);
-    }
-    reuseDOM(node) {
-        if (node.nodeName == "DIV") {
-            this.setDOM(node);
-            this.flags |= 4 /* ViewFlag.AttrsDirty */ | 2 /* ViewFlag.NodeDirty */;
-        }
-    }
-    sync(view, track) {
-        var _a;
-        if (!this.dom) {
-            this.setDOM(document.createElement("div"));
-            this.dom.className = "cm-line";
-            this.prevAttrs = this.attrs ? null : undefined;
-        }
-        else if (this.flags & 4 /* ViewFlag.AttrsDirty */) {
-            clearAttributes(this.dom);
-            this.dom.className = "cm-line";
-            this.prevAttrs = this.attrs ? null : undefined;
-        }
-        if (this.prevAttrs !== undefined) {
-            updateAttrs(this.dom, this.prevAttrs, this.attrs);
-            this.dom.classList.add("cm-line");
-            this.prevAttrs = undefined;
-        }
-        super.sync(view, track);
-        let last = this.dom.lastChild;
-        while (last && ContentView.get(last) instanceof MarkView)
-            last = last.lastChild;
-        if (!last || !this.length ||
-            last.nodeName != "BR" && ((_a = ContentView.get(last)) === null || _a === void 0 ? void 0 : _a.isEditable) == false &&
-                (!browser.ios || !this.children.some(ch => ch instanceof TextView))) {
-            let hack = document.createElement("BR");
-            hack.cmIgnore = true;
-            this.dom.appendChild(hack);
-        }
-    }
-    measureTextSize() {
-        if (this.children.length == 0 || this.length > 20)
-            return null;
-        let totalWidth = 0, textHeight;
-        for (let child of this.children) {
-            if (!(child instanceof TextView) || /[^ -~]/.test(child.text))
-                return null;
-            let rects = clientRectsFor(child.dom);
-            if (rects.length != 1)
-                return null;
-            totalWidth += rects[0].width;
-            textHeight = rects[0].height;
-        }
-        return !totalWidth ? null : {
-            lineHeight: this.dom.getBoundingClientRect().height,
-            charWidth: totalWidth / this.length,
-            textHeight
-        };
-    }
-    coordsAt(pos, side) {
-        let rect = coordsInChildren(this, pos, side);
-        // Correct rectangle height for empty lines when the returned
-        // height is larger than the text height.
-        if (!this.children.length && rect && this.parent) {
-            let { heightOracle } = this.parent.view.viewState, height = rect.bottom - rect.top;
-            if (Math.abs(height - heightOracle.lineHeight) < 2 && heightOracle.textHeight < height) {
-                let dist = (height - heightOracle.textHeight) / 2;
-                return { top: rect.top + dist, bottom: rect.bottom - dist, left: rect.left, right: rect.left };
-            }
-        }
-        return rect;
-    }
-    become(other) {
-        return other instanceof LineView && this.children.length == 0 && other.children.length == 0 &&
-            attrsEq(this.attrs, other.attrs) && this.breakAfter == other.breakAfter;
-    }
-    covers() { return true; }
-    static find(docView, pos) {
-        for (let i = 0, off = 0; i < docView.children.length; i++) {
-            let block = docView.children[i], end = off + block.length;
-            if (end >= pos) {
-                if (block instanceof LineView)
-                    return block;
-                if (end > pos)
-                    break;
-            }
-            off = end + block.breakAfter;
-        }
-        return null;
-    }
-}
-class BlockWidgetView extends ContentView {
-    constructor(widget, length, deco) {
-        super();
-        this.widget = widget;
-        this.length = length;
-        this.deco = deco;
-        this.breakAfter = 0;
-        this.prevWidget = null;
-    }
-    merge(from, to, source, _takeDeco, openStart, openEnd) {
-        if (source && (!(source instanceof BlockWidgetView) || !this.widget.compare(source.widget) ||
-            from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
-            return false;
-        this.length = from + (source ? source.length : 0) + (this.length - to);
-        return true;
-    }
-    domAtPos(pos) {
-        return pos == 0 ? DOMPos.before(this.dom) : DOMPos.after(this.dom, pos == this.length);
-    }
-    split(at) {
-        let len = this.length - at;
-        this.length = at;
-        let end = new BlockWidgetView(this.widget, len, this.deco);
-        end.breakAfter = this.breakAfter;
-        return end;
-    }
-    get children() { return noChildren; }
-    sync(view) {
-        if (!this.dom || !this.widget.updateDOM(this.dom, view)) {
-            if (this.dom && this.prevWidget)
-                this.prevWidget.destroy(this.dom);
-            this.prevWidget = null;
-            this.setDOM(this.widget.toDOM(view));
-            if (!this.widget.editable)
-                this.dom.contentEditable = "false";
-        }
-    }
-    get overrideDOMText() {
-        return this.parent ? this.parent.view.state.doc.slice(this.posAtStart, this.posAtEnd) : Text.empty;
-    }
-    domBoundsAround() { return null; }
-    become(other) {
-        if (other instanceof BlockWidgetView &&
-            other.widget.constructor == this.widget.constructor) {
-            if (!other.widget.compare(this.widget))
-                this.markDirty(true);
-            if (this.dom && !this.prevWidget)
-                this.prevWidget = this.widget;
-            this.widget = other.widget;
-            this.length = other.length;
-            this.deco = other.deco;
-            this.breakAfter = other.breakAfter;
-            return true;
-        }
-        return false;
-    }
-    ignoreMutation() { return true; }
-    ignoreEvent(event) { return this.widget.ignoreEvent(event); }
-    get isEditable() { return false; }
-    get isWidget() { return true; }
-    coordsAt(pos, side) {
-        let custom = this.widget.coordsAt(this.dom, pos, side);
-        if (custom)
-            return custom;
-        if (this.widget instanceof BlockGapWidget)
-            return null;
-        return flattenRect(this.dom.getBoundingClientRect(), this.length ? pos == 0 : side <= 0);
-    }
-    destroy() {
-        super.destroy();
-        if (this.dom)
-            this.widget.destroy(this.dom);
-    }
-    covers(side) {
-        let { startSide, endSide } = this.deco;
-        return startSide == endSide ? false : side < 0 ? startSide < 0 : endSide > 0;
-    }
-}
-class BlockGapWidget extends WidgetType {
-    constructor(height) {
-        super();
-        this.height = height;
-    }
-    toDOM() {
-        let elt = document.createElement("div");
-        elt.className = "cm-gap";
-        this.updateDOM(elt);
-        return elt;
-    }
-    eq(other) { return other.height == this.height; }
-    updateDOM(elt) {
-        elt.style.height = this.height + "px";
-        return true;
-    }
-    get editable() { return true; }
-    get estimatedHeight() { return this.height; }
-    ignoreEvent() { return false; }
-}
-
-class ContentBuilder {
-    constructor(doc, pos, end, disallowBlockEffectsFor) {
-        this.doc = doc;
-        this.pos = pos;
-        this.end = end;
-        this.disallowBlockEffectsFor = disallowBlockEffectsFor;
-        this.content = [];
-        this.curLine = null;
-        this.breakAtStart = 0;
-        this.pendingBuffer = 0 /* Buf.No */;
-        this.bufferMarks = [];
-        // Set to false directly after a widget that covers the position after it
-        this.atCursorPos = true;
-        this.openStart = -1;
-        this.openEnd = -1;
-        this.text = "";
-        this.textOff = 0;
-        this.cursor = doc.iter();
-        this.skip = pos;
-    }
-    posCovered() {
-        if (this.content.length == 0)
-            return !this.breakAtStart && this.doc.lineAt(this.pos).from != this.pos;
-        let last = this.content[this.content.length - 1];
-        return !(last.breakAfter || last instanceof BlockWidgetView && last.deco.endSide < 0);
-    }
-    getLine() {
-        if (!this.curLine) {
-            this.content.push(this.curLine = new LineView);
-            this.atCursorPos = true;
-        }
-        return this.curLine;
-    }
-    flushBuffer(active = this.bufferMarks) {
-        if (this.pendingBuffer) {
-            this.curLine.append(wrapMarks(new WidgetBufferView(-1), active), active.length);
-            this.pendingBuffer = 0 /* Buf.No */;
-        }
-    }
-    addBlockWidget(view) {
-        this.flushBuffer();
-        this.curLine = null;
-        this.content.push(view);
-    }
-    finish(openEnd) {
-        if (this.pendingBuffer && openEnd <= this.bufferMarks.length)
-            this.flushBuffer();
-        else
-            this.pendingBuffer = 0 /* Buf.No */;
-        if (!this.posCovered() &&
-            !(openEnd && this.content.length && this.content[this.content.length - 1] instanceof BlockWidgetView))
-            this.getLine();
-    }
-    buildText(length, active, openStart) {
-        while (length > 0) {
-            if (this.textOff == this.text.length) {
-                let { value, lineBreak, done } = this.cursor.next(this.skip);
-                this.skip = 0;
-                if (done)
-                    throw new Error("Ran out of text content when drawing inline views");
-                if (lineBreak) {
-                    if (!this.posCovered())
-                        this.getLine();
-                    if (this.content.length)
-                        this.content[this.content.length - 1].breakAfter = 1;
-                    else
-                        this.breakAtStart = 1;
-                    this.flushBuffer();
-                    this.curLine = null;
-                    this.atCursorPos = true;
-                    length--;
-                    continue;
-                }
-                else {
-                    this.text = value;
-                    this.textOff = 0;
-                }
-            }
-            let take = Math.min(this.text.length - this.textOff, length, 512 /* T.Chunk */);
-            this.flushBuffer(active.slice(active.length - openStart));
-            this.getLine().append(wrapMarks(new TextView(this.text.slice(this.textOff, this.textOff + take)), active), openStart);
-            this.atCursorPos = true;
-            this.textOff += take;
-            length -= take;
-            openStart = 0;
-        }
-    }
-    span(from, to, active, openStart) {
-        this.buildText(to - from, active, openStart);
-        this.pos = to;
-        if (this.openStart < 0)
-            this.openStart = openStart;
-    }
-    point(from, to, deco, active, openStart, index) {
-        if (this.disallowBlockEffectsFor[index] && deco instanceof PointDecoration) {
-            if (deco.block)
-                throw new RangeError("Block decorations may not be specified via plugins");
-            if (to > this.doc.lineAt(this.pos).to)
-                throw new RangeError("Decorations that replace line breaks may not be specified via plugins");
-        }
-        let len = to - from;
-        if (deco instanceof PointDecoration) {
-            if (deco.block) {
-                if (deco.startSide > 0 && !this.posCovered())
-                    this.getLine();
-                this.addBlockWidget(new BlockWidgetView(deco.widget || NullWidget.block, len, deco));
-            }
-            else {
-                let view = WidgetView.create(deco.widget || NullWidget.inline, len, len ? 0 : deco.startSide);
-                let cursorBefore = this.atCursorPos && !view.isEditable && openStart <= active.length &&
-                    (from < to || deco.startSide > 0);
-                let cursorAfter = !view.isEditable && (from < to || openStart > active.length || deco.startSide <= 0);
-                let line = this.getLine();
-                if (this.pendingBuffer == 2 /* Buf.IfCursor */ && !cursorBefore && !view.isEditable)
-                    this.pendingBuffer = 0 /* Buf.No */;
-                this.flushBuffer(active);
-                if (cursorBefore) {
-                    line.append(wrapMarks(new WidgetBufferView(1), active), openStart);
-                    openStart = active.length + Math.max(0, openStart - active.length);
-                }
-                line.append(wrapMarks(view, active), openStart);
-                this.atCursorPos = cursorAfter;
-                this.pendingBuffer = !cursorAfter ? 0 /* Buf.No */ : from < to || openStart > active.length ? 1 /* Buf.Yes */ : 2 /* Buf.IfCursor */;
-                if (this.pendingBuffer)
-                    this.bufferMarks = active.slice();
-            }
-        }
-        else if (this.doc.lineAt(this.pos).from == this.pos) { // Line decoration
-            this.getLine().addLineDeco(deco);
-        }
-        if (len) {
-            // Advance the iterator past the replaced content
-            if (this.textOff + len <= this.text.length) {
-                this.textOff += len;
-            }
-            else {
-                this.skip += len - (this.text.length - this.textOff);
-                this.text = "";
-                this.textOff = 0;
-            }
-            this.pos = to;
-        }
-        if (this.openStart < 0)
-            this.openStart = openStart;
-    }
-    static build(text, from, to, decorations, dynamicDecorationMap) {
-        let builder = new ContentBuilder(text, from, to, dynamicDecorationMap);
-        builder.openEnd = RangeSet.spans(decorations, from, to, builder);
-        if (builder.openStart < 0)
-            builder.openStart = builder.openEnd;
-        builder.finish(builder.openEnd);
-        return builder;
-    }
-}
-function wrapMarks(view, active) {
-    for (let mark of active)
-        view = new MarkView(mark, [view], view.length);
-    return view;
-}
-class NullWidget extends WidgetType {
-    constructor(tag) {
-        super();
-        this.tag = tag;
-    }
-    eq(other) { return other.tag == this.tag; }
-    toDOM() { return document.createElement(this.tag); }
-    updateDOM(elt) { return elt.nodeName.toLowerCase() == this.tag; }
-    get isHidden() { return true; }
-}
-NullWidget.inline = /*@__PURE__*/new NullWidget("span");
-NullWidget.block = /*@__PURE__*/new NullWidget("div");
 
 /**
 Used to indicate [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
@@ -10308,6 +9289,7 @@ const editorAttributes = /*@__PURE__*/Facet.define();
 const contentAttributes = /*@__PURE__*/Facet.define();
 // Provide decorations
 const decorations = /*@__PURE__*/Facet.define();
+const blockWrappers = /*@__PURE__*/Facet.define();
 const outerDecorations = /*@__PURE__*/Facet.define();
 const atomicRanges = /*@__PURE__*/Facet.define();
 const bidiIsolatedRanges = /*@__PURE__*/Facet.define();
@@ -10384,29 +9366,44 @@ class ChangedRange {
         set.splice(i, 0, me);
         return set;
     }
+    // Extend a set to cover all the content in `ranges`, which is a
+    // flat array with each pair of numbers representing fromB/toB
+    // positions. These pairs are generated in unchanged ranges, so the
+    // offset between doc A and doc B is the same for their start and
+    // end points.
     static extendWithRanges(diff, ranges) {
         if (ranges.length == 0)
             return diff;
         let result = [];
-        for (let dI = 0, rI = 0, posA = 0, posB = 0;; dI++) {
-            let next = dI == diff.length ? null : diff[dI], off = posA - posB;
-            let end = next ? next.fromB : 1e9;
-            while (rI < ranges.length && ranges[rI] < end) {
-                let from = ranges[rI], to = ranges[rI + 1];
-                let fromB = Math.max(posB, from), toB = Math.min(end, to);
-                if (fromB <= toB)
-                    new ChangedRange(fromB + off, toB + off, fromB, toB).addToSet(result);
-                if (to > end)
-                    break;
-                else
+        for (let dI = 0, rI = 0, off = 0;;) {
+            let nextD = dI < diff.length ? diff[dI].fromB : 1e9;
+            let nextR = rI < ranges.length ? ranges[rI] : 1e9;
+            let fromB = Math.min(nextD, nextR);
+            if (fromB == 1e9)
+                break;
+            let fromA = fromB + off, toB = fromB, toA = fromA;
+            for (;;) {
+                if (rI < ranges.length && ranges[rI] <= toB) {
+                    let end = ranges[rI + 1];
                     rI += 2;
+                    toB = Math.max(toB, end);
+                    for (let i = dI; i < diff.length && diff[i].fromB <= toB; i++)
+                        off = diff[i].toA - diff[i].toB;
+                    toA = Math.max(toA, end + off);
+                }
+                else if (dI < diff.length && diff[dI].fromB <= toB) {
+                    let next = diff[dI++];
+                    toB = Math.max(toB, next.toB);
+                    toA = Math.max(toA, next.toA);
+                    off = next.toA - next.toB;
+                }
+                else {
+                    break;
+                }
             }
-            if (!next)
-                return result;
-            new ChangedRange(next.fromA, next.toA, next.fromB, next.toB).addToSet(result);
-            posA = next.toA;
-            posB = next.toB;
+            result.push(new ChangedRange(fromA, toA, fromB, toB));
         }
+        return result;
     }
 }
 /**
@@ -10503,16 +9500,1164 @@ class ViewUpdate {
     get empty() { return this.flags == 0 && this.transactions.length == 0; }
 }
 
-class DocView extends ContentView {
-    get length() { return this.view.state.doc.length; }
+const noChildren = [];
+class Tile {
+    constructor(dom, length, flags = 0) {
+        this.dom = dom;
+        this.length = length;
+        this.flags = flags;
+        this.parent = null;
+        dom.cmTile = this;
+    }
+    get breakAfter() { return (this.flags & 1 /* TileFlag.BreakAfter */); }
+    get children() { return noChildren; }
+    isWidget() { return false; }
+    get isHidden() { return false; }
+    isComposite() { return false; }
+    isLine() { return false; }
+    isText() { return false; }
+    isBlock() { return false; }
+    get domAttrs() { return null; }
+    sync(track) {
+        this.flags |= 2 /* TileFlag.Synced */;
+        if (this.flags & 4 /* TileFlag.AttrsDirty */) {
+            this.flags &= -5 /* TileFlag.AttrsDirty */;
+            let attrs = this.domAttrs;
+            if (attrs)
+                setAttrs(this.dom, attrs);
+        }
+    }
+    toString() {
+        return this.constructor.name + (this.children.length ? `(${this.children})` : "") + (this.breakAfter ? "#" : "");
+    }
+    destroy() { this.parent = null; }
+    setDOM(dom) {
+        this.dom = dom;
+        dom.cmTile = this;
+    }
+    get posAtStart() {
+        return this.parent ? this.parent.posBefore(this) : 0;
+    }
+    get posAtEnd() {
+        return this.posAtStart + this.length;
+    }
+    posBefore(tile, start = this.posAtStart) {
+        let pos = start;
+        for (let child of this.children) {
+            if (child == tile)
+                return pos;
+            pos += child.length + child.breakAfter;
+        }
+        throw new RangeError("Invalid child in posBefore");
+    }
+    posAfter(tile) {
+        return this.posBefore(tile) + tile.length;
+    }
+    covers(side) { return true; }
+    coordsIn(pos, side) { return null; }
+    domPosFor(off, side) {
+        let index = domIndex(this.dom);
+        let after = this.length ? off > 0 : side > 0;
+        return new DOMPos(this.parent.dom, index + (after ? 1 : 0), off == 0 || off == this.length);
+    }
+    markDirty(attrs) {
+        this.flags &= -3 /* TileFlag.Synced */;
+        if (attrs)
+            this.flags |= 4 /* TileFlag.AttrsDirty */;
+        if (this.parent && (this.parent.flags & 2 /* TileFlag.Synced */))
+            this.parent.markDirty(false);
+    }
+    get overrideDOMText() { return null; }
+    get root() {
+        for (let t = this; t; t = t.parent)
+            if (t instanceof DocTile)
+                return t;
+        return null;
+    }
+    static get(dom) {
+        return dom.cmTile;
+    }
+}
+class CompositeTile extends Tile {
+    constructor(dom) {
+        super(dom, 0);
+        this._children = [];
+    }
+    isComposite() { return true; }
+    get children() { return this._children; }
+    get lastChild() { return this.children.length ? this.children[this.children.length - 1] : null; }
+    append(child) {
+        this.children.push(child);
+        child.parent = this;
+    }
+    sync(track) {
+        if (this.flags & 2 /* TileFlag.Synced */)
+            return;
+        super.sync(track);
+        let parent = this.dom, prev = null, next;
+        let tracking = (track === null || track === void 0 ? void 0 : track.node) == parent ? track : null;
+        let length = 0;
+        for (let child of this.children) {
+            child.sync(track);
+            length += child.length + child.breakAfter;
+            next = prev ? prev.nextSibling : parent.firstChild;
+            if (tracking && next != child.dom)
+                tracking.written = true;
+            if (child.dom.parentNode == parent) {
+                while (next && next != child.dom)
+                    next = rm$1(next);
+            }
+            else {
+                parent.insertBefore(child.dom, next);
+            }
+            prev = child.dom;
+        }
+        next = prev ? prev.nextSibling : parent.firstChild;
+        if (tracking && next)
+            tracking.written = true;
+        while (next)
+            next = rm$1(next);
+        this.length = length;
+    }
+}
+// Remove a DOM node and return its next sibling.
+function rm$1(dom) {
+    let next = dom.nextSibling;
+    dom.parentNode.removeChild(dom);
+    return next;
+}
+// The top-level tile. Its dom property equals view.contentDOM.
+class DocTile extends CompositeTile {
+    constructor(view, dom) {
+        super(dom);
+        this.view = view;
+    }
+    owns(tile) {
+        for (; tile; tile = tile.parent)
+            if (tile == this)
+                return true;
+        return false;
+    }
+    isBlock() { return true; }
+    nearest(dom) {
+        for (;;) {
+            if (!dom)
+                return null;
+            let tile = Tile.get(dom);
+            if (tile && this.owns(tile))
+                return tile;
+            dom = dom.parentNode;
+        }
+    }
+    blockTiles(f) {
+        for (let stack = [], cur = this, i = 0, pos = 0;;) {
+            if (i == cur.children.length) {
+                if (!stack.length)
+                    return;
+                cur = cur.parent;
+                if (cur.breakAfter)
+                    pos++;
+                i = stack.pop();
+            }
+            else {
+                let next = cur.children[i++];
+                if (next instanceof BlockWrapperTile) {
+                    stack.push(i);
+                    cur = next;
+                    i = 0;
+                }
+                else {
+                    let end = pos + next.length;
+                    let result = f(next, pos);
+                    if (result !== undefined)
+                        return result;
+                    pos = end + next.breakAfter;
+                }
+            }
+        }
+    }
+    // Find the block at the given position. If side < -1, make sure to
+    // stay before block widgets at that position, if side > 1, after
+    // such widgets (used for selection drawing, which needs to be able
+    // to get coordinates for positions that aren't valid cursor positions).
+    resolveBlock(pos, side) {
+        let before, beforeOff = -1, after, afterOff = -1;
+        this.blockTiles((tile, off) => {
+            let end = off + tile.length;
+            if (pos >= off && pos <= end) {
+                if (tile.isWidget() && side >= -1 && side <= 1) {
+                    if (tile.flags & 32 /* TileFlag.After */)
+                        return true;
+                    if (tile.flags & 16 /* TileFlag.Before */)
+                        before = undefined;
+                }
+                if ((off < pos || pos == end && (side < -1 ? tile.length : tile.covers(1))) &&
+                    (!before || !tile.isWidget() && before.isWidget())) {
+                    before = tile;
+                    beforeOff = pos - off;
+                }
+                if ((end > pos || pos == off && (side > 1 ? tile.length : tile.covers(-1))) &&
+                    (!after || !tile.isWidget() && after.isWidget())) {
+                    after = tile;
+                    afterOff = pos - off;
+                }
+            }
+        });
+        if (!before && !after)
+            throw new Error("No tile at position " + pos);
+        return before && side < 0 || !after ? { tile: before, offset: beforeOff } : { tile: after, offset: afterOff };
+    }
+}
+class BlockWrapperTile extends CompositeTile {
+    constructor(dom, wrapper) {
+        super(dom);
+        this.wrapper = wrapper;
+    }
+    isBlock() { return true; }
+    covers(side) {
+        if (!this.children.length)
+            return false;
+        return side < 0 ? this.children[0].covers(-1) : this.lastChild.covers(1);
+    }
+    get domAttrs() { return this.wrapper.attributes; }
+    static of(wrapper, dom) {
+        let tile = new BlockWrapperTile(dom || document.createElement(wrapper.tagName), wrapper);
+        if (!dom)
+            tile.flags |= 4 /* TileFlag.AttrsDirty */;
+        return tile;
+    }
+}
+class LineTile extends CompositeTile {
+    constructor(dom, attrs) {
+        super(dom);
+        this.attrs = attrs;
+    }
+    isLine() { return true; }
+    static start(attrs, dom, keepAttrs) {
+        let line = new LineTile(dom || document.createElement("div"), attrs);
+        if (!dom || !keepAttrs)
+            line.flags |= 4 /* TileFlag.AttrsDirty */;
+        return line;
+    }
+    get domAttrs() { return this.attrs; }
+    // Find the tile associated with a given position in this line.
+    resolveInline(pos, side, forCoords) {
+        let before = null, beforeOff = -1, after = null, afterOff = -1;
+        function scan(tile, pos) {
+            for (let i = 0, off = 0; i < tile.children.length && off <= pos; i++) {
+                let child = tile.children[i], end = off + child.length;
+                if (end >= pos) {
+                    if (child.isComposite()) {
+                        scan(child, pos - off);
+                    }
+                    else if ((!after || after.isHidden && (side > 0 || forCoords && onSameLine(after, child))) &&
+                        (end > pos || (child.flags & 32 /* TileFlag.After */))) {
+                        after = child;
+                        afterOff = pos - off;
+                    }
+                    else if (off < pos || (child.flags & 16 /* TileFlag.Before */) && !child.isHidden) {
+                        before = child;
+                        beforeOff = pos - off;
+                    }
+                }
+                off = end;
+            }
+        }
+        scan(this, pos);
+        let target = ((side < 0 ? before : after) || before || after);
+        return target ? { tile: target, offset: target == before ? beforeOff : afterOff } : null;
+    }
+    coordsIn(pos, side) {
+        let found = this.resolveInline(pos, side, true);
+        if (!found)
+            return fallbackRect(this);
+        return found.tile.coordsIn(Math.max(0, found.offset), side);
+    }
+    domIn(pos, side) {
+        let found = this.resolveInline(pos, side);
+        if (found) {
+            let { tile, offset } = found;
+            if (this.dom.contains(tile.dom)) {
+                if (tile.isText())
+                    return new DOMPos(tile.dom, Math.min(tile.dom.nodeValue.length, offset));
+                return tile.domPosFor(offset, tile.flags & 16 /* TileFlag.Before */ ? 1 : tile.flags & 32 /* TileFlag.After */ ? -1 : side);
+            }
+            let parent = found.tile.parent, saw = false;
+            for (let ch of parent.children) {
+                if (saw)
+                    return new DOMPos(ch.dom, 0);
+                if (ch == found.tile) {
+                    saw = true;
+                }
+            }
+        }
+        return new DOMPos(this.dom, 0);
+    }
+}
+function fallbackRect(tile) {
+    let last = tile.dom.lastChild;
+    if (!last)
+        return tile.dom.getBoundingClientRect();
+    let rects = clientRectsFor(last);
+    return rects[rects.length - 1] || null;
+}
+function onSameLine(a, b) {
+    let posA = a.coordsIn(0, 1), posB = b.coordsIn(0, 1);
+    return posA && posB && posB.top < posA.bottom;
+}
+class MarkTile extends CompositeTile {
+    constructor(dom, mark) {
+        super(dom);
+        this.mark = mark;
+    }
+    get domAttrs() { return this.mark.attrs; }
+    static of(mark, dom) {
+        let tile = new MarkTile(dom || document.createElement(mark.tagName), mark);
+        if (!dom)
+            tile.flags |= 4 /* TileFlag.AttrsDirty */;
+        return tile;
+    }
+}
+class TextTile extends Tile {
+    constructor(dom, text) {
+        super(dom, text.length);
+        this.text = text;
+    }
+    sync(track) {
+        if (this.flags & 2 /* TileFlag.Synced */)
+            return;
+        super.sync(track);
+        if (this.dom.nodeValue != this.text) {
+            if (track && track.node == this.dom)
+                track.written = true;
+            this.dom.nodeValue = this.text;
+        }
+    }
+    isText() { return true; }
+    toString() { return JSON.stringify(this.text); }
+    coordsIn(pos, side) {
+        let length = this.dom.nodeValue.length;
+        if (pos > length)
+            pos = length;
+        let from = pos, to = pos, flatten = 0;
+        if (pos == 0 && side < 0 || pos == length && side >= 0) {
+            if (!(browser.chrome || browser.gecko)) { // These browsers reliably return valid rectangles for empty ranges
+                if (pos) {
+                    from--;
+                    flatten = 1;
+                } // FIXME this is wrong in RTL text
+                else if (to < length) {
+                    to++;
+                    flatten = -1;
+                }
+            }
+        }
+        else {
+            if (side < 0)
+                from--;
+            else if (to < length)
+                to++;
+        }
+        let rects = textRange(this.dom, from, to).getClientRects();
+        if (!rects.length)
+            return null;
+        let rect = rects[(flatten ? flatten < 0 : side >= 0) ? 0 : rects.length - 1];
+        if (browser.safari && !flatten && rect.width == 0)
+            rect = Array.prototype.find.call(rects, r => r.width) || rect;
+        return flatten ? flattenRect(rect, flatten < 0) : rect || null;
+    }
+    static of(text, dom) {
+        let tile = new TextTile(dom || document.createTextNode(text), text);
+        if (!dom)
+            tile.flags |= 2 /* TileFlag.Synced */;
+        return tile;
+    }
+}
+class WidgetTile extends Tile {
+    constructor(dom, length, widget, flags) {
+        super(dom, length, flags);
+        this.widget = widget;
+    }
+    isWidget() { return true; }
+    get isHidden() { return this.widget.isHidden; }
+    covers(side) {
+        if (this.flags & 48 /* TileFlag.PointWidget */)
+            return false;
+        return (this.flags & (side < 0 ? 64 /* TileFlag.IncStart */ : 128 /* TileFlag.IncEnd */)) > 0;
+    }
+    coordsIn(pos, side) { return this.coordsInWidget(pos, side, false); }
+    coordsInWidget(pos, side, block) {
+        let custom = this.widget.coordsAt(this.dom, pos, side);
+        if (custom)
+            return custom;
+        if (block) {
+            return flattenRect(this.dom.getBoundingClientRect(), this.length ? pos == 0 : side <= 0);
+        }
+        else {
+            let rects = this.dom.getClientRects(), rect = null;
+            if (!rects.length)
+                return null;
+            let fromBack = (this.flags & 16 /* TileFlag.Before */) ? true : (this.flags & 32 /* TileFlag.After */) ? false : pos > 0;
+            for (let i = fromBack ? rects.length - 1 : 0;; i += (fromBack ? -1 : 1)) {
+                rect = rects[i];
+                if (pos > 0 ? i == 0 : i == rects.length - 1 || rect.top < rect.bottom)
+                    break;
+            }
+            return flattenRect(rect, !fromBack);
+        }
+    }
+    get overrideDOMText() {
+        if (!this.length)
+            return Text.empty;
+        let { root } = this;
+        if (!root)
+            return Text.empty;
+        let start = this.posAtStart;
+        return root.view.state.doc.slice(start, start + this.length);
+    }
+    destroy() {
+        super.destroy();
+        this.widget.destroy(this.dom);
+    }
+    static of(widget, view, length, flags, dom) {
+        if (!dom) {
+            dom = widget.toDOM(view);
+            if (!widget.editable)
+                dom.contentEditable = "false";
+        }
+        return new WidgetTile(dom, length, widget, flags);
+    }
+}
+// These are drawn around uneditable widgets to avoid a number of
+// browser bugs that show up when the cursor is directly next to
+// uneditable inline content.
+class WidgetBufferTile extends Tile {
+    constructor(flags) {
+        let img = document.createElement("img");
+        img.className = "cm-widgetBuffer";
+        img.setAttribute("aria-hidden", "true");
+        super(img, 0, flags);
+    }
+    get isHidden() { return true; }
+    get overrideDOMText() { return Text.empty; }
+    coordsIn(pos) { return this.dom.getBoundingClientRect(); }
+}
+// Represents a position in the tile tree.
+class TilePointer {
+    constructor(top) {
+        this.index = 0;
+        this.beforeBreak = false;
+        this.parents = [];
+        this.tile = top;
+    }
+    // Advance by the given distance. If side is -1, stop leaving or
+    // entering tiles, or skipping zero-length tiles, once the distance
+    // has been traversed. When side is 1, leave, enter, or skip
+    // everything at the end position.
+    advance(dist, side, walker) {
+        let { tile, index, beforeBreak, parents } = this;
+        while (dist || side > 0) {
+            if (!tile.isComposite()) {
+                if (index == tile.length) {
+                    beforeBreak = !!tile.breakAfter;
+                    ({ tile, index } = parents.pop());
+                    index++;
+                }
+                else if (!dist) {
+                    break;
+                }
+                else {
+                    let take = Math.min(dist, tile.length - index);
+                    if (walker)
+                        walker.skip(tile, index, index + take);
+                    dist -= take;
+                    index += take;
+                }
+            }
+            else if (beforeBreak) {
+                if (!dist)
+                    break;
+                if (walker)
+                    walker.break();
+                dist--;
+                beforeBreak = false;
+            }
+            else if (index == tile.children.length) {
+                if (!dist && !parents.length)
+                    break;
+                if (walker)
+                    walker.leave(tile);
+                beforeBreak = !!tile.breakAfter;
+                ({ tile, index } = parents.pop());
+                index++;
+            }
+            else {
+                let next = tile.children[index], brk = next.breakAfter;
+                if ((side > 0 ? next.length <= dist : next.length < dist) &&
+                    (!walker || walker.skip(next, 0, next.length) !== false || !next.isComposite)) {
+                    beforeBreak = !!brk;
+                    index++;
+                    dist -= next.length;
+                }
+                else {
+                    parents.push({ tile, index });
+                    tile = next;
+                    index = 0;
+                    if (walker && next.isComposite())
+                        walker.enter(next);
+                }
+            }
+        }
+        this.tile = tile;
+        this.index = index;
+        this.beforeBreak = beforeBreak;
+        return this;
+    }
+    get root() { return (this.parents.length ? this.parents[0].tile : this.tile); }
+}
+
+// Used to track open block wrappers
+class OpenWrapper {
+    constructor(from, to, wrapper, rank) {
+        this.from = from;
+        this.to = to;
+        this.wrapper = wrapper;
+        this.rank = rank;
+    }
+}
+// This class builds up a new document tile using input from either
+// iteration over the old tree or iteration over the document +
+// decorations. The add* methods emit elements into the tile
+// structure. To avoid awkward synchronization issues, marks and block
+// wrappers are treated as belonging to to their content, rather than
+// opened/closed independently.
+//
+// All composite tiles that are touched by changes are rebuilt,
+// reusing as much of the old tree (either whole nodes or just DOM
+// elements) as possible. The new tree is built without the Synced
+// flag, and then synced (during which DOM parent/child relations are
+// fixed up, text nodes filled in, and attributes added) in a second
+// phase.
+class TileBuilder {
+    constructor(cache, root, blockWrappers) {
+        this.cache = cache;
+        this.root = root;
+        this.blockWrappers = blockWrappers;
+        this.curLine = null;
+        this.lastBlock = null;
+        this.afterWidget = null;
+        this.pos = 0;
+        this.wrappers = [];
+        this.wrapperPos = 0;
+    }
+    addText(text, marks, openStart, tile) {
+        var _a;
+        this.flushBuffer();
+        let parent = this.ensureMarks(marks, openStart);
+        let prev = parent.lastChild;
+        if (prev && prev.isText() && !(prev.flags & 8 /* TileFlag.Composition */)) {
+            this.cache.reused.set(prev, 2 /* Reused.DOM */);
+            let tile = parent.children[parent.children.length - 1] = new TextTile(prev.dom, prev.text + text);
+            tile.parent = parent;
+        }
+        else {
+            parent.append(tile || TextTile.of(text, (_a = this.cache.find(TextTile)) === null || _a === void 0 ? void 0 : _a.dom));
+        }
+        this.pos += text.length;
+        this.afterWidget = null;
+    }
+    addComposition(composition, context) {
+        let line = this.curLine;
+        if (line.dom != context.line.dom) {
+            line.setDOM(this.cache.reused.has(context.line) ? freeNode(context.line.dom) : context.line.dom);
+            this.cache.reused.set(context.line, 2 /* Reused.DOM */);
+        }
+        let head = line;
+        for (let i = context.marks.length - 1; i >= 0; i--) {
+            let mark = context.marks[i];
+            let last = head.lastChild;
+            if (last instanceof MarkTile && last.mark.eq(mark.mark)) {
+                if (last.dom != mark.dom)
+                    last.setDOM(freeNode(mark.dom));
+                head = last;
+            }
+            else {
+                if (this.cache.reused.get(mark)) {
+                    let tile = Tile.get(mark.dom);
+                    if (tile)
+                        tile.setDOM(freeNode(mark.dom));
+                }
+                let nw = MarkTile.of(mark.mark, mark.dom);
+                head.append(nw);
+                head = nw;
+            }
+            this.cache.reused.set(mark, 2 /* Reused.DOM */);
+        }
+        let oldTile = Tile.get(composition.text);
+        if (oldTile)
+            this.cache.reused.set(oldTile, 2 /* Reused.DOM */);
+        let text = new TextTile(composition.text, composition.text.nodeValue);
+        text.flags |= 8 /* TileFlag.Composition */;
+        head.append(text);
+    }
+    addInlineWidget(widget, marks, openStart) {
+        // Adjacent same-side-facing non-replacing widgets don't need buffers between them
+        let noSpace = this.afterWidget && (widget.flags & 48 /* TileFlag.PointWidget */) &&
+            (this.afterWidget.flags & 48 /* TileFlag.PointWidget */) == (widget.flags & 48 /* TileFlag.PointWidget */);
+        if (!noSpace)
+            this.flushBuffer();
+        let parent = this.ensureMarks(marks, openStart);
+        if (!noSpace && !(widget.flags & 16 /* TileFlag.Before */))
+            parent.append(this.getBuffer(1));
+        parent.append(widget);
+        this.pos += widget.length;
+        this.afterWidget = widget;
+    }
+    addMark(tile, marks, openStart) {
+        this.flushBuffer();
+        let parent = this.ensureMarks(marks, openStart);
+        parent.append(tile);
+        this.pos += tile.length;
+        this.afterWidget = null;
+    }
+    addBlockWidget(widget) {
+        this.getBlockPos().append(widget);
+        this.pos += widget.length;
+        this.lastBlock = widget;
+        this.endLine();
+    }
+    continueWidget(length) {
+        let widget = this.afterWidget || this.lastBlock;
+        widget.length += length;
+        this.pos += length;
+    }
+    addLineStart(attrs, dom) {
+        var _a;
+        if (!attrs)
+            attrs = lineBaseAttrs;
+        let tile = LineTile.start(attrs, dom || ((_a = this.cache.find(LineTile)) === null || _a === void 0 ? void 0 : _a.dom), !!dom);
+        this.getBlockPos().append(this.lastBlock = this.curLine = tile);
+    }
+    addLine(tile) {
+        this.getBlockPos().append(tile);
+        this.pos += tile.length;
+        this.lastBlock = tile;
+        this.endLine();
+    }
+    addBreak() {
+        this.lastBlock.flags |= 1 /* TileFlag.BreakAfter */;
+        this.endLine();
+        this.pos++;
+    }
+    addLineStartIfNotCovered(attrs) {
+        if (!this.blockPosCovered())
+            this.addLineStart(attrs);
+    }
+    ensureLine(attrs) {
+        if (!this.curLine)
+            this.addLineStart(attrs);
+    }
+    ensureMarks(marks, openStart) {
+        var _a;
+        let parent = this.curLine;
+        for (let i = marks.length - 1; i >= 0; i--) {
+            let mark = marks[i], last;
+            if (openStart > 0 && (last = parent.lastChild) && last instanceof MarkTile && last.mark.eq(mark)) {
+                parent = last;
+                openStart--;
+            }
+            else {
+                let tile = MarkTile.of(mark, (_a = this.cache.find(MarkTile, m => m.mark.eq(mark))) === null || _a === void 0 ? void 0 : _a.dom);
+                parent.append(tile);
+                parent = tile;
+                openStart = 0;
+            }
+        }
+        return parent;
+    }
+    endLine() {
+        if (this.curLine) {
+            this.flushBuffer();
+            let last = this.curLine.lastChild;
+            if (!last || !hasContent(this.curLine, false) ||
+                last.dom.nodeName != "BR" && last.isWidget() && !(browser.ios && hasContent(this.curLine, true)))
+                this.curLine.append(this.cache.findWidget(BreakWidget, 0, 32 /* TileFlag.After */) ||
+                    new WidgetTile(BreakWidget.toDOM(), 0, BreakWidget, 32 /* TileFlag.After */));
+            this.curLine = this.afterWidget = null;
+        }
+    }
+    updateBlockWrappers() {
+        if (this.wrapperPos > this.pos + 10000 /* C.WrapperReset */) {
+            this.blockWrappers.goto(this.pos);
+            this.wrappers.length = 0;
+        }
+        for (let i = this.wrappers.length - 1; i >= 0; i--)
+            if (this.wrappers[i].to < this.pos)
+                this.wrappers.splice(i, 1);
+        for (let cur = this.blockWrappers; cur.value && cur.from <= this.pos; cur.next())
+            if (cur.to >= this.pos) {
+                let wrap = new OpenWrapper(cur.from, cur.to, cur.value, cur.rank), i = this.wrappers.length;
+                while (i > 0 && (this.wrappers[i - 1].rank - wrap.rank || this.wrappers[i - 1].to - wrap.to) < 0)
+                    i--;
+                this.wrappers.splice(i, 0, wrap);
+            }
+        this.wrapperPos = this.pos;
+    }
+    getBlockPos() {
+        var _a;
+        this.updateBlockWrappers();
+        let parent = this.root;
+        for (let wrap of this.wrappers) {
+            let last = parent.lastChild;
+            if (wrap.from < this.pos && last instanceof BlockWrapperTile && last.wrapper.eq(wrap.wrapper)) {
+                parent = last;
+            }
+            else {
+                let tile = BlockWrapperTile.of(wrap.wrapper, (_a = this.cache.find(BlockWrapperTile, t => t.wrapper.eq(wrap.wrapper))) === null || _a === void 0 ? void 0 : _a.dom);
+                parent.append(tile);
+                parent = tile;
+            }
+        }
+        return parent;
+    }
+    blockPosCovered() {
+        let last = this.lastBlock;
+        return last != null && !last.breakAfter && (!last.isWidget() || (last.flags & (32 /* TileFlag.After */ | 128 /* TileFlag.IncEnd */)) > 0);
+    }
+    getBuffer(side) {
+        let flags = 2 /* TileFlag.Synced */ | (side < 0 ? 16 /* TileFlag.Before */ : 32 /* TileFlag.After */);
+        let found = this.cache.find(WidgetBufferTile, undefined, 1 /* Reused.Full */);
+        if (found)
+            found.flags = flags;
+        return found || new WidgetBufferTile(flags);
+    }
+    flushBuffer() {
+        if (this.afterWidget && !(this.afterWidget.flags & 32 /* TileFlag.After */)) {
+            this.afterWidget.parent.append(this.getBuffer(-1));
+            this.afterWidget = null;
+        }
+    }
+}
+// Helps getting efficient access to the document text.
+class TextStream {
+    constructor(doc) {
+        this.skipCount = 0;
+        this.text = "";
+        this.textOff = 0;
+        this.cursor = doc.iter();
+    }
+    skip(len) {
+        // Advance the iterator past the replaced content
+        if (this.textOff + len <= this.text.length) {
+            this.textOff += len;
+        }
+        else {
+            this.skipCount += len - (this.text.length - this.textOff);
+            this.text = "";
+            this.textOff = 0;
+        }
+    }
+    next(maxLen) {
+        if (this.textOff == this.text.length) {
+            let { value, lineBreak, done } = this.cursor.next(this.skipCount);
+            this.skipCount = 0;
+            if (done)
+                throw new Error("Ran out of text content when drawing inline views");
+            this.text = value;
+            let len = this.textOff = Math.min(maxLen, value.length);
+            return lineBreak ? null : value.slice(0, len);
+        }
+        let end = Math.min(this.text.length, this.textOff + maxLen);
+        let chars = this.text.slice(this.textOff, end);
+        this.textOff = end;
+        return chars;
+    }
+}
+// Assign the tile classes bucket numbers for caching.
+const buckets = [WidgetTile, LineTile, TextTile, MarkTile, WidgetBufferTile, BlockWrapperTile, DocTile];
+for (let i = 0; i < buckets.length; i++)
+    buckets[i].bucket = i;
+// Leaf tiles and line tiles may be reused in their entirety. All
+// others will get new tiles allocated, using the old DOM when
+// possible.
+class TileCache {
     constructor(view) {
+        this.view = view;
+        // Buckets are circular buffers, using `index` as the current
+        // position.
+        this.buckets = buckets.map(() => []);
+        this.index = buckets.map(() => 0);
+        this.reused = new Map;
+    }
+    // Put a tile in the cache.
+    add(tile) {
+        let i = tile.constructor.bucket, bucket = this.buckets[i];
+        if (bucket.length < 6 /* C.Bucket */)
+            bucket.push(tile);
+        else
+            bucket[this.index[i] = (this.index[i] + 1) % 6 /* C.Bucket */] = tile;
+    }
+    find(cls, test, type = 2 /* Reused.DOM */) {
+        let i = cls.bucket;
+        let bucket = this.buckets[i], off = this.index[i];
+        for (let j = bucket.length - 1; j >= 0; j--) {
+            // Look at the most recently added items first (last-in, first-out)
+            let index = (j + off) % bucket.length, tile = bucket[index];
+            if ((!test || test(tile)) && !this.reused.has(tile)) {
+                bucket.splice(index, 1);
+                if (index < off)
+                    this.index[i]--;
+                this.reused.set(tile, type);
+                return tile;
+            }
+        }
+        return null;
+    }
+    findWidget(widget, length, flags) {
+        let widgets = this.buckets[0];
+        if (widgets.length)
+            for (let i = 0, pass = 0;; i++) {
+                if (i == widgets.length) {
+                    if (pass)
+                        return null;
+                    pass = 1;
+                    i = 0;
+                }
+                let tile = widgets[i];
+                if (!this.reused.has(tile) &&
+                    (pass == 0 ? tile.widget.compare(widget)
+                        : tile.widget.constructor == widget.constructor && widget.updateDOM(tile.dom, this.view))) {
+                    widgets.splice(i, 1);
+                    if (i < this.index[0])
+                        this.index[0]--;
+                    if (tile.widget == widget && tile.length == length && (tile.flags & (496 /* TileFlag.Widget */ | 1 /* TileFlag.BreakAfter */)) == flags) {
+                        this.reused.set(tile, 1 /* Reused.Full */);
+                        return tile;
+                    }
+                    else {
+                        this.reused.set(tile, 2 /* Reused.DOM */);
+                        return new WidgetTile(tile.dom, length, widget, (tile.flags & -498) | flags);
+                    }
+                }
+            }
+    }
+    reuse(tile) {
+        this.reused.set(tile, 1 /* Reused.Full */);
+        return tile;
+    }
+    maybeReuse(tile, type = 2 /* Reused.DOM */) {
+        if (this.reused.has(tile))
+            return undefined;
+        this.reused.set(tile, type);
+        return tile.dom;
+    }
+    clear() {
+        for (let i = 0; i < this.buckets.length; i++)
+            this.buckets[i].length = this.index[i] = 0;
+    }
+}
+// This class organizes a pass over the document, guided by the array
+// of replaced ranges. For ranges that haven't changed, it iterates
+// the old tree and copies its content into the new document. For
+// changed ranges, it runs a decoration iterator to guide generation
+// of content.
+class TileUpdate {
+    constructor(view, old, blockWrappers, decorations, disallowBlockEffectsFor) {
+        this.view = view;
+        this.decorations = decorations;
+        this.disallowBlockEffectsFor = disallowBlockEffectsFor;
+        this.openWidget = false;
+        this.openMarks = 0;
+        this.cache = new TileCache(view);
+        this.text = new TextStream(view.state.doc);
+        this.builder = new TileBuilder(this.cache, new DocTile(view, view.contentDOM), RangeSet.iter(blockWrappers));
+        this.cache.reused.set(old, 2 /* Reused.DOM */);
+        this.old = new TilePointer(old);
+        this.reuseWalker = {
+            skip: (tile, from, to) => {
+                this.cache.add(tile);
+                if (tile.isComposite())
+                    return false;
+            },
+            enter: tile => this.cache.add(tile),
+            leave: () => { },
+            break: () => { }
+        };
+    }
+    run(changes, composition) {
+        let compositionContext = composition && this.getCompositionContext(composition.text);
+        for (let posA = 0, posB = 0, i = 0;;) {
+            let next = i < changes.length ? changes[i++] : null;
+            let skipA = next ? next.fromA : this.old.root.length;
+            if (skipA > posA) {
+                let len = skipA - posA;
+                this.preserve(len, !i, !next);
+                posA = skipA;
+                posB += len;
+            }
+            if (!next)
+                break;
+            // Compositions need to be handled specially, forcing the
+            // focused text node and its parent nodes to remain stable at
+            // that point in the document.
+            if (composition && next.fromA <= composition.range.fromA && next.toA >= composition.range.toA) {
+                this.forward(next.fromA, composition.range.fromA, composition.range.fromA < composition.range.toA ? 1 : -1);
+                this.emit(posB, composition.range.fromB);
+                this.cache.clear(); // Must not reuse DOM across composition
+                this.builder.addComposition(composition, compositionContext);
+                this.text.skip(composition.range.toB - composition.range.fromB);
+                this.forward(composition.range.fromA, next.toA);
+                this.emit(composition.range.toB, next.toB);
+            }
+            else {
+                this.forward(next.fromA, next.toA);
+                this.emit(posB, next.toB);
+            }
+            posB = next.toB;
+            posA = next.toA;
+        }
+        if (this.builder.curLine)
+            this.builder.endLine();
+        return this.builder.root;
+    }
+    preserve(length, incStart, incEnd) {
+        let activeMarks = getMarks(this.old), openMarks = this.openMarks;
+        this.old.advance(length, incEnd ? 1 : -1, {
+            skip: (tile, from, to) => {
+                if (tile.isWidget()) {
+                    if (this.openWidget) {
+                        this.builder.continueWidget(to - from);
+                    }
+                    else {
+                        let widget = to > 0 || from < tile.length
+                            ? WidgetTile.of(tile.widget, this.view, to - from, tile.flags & 496 /* TileFlag.Widget */, this.cache.maybeReuse(tile))
+                            : this.cache.reuse(tile);
+                        if (widget.flags & 256 /* TileFlag.Block */) {
+                            widget.flags &= -2 /* TileFlag.BreakAfter */;
+                            this.builder.addBlockWidget(widget);
+                        }
+                        else {
+                            this.builder.ensureLine(null);
+                            this.builder.addInlineWidget(widget, activeMarks, openMarks);
+                            openMarks = activeMarks.length;
+                        }
+                    }
+                }
+                else if (tile.isText()) {
+                    this.builder.ensureLine(null);
+                    if (!from && to == tile.length) {
+                        this.builder.addText(tile.text, activeMarks, openMarks, this.cache.reuse(tile));
+                    }
+                    else {
+                        this.cache.add(tile);
+                        this.builder.addText(tile.text.slice(from, to), activeMarks, openMarks);
+                    }
+                    openMarks = activeMarks.length;
+                }
+                else if (tile.isLine()) {
+                    tile.flags &= -2 /* TileFlag.BreakAfter */;
+                    this.cache.reused.set(tile, 1 /* Reused.Full */);
+                    this.builder.addLine(tile);
+                }
+                else if (tile instanceof WidgetBufferTile) {
+                    this.cache.add(tile);
+                }
+                else if (tile instanceof MarkTile) {
+                    this.builder.ensureLine(null);
+                    this.builder.addMark(tile, activeMarks, openMarks);
+                    this.cache.reused.set(tile, 1 /* Reused.Full */);
+                    openMarks = activeMarks.length;
+                }
+                else {
+                    return false;
+                }
+                this.openWidget = false;
+            },
+            enter: (tile) => {
+                if (tile.isLine()) {
+                    this.builder.addLineStart(tile.attrs, this.cache.maybeReuse(tile));
+                }
+                else {
+                    this.cache.add(tile);
+                    if (tile instanceof MarkTile)
+                        activeMarks.unshift(tile.mark);
+                }
+                this.openWidget = false;
+            },
+            leave: (tile) => {
+                if (tile.isLine()) {
+                    if (activeMarks.length)
+                        activeMarks.length = openMarks = 0;
+                }
+                else if (tile instanceof MarkTile) {
+                    activeMarks.shift();
+                    openMarks = Math.min(openMarks, activeMarks.length);
+                }
+            },
+            break: () => {
+                this.builder.addBreak();
+                this.openWidget = false;
+            },
+        });
+        this.text.skip(length);
+    }
+    emit(from, to) {
+        let pendingLineAttrs = null;
+        let b = this.builder, markCount = 0;
+        let openEnd = RangeSet.spans(this.decorations, from, to, {
+            point: (from, to, deco, active, openStart, index) => {
+                if (deco instanceof PointDecoration) {
+                    if (this.disallowBlockEffectsFor[index]) {
+                        if (deco.block)
+                            throw new RangeError("Block decorations may not be specified via plugins");
+                        if (to > this.view.state.doc.lineAt(from).to)
+                            throw new RangeError("Decorations that replace line breaks may not be specified via plugins");
+                    }
+                    markCount = active.length;
+                    if (openStart > active.length) {
+                        b.continueWidget(to - from);
+                    }
+                    else {
+                        let widget = deco.widget || (deco.block ? NullWidget.block : NullWidget.inline);
+                        let flags = widgetFlags(deco);
+                        let tile = this.cache.findWidget(widget, to - from, flags) || WidgetTile.of(widget, this.view, to - from, flags);
+                        if (deco.block) {
+                            if (deco.startSide > 0)
+                                b.addLineStartIfNotCovered(pendingLineAttrs);
+                            b.addBlockWidget(tile);
+                        }
+                        else {
+                            b.ensureLine(pendingLineAttrs);
+                            b.addInlineWidget(tile, active, openStart);
+                        }
+                    }
+                    pendingLineAttrs = null;
+                }
+                else {
+                    pendingLineAttrs = addLineDeco(pendingLineAttrs, deco);
+                }
+                if (to > from)
+                    this.text.skip(to - from);
+            },
+            span: (from, to, active, openStart) => {
+                for (let pos = from; pos < to;) {
+                    let chars = this.text.next(Math.min(512 /* C.Chunk */, to - pos));
+                    if (chars == null) { // Line break
+                        b.addLineStartIfNotCovered(pendingLineAttrs);
+                        b.addBreak();
+                        pos++;
+                    }
+                    else {
+                        b.ensureLine(pendingLineAttrs);
+                        b.addText(chars, active, openStart);
+                        pos += chars.length;
+                    }
+                    pendingLineAttrs = null;
+                }
+            }
+        });
+        b.addLineStartIfNotCovered(pendingLineAttrs);
+        this.openWidget = openEnd > markCount;
+        this.openMarks = openEnd;
+    }
+    forward(from, to, side = 1) {
+        if (to - from <= 10) {
+            this.old.advance(to - from, side, this.reuseWalker);
+        }
+        else {
+            this.old.advance(5, -1, this.reuseWalker);
+            this.old.advance(to - from - 10, -1);
+            this.old.advance(5, side, this.reuseWalker);
+        }
+    }
+    getCompositionContext(text) {
+        let marks = [], line = null;
+        for (let parent = text.parentNode;; parent = parent.parentNode) {
+            let tile = Tile.get(parent);
+            if (parent == this.view.contentDOM)
+                break;
+            if (tile instanceof MarkTile)
+                marks.push(tile);
+            else if (tile === null || tile === void 0 ? void 0 : tile.isLine())
+                line = tile;
+            else if (parent.nodeName == "DIV" && !line && parent != this.view.contentDOM)
+                line = new LineTile(parent, lineBaseAttrs);
+            else
+                marks.push(MarkTile.of(new MarkDecoration({ tagName: parent.nodeName.toLowerCase(), attributes: getAttrs(parent) }), parent));
+        }
+        return { line: line, marks };
+    }
+}
+function hasContent(tile, requireText) {
+    let scan = (tile) => {
+        for (let ch of tile.children)
+            if ((requireText ? ch.isText() : ch.length) || scan(ch))
+                return true;
+        return false;
+    };
+    return scan(tile);
+}
+function widgetFlags(deco) {
+    let flags = deco.isReplace ? (deco.startSide < 0 ? 64 /* TileFlag.IncStart */ : 0) | (deco.endSide > 0 ? 128 /* TileFlag.IncEnd */ : 0)
+        : (deco.startSide > 0 ? 32 /* TileFlag.After */ : 16 /* TileFlag.Before */);
+    if (deco.block)
+        flags |= 256 /* TileFlag.Block */;
+    return flags;
+}
+const lineBaseAttrs = { class: "cm-line" };
+function addLineDeco(value, deco) {
+    let attrs = deco.spec.attributes, cls = deco.spec.class;
+    if (!attrs && !cls)
+        return value;
+    if (!value)
+        value = { class: "cm-line" };
+    if (attrs)
+        combineAttrs(attrs, value);
+    if (cls)
+        value.class += " " + cls;
+    return value;
+}
+function getMarks(ptr) {
+    let found = [];
+    for (let i = ptr.parents.length; i > 1; i--) {
+        let tile = i == ptr.parents.length ? ptr.tile : ptr.parents[i].tile;
+        if (tile instanceof MarkTile)
+            found.push(tile.mark);
+    }
+    return found;
+}
+function freeNode(node) {
+    let tile = Tile.get(node);
+    if (tile)
+        tile.setDOM(node.cloneNode());
+    return node;
+}
+class NullWidget extends WidgetType {
+    constructor(tag) {
         super();
+        this.tag = tag;
+    }
+    eq(other) { return other.tag == this.tag; }
+    toDOM() { return document.createElement(this.tag); }
+    updateDOM(elt) { return elt.nodeName.toLowerCase() == this.tag; }
+    get isHidden() { return true; }
+}
+NullWidget.inline = /*@__PURE__*/new NullWidget("span");
+NullWidget.block = /*@__PURE__*/new NullWidget("div");
+const BreakWidget = /*@__PURE__*/new class extends WidgetType {
+    toDOM() { return document.createElement("br"); }
+    get isHidden() { return true; }
+    get editable() { return true; }
+};
+
+class DocView {
+    constructor(view) {
         this.view = view;
         this.decorations = [];
+        this.blockWrappers = [];
         this.dynamicDecorationMap = [false];
         this.domChanged = null;
         this.hasComposition = null;
-        this.markedForComposition = new Set;
         this.editContextFormatting = Decoration.none;
         this.lastCompositionAfterCursor = false;
         // Track a minimum width for the editor. When measuring sizes in
@@ -10533,11 +10678,9 @@ class DocView extends ContentView {
         // Used by the resize observer to ignore resizes that we caused
         // ourselves
         this.lastUpdate = Date.now();
-        this.setDOM(view.contentDOM);
-        this.children = [new LineView];
-        this.children[0].setParent(this);
         this.updateDeco();
-        this.updateInner([new ChangedRange(0, 0, 0, view.state.doc.length)], 0, null);
+        this.tile = new DocTile(view, view.contentDOM);
+        this.updateInner([new ChangedRange(0, 0, 0, view.state.doc.length)], null);
     }
     // Update the document view to a given state.
     update(update) {
@@ -10563,7 +10706,6 @@ class DocView extends ContentView {
         let composition = readCompositionAt > -1 ? findCompositionRange(this.view, update.changes, readCompositionAt) : null;
         this.domChanged = null;
         if (this.hasComposition) {
-            this.markedForComposition.clear();
             let { from, to } = this.hasComposition;
             changedRanges = new ChangedRange(from, to, update.changes.mapPos(from, -1), update.changes.mapPos(to, 1))
                 .addToSet(changedRanges.slice());
@@ -10577,14 +10719,21 @@ class DocView extends ContentView {
         if ((browser.ie || browser.chrome) && !composition && update &&
             update.state.doc.lines != update.startState.doc.lines)
             this.forceSelection = true;
-        let prevDeco = this.decorations, deco = this.updateDeco();
-        let decoDiff = findChangedDeco(prevDeco, deco, update.changes);
-        changedRanges = ChangedRange.extendWithRanges(changedRanges, decoDiff);
-        if (!(this.flags & 7 /* ViewFlag.Dirty */) && changedRanges.length == 0) {
+        let prevDeco = this.decorations, prevWrappers = this.blockWrappers;
+        this.updateDeco();
+        let decoDiff = findChangedDeco(prevDeco, this.decorations, update.changes);
+        if (decoDiff.length)
+            changedRanges = ChangedRange.extendWithRanges(changedRanges, decoDiff);
+        let blockDiff = findChangedWrappers(prevWrappers, this.blockWrappers, update.changes);
+        if (blockDiff.length)
+            changedRanges = ChangedRange.extendWithRanges(changedRanges, blockDiff);
+        if (composition && !changedRanges.some(r => r.fromA <= composition.range.fromA && r.toA >= composition.range.toA))
+            changedRanges = composition.range.addToSet(changedRanges.slice());
+        if ((this.tile.flags & 2 /* TileFlag.Synced */) && changedRanges.length == 0) {
             return false;
         }
         else {
-            this.updateInner(changedRanges, update.startState.doc.length, composition);
+            this.updateInner(changedRanges, composition);
             if (update.transactions.length)
                 this.lastUpdate = Date.now();
             return true;
@@ -10592,75 +10741,38 @@ class DocView extends ContentView {
     }
     // Used by update and the constructor do perform the actual DOM
     // update
-    updateInner(changes, oldLength, composition) {
+    updateInner(changes, composition) {
         this.view.viewState.mustMeasureContent = true;
-        this.updateChildren(changes, oldLength, composition);
         let { observer } = this.view;
         observer.ignore(() => {
+            if (composition || changes.length) {
+                let oldTile = this.tile;
+                let builder = new TileUpdate(this.view, oldTile, this.blockWrappers, this.decorations, this.dynamicDecorationMap);
+                this.tile = builder.run(changes, composition);
+                destroyDropped(oldTile, builder.cache.reused);
+            }
             // Lock the height during redrawing, since Chrome sometimes
             // messes with the scroll position during DOM mutation (though
             // no relayout is triggered and I cannot imagine how it can
             // recompute the scroll position without a layout)
-            this.dom.style.height = this.view.viewState.contentHeight / this.view.scaleY + "px";
-            this.dom.style.flexBasis = this.minWidth ? this.minWidth + "px" : "";
+            this.tile.dom.style.height = this.view.viewState.contentHeight / this.view.scaleY + "px";
+            this.tile.dom.style.flexBasis = this.minWidth ? this.minWidth + "px" : "";
             // Chrome will sometimes, when DOM mutations occur directly
             // around the selection, get confused and report a different
             // selection from the one it displays (issue #218). This tries
             // to detect that situation.
             let track = browser.chrome || browser.ios ? { node: observer.selectionRange.focusNode, written: false } : undefined;
-            this.sync(this.view, track);
-            this.flags &= -8 /* ViewFlag.Dirty */;
-            if (track && (track.written || observer.selectionRange.focusNode != track.node))
+            this.tile.sync(track);
+            if (track && (track.written || observer.selectionRange.focusNode != track.node || !this.tile.dom.contains(track.node)))
                 this.forceSelection = true;
-            this.dom.style.height = "";
+            this.tile.dom.style.height = "";
         });
-        this.markedForComposition.forEach(cView => cView.flags &= -9 /* ViewFlag.Composition */);
         let gaps = [];
         if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length)
-            for (let child of this.children)
-                if (child instanceof BlockWidgetView && child.widget instanceof BlockGapWidget)
+            for (let child of this.tile.children)
+                if (child.isWidget() && child.widget instanceof BlockGapWidget)
                     gaps.push(child.dom);
         observer.updateGaps(gaps);
-    }
-    updateChildren(changes, oldLength, composition) {
-        let ranges = composition ? composition.range.addToSet(changes.slice()) : changes;
-        let cursor = this.childCursor(oldLength);
-        for (let i = ranges.length - 1;; i--) {
-            let next = i >= 0 ? ranges[i] : null;
-            if (!next)
-                break;
-            let { fromA, toA, fromB, toB } = next, content, breakAtStart, openStart, openEnd;
-            if (composition && composition.range.fromB < toB && composition.range.toB > fromB) {
-                let before = ContentBuilder.build(this.view.state.doc, fromB, composition.range.fromB, this.decorations, this.dynamicDecorationMap);
-                let after = ContentBuilder.build(this.view.state.doc, composition.range.toB, toB, this.decorations, this.dynamicDecorationMap);
-                breakAtStart = before.breakAtStart;
-                openStart = before.openStart;
-                openEnd = after.openEnd;
-                let compLine = this.compositionView(composition);
-                if (after.breakAtStart) {
-                    compLine.breakAfter = 1;
-                }
-                else if (after.content.length &&
-                    compLine.merge(compLine.length, compLine.length, after.content[0], false, after.openStart, 0)) {
-                    compLine.breakAfter = after.content[0].breakAfter;
-                    after.content.shift();
-                }
-                if (before.content.length &&
-                    compLine.merge(0, 0, before.content[before.content.length - 1], true, 0, before.openEnd)) {
-                    before.content.pop();
-                }
-                content = before.content.concat(compLine).concat(after.content);
-            }
-            else {
-                ({ content, breakAtStart, openStart, openEnd } =
-                    ContentBuilder.build(this.view.state.doc, fromB, toB, this.decorations, this.dynamicDecorationMap));
-            }
-            let { i: toI, off: toOff } = cursor.findPos(toA, 1);
-            let { i: fromI, off: fromOff } = cursor.findPos(fromA, -1);
-            replaceRange(this, fromI, fromOff, toI, toOff, content, breakAtStart, openStart, openEnd);
-        }
-        if (composition)
-            this.fixCompositionDOM(composition);
     }
     updateEditContextFormatting(update) {
         this.editContextFormatting = this.editContextFormatting.map(update.changes);
@@ -10670,47 +10782,26 @@ class DocView extends ContentView {
                     this.editContextFormatting = effect.value;
                 }
     }
-    compositionView(composition) {
-        let cur = new TextView(composition.text.nodeValue);
-        cur.flags |= 8 /* ViewFlag.Composition */;
-        for (let { deco } of composition.marks)
-            cur = new MarkView(deco, [cur], cur.length);
-        let line = new LineView;
-        line.append(cur, 0);
-        return line;
-    }
-    fixCompositionDOM(composition) {
-        let fix = (dom, cView) => {
-            cView.flags |= 8 /* ViewFlag.Composition */ | (cView.children.some(c => c.flags & 7 /* ViewFlag.Dirty */) ? 1 /* ViewFlag.ChildDirty */ : 0);
-            this.markedForComposition.add(cView);
-            let prev = ContentView.get(dom);
-            if (prev && prev != cView)
-                prev.dom = null;
-            cView.setDOM(dom);
-        };
-        let pos = this.childPos(composition.range.fromB, 1);
-        let cView = this.children[pos.i];
-        fix(composition.line, cView);
-        for (let i = composition.marks.length - 1; i >= -1; i--) {
-            pos = cView.childPos(pos.off, 1);
-            cView = cView.children[pos.i];
-            fix(i >= 0 ? composition.marks[i].node : composition.text, cView);
-        }
-    }
     // Sync the DOM selection to this.state.selection
     updateSelection(mustRead = false, fromPointer = false) {
         if (mustRead || !this.view.observer.selectionRange.focusNode)
             this.view.observer.readSelectionRange();
-        let activeElt = this.view.root.activeElement, focused = activeElt == this.dom;
-        let selectionNotFocus = !focused && !(this.view.state.facet(editable) || this.dom.tabIndex > -1) &&
-            hasSelection(this.dom, this.view.observer.selectionRange) && !(activeElt && this.dom.contains(activeElt));
+        let { dom } = this.tile;
+        let activeElt = this.view.root.activeElement, focused = activeElt == dom;
+        let selectionNotFocus = !focused && !(this.view.state.facet(editable) || dom.tabIndex > -1) &&
+            hasSelection(dom, this.view.observer.selectionRange) && !(activeElt && dom.contains(activeElt));
         if (!(focused || fromPointer || selectionNotFocus))
             return;
         let force = this.forceSelection;
         this.forceSelection = false;
-        let main = this.view.state.selection.main;
-        let anchor = this.moveToLine(this.domAtPos(main.anchor));
-        let head = main.empty ? anchor : this.moveToLine(this.domAtPos(main.head));
+        let main = this.view.state.selection.main, anchor, head;
+        if (main.empty) {
+            head = anchor = this.inlineDOMNearPos(main.anchor, main.assoc || 1);
+        }
+        else {
+            head = this.inlineDOMNearPos(main.head, main.head == main.from ? 1 : -1);
+            anchor = this.inlineDOMNearPos(main.anchor, main.anchor == main.from ? 1 : -1);
+        }
         // Always reset on Firefox when next to an uneditable node to
         // avoid invisible cursor bugs (#111)
         if (browser.gecko && main.empty && !this.hasComposition && betweenUneditable(anchor)) {
@@ -10728,10 +10819,10 @@ class DocView extends ContentView {
                 // inside an uneditable node, and not bring it back when we
                 // move the cursor to its proper position. This tries to
                 // restore the keyboard by cycling focus.
-                if (browser.android && browser.chrome && this.dom.contains(domSel.focusNode) &&
-                    inUneditable(domSel.focusNode, this.dom)) {
-                    this.dom.blur();
-                    this.dom.focus({ preventScroll: true });
+                if (browser.android && browser.chrome && dom.contains(domSel.focusNode) &&
+                    inUneditable(domSel.focusNode, dom)) {
+                    dom.blur();
+                    dom.focus({ preventScroll: true });
                 }
                 let rawSel = getSelection(this.view.root);
                 if (!rawSel) ;
@@ -10772,8 +10863,8 @@ class DocView extends ContentView {
                     rawSel.removeAllRanges();
                     rawSel.addRange(range);
                 }
-                if (selectionNotFocus && this.view.root.activeElement == this.dom) {
-                    this.dom.blur();
+                if (selectionNotFocus && this.view.root.activeElement == dom) {
+                    dom.blur();
                     if (activeElt)
                         activeElt.focus();
                 }
@@ -10799,7 +10890,7 @@ class DocView extends ContentView {
         let { anchorNode, anchorOffset } = view.observer.selectionRange;
         if (!sel || !cursor.empty || !cursor.assoc || !sel.modify)
             return;
-        let line = LineView.find(this, cursor.head);
+        let line = this.lineAt(cursor.head, cursor.assoc);
         if (!line)
             return;
         let lineStart = line.posAtStart;
@@ -10808,7 +10899,7 @@ class DocView extends ContentView {
         let before = this.coordsAt(cursor.head, -1), after = this.coordsAt(cursor.head, 1);
         if (!before || !after || before.bottom > after.top)
             return;
-        let dom = this.domAtPos(cursor.head + cursor.assoc);
+        let dom = this.domAtPos(cursor.head + cursor.assoc, cursor.assoc);
         sel.collapse(dom.node, dom.offset);
         sel.modify("move", cursor.assoc < 0 ? "forward" : "backward", "lineboundary");
         // This can go wrong in corner cases like single-character lines,
@@ -10818,143 +10909,213 @@ class DocView extends ContentView {
         if (view.docView.posFromDOM(newRange.anchorNode, newRange.anchorOffset) != cursor.from)
             sel.collapse(anchorNode, anchorOffset);
     }
-    // If a position is in/near a block widget, move it to a nearby text
-    // line, since we don't want the cursor inside a block widget.
-    moveToLine(pos) {
-        // Block widgets will return positions before/after them, which
-        // are thus directly in the document DOM element.
-        let dom = this.dom, newPos;
-        if (pos.node != dom)
-            return pos;
-        for (let i = pos.offset; !newPos && i < dom.childNodes.length; i++) {
-            let view = ContentView.get(dom.childNodes[i]);
-            if (view instanceof LineView)
-                newPos = view.domAtPos(0);
-        }
-        for (let i = pos.offset - 1; !newPos && i >= 0; i--) {
-            let view = ContentView.get(dom.childNodes[i]);
-            if (view instanceof LineView)
-                newPos = view.domAtPos(view.length);
-        }
-        return newPos ? new DOMPos(newPos.node, newPos.offset, true) : pos;
-    }
-    nearest(dom) {
-        for (let cur = dom; cur;) {
-            let domView = ContentView.get(cur);
-            if (domView && domView.rootView == this)
-                return domView;
-            cur = cur.parentNode;
-        }
-        return null;
-    }
     posFromDOM(node, offset) {
-        let view = this.nearest(node);
-        if (!view)
-            throw new RangeError("Trying to find position for a DOM position outside of the document");
-        return view.localPosFromDOM(node, offset) + view.posAtStart;
-    }
-    domAtPos(pos) {
-        let { i, off } = this.childCursor().findPos(pos, -1);
-        for (; i < this.children.length - 1;) {
-            let child = this.children[i];
-            if (off < child.length || child instanceof LineView)
-                break;
-            i++;
-            off = 0;
+        let tile = this.tile.nearest(node);
+        if (!tile)
+            return this.tile.dom.compareDocumentPosition(node) & 2 /* PRECEDING */ ? 0 : this.view.state.doc.length;
+        let start = tile.posAtStart;
+        if (tile.isComposite()) {
+            let after;
+            if (node == tile.dom) {
+                after = tile.dom.childNodes[offset];
+            }
+            else {
+                let bias = maxOffset(node) == 0 ? 0 : offset == 0 ? -1 : 1;
+                for (;;) {
+                    let parent = node.parentNode;
+                    if (parent == tile.dom)
+                        break;
+                    if (bias == 0 && parent.firstChild != parent.lastChild) {
+                        if (node == parent.firstChild)
+                            bias = -1;
+                        else
+                            bias = 1;
+                    }
+                    node = parent;
+                }
+                if (bias < 0)
+                    after = node;
+                else
+                    after = node.nextSibling;
+            }
+            if (after == tile.dom.firstChild)
+                return start;
+            while (after && !Tile.get(after))
+                after = after.nextSibling;
+            if (!after)
+                return start + tile.length;
+            for (let i = 0, pos = start;; i++) {
+                let child = tile.children[i];
+                if (child.dom == after)
+                    return pos;
+                pos += child.length + child.breakAfter;
+            }
         }
-        return this.children[i].domAtPos(off);
+        else if (tile.isText()) {
+            return node == tile.dom ? start + offset : start + (offset ? tile.length : 0);
+        }
+        else {
+            return start;
+        }
+    }
+    domAtPos(pos, side) {
+        let { tile, offset } = this.tile.resolveBlock(pos, side);
+        if (tile.isWidget())
+            return tile.domPosFor(pos, side);
+        return tile.domIn(offset, side);
+    }
+    inlineDOMNearPos(pos, side) {
+        let before, beforeOff = -1, beforeBad = false;
+        let after, afterOff = -1, afterBad = false;
+        this.tile.blockTiles((tile, off) => {
+            if (tile.isWidget()) {
+                if ((tile.flags & 32 /* TileFlag.After */) && off >= pos)
+                    return true;
+                if (tile.flags & 16 /* TileFlag.Before */)
+                    beforeBad = true;
+            }
+            else {
+                let end = off + tile.length;
+                if (off <= pos) {
+                    before = tile;
+                    beforeOff = pos - off;
+                    beforeBad = end < pos;
+                }
+                if (end >= pos && !after) {
+                    after = tile;
+                    afterOff = pos - off;
+                    afterBad = off > pos;
+                }
+                if (off > pos && after)
+                    return true;
+            }
+        });
+        if (!before && !after)
+            return this.domAtPos(pos, side);
+        if (beforeBad && after)
+            before = null;
+        else if (afterBad && before)
+            after = null;
+        return before && side < 0 || !after ? before.domIn(beforeOff, side) : after.domIn(afterOff, side);
     }
     coordsAt(pos, side) {
-        let best = null, bestPos = 0;
-        for (let off = this.length, i = this.children.length - 1; i >= 0; i--) {
-            let child = this.children[i], end = off - child.breakAfter, start = end - child.length;
-            if (end < pos)
-                break;
-            if (start <= pos && (start < pos || child.covers(-1)) && (end > pos || child.covers(1)) &&
-                (!best || child instanceof LineView && !(best instanceof LineView && side >= 0))) {
-                best = child;
-                bestPos = start;
-            }
-            else if (best && start == pos && end == pos && child instanceof BlockWidgetView && Math.abs(side) < 2) {
-                if (child.deco.startSide < 0)
-                    break;
-                else if (i)
-                    best = null;
-            }
-            off = start;
+        let { tile, offset } = this.tile.resolveBlock(pos, side);
+        if (tile.isWidget()) {
+            if (tile.widget instanceof BlockGapWidget)
+                return null;
+            return tile.coordsInWidget(offset, side, true);
         }
-        return best ? best.coordsAt(pos - bestPos, side) : null;
+        return tile.coordsIn(offset, side);
+    }
+    lineAt(pos, side) {
+        let { tile } = this.tile.resolveBlock(pos, side);
+        return tile.isLine() ? tile : null;
     }
     coordsForChar(pos) {
-        let { i, off } = this.childPos(pos, 1), child = this.children[i];
-        if (!(child instanceof LineView))
+        let { tile, offset } = this.tile.resolveBlock(pos, 1);
+        if (!tile.isLine())
             return null;
-        while (child.children.length) {
-            let { i, off: childOff } = child.childPos(off, 1);
-            for (;; i++) {
-                if (i == child.children.length)
-                    return null;
-                if ((child = child.children[i]).length)
-                    break;
+        function scan(tile, offset) {
+            if (tile.isComposite()) {
+                for (let ch of tile.children) {
+                    if (ch.length >= offset) {
+                        let found = scan(ch, offset);
+                        if (found)
+                            return found;
+                    }
+                    offset -= ch.length;
+                    if (offset < 0)
+                        break;
+                }
             }
-            off = childOff;
-        }
-        if (!(child instanceof TextView))
+            else if (tile.isText() && offset < tile.length) {
+                let end = findClusterBreak(tile.text, offset);
+                if (end == offset)
+                    return null;
+                let rects = textRange(tile.dom, offset, end).getClientRects();
+                for (let i = 0; i < rects.length; i++) {
+                    let rect = rects[i];
+                    if (i == rects.length - 1 || rect.top < rect.bottom && rect.left < rect.right)
+                        return rect;
+                }
+            }
             return null;
-        let end = findClusterBreak(child.text, off);
-        if (end == off)
-            return null;
-        let rects = textRange(child.dom, off, end).getClientRects();
-        for (let i = 0; i < rects.length; i++) {
-            let rect = rects[i];
-            if (i == rects.length - 1 || rect.top < rect.bottom && rect.left < rect.right)
-                return rect;
         }
-        return null;
+        return scan(tile, offset);
     }
     measureVisibleLineHeights(viewport) {
         let result = [], { from, to } = viewport;
         let contentWidth = this.view.contentDOM.clientWidth;
         let isWider = contentWidth > Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1;
         let widest = -1, ltr = this.view.textDirection == Direction.LTR;
-        for (let pos = 0, i = 0; i < this.children.length; i++) {
-            let child = this.children[i], end = pos + child.length;
-            if (end > to)
-                break;
-            if (pos >= from) {
-                let childRect = child.dom.getBoundingClientRect();
-                result.push(childRect.height);
-                if (isWider) {
-                    let last = child.dom.lastChild;
-                    let rects = last ? clientRectsFor(last) : [];
-                    if (rects.length) {
-                        let rect = rects[rects.length - 1];
-                        let width = ltr ? rect.right - childRect.left : childRect.right - rect.left;
-                        if (width > widest) {
-                            widest = width;
-                            this.minWidth = contentWidth;
-                            this.minWidthFrom = pos;
-                            this.minWidthTo = end;
+        let spaceAbove = 0;
+        let scan = (tile, pos, measureBounds) => {
+            for (let i = 0; i < tile.children.length; i++) {
+                if (pos > to)
+                    break;
+                let child = tile.children[i], end = pos + child.length;
+                let childRect = child.dom.getBoundingClientRect(), { height } = childRect;
+                if (measureBounds && !i)
+                    spaceAbove += childRect.top - measureBounds.top;
+                if (child instanceof BlockWrapperTile) {
+                    if (end > from)
+                        scan(child, pos, childRect);
+                }
+                else if (pos >= from) {
+                    if (spaceAbove > 0)
+                        result.push(-spaceAbove);
+                    result.push(height + spaceAbove);
+                    spaceAbove = 0;
+                    if (isWider) {
+                        let last = child.dom.lastChild;
+                        let rects = last ? clientRectsFor(last) : [];
+                        if (rects.length) {
+                            let rect = rects[rects.length - 1];
+                            let width = ltr ? rect.right - childRect.left : childRect.right - rect.left;
+                            if (width > widest) {
+                                widest = width;
+                                this.minWidth = contentWidth;
+                                this.minWidthFrom = pos;
+                                this.minWidthTo = end;
+                            }
                         }
                     }
                 }
+                if (measureBounds && i == tile.children.length - 1)
+                    spaceAbove += measureBounds.bottom - childRect.bottom;
+                pos = end + child.breakAfter;
             }
-            pos = end + child.breakAfter;
-        }
+        };
+        scan(this.tile, 0, null);
         return result;
     }
     textDirectionAt(pos) {
-        let { i } = this.childPos(pos, 1);
-        return getComputedStyle(this.children[i].dom).direction == "rtl" ? Direction.RTL : Direction.LTR;
+        let { tile } = this.tile.resolveBlock(pos, 1);
+        return getComputedStyle(tile.dom).direction == "rtl" ? Direction.RTL : Direction.LTR;
     }
     measureTextSize() {
-        for (let child of this.children) {
-            if (child instanceof LineView) {
-                let measure = child.measureTextSize();
-                if (measure)
-                    return measure;
+        let lineMeasure = this.tile.blockTiles(tile => {
+            if (tile.isLine() && tile.children.length && tile.length <= 20) {
+                let totalWidth = 0, textHeight;
+                for (let child of tile.children) {
+                    if (!child.isText() || /[^ -~]/.test(child.text))
+                        return undefined;
+                    let rects = clientRectsFor(child.dom);
+                    if (rects.length != 1)
+                        return undefined;
+                    totalWidth += rects[0].width;
+                    textHeight = rects[0].height;
+                }
+                if (totalWidth)
+                    return {
+                        lineHeight: tile.dom.getBoundingClientRect().height,
+                        charWidth: totalWidth / tile.length,
+                        textHeight
+                    };
             }
-        }
+        });
+        if (lineMeasure)
+            return lineMeasure;
         // If no workable line exists, force a layout of a measurable element
         let dummy = document.createElement("div"), lineHeight, charWidth, textHeight;
         dummy.className = "cm-line";
@@ -10962,29 +11123,20 @@ class DocView extends ContentView {
         dummy.style.position = "absolute";
         dummy.textContent = "abc def ghi jkl mno pqr stu";
         this.view.observer.ignore(() => {
-            this.dom.appendChild(dummy);
+            this.tile.dom.appendChild(dummy);
             let rect = clientRectsFor(dummy.firstChild)[0];
             lineHeight = dummy.getBoundingClientRect().height;
-            charWidth = rect ? rect.width / 27 : 7;
-            textHeight = rect ? rect.height : lineHeight;
+            charWidth = rect && rect.width ? rect.width / 27 : 7;
+            textHeight = rect && rect.height ? rect.height : lineHeight;
             dummy.remove();
         });
         return { lineHeight, charWidth, textHeight };
-    }
-    childCursor(pos = this.length) {
-        // Move back to start of last element when possible, so that
-        // `ChildCursor.findPos` doesn't have to deal with the edge case
-        // of being after the last element.
-        let i = this.children.length;
-        if (i)
-            pos -= this.children[--i].length;
-        return new ChildCursor(this.children, pos, i);
     }
     computeBlockGapDeco() {
         let deco = [], vs = this.view.viewState;
         for (let pos = 0, i = 0;; i++) {
             let next = i == vs.viewports.length ? null : vs.viewports[i];
-            let end = next ? next.from - 1 : this.length;
+            let end = next ? next.from - 1 : this.view.state.doc.length;
             if (end > pos) {
                 let height = (vs.lineBlockAt(end).bottom - vs.lineBlockAt(pos).top) / this.view.scaleY;
                 deco.push(Decoration.replace({
@@ -11024,7 +11176,7 @@ class DocView extends ContentView {
         ];
         while (i < this.decorations.length)
             this.dynamicDecorationMap[i++] = false;
-        return this.decorations;
+        this.blockWrappers = this.view.state.facet(blockWrappers).map(v => typeof v == "function" ? v(this.view) : v);
     }
     scrollIntoView(target) {
         if (target.isSnapshot) {
@@ -11057,6 +11209,22 @@ class DocView extends ContentView {
         let { offsetWidth, offsetHeight } = this.view.scrollDOM;
         scrollRectIntoView(this.view.scrollDOM, targetRect, range.head < range.anchor ? -1 : 1, target.x, target.y, Math.max(Math.min(target.xMargin, offsetWidth), -offsetWidth), Math.max(Math.min(target.yMargin, offsetHeight), -offsetHeight), this.view.textDirection == Direction.LTR);
     }
+    lineHasWidget(pos) {
+        let scan = (child) => child.isWidget() || child.children.some(scan);
+        return scan(this.tile.resolveBlock(pos, 1).tile);
+    }
+    destroy() {
+        destroyDropped(this.tile);
+    }
+}
+function destroyDropped(tile, reused) {
+    let r = reused === null || reused === void 0 ? void 0 : reused.get(tile);
+    if (r != 1 /* Reused.Full */) {
+        if (r == null)
+            tile.destroy();
+        for (let ch of tile.children)
+            destroyDropped(ch, reused);
+    }
 }
 function betweenUneditable(pos) {
     return pos.node.nodeType == 1 && pos.node.firstChild &&
@@ -11071,13 +11239,13 @@ function findCompositionNode(view, headPos) {
     let textAfter = textNodeAfter(sel.focusNode, sel.focusOffset);
     let textNode = textBefore || textAfter;
     if (textAfter && textBefore && textAfter.node != textBefore.node) {
-        let descAfter = ContentView.get(textAfter.node);
-        if (!descAfter || descAfter instanceof TextView && descAfter.text != textAfter.node.nodeValue) {
+        let tileAfter = Tile.get(textAfter.node);
+        if (!tileAfter || tileAfter.isText() && tileAfter.text != textAfter.node.nodeValue) {
             textNode = textAfter;
         }
         else if (view.docView.lastCompositionAfterCursor) {
-            let descBefore = ContentView.get(textBefore.node);
-            if (!(!descBefore || descBefore instanceof TextView && descBefore.text != textBefore.node.nodeValue))
+            let tileBefore = Tile.get(textBefore.node);
+            if (!(!tileBefore || tileBefore.isText() && tileBefore.text != textBefore.node.nodeValue))
                 textNode = textAfter;
         }
     }
@@ -11098,23 +11266,7 @@ function findCompositionRange(view, changes, headPos) {
     if (view.state.doc.sliceString(found.from, found.to) != text)
         return null;
     let inv = changes.invertedDesc;
-    let range = new ChangedRange(inv.mapPos(from), inv.mapPos(to), from, to);
-    let marks = [];
-    for (let parent = textNode.parentNode;; parent = parent.parentNode) {
-        let parentView = ContentView.get(parent);
-        if (parentView instanceof MarkView)
-            marks.push({ node: parent, deco: parentView.mark });
-        else if (parentView instanceof LineView || parent.nodeName == "DIV" && parent.parentNode == view.contentDOM)
-            return { range, text: textNode, marks, line: parent };
-        else if (parent != view.contentDOM)
-            marks.push({ node: parent, deco: new MarkDecoration({
-                    inclusive: true,
-                    attributes: getAttrs(parent),
-                    tagName: parent.tagName.toLowerCase()
-                }) });
-        else
-            return null;
-    }
+    return { range: new ChangedRange(inv.mapPos(from), inv.mapPos(to), from, to), text: textNode };
 }
 function nextToUneditable(node, offset) {
     if (node.nodeType != 1)
@@ -11135,6 +11287,19 @@ function findChangedDeco(a, b, diff) {
     RangeSet.compare(a, b, diff, comp);
     return comp.changes;
 }
+class WrapperComparator {
+    constructor() {
+        this.changes = [];
+    }
+    compareRange(from, to) { addRange(from, to, this.changes); }
+    comparePoint() { }
+    boundChange(pos) { addRange(pos, pos, this.changes); }
+}
+function findChangedWrappers(a, b, diff) {
+    let comp = new WrapperComparator;
+    RangeSet.compare(a, b, diff, comp);
+    return comp.changes;
+}
 function inUneditable(node, inside) {
     for (let cur = node; cur && cur != inside; cur = cur.assignedSlot || cur.parentNode) {
         if (cur.nodeType == 1 && cur.contentEditable == 'false') {
@@ -11151,6 +11316,26 @@ function touchesComposition(changes, composition) {
                 touched = true;
         });
     return touched;
+}
+class BlockGapWidget extends WidgetType {
+    constructor(height) {
+        super();
+        this.height = height;
+    }
+    toDOM() {
+        let elt = document.createElement("div");
+        elt.className = "cm-gap";
+        this.updateDOM(elt);
+        return elt;
+    }
+    eq(other) { return other.height == this.height; }
+    updateDOM(elt) {
+        elt.style.height = this.height + "px";
+        return true;
+    }
+    get editable() { return true; }
+    get estimatedHeight() { return this.height; }
+    ignoreEvent() { return false; }
 }
 
 function groupAt(state, pos, bias = 1) {
@@ -11182,203 +11367,6 @@ function groupAt(state, pos, bias = 1) {
     }
     return EditorSelection.range(from + line.from, to + line.from);
 }
-// Search the DOM for the {node, offset} position closest to the given
-// coordinates. Very inefficient and crude, but can usually be avoided
-// by calling caret(Position|Range)FromPoint instead.
-function getdx(x, rect) {
-    return rect.left > x ? rect.left - x : Math.max(0, x - rect.right);
-}
-function getdy(y, rect) {
-    return rect.top > y ? rect.top - y : Math.max(0, y - rect.bottom);
-}
-function yOverlap(a, b) {
-    return a.top < b.bottom - 1 && a.bottom > b.top + 1;
-}
-function upTop(rect, top) {
-    return top < rect.top ? { top, left: rect.left, right: rect.right, bottom: rect.bottom } : rect;
-}
-function upBot(rect, bottom) {
-    return bottom > rect.bottom ? { top: rect.top, left: rect.left, right: rect.right, bottom } : rect;
-}
-function domPosAtCoords(parent, x, y) {
-    let closest, closestRect, closestX, closestY, closestOverlap = false;
-    let above, below, aboveRect, belowRect;
-    for (let child = parent.firstChild; child; child = child.nextSibling) {
-        let rects = clientRectsFor(child);
-        for (let i = 0; i < rects.length; i++) {
-            let rect = rects[i];
-            if (closestRect && yOverlap(closestRect, rect))
-                rect = upTop(upBot(rect, closestRect.bottom), closestRect.top);
-            let dx = getdx(x, rect), dy = getdy(y, rect);
-            if (dx == 0 && dy == 0)
-                return child.nodeType == 3 ? domPosInText(child, x, y) : domPosAtCoords(child, x, y);
-            if (!closest || closestY > dy || closestY == dy && closestX > dx) {
-                closest = child;
-                closestRect = rect;
-                closestX = dx;
-                closestY = dy;
-                let side = dy ? (y < rect.top ? -1 : 1) : dx ? (x < rect.left ? -1 : 1) : 0;
-                closestOverlap = !side || (side > 0 ? i < rects.length - 1 : i > 0);
-            }
-            if (dx == 0) {
-                if (y > rect.bottom && (!aboveRect || aboveRect.bottom < rect.bottom)) {
-                    above = child;
-                    aboveRect = rect;
-                }
-                else if (y < rect.top && (!belowRect || belowRect.top > rect.top)) {
-                    below = child;
-                    belowRect = rect;
-                }
-            }
-            else if (aboveRect && yOverlap(aboveRect, rect)) {
-                aboveRect = upBot(aboveRect, rect.bottom);
-            }
-            else if (belowRect && yOverlap(belowRect, rect)) {
-                belowRect = upTop(belowRect, rect.top);
-            }
-        }
-    }
-    if (aboveRect && aboveRect.bottom >= y) {
-        closest = above;
-        closestRect = aboveRect;
-    }
-    else if (belowRect && belowRect.top <= y) {
-        closest = below;
-        closestRect = belowRect;
-    }
-    if (!closest)
-        return { node: parent, offset: 0 };
-    let clipX = Math.max(closestRect.left, Math.min(closestRect.right, x));
-    if (closest.nodeType == 3)
-        return domPosInText(closest, clipX, y);
-    if (closestOverlap && closest.contentEditable != "false")
-        return domPosAtCoords(closest, clipX, y);
-    let offset = Array.prototype.indexOf.call(parent.childNodes, closest) +
-        (x >= (closestRect.left + closestRect.right) / 2 ? 1 : 0);
-    return { node: parent, offset };
-}
-function domPosInText(node, x, y) {
-    let len = node.nodeValue.length;
-    let closestOffset = -1, closestDY = 1e9, generalSide = 0;
-    for (let i = 0; i < len; i++) {
-        let rects = textRange(node, i, i + 1).getClientRects();
-        for (let j = 0; j < rects.length; j++) {
-            let rect = rects[j];
-            if (rect.top == rect.bottom)
-                continue;
-            if (!generalSide)
-                generalSide = x - rect.left;
-            let dy = (rect.top > y ? rect.top - y : y - rect.bottom) - 1;
-            if (rect.left - 1 <= x && rect.right + 1 >= x && dy < closestDY) {
-                let right = x >= (rect.left + rect.right) / 2, after = right;
-                if (browser.chrome || browser.gecko) {
-                    // Check for RTL on browsers that support getting client
-                    // rects for empty ranges.
-                    let rectBefore = textRange(node, i).getBoundingClientRect();
-                    if (rectBefore.left == rect.right)
-                        after = !right;
-                }
-                if (dy <= 0)
-                    return { node, offset: i + (after ? 1 : 0) };
-                closestOffset = i + (after ? 1 : 0);
-                closestDY = dy;
-            }
-        }
-    }
-    return { node, offset: closestOffset > -1 ? closestOffset : generalSide > 0 ? node.nodeValue.length : 0 };
-}
-function posAtCoords(view, coords, precise, bias = -1) {
-    var _a, _b;
-    let content = view.contentDOM.getBoundingClientRect(), docTop = content.top + view.viewState.paddingTop;
-    let block, { docHeight } = view.viewState;
-    let { x, y } = coords, yOffset = y - docTop;
-    if (yOffset < 0)
-        return 0;
-    if (yOffset > docHeight)
-        return view.state.doc.length;
-    // Scan for a text block near the queried y position
-    for (let halfLine = view.viewState.heightOracle.textHeight / 2, bounced = false;;) {
-        block = view.elementAtHeight(yOffset);
-        if (block.type == BlockType.Text)
-            break;
-        for (;;) {
-            // Move the y position out of this block
-            yOffset = bias > 0 ? block.bottom + halfLine : block.top - halfLine;
-            if (yOffset >= 0 && yOffset <= docHeight)
-                break;
-            // If the document consists entirely of replaced widgets, we
-            // won't find a text block, so return 0
-            if (bounced)
-                return precise ? null : 0;
-            bounced = true;
-            bias = -bias;
-        }
-    }
-    y = docTop + yOffset;
-    let lineStart = block.from;
-    // If this is outside of the rendered viewport, we can't determine a position
-    if (lineStart < view.viewport.from)
-        return view.viewport.from == 0 ? 0 : precise ? null : posAtCoordsImprecise(view, content, block, x, y);
-    if (lineStart > view.viewport.to)
-        return view.viewport.to == view.state.doc.length ? view.state.doc.length :
-            precise ? null : posAtCoordsImprecise(view, content, block, x, y);
-    // Prefer ShadowRootOrDocument.elementFromPoint if present, fall back to document if not
-    let doc = view.dom.ownerDocument;
-    let root = view.root.elementFromPoint ? view.root : doc;
-    let element = root.elementFromPoint(x, y);
-    if (element && !view.contentDOM.contains(element))
-        element = null;
-    // If the element is unexpected, clip x at the sides of the content area and try again
-    if (!element) {
-        x = Math.max(content.left + 1, Math.min(content.right - 1, x));
-        element = root.elementFromPoint(x, y);
-        if (element && !view.contentDOM.contains(element))
-            element = null;
-    }
-    // There's visible editor content under the point, so we can try
-    // using caret(Position|Range)FromPoint as a shortcut
-    let node, offset = -1;
-    if (element && ((_a = view.docView.nearest(element)) === null || _a === void 0 ? void 0 : _a.isEditable) != false) {
-        if (doc.caretPositionFromPoint) {
-            let pos = doc.caretPositionFromPoint(x, y);
-            if (pos)
-                ({ offsetNode: node, offset } = pos);
-        }
-        else if (doc.caretRangeFromPoint) {
-            let range = doc.caretRangeFromPoint(x, y);
-            if (range) {
-                ({ startContainer: node, startOffset: offset } = range);
-                if (!view.contentDOM.contains(node) ||
-                    browser.safari && isSuspiciousSafariCaretResult(node, offset, x) ||
-                    browser.chrome && isSuspiciousChromeCaretResult(node, offset, x))
-                    node = undefined;
-            }
-        }
-        // Chrome will return offsets into <input> elements without child
-        // nodes, which will lead to a null deref below, so clip the
-        // offset to the node size.
-        if (node)
-            offset = Math.min(maxOffset(node), offset);
-    }
-    // No luck, do our own (potentially expensive) search
-    if (!node || !view.docView.dom.contains(node)) {
-        let line = LineView.find(view.docView, lineStart);
-        if (!line)
-            return yOffset > block.top + block.height / 2 ? block.to : block.from;
-        ({ node, offset } = domPosAtCoords(line.dom, x, y));
-    }
-    let nearest = view.docView.nearest(node);
-    if (!nearest)
-        return null;
-    if (nearest.isWidget && ((_b = nearest.dom) === null || _b === void 0 ? void 0 : _b.nodeType) == 1) {
-        let rect = nearest.dom.getBoundingClientRect();
-        return coords.y < rect.top || coords.y <= rect.bottom && coords.x <= (rect.left + rect.right) / 2
-            ? nearest.posAtStart : nearest.posAtEnd;
-    }
-    else {
-        return nearest.localPosFromDOM(node, offset) + nearest.posAtStart;
-    }
-}
 function posAtCoordsImprecise(view, contentRect, block, x, y) {
     let into = Math.round((x - contentRect.left) * view.defaultCharacterWidth);
     if (view.lineWrapping && block.height > view.defaultLineHeight * 1.5) {
@@ -11388,35 +11376,6 @@ function posAtCoordsImprecise(view, contentRect, block, x, y) {
     }
     let content = view.state.sliceDoc(block.from, block.to);
     return block.from + findColumn(content, into, view.state.tabSize);
-}
-// In case of a high line height, Safari's caretRangeFromPoint treats
-// the space between lines as belonging to the last character of the
-// line before. This is used to detect such a result so that it can be
-// ignored (issue #401).
-function isSuspiciousSafariCaretResult(node, offset, x) {
-    let len;
-    if (node.nodeType != 3 || offset != (len = node.nodeValue.length))
-        return false;
-    for (let next = node.nextSibling; next; next = next.nextSibling)
-        if (next.nodeType != 1 || next.nodeName != "BR")
-            return false;
-    return textRange(node, len - 1, len).getBoundingClientRect().left > x;
-}
-// Chrome will move positions between lines to the start of the next line
-function isSuspiciousChromeCaretResult(node, offset, x) {
-    if (offset != 0)
-        return false;
-    for (let cur = node;;) {
-        let parent = cur.parentNode;
-        if (!parent || parent.nodeType != 1 || parent.firstChild != cur)
-            return false;
-        if (parent.classList.contains("cm-line"))
-            break;
-        cur = parent;
-    }
-    let rect = node.nodeType == 1 ? node.getBoundingClientRect()
-        : textRange(node, 0, Math.max(node.nodeValue.length, 1)).getBoundingClientRect();
-    return x - rect.left > 5;
 }
 function blockAt(view, pos, side) {
     let line = view.lineBlockAt(pos);
@@ -11504,15 +11463,8 @@ function moveVertically(view, start, forward, distance) {
     }
     let resolvedGoal = rect.left + goal;
     let dist = distance !== null && distance !== void 0 ? distance : (view.viewState.heightOracle.textHeight >> 1);
-    for (let extra = 0;; extra += 10) {
-        let curY = startY + (dist + extra) * dir;
-        let pos = posAtCoords(view, { x: resolvedGoal, y: curY }, false, dir);
-        if (curY < rect.top || curY > rect.bottom || (dir < 0 ? pos < startPos : pos > startPos)) {
-            let charRect = view.docView.coordsForChar(pos);
-            let assoc = !charRect || curY < charRect.top ? -1 : 1;
-            return EditorSelection.cursor(pos, assoc, undefined, goal);
-        }
-    }
+    let pos = posAtCoords(view, { x: resolvedGoal, y: startY + dist * dir }, false, dir);
+    return EditorSelection.cursor(pos.pos, pos.assoc, undefined, goal);
 }
 function skipAtomicRanges(atoms, pos, bias) {
     for (;;) {
@@ -11530,17 +11482,166 @@ function skipAtomicRanges(atoms, pos, bias) {
             return pos;
     }
 }
+function skipAtomsForSelection(atoms, sel) {
+    let ranges = null;
+    for (let i = 0; i < sel.ranges.length; i++) {
+        let range = sel.ranges[i], updated = null;
+        if (range.empty) {
+            let pos = skipAtomicRanges(atoms, range.from, 0);
+            if (pos != range.from)
+                updated = EditorSelection.cursor(pos, -1);
+        }
+        else {
+            let from = skipAtomicRanges(atoms, range.from, -1);
+            let to = skipAtomicRanges(atoms, range.to, 1);
+            if (from != range.from || to != range.to)
+                updated = EditorSelection.range(range.from == range.anchor ? from : to, range.from == range.head ? from : to);
+        }
+        if (updated) {
+            if (!ranges)
+                ranges = sel.ranges.slice();
+            ranges[i] = updated;
+        }
+    }
+    return ranges ? EditorSelection.create(ranges, sel.mainIndex) : sel;
+}
 function skipAtoms(view, oldPos, pos) {
     let newPos = skipAtomicRanges(view.state.facet(atomicRanges).map(f => f(view)), pos.from, oldPos.head > pos.from ? -1 : 1);
     return newPos == pos.from ? pos : EditorSelection.cursor(newPos, newPos < pos.from ? 1 : -1);
 }
+class PosAssoc {
+    constructor(pos, assoc) {
+        this.pos = pos;
+        this.assoc = assoc;
+    }
+}
+function posAtCoords(view, coords, precise, scanY) {
+    let content = view.contentDOM.getBoundingClientRect(), docTop = content.top + view.viewState.paddingTop;
+    let { x, y } = coords, yOffset = y - docTop, block;
+    // First find the block at the given Y position, if any. If scanY is
+    // given (used for vertical cursor motion), try to skip widgets and
+    // line padding.
+    for (;;) {
+        if (yOffset < 0)
+            return new PosAssoc(0, 1);
+        if (yOffset > view.viewState.docHeight)
+            return new PosAssoc(view.state.doc.length, -1);
+        block = view.elementAtHeight(yOffset);
+        if (scanY == null)
+            break;
+        if (block.type == BlockType.Text) {
+            // Check whether we aren't landing the top/bottom padding of the line
+            let rect = view.docView.coordsAt(scanY < 0 ? block.from : block.to, scanY);
+            if (rect && (scanY < 0 ? rect.top <= yOffset + docTop : rect.bottom >= yOffset + docTop))
+                break;
+        }
+        let halfLine = view.viewState.heightOracle.textHeight / 2;
+        yOffset = scanY > 0 ? block.bottom + halfLine : block.top - halfLine;
+    }
+    // If outside the viewport, return null if precise==true, an
+    // estimate otherwise.
+    if (view.viewport.from >= block.to || view.viewport.to <= block.from) {
+        if (precise)
+            return null;
+        if (block.type == BlockType.Text) {
+            let pos = posAtCoordsImprecise(view, content, block, x, y);
+            return new PosAssoc(pos, pos == block.from ? 1 : -1);
+        }
+    }
+    if (block.type != BlockType.Text)
+        return yOffset < (block.top + block.bottom) / 2 ? new PosAssoc(block.from, 1) : new PosAssoc(block.to, -1);
+    // Here we know we're in a line, so run the logic for inline layout
+    let line = view.docView.lineAt(block.from, 2);
+    if (!line || line.length != block.length)
+        line = view.docView.lineAt(block.from, -2);
+    return posAtCoordsInline(view, line, block.from, x, y);
+}
+// Scan through the rectangles for the content of a tile, finding the
+// one closest to the given coordinates, prefering closeness in Y over
+// closeness in X.
+//
+// If this is a text tile, go character-by-character. For line or mark
+// tiles, check each non-point-widget child, and descend text or mark
+// tiles with a recursive call.
+//
+// For non-wrapped, purely left-to-right text, this could use a binary
+// search. But because this seems to be fast enough, for how often it
+// is called, there's not currently a specialized implementation for
+// that.
+function posAtCoordsInline(view, tile, offset, x, y) {
+    let closest = -1, closestRect = null;
+    let dxClosest = 1e9, dyClosest = 1e9;
+    let rowTop = y, rowBot = y;
+    let checkRects = (rects, index) => {
+        for (let i = 0; i < rects.length; i++) {
+            let rect = rects[i];
+            if (rect.top == rect.bottom)
+                continue;
+            let dx = rect.left > x ? rect.left - x : rect.right < x ? x - rect.right : 0;
+            let dy = rect.top > y ? rect.top - y : rect.bottom < y ? y - rect.bottom : 0;
+            if (rect.top <= rowBot && rect.bottom >= rowTop) {
+                // Rectangle is in the current row
+                rowTop = Math.min(rect.top, rowTop);
+                rowBot = Math.max(rect.bottom, rowBot);
+                dy = 0;
+            }
+            if (closest < 0 || (dy - dyClosest || dx - dxClosest) < 0) {
+                if (closest >= 0 && dyClosest && dxClosest < dx &&
+                    closestRect.top <= rowBot - 2 && closestRect.bottom >= rowTop + 2) {
+                    // Retroactively set dy to 0 if the current match is in this row.
+                    dyClosest = 0;
+                }
+                else {
+                    closest = index;
+                    dxClosest = dx;
+                    dyClosest = dy;
+                    closestRect = rect;
+                }
+            }
+        }
+    };
+    if (tile.isText()) {
+        for (let i = 0; i < tile.length;) {
+            let next = findClusterBreak(tile.text, i);
+            checkRects(textRange(tile.dom, i, next).getClientRects(), i);
+            if (!dxClosest && !dyClosest)
+                break;
+            i = next;
+        }
+        let after = (x > (closestRect.left + closestRect.right) / 2) == (dirAt(view, closest + offset) == Direction.LTR);
+        return after ? new PosAssoc(offset + findClusterBreak(tile.text, closest), -1) : new PosAssoc(offset + closest, 1);
+    }
+    else {
+        if (!tile.length)
+            return new PosAssoc(offset, 1);
+        for (let i = 0; i < tile.children.length; i++) {
+            let child = tile.children[i];
+            if (child.flags & 48 /* TileFlag.PointWidget */)
+                continue;
+            let rects = (child.dom.nodeType == 1 ? child.dom : textRange(child.dom, 0, child.length)).getClientRects();
+            checkRects(rects, i);
+            if (!dxClosest && !dyClosest)
+                break;
+        }
+        let inner = tile.children[closest], innerOff = tile.posBefore(inner, offset);
+        if (inner.isComposite() || inner.isText())
+            return posAtCoordsInline(view, inner, innerOff, Math.max(closestRect.left, Math.min(closestRect.right, x)), y);
+        let after = (x > (closestRect.left + closestRect.right) / 2) == (dirAt(view, closest + offset) == Direction.LTR);
+        return after ? new PosAssoc(innerOff + inner.length, -1) : new PosAssoc(innerOff, 1);
+    }
+}
+function dirAt(view, pos) {
+    let line = view.state.doc.lineAt(pos), spans = view.bidiSpans(line);
+    return spans[BidiSpan.find(view.bidiSpans(line), pos - line.from, -1, 1)].dir;
+}
 
 const LineBreakPlaceholder = "\uffff";
 class DOMReader {
-    constructor(points, state) {
+    constructor(points, view) {
         this.points = points;
+        this.view = view;
         this.text = "";
-        this.lineSeparator = state.facet(EditorState.lineSeparator);
+        this.lineSeparator = view.state.facet(EditorState.lineSeparator);
     }
     append(text) {
         this.text += text;
@@ -11556,13 +11657,17 @@ class DOMReader {
             this.findPointBefore(parent, cur);
             let oldLen = this.text.length;
             this.readNode(cur);
-            let next = cur.nextSibling;
-            if (next == end)
+            let tile = Tile.get(cur), next = cur.nextSibling;
+            if (next == end) {
+                if ((tile === null || tile === void 0 ? void 0 : tile.breakAfter) && !next && parent != this.view.contentDOM)
+                    this.lineBreak();
                 break;
-            let view = ContentView.get(cur), nextView = ContentView.get(next);
-            if (view && nextView ? view.breakAfter :
-                (view ? view.breakAfter : isBlockElement(cur)) ||
-                    (isBlockElement(next) && (cur.nodeName != "BR" || cur.cmIgnore) && this.text.length > oldLen))
+            }
+            let nextTile = Tile.get(next);
+            if ((tile && nextTile ? tile.breakAfter :
+                (tile ? tile.breakAfter : isBlockElement(cur)) ||
+                    (isBlockElement(next) && (cur.nodeName != "BR" || (tile === null || tile === void 0 ? void 0 : tile.isWidget())) && this.text.length > oldLen)) &&
+                !isEmptyToEnd(next, end))
                 this.lineBreak();
             cur = next;
         }
@@ -11596,10 +11701,8 @@ class DOMReader {
         }
     }
     readNode(node) {
-        if (node.cmIgnore)
-            return;
-        let view = ContentView.get(node);
-        let fromView = view && view.overrideDOMText;
+        let tile = Tile.get(node);
+        let fromView = tile && tile.overrideDOMText;
         if (fromView != null) {
             this.findPointInside(node, fromView.length);
             for (let i = fromView.iter(); !i.next().done;) {
@@ -11641,6 +11744,25 @@ function isAtEnd(parent, node, offset) {
         node = node.parentNode;
     }
 }
+function isEmptyToEnd(node, end) {
+    let widgets;
+    for (;; node = node.nextSibling) {
+        if (node == end || !node)
+            break;
+        let view = Tile.get(node);
+        if (!(view === null || view === void 0 ? void 0 : view.isWidget()))
+            return false;
+        if (view)
+            (widgets || (widgets = [])).push(view);
+    }
+    if (widgets)
+        for (let w of widgets) {
+            let override = w.overrideDOMText;
+            if (override === null || override === void 0 ? void 0 : override.length)
+                return false;
+        }
+    return true;
+}
 class DOMPoint {
     constructor(node, offset) {
         this.node = node;
@@ -11660,9 +11782,9 @@ class DOMChange {
             // Ignore changes when the editor is read-only
             this.newSel = null;
         }
-        else if (start > -1 && (this.bounds = view.docView.domBoundsAround(start, end, 0))) {
+        else if (start > -1 && (this.bounds = domBoundsAround(view.docView.tile, start, end, 0))) {
             let selPoints = iHead || iAnchor ? [] : selectionPoints(view);
-            let reader = new DOMReader(selPoints, view.state);
+            let reader = new DOMReader(selPoints, view);
             reader.readRange(this.bounds.startDOM, this.bounds.endDOM);
             this.text = reader.text;
             this.newSel = selectionFromPoints(selPoints, this.bounds.from);
@@ -11691,8 +11813,41 @@ class DOMChange {
                     anchor = view.state.doc.length;
                 }
             }
-            this.newSel = EditorSelection.single(anchor, head);
+            if (view.inputState.composing > -1 && view.state.selection.ranges.length > 1)
+                this.newSel = view.state.selection.replaceRange(EditorSelection.range(anchor, head));
+            else
+                this.newSel = EditorSelection.single(anchor, head);
         }
+    }
+}
+function domBoundsAround(tile, from, to, offset) {
+    if (tile.isComposite()) {
+        let fromI = -1, fromStart = -1, toI = -1, toEnd = -1;
+        for (let i = 0, pos = offset, prevEnd = offset; i < tile.children.length; i++) {
+            let child = tile.children[i], end = pos + child.length;
+            if (pos < from && end > to)
+                return domBoundsAround(child, from, to, pos);
+            if (end >= from && fromI == -1) {
+                fromI = i;
+                fromStart = pos;
+            }
+            if (pos > to && child.dom.parentNode == tile.dom) {
+                toI = i;
+                toEnd = prevEnd;
+                break;
+            }
+            prevEnd = end;
+            pos = end + child.breakAfter;
+        }
+        return { from: fromStart, to: toEnd < 0 ? offset + tile.length : toEnd,
+            startDOM: (fromI ? tile.children[fromI - 1].dom.nextSibling : null) || tile.dom.firstChild,
+            endDOM: toI < tile.children.length && toI >= 0 ? tile.children[toI].dom : null };
+    }
+    else if (tile.isText()) {
+        return { from: offset, to: offset + tile.length, startDOM: tile.dom, endDOM: tile.dom.nextSibling };
+    }
+    else {
+        return null;
     }
 }
 function applyDOMChange(view, domChange) {
@@ -11719,7 +11874,7 @@ function applyDOMChange(view, domChange) {
                 insert: Text.of(domChange.text.slice(diff.from, diff.toB).split(LineBreakPlaceholder)) };
         }
     }
-    else if (newSel && (!view.hasFocus && view.state.facet(editable) || newSel.main.eq(sel))) {
+    else if (newSel && (!view.hasFocus && view.state.facet(editable) || sameSelPos(newSel, sel))) {
         newSel = null;
     }
     if (!change && !newSel)
@@ -11747,6 +11902,18 @@ function applyDOMChange(view, domChange) {
             insert: view.state.doc.slice(sel.from, change.from).append(change.insert).append(view.state.doc.slice(change.to, sel.to))
         };
     }
+    else if (view.state.doc.lineAt(sel.from).to < sel.to && view.docView.lineHasWidget(sel.to) &&
+        view.inputState.insertingTextAt > Date.now() - 50) {
+        // For a cross-line insertion, Chrome and Safari will crudely take
+        // the text of the line after the selection, flattening any
+        // widgets, and move it into the joined line. This tries to detect
+        // such a situation, and replaces the change with a selection
+        // replace of the text provided by the beforeinput event.
+        change = {
+            from: sel.from, to: sel.to,
+            insert: view.state.toText(view.inputState.insertingText)
+        };
+    }
     else if (browser.chrome && change && change.from == change.to && change.from == sel.head &&
         change.insert.toString() == "\n " && view.lineWrapping) {
         // In Chrome, if you insert a space at the start of a wrapped
@@ -11759,12 +11926,14 @@ function applyDOMChange(view, domChange) {
     if (change) {
         return applyDOMChangeInner(view, change, newSel, lastKey);
     }
-    else if (newSel && !newSel.main.eq(sel)) {
+    else if (newSel && !sameSelPos(newSel, sel)) {
         let scrollIntoView = false, userEvent = "select";
         if (view.inputState.lastSelectionTime > Date.now() - 50) {
             if (view.inputState.lastSelectionOrigin == "select")
                 scrollIntoView = true;
             userEvent = view.inputState.lastSelectionOrigin;
+            if (userEvent == "select.pointer")
+                newSel = skipAtomsForSelection(view.state.facet(atomicRanges).map(f => f(view)), newSel);
         }
         view.dispatch({ selection: newSel, scrollIntoView, userEvent });
         return true;
@@ -11806,8 +11975,20 @@ function applyDOMChangeInner(view, change, newSel, lastKey = -1) {
     return true;
 }
 function applyDefaultInsert(view, change, newSel) {
-    let tr, startState = view.state, sel = startState.selection.main;
-    if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 &&
+    let tr, startState = view.state, sel = startState.selection.main, inAtomic = -1;
+    if (change.from == change.to && change.from < sel.from || change.from > sel.to) {
+        let side = change.from < sel.from ? -1 : 1, pos = side < 0 ? sel.from : sel.to;
+        let moved = skipAtomicRanges(startState.facet(atomicRanges).map(f => f(view)), pos, side);
+        if (change.from == moved)
+            inAtomic = moved;
+    }
+    if (inAtomic > -1) {
+        tr = {
+            changes: change,
+            selection: EditorSelection.cursor(change.from + change.insert.length, -1)
+        };
+    }
+    else if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 &&
         (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length) &&
         view.inputState.composing < 0) {
         let before = sel.from < change.from ? startState.sliceDoc(sel.from, change.from) : "";
@@ -11818,8 +11999,8 @@ function applyDefaultInsert(view, change, newSel) {
         let changes = startState.changes(change);
         let mainSel = newSel && newSel.main.to <= changes.newLength ? newSel.main : undefined;
         // Try to apply a composition change to all cursors
-        if (startState.selection.ranges.length > 1 && view.inputState.composing >= 0 &&
-            change.to <= sel.to && change.to >= sel.to - 10) {
+        if (startState.selection.ranges.length > 1 && (view.inputState.composing >= 0 || view.inputState.compositionPendingChange) &&
+            change.to <= sel.to + 10 && change.to >= sel.to - 10) {
             let replaced = view.state.sliceDoc(change.from, change.to);
             let compositionRange, composition = newSel && findCompositionNode(view, newSel.main.head);
             if (composition) {
@@ -11829,17 +12010,17 @@ function applyDefaultInsert(view, change, newSel) {
             else {
                 compositionRange = view.state.doc.lineAt(sel.head);
             }
-            let offset = sel.to - change.to, size = sel.to - sel.from;
+            let offset = sel.to - change.to;
             tr = startState.changeByRange(range => {
                 if (range.from == sel.from && range.to == sel.to)
                     return { changes, range: mainSel || range.map(changes) };
                 let to = range.to - offset, from = to - replaced.length;
-                if (range.to - range.from != size || view.state.sliceDoc(from, to) != replaced ||
+                if (view.state.sliceDoc(from, to) != replaced ||
                     // Unfortunately, there's no way to make multiple
                     // changes in the same node work without aborting
                     // composition, so cursors in the composition range are
                     // ignored.
-                    range.to >= compositionRange.from && range.from <= compositionRange.to)
+                    to >= compositionRange.from && from <= compositionRange.to)
                     return { range };
                 let rangeChanges = startState.changes({ from, to, insert: change.insert }), selOff = range.to - sel.to;
                 return {
@@ -11916,6 +12097,9 @@ function selectionFromPoints(points, base) {
     let anchor = points[0].pos, head = points.length == 2 ? points[1].pos : anchor;
     return anchor > -1 && head > -1 ? EditorSelection.single(anchor + base, head + base) : null;
 }
+function sameSelPos(selection, range) {
+    return range.head == selection.main.head && range.anchor == selection.main.anchor;
+}
 
 class InputState {
     setSelectionOrigin(origin) {
@@ -11966,6 +12150,9 @@ class InputState {
         // Used to categorize changes as part of a composition, even when
         // the mutation events fire shortly after the compositionend event
         this.compositionPendingChange = false;
+        // Set by beforeinput, used in DOM change reader
+        this.insertingText = "";
+        this.insertingTextAt = 0;
         this.mouseSelection = null;
         // When a drag from the editor is active, this points at the range
         // being dragged.
@@ -12068,7 +12255,7 @@ class InputState {
         return dispatchKey(this.view.contentDOM, key.key, key.keyCode, key instanceof KeyboardEvent ? key : undefined);
     }
     ignoreDuringComposition(event) {
-        if (!/^key/.test(event.type))
+        if (!/^key/.test(event.type) || event.synthetic)
             return false;
         if (this.composing > 0)
             return true;
@@ -12242,31 +12429,8 @@ class MouseSelection {
         if (this.dragging === false)
             this.select(this.lastEvent);
     }
-    skipAtoms(sel) {
-        let ranges = null;
-        for (let i = 0; i < sel.ranges.length; i++) {
-            let range = sel.ranges[i], updated = null;
-            if (range.empty) {
-                let pos = skipAtomicRanges(this.atoms, range.from, 0);
-                if (pos != range.from)
-                    updated = EditorSelection.cursor(pos, -1);
-            }
-            else {
-                let from = skipAtomicRanges(this.atoms, range.from, -1);
-                let to = skipAtomicRanges(this.atoms, range.to, 1);
-                if (from != range.from || to != range.to)
-                    updated = EditorSelection.range(range.from == range.anchor ? from : to, range.from == range.head ? from : to);
-            }
-            if (updated) {
-                if (!ranges)
-                    ranges = sel.ranges.slice();
-                ranges[i] = updated;
-            }
-        }
-        return ranges ? EditorSelection.create(ranges, sel.mainIndex) : sel;
-    }
     select(event) {
-        let { view } = this, selection = this.skipAtoms(this.style.get(event, this.extend, this.multiple));
+        let { view } = this, selection = skipAtomsForSelection(this.atoms, this.style.get(event, this.extend, this.multiple));
         if (this.mustSelect || !selection.eq(view.state.selection, this.dragging === false))
             this.view.dispatch({
                 selection,
@@ -12312,8 +12476,9 @@ function eventBelongsToEditor(view, event) {
         return true;
     if (event.defaultPrevented)
         return false;
-    for (let node = event.target, cView; node != view.contentDOM; node = node.parentNode)
-        if (!node || node.nodeType == 11 || ((cView = ContentView.get(node)) && cView.ignoreEvent(event)))
+    for (let node = event.target, tile; node != view.contentDOM; node = node.parentNode)
+        if (!node || node.nodeType == 11 ||
+            ((tile = Tile.get(node)) && tile.isWidget() && !tile.isHidden && tile.widget.ignoreEvent(event)))
             return false;
     return true;
 }
@@ -12419,6 +12584,9 @@ handlers.mousedown = (view, event) => {
             return mouseSel.dragging === false;
         }
     }
+    else {
+        view.inputState.setSelectionOrigin("select.pointer");
+    }
     return false;
 };
 function rangeForClick(view, pos, bias, type) {
@@ -12429,41 +12597,12 @@ function rangeForClick(view, pos, bias, type) {
         return groupAt(view.state, pos, bias);
     }
     else { // Triple click
-        let visual = LineView.find(view.docView, pos), line = view.state.doc.lineAt(visual ? visual.posAtEnd : pos);
+        let visual = view.docView.lineAt(pos, bias), line = view.state.doc.lineAt(visual ? visual.posAtEnd : pos);
         let from = visual ? visual.posAtStart : line.from, to = visual ? visual.posAtEnd : line.to;
         if (to < view.state.doc.length && to == line.to)
             to++;
         return EditorSelection.range(from, to);
     }
-}
-let inside = (x, y, rect) => y >= rect.top && y <= rect.bottom && x >= rect.left && x <= rect.right;
-// Try to determine, for the given coordinates, associated with the
-// given position, whether they are related to the element before or
-// the element after the position.
-function findPositionSide(view, pos, x, y) {
-    let line = LineView.find(view.docView, pos);
-    if (!line)
-        return 1;
-    let off = pos - line.posAtStart;
-    // Line boundaries point into the line
-    if (off == 0)
-        return 1;
-    if (off == line.length)
-        return -1;
-    // Positions on top of an element point at that element
-    let before = line.coordsAt(off, -1);
-    if (before && inside(x, y, before))
-        return -1;
-    let after = line.coordsAt(off, 1);
-    if (after && inside(x, y, after))
-        return 1;
-    // This is probably a line wrap point. Pick before if the point is
-    // above its bottom.
-    return before && before.bottom >= y ? -1 : 1;
-}
-function queryPos(view, event) {
-    let pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
-    return { pos, bias: findPositionSide(view, pos, event.clientX, event.clientY) };
 }
 const BadMouseDetail = browser.ie && browser.ie_version <= 11;
 let lastMouseDown = null, lastMouseDownCount = 0, lastMouseDownTime = 0;
@@ -12477,7 +12616,7 @@ function getClickType(event) {
         Math.abs(last.clientY - event.clientY) < 2) ? (lastMouseDownCount + 1) % 3 : 1;
 }
 function basicMouseSelection(view, event) {
-    let start = queryPos(view, event), type = getClickType(event);
+    let start = view.posAndSideAtCoords({ x: event.clientX, y: event.clientY }, false), type = getClickType(event);
     let startSel = view.state.selection;
     return {
         update(update) {
@@ -12487,10 +12626,10 @@ function basicMouseSelection(view, event) {
             }
         },
         get(event, extend, multiple) {
-            let cur = queryPos(view, event), removed;
-            let range = rangeForClick(view, cur.pos, cur.bias, type);
+            let cur = view.posAndSideAtCoords({ x: event.clientX, y: event.clientY }, false), removed;
+            let range = rangeForClick(view, cur.pos, cur.assoc, type);
             if (start.pos != cur.pos && !extend) {
-                let startRange = rangeForClick(view, start.pos, start.bias, type);
+                let startRange = rangeForClick(view, start.pos, start.assoc, type);
                 let from = Math.min(startRange.from, range.from), to = Math.max(startRange.to, range.to);
                 range = from < range.from ? EditorSelection.range(from, to) : EditorSelection.range(to, from);
             }
@@ -12516,9 +12655,9 @@ function removeRangeAround(sel, pos) {
 handlers.dragstart = (view, event) => {
     let { selection: { main: range } } = view.state;
     if (event.target.draggable) {
-        let cView = view.docView.nearest(event.target);
-        if (cView && cView.isWidget) {
-            let from = cView.posAtStart, to = from + cView.length;
+        let tile = view.docView.tile.nearest(event.target);
+        if (tile && tile.isWidget()) {
+            let from = tile.posAtStart, to = from + tile.length;
             if (from >= range.to || to <= range.from)
                 range = EditorSelection.range(from, to);
         }
@@ -12643,6 +12782,14 @@ function copiedRange(state) {
 }
 let lastLinewiseCopy = null;
 handlers.copy = handlers.cut = (view, event) => {
+    // If the DOM selection is outside this editor, don't intercept.
+    // This happens when a parent editor (like ProseMirror) selects content that
+    // spans multiple elements including this CodeMirror. The copy event may
+    // bubble through CodeMirror (e.g. when CodeMirror is the first or the last
+    // element in the selection), but we should let the parent handle it.
+    let domSel = getSelection(view.root);
+    if (domSel && !hasSelection(view.contentDOM, domSel))
+        return false;
     let { text, ranges, linewise } = copiedRange(view.state);
     if (!text && !linewise)
         return false;
@@ -12740,6 +12887,10 @@ observers.contextmenu = view => {
 };
 handlers.beforeinput = (view, event) => {
     var _a, _b;
+    if (event.inputType == "insertText" || event.inputType == "insertCompositionText") {
+        view.inputState.insertingText = event.data;
+        view.inputState.insertingTextAt = Date.now();
+    }
     // In EditContext mode, we must handle insertReplacementText events
     // directly, to make spell checking corrections work
     if (event.inputType == "insertReplacementText" && view.observer.editContext) {
@@ -12823,7 +12974,7 @@ class HeightOracle {
     heightForLine(length) {
         if (!this.lineWrapping)
             return this.lineHeight;
-        let lines = 1 + Math.max(0, Math.ceil((length - this.lineLength) / (this.lineLength - 5)));
+        let lines = 1 + Math.max(0, Math.ceil((length - this.lineLength) / Math.max(1, this.lineLength - 5)));
         return lines * this.lineHeight;
     }
     setDoc(doc) { this.doc = doc; return this; }
@@ -12846,7 +12997,8 @@ class HeightOracle {
     }
     refresh(whiteSpace, lineHeight, charWidth, textHeight, lineLength, knownHeights) {
         let lineWrapping = wrappingWhiteSpace.indexOf(whiteSpace) > -1;
-        let changed = Math.round(lineHeight) != Math.round(this.lineHeight) || this.lineWrapping != lineWrapping;
+        let changed = Math.abs(lineHeight - this.lineHeight) > 0.3 || this.lineWrapping != lineWrapping ||
+            Math.abs(charWidth - this.charWidth) > 0.1;
         this.lineWrapping = lineWrapping;
         this.lineHeight = lineHeight;
         this.charWidth = charWidth;
@@ -12866,7 +13018,7 @@ class HeightOracle {
     }
 }
 // This object is used by `updateHeight` to make DOM measurements
-// arrive at the right nides. The `heights` array is a sequence of
+// arrive at the right nodes. The `heights` array is a sequence of
 // block heights, starting from position `from`.
 class MeasuredHeights {
     constructor(from, heights) {
@@ -12905,7 +13057,7 @@ class BlockInfo {
     /**
     @internal Weird packed field that holds an array of children
     for composite blocks, a decoration for block widgets, and a
-    number indicating the amount of widget-create line breaks for
+    number indicating the amount of widget-created line breaks for
     text blocks.
     */
     _content) {
@@ -13008,7 +13160,7 @@ class HeightMap {
         }
         return me.updateHeight(oracle, 0);
     }
-    static empty() { return new HeightMapText(0, 0); }
+    static empty() { return new HeightMapText(0, 0, 0); }
     // nodes uses null values to indicate the position of line breaks.
     // There are never line breaks at the start or end of the array, or
     // two line breaks next to each other, and the array isn't allowed
@@ -13072,45 +13224,64 @@ function replace(old, val) {
     return val;
 }
 HeightMap.prototype.size = 1;
+const SpaceDeco = /*@__PURE__*/Decoration.replace({});
 class HeightMapBlock extends HeightMap {
     constructor(length, height, deco) {
         super(length, height);
         this.deco = deco;
+        this.spaceAbove = 0;
     }
-    blockAt(_height, _oracle, top, offset) {
-        return new BlockInfo(offset, this.length, top, this.height, this.deco || 0);
+    mainBlock(top, offset) {
+        return new BlockInfo(offset, this.length, top + this.spaceAbove, this.height - this.spaceAbove, this.deco || 0);
+    }
+    blockAt(height, _oracle, top, offset) {
+        return this.spaceAbove && height < top + this.spaceAbove ? new BlockInfo(offset, 0, top, this.spaceAbove, SpaceDeco)
+            : this.mainBlock(top, offset);
     }
     lineAt(_value, _type, oracle, top, offset) {
-        return this.blockAt(0, oracle, top, offset);
+        let main = this.mainBlock(top, offset);
+        return this.spaceAbove ? this.blockAt(0, oracle, top, offset).join(main) : main;
     }
     forEachLine(from, to, oracle, top, offset, f) {
         if (from <= offset + this.length && to >= offset)
-            f(this.blockAt(0, oracle, top, offset));
+            f(this.lineAt(0, QueryType$1.ByPos, oracle, top, offset));
+    }
+    setMeasuredHeight(measured) {
+        let next = measured.heights[measured.index++];
+        if (next < 0) {
+            this.spaceAbove = -next;
+            next = measured.heights[measured.index++];
+        }
+        else {
+            this.spaceAbove = 0;
+        }
+        this.setHeight(next);
     }
     updateHeight(oracle, offset = 0, _force = false, measured) {
         if (measured && measured.from <= offset && measured.more)
-            this.setHeight(measured.heights[measured.index++]);
+            this.setMeasuredHeight(measured);
         this.outdated = false;
         return this;
     }
     toString() { return `block(${this.length})`; }
 }
 class HeightMapText extends HeightMapBlock {
-    constructor(length, height) {
+    constructor(length, height, above) {
         super(length, height, null);
         this.collapsed = 0; // Amount of collapsed content in the line
         this.widgetHeight = 0; // Maximum inline widget height
         this.breaks = 0; // Number of widget-introduced line breaks on the line
+        this.spaceAbove = above;
     }
-    blockAt(_height, _oracle, top, offset) {
-        return new BlockInfo(offset, this.length, top, this.height, this.breaks);
+    mainBlock(top, offset) {
+        return new BlockInfo(offset, this.length, top + this.spaceAbove, this.height - this.spaceAbove, this.breaks);
     }
     replace(_from, _to, nodes) {
         let node = nodes[0];
         if (nodes.length == 1 && (node instanceof HeightMapText || node instanceof HeightMapGap && (node.flags & 4 /* Flag.SingleLine */)) &&
             Math.abs(this.length - node.length) < 10) {
             if (node instanceof HeightMapGap)
-                node = new HeightMapText(node.length, this.height);
+                node = new HeightMapText(node.length, this.height, this.spaceAbove);
             else
                 node.height = this.height;
             if (!this.outdated)
@@ -13122,11 +13293,14 @@ class HeightMapText extends HeightMapBlock {
         }
     }
     updateHeight(oracle, offset = 0, force = false, measured) {
-        if (measured && measured.from <= offset && measured.more)
-            this.setHeight(measured.heights[measured.index++]);
-        else if (force || this.outdated)
+        if (measured && measured.from <= offset && measured.more) {
+            this.setMeasuredHeight(measured);
+        }
+        else if (force || this.outdated) {
+            this.spaceAbove = 0;
             this.setHeight(Math.max(this.widgetHeight, oracle.heightForLine(this.length - this.collapsed)) +
                 this.breaks * oracle.lineHeight);
+        }
         this.outdated = false;
         return this;
     }
@@ -13233,12 +13407,16 @@ class HeightMapGap extends HeightMap {
                 let len = oracle.doc.lineAt(pos).length;
                 if (nodes.length)
                     nodes.push(null);
-                let height = measured.heights[measured.index++];
+                let height = measured.heights[measured.index++], above = 0;
+                if (height < 0) {
+                    above = -height;
+                    height = measured.heights[measured.index++];
+                }
                 if (singleHeight == -1)
                     singleHeight = height;
                 else if (Math.abs(height - singleHeight) >= Epsilon)
                     singleHeight = -2;
-                let line = new HeightMapText(len, height);
+                let line = new HeightMapText(len, height, above);
                 line.outdated = false;
                 nodes.push(line);
                 pos += len + 1;
@@ -13403,7 +13581,7 @@ class NodeBuilder {
             if (last instanceof HeightMapText)
                 last.length += end - this.pos;
             else if (end > this.pos || !this.isCovered)
-                this.nodes.push(new HeightMapText(end - this.pos, -1));
+                this.nodes.push(new HeightMapText(end - this.pos, -1, 0));
             this.writtenTo = end;
             if (to > end) {
                 this.nodes.push(null);
@@ -13445,7 +13623,7 @@ class NodeBuilder {
             this.nodes.push(null);
         }
         if (this.pos > from)
-            this.nodes.push(new HeightMapText(this.pos - from, -1));
+            this.nodes.push(new HeightMapText(this.pos - from, -1, 0));
         this.writtenTo = this.pos;
     }
     blankContent(from, to) {
@@ -13459,7 +13637,7 @@ class NodeBuilder {
         let last = this.nodes.length ? this.nodes[this.nodes.length - 1] : null;
         if (last instanceof HeightMapText)
             return last;
-        let line = new HeightMapText(0, -1);
+        let line = new HeightMapText(0, -1, 0);
         this.nodes.push(line);
         return line;
     }
@@ -13484,7 +13662,7 @@ class NodeBuilder {
     finish(from) {
         let last = this.nodes.length == 0 ? null : this.nodes[this.nodes.length - 1];
         if (this.lineStart > -1 && !(last instanceof HeightMapText) && !this.isCovered)
-            this.nodes.push(new HeightMapText(0, -1));
+            this.nodes.push(new HeightMapText(0, -1, 0));
         else if (this.writtenTo < this.pos || last == null)
             this.nodes.push(this.blankContent(this.writtenTo, this.pos));
         let pos = from;
@@ -13653,7 +13831,7 @@ class ViewState {
         this.mustEnforceCursorAssoc = false;
         let guessWrapping = state.facet(contentAttributes).some(v => typeof v != "function" && v.class == "cm-lineWrapping");
         this.heightOracle = new HeightOracle(guessWrapping);
-        this.stateDeco = state.facet(decorations).filter(d => typeof d != "function");
+        this.stateDeco = staticDeco(state);
         this.heightMap = HeightMap.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle.setDoc(state.doc), [new ChangedRange(0, 0, 0, state.doc.length)]);
         for (let i = 0; i < 2; i++) {
             this.viewport = this.getViewport(0, null);
@@ -13692,7 +13870,7 @@ class ViewState {
     update(update, scrollTarget = null) {
         this.state = update.state;
         let prevDeco = this.stateDeco;
-        this.stateDeco = this.state.facet(decorations).filter(d => typeof d != "function");
+        this.stateDeco = staticDeco(this.state);
         let contentChanges = update.changedRanges;
         let heightChanges = ChangedRange.extendWithRanges(contentChanges, heightRelevantDecoChanges(prevDeco, this.stateDeco, update ? update.changes : ChangeSet.empty(this.state.doc.length)));
         let prevHeight = this.heightMap.height;
@@ -13723,7 +13901,7 @@ class ViewState {
         update.flags |= this.computeVisibleRanges(update.changes);
         if (scrollTarget)
             this.scrollTarget = scrollTarget;
-        if (!this.mustEnforceCursorAssoc && update.selectionSet && update.view.lineWrapping &&
+        if (!this.mustEnforceCursorAssoc && (update.selectionSet || update.focusChanged) && update.view.lineWrapping &&
             update.state.selection.main.empty && update.state.selection.main.assoc &&
             !update.state.facet(nativeSelectionHidden))
             this.mustEnforceCursorAssoc = true;
@@ -13733,7 +13911,7 @@ class ViewState {
         let oracle = this.heightOracle;
         let whiteSpace = style.whiteSpace;
         this.defaultTextDirection = style.direction == "rtl" ? Direction.RTL : Direction.LTR;
-        let refresh = this.heightOracle.mustRefreshForWrapping(whiteSpace);
+        let refresh = this.heightOracle.mustRefreshForWrapping(whiteSpace) || this.mustMeasureContent;
         let domRect = dom.getBoundingClientRect();
         let measureContent = refresh || this.mustMeasureContent || this.contentDOMHeight != domRect.height;
         this.contentDOMHeight = domRect.height;
@@ -13793,7 +13971,7 @@ class ViewState {
                 refresh = true;
             if (refresh || oracle.lineWrapping && Math.abs(contentWidth - this.contentDOMWidth) > oracle.charWidth) {
                 let { lineHeight, charWidth, textHeight } = view.docView.measureTextSize();
-                refresh = lineHeight > 0 && oracle.refresh(whiteSpace, lineHeight, charWidth, textHeight, contentWidth / charWidth, lineHeights);
+                refresh = lineHeight > 0 && oracle.refresh(whiteSpace, lineHeight, charWidth, textHeight, Math.max(5, contentWidth / charWidth), lineHeights);
                 if (refresh) {
                     view.docView.minWidth = 0;
                     result |= 16 /* UpdateFlag.Geometry */;
@@ -14121,6 +14299,13 @@ const IdScaler = {
     scale: 1,
     eq(other) { return other == this; }
 };
+function staticDeco(state) {
+    let deco = state.facet(decorations).filter(d => typeof d != "function");
+    let outer = state.facet(outerDecorations).filter(d => typeof d != "function");
+    if (outer.length)
+        deco.push(RangeSet.join(outer));
+    return deco;
+}
 // When the height is too big (> VP.MaxDOMHeight), scale down the
 // regions outside the viewports so that the total height is
 // VP.MaxDOMHeight.
@@ -14193,7 +14378,7 @@ function buildTheme(main, spec, scopes) {
         }
     });
 }
-const baseTheme$1$3 = /*@__PURE__*/buildTheme("." + baseThemeID, {
+const baseTheme$1$2 = /*@__PURE__*/buildTheme("." + baseThemeID, {
     "&": {
         position: "relative !important",
         boxSizing: "border-box",
@@ -14318,13 +14503,16 @@ const baseTheme$1$3 = /*@__PURE__*/buildTheme("." + baseThemeID, {
         display: "flex",
         height: "100%",
         boxSizing: "border-box",
-        insetInlineStart: 0,
-        zIndex: 200
+        zIndex: 200,
     },
+    ".cm-gutters-before": { insetInlineStart: 0 },
+    ".cm-gutters-after": { insetInlineEnd: 0 },
     "&light .cm-gutters": {
         backgroundColor: "#f5f5f5",
         color: "#6c6c6c",
-        borderRight: "1px solid #ddd"
+        border: "0px solid #ddd",
+        "&.cm-gutters-before": { borderRightWidth: "1px" },
+        "&.cm-gutters-after": { borderLeftWidth: "1px" },
     },
     "&dark .cm-gutters": {
         backgroundColor: "#333338",
@@ -14515,7 +14703,7 @@ class DOMObserver {
             else
                 this.flush();
         });
-        if (window.EditContext && view.constructor.EDIT_CONTEXT !== false &&
+        if (window.EditContext && browser.android && view.constructor.EDIT_CONTEXT !== false &&
             // Chrome <126 doesn't support inverted selections in edit context (#1392)
             !(browser.chrome && browser.chrome_version < 126)) {
             this.editContext = new EditContextManager(view);
@@ -14608,8 +14796,8 @@ class DOMObserver {
         let { view } = this, sel = this.selectionRange;
         if (view.state.facet(editable) ? view.root.activeElement != this.dom : !hasSelection(this.dom, sel))
             return;
-        let context = sel.anchorNode && view.docView.nearest(sel.anchorNode);
-        if (context && context.ignoreEvent(event)) {
+        let context = sel.anchorNode && view.docView.tile.nearest(sel.anchorNode);
+        if (context && context.isWidget() && context.widget.ignoreEvent(event)) {
             if (!wasChanged)
                 this.selectionChanged = false;
             return;
@@ -14834,25 +15022,23 @@ class DOMObserver {
         let handled = applyDOMChange(this.view, domChange);
         // The view wasn't updated but DOM/selection changes were seen. Reset the view.
         if (this.view.state == startState &&
-            (domChange.domChanged || domChange.newSel && !domChange.newSel.main.eq(this.view.state.selection.main)))
+            (domChange.domChanged || domChange.newSel && !sameSelPos(this.view.state.selection, domChange.newSel.main)))
             this.view.update([]);
         return handled;
     }
     readMutation(rec) {
-        let cView = this.view.docView.nearest(rec.target);
-        if (!cView || cView.ignoreMutation(rec))
+        let tile = this.view.docView.tile.nearest(rec.target);
+        if (!tile || tile.isWidget())
             return null;
-        cView.markDirty(rec.type == "attributes");
-        if (rec.type == "attributes")
-            cView.flags |= 4 /* ViewFlag.AttrsDirty */;
+        tile.markDirty(rec.type == "attributes");
         if (rec.type == "childList") {
-            let childBefore = findChild(cView, rec.previousSibling || rec.target.previousSibling, -1);
-            let childAfter = findChild(cView, rec.nextSibling || rec.target.nextSibling, 1);
-            return { from: childBefore ? cView.posAfter(childBefore) : cView.posAtStart,
-                to: childAfter ? cView.posBefore(childAfter) : cView.posAtEnd, typeOver: false };
+            let childBefore = findChild(tile, rec.previousSibling || rec.target.previousSibling, -1);
+            let childAfter = findChild(tile, rec.nextSibling || rec.target.nextSibling, 1);
+            return { from: childBefore ? tile.posAfter(childBefore) : tile.posAtStart,
+                to: childAfter ? tile.posBefore(childAfter) : tile.posAtEnd, typeOver: false };
         }
         else if (rec.type == "characterData") {
-            return { from: cView.posAtStart, to: cView.posAtEnd, typeOver: rec.target.nodeValue == rec.oldValue };
+            return { from: tile.posAtStart, to: tile.posAtEnd, typeOver: rec.target.nodeValue == rec.oldValue };
         }
         else {
             return null;
@@ -14917,20 +15103,20 @@ class DOMObserver {
         }
     }
 }
-function findChild(cView, dom, dir) {
+function findChild(tile, dom, dir) {
     while (dom) {
-        let curView = ContentView.get(dom);
-        if (curView && curView.parent == cView)
-            return curView;
+        let curTile = Tile.get(dom);
+        if (curTile && curTile.parent == tile)
+            return curTile;
         let parent = dom.parentNode;
-        dom = parent != cView.dom ? parent : dir > 0 ? dom.nextSibling : dom.previousSibling;
+        dom = parent != tile.dom ? parent : dir > 0 ? dom.nextSibling : dom.previousSibling;
     }
     return null;
 }
 function buildSelectionRangeFromRange(view, range) {
     let anchorNode = range.startContainer, anchorOffset = range.startOffset;
     let focusNode = range.endContainer, focusOffset = range.endOffset;
-    let curAnchor = view.docView.domAtPos(view.state.selection.main.anchor);
+    let curAnchor = view.docView.domAtPos(view.state.selection.main.anchor, 1);
     // Since such a range doesn't distinguish between anchor and head,
     // use a heuristic that flips it around if its end matches the
     // current anchor.
@@ -14989,20 +15175,23 @@ class EditContextManager {
             let from = this.toEditorPos(e.updateRangeStart), to = this.toEditorPos(e.updateRangeEnd);
             if (view.inputState.composing >= 0 && !this.composing)
                 this.composing = { contextBase: e.updateRangeStart, editorBase: from, drifted: false };
-            let change = { from, to, insert: Text.of(e.text.split("\n")) };
+            let deletes = to - from > e.text.length;
             // If the window doesn't include the anchor, assume changes
             // adjacent to a side go up to the anchor.
-            if (change.from == this.from && anchor < this.from)
-                change.from = anchor;
-            else if (change.to == this.to && anchor > this.to)
-                change.to = anchor;
+            if (from == this.from && anchor < this.from)
+                from = anchor;
+            else if (to == this.to && anchor > this.to)
+                to = anchor;
+            let diff = findDiff(view.state.sliceDoc(from, to), e.text, (deletes ? main.from : main.to) - from, deletes ? "end" : null);
             // Edit contexts sometimes fire empty changes
-            if (change.from == change.to && !change.insert.length) {
+            if (!diff) {
                 let newSel = EditorSelection.single(this.toEditorPos(e.selectionStart), this.toEditorPos(e.selectionEnd));
-                if (!newSel.main.eq(main))
+                if (!sameSelPos(newSel, main))
                     view.dispatch({ selection: newSel, userEvent: "select" });
                 return;
             }
+            let change = { from: diff.from + from, to: diff.toA + from,
+                insert: Text.of(e.text.slice(diff.from, diff.toB).split("\n")) };
             if ((browser.mac || browser.android) && change.from == head - 1 &&
                 /^\. ?$/.test(e.text) && view.contentDOM.getAttribute("autocorrect") == "off")
                 change = { from, to, insert: Text.of([e.text.replace(".", " ")]) };
@@ -15017,6 +15206,10 @@ class EditContextManager {
                 this.revertPending(view.state);
                 this.setSelection(view.state);
             }
+            // Work around missed compositionend events. See https://discuss.codemirror.net/t/a/9514
+            if (change.from < change.to && !change.insert.length && view.inputState.composing >= 0 &&
+                !/[\\p{Alphabetic}\\p{Number}_]/.test(context.text.slice(Math.max(0, e.updateRangeStart - 1), Math.min(context.text.length, e.updateRangeStart + 1))))
+                this.handlers.compositionend(e);
         };
         this.handlers.characterboundsupdate = e => {
             let rects = [], prev = null;
@@ -15032,10 +15225,11 @@ class EditContextManager {
             let deco = [];
             for (let format of e.getTextFormats()) {
                 let lineStyle = format.underlineStyle, thickness = format.underlineThickness;
-                if (lineStyle != "None" && thickness != "None") {
+                if (!/none/i.test(lineStyle) && !/none/i.test(thickness)) {
                     let from = this.toEditorPos(format.rangeStart), to = this.toEditorPos(format.rangeEnd);
                     if (from < to) {
-                        let style = `text-decoration: underline ${lineStyle == "Dashed" ? "dashed " : lineStyle == "Squiggle" ? "wavy " : ""}${thickness == "Thin" ? 1 : 2}px`;
+                        // These values changed from capitalized custom strings to lower-case CSS keywords in 2025
+                        let style = `text-decoration: underline ${/^[a-z]/.test(lineStyle) ? lineStyle + " " : lineStyle == "Dashed" ? "dashed " : lineStyle == "Squiggle" ? "wavy " : ""}${/thin/i.test(thickness) ? 1 : 2}px`;
                         deco.push(Decoration.mark({ attributes: { style } }).range(from, to));
                     }
                 }
@@ -15293,7 +15487,10 @@ class EditorView {
         this.updateState = 0 /* UpdateState.Idle */;
         this.requestMeasure();
         if ((_a = document.fonts) === null || _a === void 0 ? void 0 : _a.ready)
-            document.fonts.ready.then(() => this.requestMeasure());
+            document.fonts.ready.then(() => {
+                this.viewState.mustMeasureContent = true;
+                this.requestMeasure();
+            });
     }
     dispatch(...input) {
         let trs = input.length == 1 && input[0] instanceof Transaction ? input
@@ -15661,7 +15858,7 @@ class EditorView {
     mountStyles() {
         this.styleModules = this.state.facet(styleModule);
         let nonce = this.state.facet(EditorView.cspNonce);
-        StyleModule.mount(this.root, this.styleModules.concat(baseTheme$1$3).reverse(), nonce ? { nonce } : undefined);
+        StyleModule.mount(this.root, this.styleModules.concat(baseTheme$1$2).reverse(), nonce ? { nonce } : undefined);
     }
     readMeasured() {
         if (this.updateState == 2 /* UpdateState.Updating */)
@@ -15740,7 +15937,7 @@ class EditorView {
     }
     /**
     Find the line block (see
-    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
+    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt)) at the given
     height, again interpreted relative to the [top of the
     document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop).
     */
@@ -15848,8 +16045,8 @@ class EditorView {
     meaningful (it may just point before or after a placeholder
     element).
     */
-    domAtPos(pos) {
-        return this.docView.domAtPos(pos);
+    domAtPos(pos, side = 1) {
+        return this.docView.domAtPos(pos, side);
     }
     /**
     Find the document position at the given DOM node. Can be useful
@@ -15860,6 +16057,11 @@ class EditorView {
         return this.docView.posFromDOM(node, offset);
     }
     posAtCoords(coords, precise = true) {
+        this.readMeasured();
+        let found = posAtCoords(this, coords, precise);
+        return found && found.pos;
+    }
+    posAndSideAtCoords(coords, precise = true) {
         this.readMeasured();
         return posAtCoords(this, coords, precise);
     }
@@ -16117,8 +16319,8 @@ class EditorView {
     static findFromDOM(dom) {
         var _a;
         let content = dom.querySelector(".cm-content");
-        let cView = content && ContentView.get(content) || ContentView.get(dom);
-        return ((_a = cView === null || cView === void 0 ? void 0 : cView.rootView) === null || _a === void 0 ? void 0 : _a.view) || null;
+        let tile = content && Tile.get(content) || Tile.get(dom);
+        return ((_a = tile === null || tile === void 0 ? void 0 : tile.root) === null || _a === void 0 ? void 0 : _a.view) || null;
     }
 }
 /**
@@ -16230,11 +16432,19 @@ containing the decorations to
 */
 EditorView.decorations = decorations;
 /**
+[Block wrappers](https://codemirror.net/6/docs/ref/#view.BlockWrapper) provide a way to add DOM
+structure around editor lines and block widgets. Sets of
+wrappers are provided in a similar way to decorations, and are
+nested in a similar way when they overlap. A wrapper affects all
+lines and block widgets that start inside its range.
+*/
+EditorView.blockWrappers = blockWrappers;
+/**
 Facet that works much like
 [`decorations`](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), but puts its
 inputs at the very bottom of the precedence stack, meaning mark
 decorations provided here will only be split by other, partially
-overlapping \`outerDecorations\` ranges, and wrap around all
+overlapping `outerDecorations` ranges, and wrap around all
 regular decorations. Use this for mark elements that should, as
 much as possible, remain in one piece.
 */
@@ -16526,6 +16736,8 @@ function runHandlers(map, event, view, scope) {
         else if (isChar && (event.altKey || event.metaKey || event.ctrlKey) &&
             // Ctrl-Alt may be used for AltGr on Windows
             !(browser.windows && event.ctrlKey && event.altKey) &&
+            // Alt-combinations on macOS tend to be typed characters
+            !(browser.mac && event.altKey && !(event.ctrlKey || event.metaKey)) &&
             (baseName = base[event.keyCode]) && baseName != name) {
             if (runFor(scopeObj[prefix + modifiers(baseName, event, true)])) {
                 handled = true;
@@ -16800,6 +17012,8 @@ class LayerView {
                 old = next;
             }
             this.drawn = markers;
+            if (browser.safari && browser.safari_version >= 26) // Issue #1600, 1627
+                this.dom.style.display = this.dom.firstChild ? "" : "none";
         }
     }
     destroy() {
@@ -17639,17 +17853,17 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
         let scaleX = 1, scaleY = 1, makeAbsolute = false;
         if (this.position == "fixed" && this.manager.tooltipViews.length) {
             let { dom } = this.manager.tooltipViews[0];
-            if (browser.gecko) {
-                // Firefox sets the element's `offsetParent` to the
-                // transformed element when a transform interferes with fixed
-                // positioning.
-                makeAbsolute = dom.offsetParent != this.container.ownerDocument.body;
-            }
-            else if (dom.style.top == Outside && dom.style.left == "0px") {
-                // On other browsers, we have to awkwardly try and use other
-                // information to detect a transform.
+            if (browser.safari) {
+                // Safari always sets offsetParent to null, even if a fixed
+                // element is positioned relative to a transformed parent. So
+                // we use this kludge to try and detect this.
                 let rect = dom.getBoundingClientRect();
                 makeAbsolute = Math.abs(rect.top + 10000) > 1 || Math.abs(rect.left) > 1;
+            }
+            else {
+                // More conforming browsers will set offsetParent to the
+                // transformed element.
+                makeAbsolute = !!dom.offsetParent && dom.offsetParent != this.container.ownerDocument.body;
             }
         }
         if (makeAbsolute || this.position == "absolute") {
@@ -17956,12 +18170,12 @@ class HoverPlugin {
     startHover() {
         clearTimeout(this.restartTimeout);
         let { view, lastMove } = this;
-        let desc = view.docView.nearest(lastMove.target);
-        if (!desc)
+        let tile = view.docView.tile.nearest(lastMove.target);
+        if (!tile)
             return;
         let pos, side = 1;
-        if (desc instanceof WidgetView) {
-            pos = desc.posAtStart;
+        if (tile.isWidget()) {
+            pos = tile.posAtStart;
         }
         else {
             pos = view.posAtCoords(lastMove);
@@ -18035,6 +18249,7 @@ class HoverPlugin {
     }
     destroy() {
         clearTimeout(this.hoverTimeout);
+        clearTimeout(this.restartTimeout);
         this.view.dom.removeEventListener("mouseleave", this.mouseleave);
         this.view.dom.removeEventListener("mousemove", this.mousemove);
     }
@@ -18302,6 +18517,121 @@ const showPanel = /*@__PURE__*/Facet.define({
 });
 
 /**
+Show a panel above or below the editor to show the user a message
+or prompt them for input. Returns an effect that can be dispatched
+to close the dialog, and a promise that resolves when the dialog
+is closed or a form inside of it is submitted.
+
+You are encouraged, if your handling of the result of the promise
+dispatches a transaction, to include the `close` effect in it. If
+you don't, this function will automatically dispatch a separate
+transaction right after.
+*/
+function showDialog(view, config) {
+    let resolve;
+    let promise = new Promise(r => resolve = r);
+    let panelCtor = (view) => createDialog(view, config, resolve);
+    if (view.state.field(dialogField, false)) {
+        view.dispatch({ effects: openDialogEffect.of(panelCtor) });
+    }
+    else {
+        view.dispatch({ effects: StateEffect.appendConfig.of(dialogField.init(() => [panelCtor])) });
+    }
+    let close = closeDialogEffect.of(panelCtor);
+    return { close, result: promise.then(form => {
+            let queue = view.win.queueMicrotask || ((f) => view.win.setTimeout(f, 10));
+            queue(() => {
+                if (view.state.field(dialogField).indexOf(panelCtor) > -1)
+                    view.dispatch({ effects: close });
+            });
+            return form;
+        }) };
+}
+const dialogField = /*@__PURE__*/StateField.define({
+    create() { return []; },
+    update(dialogs, tr) {
+        for (let e of tr.effects) {
+            if (e.is(openDialogEffect))
+                dialogs = [e.value].concat(dialogs);
+            else if (e.is(closeDialogEffect))
+                dialogs = dialogs.filter(d => d != e.value);
+        }
+        return dialogs;
+    },
+    provide: f => showPanel.computeN([f], state => state.field(f))
+});
+const openDialogEffect = /*@__PURE__*/StateEffect.define();
+const closeDialogEffect = /*@__PURE__*/StateEffect.define();
+function createDialog(view, config, result) {
+    let content = config.content ? config.content(view, () => done(null)) : null;
+    if (!content) {
+        content = crelt("form");
+        if (config.input) {
+            let input = crelt("input", config.input);
+            if (/^(text|password|number|email|tel|url)$/.test(input.type))
+                input.classList.add("cm-textfield");
+            if (!input.name)
+                input.name = "input";
+            content.appendChild(crelt("label", (config.label || "") + ": ", input));
+        }
+        else {
+            content.appendChild(document.createTextNode(config.label || ""));
+        }
+        content.appendChild(document.createTextNode(" "));
+        content.appendChild(crelt("button", { class: "cm-button", type: "submit" }, config.submitLabel || "OK"));
+    }
+    let forms = content.nodeName == "FORM" ? [content] : content.querySelectorAll("form");
+    for (let i = 0; i < forms.length; i++) {
+        let form = forms[i];
+        form.addEventListener("keydown", (event) => {
+            if (event.keyCode == 27) { // Escape
+                event.preventDefault();
+                done(null);
+            }
+            else if (event.keyCode == 13) { // Enter
+                event.preventDefault();
+                done(form);
+            }
+        });
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            done(form);
+        });
+    }
+    let panel = crelt("div", content, crelt("button", {
+        onclick: () => done(null),
+        "aria-label": view.state.phrase("close"),
+        class: "cm-dialog-close",
+        type: "button"
+    }, ["×"]));
+    if (config.class)
+        panel.className = config.class;
+    panel.classList.add("cm-dialog");
+    function done(form) {
+        if (panel.contains(panel.ownerDocument.activeElement))
+            view.focus();
+        result(form);
+    }
+    return {
+        dom: panel,
+        top: config.top,
+        mount: () => {
+            if (config.focus) {
+                let focus;
+                if (typeof config.focus == "string")
+                    focus = content.querySelector(config.focus);
+                else
+                    focus = content.querySelector("input") || content.querySelector("button");
+                if (focus && "select" in focus)
+                    focus.select();
+                else if (focus && "focus" in focus)
+                    focus.focus();
+            }
+        }
+    };
+}
+
+/**
 A gutter marker represents a bit of information attached to a line
 in a specific gutter. Your own custom markers have to extend this
 class.
@@ -18351,7 +18681,8 @@ const defaults$1 = {
     lineMarkerChange: null,
     initialSpacer: null,
     updateSpacer: null,
-    domEventHandlers: {}
+    domEventHandlers: {},
+    side: "before"
 };
 const activeGutters = /*@__PURE__*/Facet.define();
 /**
@@ -18383,15 +18714,20 @@ function gutters(config) {
 const gutterView = /*@__PURE__*/ViewPlugin.fromClass(class {
     constructor(view) {
         this.view = view;
+        this.domAfter = null;
         this.prevViewport = view.viewport;
         this.dom = document.createElement("div");
-        this.dom.className = "cm-gutters";
+        this.dom.className = "cm-gutters cm-gutters-before";
         this.dom.setAttribute("aria-hidden", "true");
         this.dom.style.minHeight = (this.view.contentHeight / this.view.scaleY) + "px";
         this.gutters = view.state.facet(activeGutters).map(conf => new SingleGutterView(view, conf));
-        for (let gutter of this.gutters)
-            this.dom.appendChild(gutter.dom);
         this.fixed = !view.state.facet(unfixGutters);
+        for (let gutter of this.gutters) {
+            if (gutter.config.side == "after")
+                this.getDOMAfter().appendChild(gutter.dom);
+            else
+                this.dom.appendChild(gutter.dom);
+        }
         if (this.fixed) {
             // FIXME IE11 fallback, which doesn't support position: sticky,
             // by using position: relative + event handlers that realign the
@@ -18400,6 +18736,17 @@ const gutterView = /*@__PURE__*/ViewPlugin.fromClass(class {
         }
         this.syncGutters(false);
         view.scrollDOM.insertBefore(this.dom, view.contentDOM);
+    }
+    getDOMAfter() {
+        if (!this.domAfter) {
+            this.domAfter = document.createElement("div");
+            this.domAfter.className = "cm-gutters cm-gutters-after";
+            this.domAfter.setAttribute("aria-hidden", "true");
+            this.domAfter.style.minHeight = (this.view.contentHeight / this.view.scaleY) + "px";
+            this.domAfter.style.position = this.fixed ? "sticky" : "";
+            this.view.scrollDOM.appendChild(this.domAfter);
+        }
+        return this.domAfter;
     }
     update(update) {
         if (this.updateGutters(update)) {
@@ -18411,18 +18758,26 @@ const gutterView = /*@__PURE__*/ViewPlugin.fromClass(class {
             this.syncGutters(vpOverlap < (vpB.to - vpB.from) * 0.8);
         }
         if (update.geometryChanged) {
-            this.dom.style.minHeight = (this.view.contentHeight / this.view.scaleY) + "px";
+            let min = (this.view.contentHeight / this.view.scaleY) + "px";
+            this.dom.style.minHeight = min;
+            if (this.domAfter)
+                this.domAfter.style.minHeight = min;
         }
         if (this.view.state.facet(unfixGutters) != !this.fixed) {
             this.fixed = !this.fixed;
             this.dom.style.position = this.fixed ? "sticky" : "";
+            if (this.domAfter)
+                this.domAfter.style.position = this.fixed ? "sticky" : "";
         }
         this.prevViewport = update.view.viewport;
     }
     syncGutters(detach) {
         let after = this.dom.nextSibling;
-        if (detach)
+        if (detach) {
             this.dom.remove();
+            if (this.domAfter)
+                this.domAfter.remove();
+        }
         let lineClasses = RangeSet.iter(this.view.state.facet(gutterLineClass), this.view.viewport.from);
         let classSet = [];
         let contexts = this.gutters.map(gutter => new UpdateContext(gutter, this.view.viewport, -this.view.documentPadding.top));
@@ -18456,8 +18811,11 @@ const gutterView = /*@__PURE__*/ViewPlugin.fromClass(class {
         }
         for (let cx of contexts)
             cx.finish();
-        if (detach)
+        if (detach) {
             this.view.scrollDOM.insertBefore(this.dom, after);
+            if (this.domAfter)
+                this.view.scrollDOM.appendChild(this.domAfter);
+        }
     }
     updateGutters(update) {
         let prev = update.startState.facet(activeGutters), cur = update.state.facet(activeGutters);
@@ -18486,8 +18844,12 @@ const gutterView = /*@__PURE__*/ViewPlugin.fromClass(class {
                 if (gutters.indexOf(g) < 0)
                     g.destroy();
             }
-            for (let g of gutters)
-                this.dom.appendChild(g.dom);
+            for (let g of gutters) {
+                if (g.config.side == "after")
+                    this.getDOMAfter().appendChild(g.dom);
+                else
+                    this.dom.appendChild(g.dom);
+            }
             this.gutters = gutters;
         }
         return change;
@@ -18496,15 +18858,18 @@ const gutterView = /*@__PURE__*/ViewPlugin.fromClass(class {
         for (let view of this.gutters)
             view.destroy();
         this.dom.remove();
+        if (this.domAfter)
+            this.domAfter.remove();
     }
 }, {
     provide: plugin => EditorView.scrollMargins.of(view => {
         let value = view.plugin(plugin);
         if (!value || value.gutters.length == 0 || !value.fixed)
             return null;
+        let before = value.dom.offsetWidth * view.scaleX, after = value.domAfter ? value.domAfter.offsetWidth * view.scaleX : 0;
         return view.textDirection == Direction.LTR
-            ? { left: value.dom.offsetWidth * view.scaleX }
-            : { right: value.dom.offsetWidth * view.scaleX };
+            ? { left: before, right: after }
+            : { right: before, left: after };
     })
 });
 function asArray(val) { return (Array.isArray(val) ? val : [val]); }
@@ -18746,7 +19111,8 @@ const lineNumberGutter = /*@__PURE__*/activeGutters.compute([lineNumberConfig], 
         let max = formatNumber(update.view, maxLineNumber(update.view.state.doc.lines));
         return max == spacer.number ? spacer : new NumberMarker(max);
     },
-    domEventHandlers: state.facet(lineNumberConfig).domEventHandlers
+    domEventHandlers: state.facet(lineNumberConfig).domEventHandlers,
+    side: "before"
 }));
 /**
 Create a line number gutter extension.
@@ -18930,7 +19296,7 @@ Language.setState = /*@__PURE__*/StateEffect.define();
 function topNodeAt(state, pos, side) {
     let topLang = state.facet(language), tree = syntaxTree(state).topNode;
     if (!topLang || topLang.allowsNesting) {
-        for (let node = tree; node; node = node.enter(pos, side, IterMode.ExcludeBuffers))
+        for (let node = tree; node; node = node.enter(pos, side, IterMode.ExcludeBuffers | IterMode.EnterBracketed))
             if (node.type.isTop)
                 tree = node;
     }
@@ -19928,6 +20294,8 @@ const foldState = /*@__PURE__*/StateField.define({
         return Decoration.none;
     },
     update(folded, tr) {
+        if (tr.isUserEvent("delete"))
+            tr.changes.iterChangedRanges((fromA, toA) => folded = clearTouchedFolds(folded, fromA, toA));
         folded = folded.map(tr.changes);
         for (let e of tr.effects) {
             if (e.is(foldEffect) && !foldExists(folded, e.value.from, e.value.to)) {
@@ -19942,17 +20310,8 @@ const foldState = /*@__PURE__*/StateField.define({
             }
         }
         // Clear folded ranges that cover the selection head
-        if (tr.selection) {
-            let onSelection = false, { head } = tr.selection.main;
-            folded.between(head, head, (a, b) => { if (a < head && b > head)
-                onSelection = true; });
-            if (onSelection)
-                folded = folded.update({
-                    filterFrom: head,
-                    filterTo: head,
-                    filter: (a, b) => b <= head || a >= head
-                });
-        }
+        if (tr.selection)
+            folded = clearTouchedFolds(folded, tr.selection.main.head);
         return folded;
     },
     provide: f => EditorView.decorations.from(f),
@@ -19974,6 +20333,16 @@ const foldState = /*@__PURE__*/StateField.define({
         return Decoration.set(ranges, true);
     }
 });
+function clearTouchedFolds(folded, from, to = from) {
+    let touched = false;
+    folded.between(from, to, (a, b) => { if (a < to && b > from)
+        touched = true; });
+    return !touched ? folded : folded.update({
+        filterFrom: from,
+        filterTo: to,
+        filter: (a, b) => a >= to || b <= from
+    });
+}
 function findFold(state, from, to) {
     var _a;
     let found = null;
@@ -20084,7 +20453,7 @@ const foldConfig = /*@__PURE__*/Facet.define({
 Create an extension that configures code folding.
 */
 function codeFolding(config) {
-    let result = [foldState, baseTheme$1$2];
+    let result = [foldState, baseTheme$1$1];
     return result;
 }
 function widgetToDOM(view, prepared) {
@@ -20203,7 +20572,7 @@ function foldGutter(config = {}) {
         codeFolding()
     ];
 }
-const baseTheme$1$2 = /*@__PURE__*/EditorView.baseTheme({
+const baseTheme$1$1 = /*@__PURE__*/EditorView.baseTheme({
     ".cm-foldPlaceholder": {
         backgroundColor: "#eee",
         border: "1px solid #ddd",
@@ -20220,7 +20589,7 @@ const baseTheme$1$2 = /*@__PURE__*/EditorView.baseTheme({
 });
 
 /**
-A highlight style associates CSS styles with higlighting
+A highlight style associates CSS styles with highlighting
 [tags](https://lezer.codemirror.net/docs/ref#highlight.Tag).
 */
 class HighlightStyle {
@@ -21241,40 +21610,31 @@ function toCharEnd(text, pos) {
     return pos;
 }
 
-function createLineDialog(view) {
-    let line = String(view.state.doc.lineAt(view.state.selection.main.head).number);
-    let input = crelt("input", { class: "cm-textfield", name: "line", value: line });
-    let dom = crelt("form", {
-        class: "cm-gotoLine",
-        onkeydown: (event) => {
-            if (event.keyCode == 27) { // Escape
-                event.preventDefault();
-                view.dispatch({ effects: dialogEffect.of(false) });
-                view.focus();
-            }
-            else if (event.keyCode == 13) { // Enter
-                event.preventDefault();
-                go();
-            }
-        },
-        onsubmit: (event) => {
-            event.preventDefault();
-            go();
-        }
-    }, crelt("label", view.state.phrase("Go to line"), ": ", input), " ", crelt("button", { class: "cm-button", type: "submit" }, view.state.phrase("go")), crelt("button", {
-        name: "close",
-        onclick: () => {
-            view.dispatch({ effects: dialogEffect.of(false) });
-            view.focus();
-        },
-        "aria-label": view.state.phrase("close"),
-        type: "button"
-    }, ["×"]));
-    function go() {
-        let match = /^([+-])?(\d+)?(:\d+)?(%)?$/.exec(input.value);
-        if (!match)
+/**
+Command that shows a dialog asking the user for a line number, and
+when a valid position is provided, moves the cursor to that line.
+
+Supports line numbers, relative line offsets prefixed with `+` or
+`-`, document percentages suffixed with `%`, and an optional
+column position by adding `:` and a second number after the line
+number.
+*/
+const gotoLine = view => {
+    let { state } = view;
+    let line = String(state.doc.lineAt(view.state.selection.main.head).number);
+    let { close, result } = showDialog(view, {
+        label: state.phrase("Go to line"),
+        input: { type: "text", name: "line", value: line },
+        focus: true,
+        submitLabel: state.phrase("go"),
+    });
+    result.then(form => {
+        let match = form && /^([+-])?(\d+)?(:\d+)?(%)?$/.exec(form.elements["line"].value);
+        if (!match) {
+            view.dispatch({ effects: close });
             return;
-        let { state } = view, startLine = state.doc.lineAt(state.selection.main.head);
+        }
+        let startLine = state.doc.lineAt(state.selection.main.head);
         let [, sign, ln, cl, percent] = match;
         let col = cl ? +cl.slice(1) : 0;
         let line = ln ? +ln : startLine.number;
@@ -21290,62 +21650,12 @@ function createLineDialog(view) {
         let docLine = state.doc.line(Math.max(1, Math.min(state.doc.lines, line)));
         let selection = EditorSelection.cursor(docLine.from + Math.max(0, Math.min(col, docLine.length)));
         view.dispatch({
-            effects: [dialogEffect.of(false), EditorView.scrollIntoView(selection.from, { y: 'center' })],
+            effects: [close, EditorView.scrollIntoView(selection.from, { y: 'center' })],
             selection,
         });
-        view.focus();
-    }
-    return { dom };
-}
-const dialogEffect = /*@__PURE__*/StateEffect.define();
-const dialogField = /*@__PURE__*/StateField.define({
-    create() { return true; },
-    update(value, tr) {
-        for (let e of tr.effects)
-            if (e.is(dialogEffect))
-                value = e.value;
-        return value;
-    },
-    provide: f => showPanel.from(f, val => val ? createLineDialog : null)
-});
-/**
-Command that shows a dialog asking the user for a line number, and
-when a valid position is provided, moves the cursor to that line.
-
-Supports line numbers, relative line offsets prefixed with `+` or
-`-`, document percentages suffixed with `%`, and an optional
-column position by adding `:` and a second number after the line
-number.
-*/
-const gotoLine = view => {
-    let panel = getPanel(view, createLineDialog);
-    if (!panel) {
-        let effects = [dialogEffect.of(true)];
-        if (view.state.field(dialogField, false) == null)
-            effects.push(StateEffect.appendConfig.of([dialogField, baseTheme$1$1]));
-        view.dispatch({ effects });
-        panel = getPanel(view, createLineDialog);
-    }
-    if (panel)
-        panel.dom.querySelector("input").select();
+    });
     return true;
 };
-const baseTheme$1$1 = /*@__PURE__*/EditorView.baseTheme({
-    ".cm-panel.cm-gotoLine": {
-        padding: "2px 6px 4px",
-        position: "relative",
-        "& label": { fontSize: "80%" },
-        "& [name=close]": {
-            position: "absolute",
-            top: "0", bottom: "0",
-            right: "4px",
-            backgroundColor: "inherit",
-            border: "none",
-            font: "inherit",
-            padding: "0"
-        }
-    }
-});
 
 const defaultHighlightOptions = {
     highlightWordAroundCursor: false,
@@ -21541,6 +21851,7 @@ class SearchQuery {
         this.valid = !!this.search && (!this.regexp || validRegExp(this.search));
         this.unquoted = this.unquote(this.search);
         this.wholeWord = !!config.wholeWord;
+        this.test = config.test;
     }
     /**
     @internal
@@ -21555,7 +21866,7 @@ class SearchQuery {
     eq(other) {
         return this.search == other.search && this.replace == other.replace &&
             this.caseSensitive == other.caseSensitive && this.regexp == other.regexp &&
-            this.wholeWord == other.wholeWord;
+            this.wholeWord == other.wholeWord && this.test == other.test;
     }
     /**
     @internal
@@ -21579,8 +21890,23 @@ class QueryType {
         this.spec = spec;
     }
 }
+function wrapStringTest(test, state, inner) {
+    return (from, to, buffer, bufferPos) => {
+        if (inner && !inner(from, to, buffer, bufferPos))
+            return false;
+        let match = from >= bufferPos && to <= bufferPos + buffer.length
+            ? buffer.slice(from - bufferPos, to - bufferPos)
+            : state.doc.sliceString(from, to);
+        return test(match, state, from, to);
+    };
+}
 function stringCursor(spec, state, from, to) {
-    return new SearchCursor(state.doc, spec.unquoted, from, to, spec.caseSensitive ? undefined : x => x.toLowerCase(), spec.wholeWord ? stringWordTest(state.doc, state.charCategorizer(state.selection.main.head)) : undefined);
+    let test;
+    if (spec.wholeWord)
+        test = stringWordTest(state.doc, state.charCategorizer(state.selection.main.head));
+    if (spec.test)
+        test = wrapStringTest(spec.test, state, test);
+    return new SearchCursor(state.doc, spec.unquoted, from, to, spec.caseSensitive ? undefined : x => x.toLowerCase(), test);
 }
 function stringWordTest(doc, categorizer) {
     return (from, to, buf, bufPos) => {
@@ -21643,11 +21969,18 @@ class StringQuery extends QueryType {
             add(cursor.value.from, cursor.value.to);
     }
 }
+function wrapRegexpTest(test, state, inner) {
+    return (from, to, match) => {
+        return (!inner || inner(from, to, match)) && test(match[0], state, from, to);
+    };
+}
 function regexpCursor(spec, state, from, to) {
-    return new RegExpCursor(state.doc, spec.search, {
-        ignoreCase: !spec.caseSensitive,
-        test: spec.wholeWord ? regexpWordTest(state.charCategorizer(state.selection.main.head)) : undefined
-    }, from, to);
+    let test;
+    if (spec.wholeWord)
+        test = regexpWordTest(state.charCategorizer(state.selection.main.head));
+    if (spec.test)
+        test = wrapRegexpTest(spec.test, state, test);
+    return new RegExpCursor(state.doc, spec.search, { ignoreCase: !spec.caseSensitive, test }, from, to);
 }
 function charBefore(str, index) {
     return str.slice(findClusterBreak(str, index, false), index);
@@ -22293,9 +22626,7 @@ class Stack {
         var _a;
         let depth = action >> 19 /* Action.ReduceDepthShift */, type = action & 65535 /* Action.ValueMask */;
         let { parser } = this.p;
-        let lookaheadRecord = this.reducePos < this.pos - 25 /* Lookahead.Margin */;
-        if (lookaheadRecord)
-            this.setLookAhead(this.pos);
+        let lookaheadRecord = this.reducePos < this.pos - 25 /* Lookahead.Margin */ && this.setLookAhead(this.pos);
         let dPrec = parser.dynamicPrecedence(type);
         if (dPrec)
             this.score += dPrec;
@@ -22373,7 +22704,7 @@ class Stack {
         }
         else { // There may be skipped nodes that have to be moved forward
             let index = this.buffer.length;
-            if (index > 0 && this.buffer[index - 4] != 0 /* Term.Err */) {
+            if (index > 0 && (this.buffer[index - 4] != 0 /* Term.Err */ || this.buffer[index - 1] < 0)) {
                 let mustMove = false;
                 for (let scan = index; scan > 0 && this.buffer[scan - 2] > end; scan -= 4) {
                     if (this.buffer[scan - 1] >= 0) {
@@ -22409,12 +22740,12 @@ class Stack {
         }
         else if ((action & 262144 /* Action.StayFlag */) == 0) { // Regular shift
             let nextState = action, { parser } = this.p;
-            if (end > this.pos || type <= parser.maxNode) {
-                this.pos = end;
-                if (!parser.stateFlag(nextState, 1 /* StateFlag.Skipped */))
-                    this.reducePos = end;
-            }
-            this.pushState(nextState, start);
+            this.pos = end;
+            let skipped = parser.stateFlag(nextState, 1 /* StateFlag.Skipped */);
+            // Skipped or zero-length non-tree tokens don't move reducePos
+            if (!skipped && (end > start || type <= parser.maxNode))
+                this.reducePos = end;
+            this.pushState(nextState, skipped ? start : Math.min(start, this.reducePos));
             this.shiftContext(type, start);
             if (type <= parser.maxNode)
                 this.buffer.push(type, start, end, 4);
@@ -22686,10 +23017,11 @@ class Stack {
     @internal
     */
     setLookAhead(lookAhead) {
-        if (lookAhead > this.lookAhead) {
-            this.emitLookAhead();
-            this.lookAhead = lookAhead;
-        }
+        if (lookAhead <= this.lookAhead)
+            return false;
+        this.emitLookAhead();
+        this.lookAhead = lookAhead;
+        return true;
     }
     /**
     @internal
@@ -23548,8 +23880,10 @@ class Parse {
                     }
                 }
             }
-            if (newStacks.length > 12 /* Rec.MaxStackCount */)
+            if (newStacks.length > 12 /* Rec.MaxStackCount */) {
+                newStacks.sort((a, b) => b.score - a.score);
                 newStacks.splice(12 /* Rec.MaxStackCount */, newStacks.length - 12 /* Rec.MaxStackCount */);
+            }
         }
         this.minStackPos = newStacks[0].pos;
         for (let i = 1; i < newStacks.length; i++)
@@ -23650,7 +23984,7 @@ class Parse {
                     continue;
             }
             let force = stack.split(), forceBase = base;
-            for (let j = 0; force.forceReduce() && j < 10 /* Rec.ForceReduceLimit */; j++) {
+            for (let j = 0; j < 10 /* Rec.ForceReduceLimit */ && force.forceReduce(); j++) {
                 if (verbose)
                     console.log(forceBase + this.stackID(force) + " (via force-reduce)");
                 let done = this.advanceFully(force, newStacks);
@@ -23674,8 +24008,8 @@ class Parse {
                     console.log(base + this.stackID(stack) + ` (via recover-delete ${this.parser.getName(token)})`);
                 pushStackDedup(stack, newStacks);
             }
-            else if (!finished || finished.score < stack.score) {
-                finished = stack;
+            else if (!finished || finished.score < force.score) {
+                finished = force;
             }
         }
         return finished;
@@ -24050,15 +24384,15 @@ function getSpecializer(spec) {
 }
 
 // This file was generated by lezer-generator. You probably shouldn't edit it.
-const noSemi = 315,
-  noSemiType = 316,
+const noSemi = 316,
+  noSemiType = 317,
   incdec = 1,
   incdecPrefix = 2,
   questionDot = 3,
   JSXStartTag = 4,
-  insertSemi = 317,
-  spaces = 319,
-  newline = 320,
+  insertSemi = 318,
+  spaces = 320,
+  newline = 321,
   LineComment = 5,
   BlockComment = 6,
   Dialect_jsx = 0;
@@ -24148,7 +24482,7 @@ const jsx = new ExternalTokenizer((input, stack) => {
 
 const jsHighlight = styleTags({
   "get set async static": tags.modifier,
-  "for while do if else switch try catch finally return throw break continue default case": tags.controlKeyword,
+  "for while do if else switch try catch finally return throw break continue default case defer": tags.controlKeyword,
   "in of await yield void typeof delete instanceof as satisfies": tags.operatorKeyword,
   "let var const using function class extends": tags.definitionKeyword,
   "import export from": tags.moduleKeyword,
@@ -24208,33 +24542,33 @@ const jsHighlight = styleTags({
 });
 
 // This file was generated by lezer-generator. You probably shouldn't edit it.
-const spec_identifier = {__proto__:null,export:20, as:25, from:33, default:36, async:41, function:42, in:52, out:55, const:56, extends:60, this:64, true:72, false:72, null:84, void:88, typeof:92, super:108, new:142, delete:154, yield:163, await:167, class:172, public:235, private:235, protected:235, readonly:237, instanceof:256, satisfies:259, import:292, keyof:349, unique:353, infer:359, asserts:395, is:397, abstract:417, implements:419, type:421, let:424, var:426, using:429, interface:435, enum:439, namespace:445, module:447, declare:451, global:455, for:474, of:483, while:486, with:490, do:494, if:498, else:500, switch:504, case:510, try:516, catch:520, finally:524, return:528, throw:532, break:536, continue:540, debugger:544};
+const spec_identifier = {__proto__:null,export:20, as:25, from:33, default:36, async:41, function:42, in:52, out:55, const:56, extends:60, this:64, true:72, false:72, null:84, void:88, typeof:92, super:108, new:142, delete:154, yield:163, await:167, class:172, public:235, private:235, protected:235, readonly:237, instanceof:256, satisfies:259, import:292, keyof:349, unique:353, infer:359, asserts:395, is:397, abstract:417, implements:419, type:421, let:424, var:426, using:429, interface:435, enum:439, namespace:445, module:447, declare:451, global:455, defer:471, for:476, of:485, while:488, with:492, do:496, if:500, else:502, switch:506, case:512, try:518, catch:522, finally:526, return:530, throw:534, break:538, continue:542, debugger:546};
 const spec_word = {__proto__:null,async:129, get:131, set:133, declare:195, public:197, private:197, protected:197, static:199, abstract:201, override:203, readonly:209, accessor:211, new:401};
 const spec_LessThan = {__proto__:null,"<":193};
 const parser = LRParser.deserialize({
   version: 14,
-  states: "$EOQ%TQlOOO%[QlOOO'_QpOOP(lO`OOO*zQ!0MxO'#CiO+RO#tO'#CjO+aO&jO'#CjO+oO#@ItO'#DaO.QQlO'#DgO.bQlO'#DrO%[QlO'#DzO0fQlO'#ESOOQ!0Lf'#E['#E[O1PQ`O'#EXOOQO'#Ep'#EpOOQO'#Ik'#IkO1XQ`O'#GsO1dQ`O'#EoO1iQ`O'#EoO3hQ!0MxO'#JqO6[Q!0MxO'#JrO6uQ`O'#F]O6zQ,UO'#FtOOQ!0Lf'#Ff'#FfO7VO7dO'#FfO7eQMhO'#F|O9[Q`O'#F{OOQ!0Lf'#Jr'#JrOOQ!0Lb'#Jq'#JqO9aQ`O'#GwOOQ['#K^'#K^O9lQ`O'#IXO9qQ!0LrO'#IYOOQ['#J_'#J_OOQ['#I^'#I^Q`QlOOQ`QlOOO9yQ!L^O'#DvO:QQlO'#EOO:XQlO'#EQO9gQ`O'#GsO:`QMhO'#CoO:nQ`O'#EnO:yQ`O'#EyO;OQMhO'#FeO;mQ`O'#GsOOQO'#K_'#K_O;rQ`O'#K_O<QQ`O'#G{O<QQ`O'#G|O<QQ`O'#HOO9gQ`O'#HRO<wQ`O'#HUO>`Q`O'#CeO>pQ`O'#HbO>xQ`O'#HhO>xQ`O'#HjO`QlO'#HlO>xQ`O'#HnO>xQ`O'#HqO>}Q`O'#HwO?SQ!0LsO'#H}O%[QlO'#IPO?_Q!0LsO'#IRO?jQ!0LsO'#ITO9qQ!0LrO'#IVO?uQ!0MxO'#CiO@wQpO'#DlQOQ`OOO%[QlO'#EQOA_Q`O'#ETO:`QMhO'#EnOAjQ`O'#EnOAuQ!bO'#FeOOQ['#Cg'#CgOOQ!0Lb'#Dq'#DqOOQ!0Lb'#Ju'#JuO%[QlO'#JuOOQO'#Jx'#JxOOQO'#Ig'#IgOBuQpO'#EgOOQ!0Lb'#Ef'#EfOOQ!0Lb'#J|'#J|OCqQ!0MSO'#EgOC{QpO'#EWOOQO'#Jw'#JwODaQpO'#JxOEnQpO'#EWOC{QpO'#EgPE{O&2DjO'#CbPOOO)CD|)CD|OOOO'#I_'#I_OFWO#tO,59UOOQ!0Lh,59U,59UOOOO'#I`'#I`OFfO&jO,59UOFtQ!L^O'#DcOOOO'#Ib'#IbOF{O#@ItO,59{OOQ!0Lf,59{,59{OGZQlO'#IcOGnQ`O'#JsOImQ!fO'#JsO+}QlO'#JsOItQ`O,5:ROJ[Q`O'#EpOJiQ`O'#KSOJtQ`O'#KROJtQ`O'#KROJ|Q`O,5;^OKRQ`O'#KQOOQ!0Ln,5:^,5:^OKYQlO,5:^OMWQ!0MxO,5:fOMwQ`O,5:nONbQ!0LrO'#KPONiQ`O'#KOO9aQ`O'#KOON}Q`O'#KOO! VQ`O,5;]O! [Q`O'#KOO!#aQ!fO'#JrOOQ!0Lh'#Ci'#CiO%[QlO'#ESO!$PQ!fO,5:sOOQS'#Jy'#JyOOQO-E<i-E<iO9gQ`O,5=_O!$gQ`O,5=_O!$lQlO,5;ZO!&oQMhO'#EkO!(YQ`O,5;ZO!(_QlO'#DyO!(iQpO,5;dO!(qQpO,5;dO%[QlO,5;dOOQ['#FT'#FTOOQ['#FV'#FVO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eOOQ['#FZ'#FZO!)PQlO,5;tOOQ!0Lf,5;y,5;yOOQ!0Lf,5;z,5;zOOQ!0Lf,5;|,5;|O%[QlO'#IoO!+SQ!0LrO,5<iO%[QlO,5;eO!&oQMhO,5;eO!+qQMhO,5;eO!-cQMhO'#E^O%[QlO,5;wOOQ!0Lf,5;{,5;{O!-jQ,UO'#FjO!.gQ,UO'#KWO!.RQ,UO'#KWO!.nQ,UO'#KWOOQO'#KW'#KWO!/SQ,UO,5<SOOOW,5<`,5<`O!/eQlO'#FvOOOW'#In'#InO7VO7dO,5<QO!/lQ,UO'#FxOOQ!0Lf,5<Q,5<QO!0]Q$IUO'#CyOOQ!0Lh'#C}'#C}O!0pO#@ItO'#DRO!1^QMjO,5<eO!1eQ`O,5<hO!3QQ(CWO'#GXO!3_Q`O'#GYO!3dQ`O'#GYO!5SQ(CWO'#G^O!6XQpO'#GbOOQO'#Gn'#GnO!+xQMhO'#GmOOQO'#Gp'#GpO!+xQMhO'#GoO!6zQ$IUO'#JkOOQ!0Lh'#Jk'#JkO!7UQ`O'#JjO!7dQ`O'#JiO!7lQ`O'#CuOOQ!0Lh'#C{'#C{O!7}Q`O'#C}OOQ!0Lh'#DV'#DVOOQ!0Lh'#DX'#DXO1SQ`O'#DZO!+xQMhO'#GPO!+xQMhO'#GRO!8SQ`O'#GTO!8XQ`O'#GUO!3dQ`O'#G[O!+xQMhO'#GaO<QQ`O'#JjO!8^Q`O'#EqO!8{Q`O,5<gOOQ!0Lb'#Cr'#CrO!9TQ`O'#ErO!9}QpO'#EsOOQ!0Lb'#KQ'#KQO!:UQ!0LrO'#K`O9qQ!0LrO,5=cO`QlO,5>sOOQ['#Jg'#JgOOQ[,5>t,5>tOOQ[-E<[-E<[O!<TQ!0MxO,5:bO!9xQpO,5:`O!>nQ!0MxO,5:jO%[QlO,5:jO!AUQ!0MxO,5:lOOQO,5@y,5@yO!AuQMhO,5=_O!BTQ!0LrO'#JhO9[Q`O'#JhO!BfQ!0LrO,59ZO!BqQpO,59ZO!ByQMhO,59ZO:`QMhO,59ZO!CUQ`O,5;ZO!C^Q`O'#HaO!CrQ`O'#KcO%[QlO,5;}O!9xQpO,5<PO!CzQ`O,5=zO!DPQ`O,5=zO!DUQ`O,5=zO9qQ!0LrO,5=zO<QQ`O,5=jOOQO'#Cy'#CyO!DdQpO,5=gO!DlQMhO,5=hO!DwQ`O,5=jO!D|Q!bO,5=mO!EUQ`O'#K_O>}Q`O'#HWO9gQ`O'#HYO!EZQ`O'#HYO:`QMhO'#H[O!E`Q`O'#H[OOQ[,5=p,5=pO!EeQ`O'#H]O!EvQ`O'#CoO!E{Q`O,59PO!FVQ`O,59PO!H[QlO,59POOQ[,59P,59PO!HlQ!0LrO,59PO%[QlO,59PO!JwQlO'#HdOOQ['#He'#HeOOQ['#Hf'#HfO`QlO,5=|O!K_Q`O,5=|O`QlO,5>SO`QlO,5>UO!KdQ`O,5>WO`QlO,5>YO!KiQ`O,5>]O!KnQlO,5>cOOQ[,5>i,5>iO%[QlO,5>iO9qQ!0LrO,5>kOOQ[,5>m,5>mO# xQ`O,5>mOOQ[,5>o,5>oO# xQ`O,5>oOOQ[,5>q,5>qO#!fQpO'#D_O%[QlO'#JuO##XQpO'#JuO##cQpO'#DmO##tQpO'#DmO#&VQlO'#DmO#&^Q`O'#JtO#&fQ`O,5:WO#&kQ`O'#EtO#&yQ`O'#KTO#'RQ`O,5;_O#'WQpO'#DmO#'eQpO'#EVOOQ!0Lf,5:o,5:oO%[QlO,5:oO#'lQ`O,5:oO>}Q`O,5;YO!BqQpO,5;YO!ByQMhO,5;YO:`QMhO,5;YO#'tQ`O,5@aO#'yQ07dO,5:sOOQO-E<e-E<eO#)PQ!0MSO,5;ROC{QpO,5:rO#)ZQpO,5:rOC{QpO,5;RO!BfQ!0LrO,5:rOOQ!0Lb'#Ej'#EjOOQO,5;R,5;RO%[QlO,5;RO#)hQ!0LrO,5;RO#)sQ!0LrO,5;RO!BqQpO,5:rOOQO,5;X,5;XO#*RQ!0LrO,5;RPOOO'#I]'#I]P#*gO&2DjO,58|POOO,58|,58|OOOO-E<]-E<]OOQ!0Lh1G.p1G.pOOOO-E<^-E<^OOOO,59},59}O#*rQ!bO,59}OOOO-E<`-E<`OOQ!0Lf1G/g1G/gO#*wQ!fO,5>}O+}QlO,5>}OOQO,5?T,5?TO#+RQlO'#IcOOQO-E<a-E<aO#+`Q`O,5@_O#+hQ!fO,5@_O#+oQ`O,5@mOOQ!0Lf1G/m1G/mO%[QlO,5@nO#+wQ`O'#IiOOQO-E<g-E<gO#+oQ`O,5@mOOQ!0Lb1G0x1G0xOOQ!0Ln1G/x1G/xOOQ!0Ln1G0Y1G0YO%[QlO,5@kO#,]Q!0LrO,5@kO#,nQ!0LrO,5@kO#,uQ`O,5@jO9aQ`O,5@jO#,}Q`O,5@jO#-]Q`O'#IlO#,uQ`O,5@jOOQ!0Lb1G0w1G0wO!(iQpO,5:uO!(tQpO,5:uOOQS,5:w,5:wO#-}QdO,5:wO#.VQMhO1G2yO9gQ`O1G2yOOQ!0Lf1G0u1G0uO#.eQ!0MxO1G0uO#/jQ!0MvO,5;VOOQ!0Lh'#GW'#GWO#0WQ!0MzO'#JkO!$lQlO1G0uO#2cQ!fO'#JvO%[QlO'#JvO#2mQ`O,5:eOOQ!0Lh'#D_'#D_OOQ!0Lf1G1O1G1OO%[QlO1G1OOOQ!0Lf1G1f1G1fO#2rQ`O1G1OO#5WQ!0MxO1G1PO#5_Q!0MxO1G1PO#7uQ!0MxO1G1PO#7|Q!0MxO1G1PO#:dQ!0MxO1G1PO#<zQ!0MxO1G1PO#=RQ!0MxO1G1PO#=YQ!0MxO1G1PO#?pQ!0MxO1G1PO#?wQ!0MxO1G1PO#BUQ?MtO'#CiO#DPQ?MtO1G1`O#DWQ?MtO'#JrO#DkQ!0MxO,5?ZOOQ!0Lb-E<m-E<mO#FxQ!0MxO1G1PO#GuQ!0MzO1G1POOQ!0Lf1G1P1G1PO#HxQMjO'#J{O#ISQ`O,5:xO#IXQ!0MxO1G1cO#I{Q,UO,5<WO#JTQ,UO,5<XO#J]Q,UO'#FoO#JtQ`O'#FnOOQO'#KX'#KXOOQO'#Im'#ImO#JyQ,UO1G1nOOQ!0Lf1G1n1G1nOOOW1G1y1G1yO#K[Q?MtO'#JqO#KfQ`O,5<bO!)PQlO,5<bOOOW-E<l-E<lOOQ!0Lf1G1l1G1lO#KkQpO'#KWOOQ!0Lf,5<d,5<dO#KsQpO,5<dO#KxQMhO'#DTOOOO'#Ia'#IaO#LPO#@ItO,59mOOQ!0Lh,59m,59mO%[QlO1G2PO!8XQ`O'#IqO#L[Q`O,5<zOOQ!0Lh,5<w,5<wO!+xQMhO'#ItO#LxQMjO,5=XO!+xQMhO'#IvO#MkQMjO,5=ZO!&oQMhO,5=]OOQO1G2S1G2SO#MuQ!dO'#CrO#NYQ(CWO'#ErO$ _QpO'#GbO$ uQ!dO,5<sO$ |Q`O'#KZO9aQ`O'#KZO$![Q`O,5<uO!+xQMhO,5<tO$!aQ`O'#GZO$!rQ`O,5<tO$!wQ!dO'#GWO$#UQ!dO'#K[O$#`Q`O'#K[O!&oQMhO'#K[O$#eQ`O,5<xO$#jQlO'#JuO$#tQpO'#GcO##tQpO'#GcO$$VQ`O'#GgO!3dQ`O'#GkO$$[Q!0LrO'#IsO$$gQpO,5<|OOQ!0Lp,5<|,5<|O$$nQpO'#GcO$${QpO'#GdO$%^QpO'#GdO$%cQMjO,5=XO$%sQMjO,5=ZOOQ!0Lh,5=^,5=^O!+xQMhO,5@UO!+xQMhO,5@UO$&TQ`O'#IxO$&iQ`O,5@TO$&qQ`O,59aOOQ!0Lh,59i,59iO$'hQ$IYO,59uOOQ!0Lh'#Jo'#JoO$(ZQMjO,5<kO$(|QMjO,5<mO@oQ`O,5<oOOQ!0Lh,5<p,5<pO$)WQ`O,5<vO$)]QMjO,5<{O$)mQ`O,5@UO$){Q`O'#KOO!$lQlO1G2RO$*QQ`O1G2RO9aQ`O'#KRO9aQ`O'#EtO%[QlO'#EtO9aQ`O'#IzO$*VQ!0LrO,5@zOOQ[1G2}1G2}OOQ[1G4_1G4_OOQ!0Lf1G/|1G/|OOQ!0Lf1G/z1G/zO$,XQ!0MxO1G0UOOQ[1G2y1G2yO!&oQMhO1G2yO%[QlO1G2yO#.YQ`O1G2yO$.]QMhO'#EkOOQ!0Lb,5@S,5@SO$.jQ!0LrO,5@SOOQ[1G.u1G.uO!BfQ!0LrO1G.uO!BqQpO1G.uO!ByQMhO1G.uO$.{Q`O1G0uO$/QQ`O'#CiO$/]Q`O'#KdO$/eQ`O,5={O$/jQ`O'#KdO$/oQ`O'#KdO$/}Q`O'#JQO$0]Q`O,5@}O$0eQ!fO1G1iOOQ!0Lf1G1k1G1kO9gQ`O1G3fO@oQ`O1G3fO$0lQ`O1G3fO$0qQ`O1G3fOOQ[1G3f1G3fO!DwQ`O1G3UO!&oQMhO1G3RO$0vQ`O1G3ROOQ[1G3S1G3SO!&oQMhO1G3SO$0{Q`O1G3SO$1TQpO'#HQOOQ[1G3U1G3UO!6SQpO'#I|O!D|Q!bO1G3XOOQ[1G3X1G3XOOQ[,5=r,5=rO$1]QMhO,5=tO9gQ`O,5=tO$$VQ`O,5=vO9[Q`O,5=vO!BqQpO,5=vO!ByQMhO,5=vO:`QMhO,5=vO$1kQ`O'#KbO$1vQ`O,5=wOOQ[1G.k1G.kO$1{Q!0LrO1G.kO@oQ`O1G.kO$2WQ`O1G.kO9qQ!0LrO1G.kO$4`Q!fO,5APO$4mQ`O,5APO9aQ`O,5APO$4xQlO,5>OO$5PQ`O,5>OOOQ[1G3h1G3hO`QlO1G3hOOQ[1G3n1G3nOOQ[1G3p1G3pO>xQ`O1G3rO$5UQlO1G3tO$9YQlO'#HsOOQ[1G3w1G3wO$9gQ`O'#HyO>}Q`O'#H{OOQ[1G3}1G3}O$9oQlO1G3}O9qQ!0LrO1G4TOOQ[1G4V1G4VOOQ!0Lb'#G_'#G_O9qQ!0LrO1G4XO9qQ!0LrO1G4ZO$=vQ`O,5@aO!)PQlO,5;`O9aQ`O,5;`O>}Q`O,5:XO!)PQlO,5:XO!BqQpO,5:XO$={Q?MtO,5:XOOQO,5;`,5;`O$>VQpO'#IdO$>mQ`O,5@`OOQ!0Lf1G/r1G/rO$>uQpO'#IjO$?PQ`O,5@oOOQ!0Lb1G0y1G0yO##tQpO,5:XOOQO'#If'#IfO$?XQpO,5:qOOQ!0Ln,5:q,5:qO#'oQ`O1G0ZOOQ!0Lf1G0Z1G0ZO%[QlO1G0ZOOQ!0Lf1G0t1G0tO>}Q`O1G0tO!BqQpO1G0tO!ByQMhO1G0tOOQ!0Lb1G5{1G5{O!BfQ!0LrO1G0^OOQO1G0m1G0mO%[QlO1G0mO$?`Q!0LrO1G0mO$?kQ!0LrO1G0mO!BqQpO1G0^OC{QpO1G0^O$?yQ!0LrO1G0mOOQO1G0^1G0^O$@_Q!0MxO1G0mPOOO-E<Z-E<ZPOOO1G.h1G.hOOOO1G/i1G/iO$@iQ!bO,5<iO$@qQ!fO1G4iOOQO1G4o1G4oO%[QlO,5>}O$@{Q`O1G5yO$ATQ`O1G6XO$A]Q!fO1G6YO9aQ`O,5?TO$AgQ!0MxO1G6VO%[QlO1G6VO$AwQ!0LrO1G6VO$BYQ`O1G6UO$BYQ`O1G6UO9aQ`O1G6UO$BbQ`O,5?WO9aQ`O,5?WOOQO,5?W,5?WO$BvQ`O,5?WO$){Q`O,5?WOOQO-E<j-E<jOOQS1G0a1G0aOOQS1G0c1G0cO#.QQ`O1G0cOOQ[7+(e7+(eO!&oQMhO7+(eO%[QlO7+(eO$CUQ`O7+(eO$CaQMhO7+(eO$CoQ!0MzO,5=XO$EzQ!0MzO,5=ZO$HVQ!0MzO,5=XO$JhQ!0MzO,5=ZO$LyQ!0MzO,59uO% OQ!0MzO,5<kO%#ZQ!0MzO,5<mO%%fQ!0MzO,5<{OOQ!0Lf7+&a7+&aO%'wQ!0MxO7+&aO%(kQlO'#IeO%(xQ`O,5@bO%)QQ!fO,5@bOOQ!0Lf1G0P1G0PO%)[Q`O7+&jOOQ!0Lf7+&j7+&jO%)aQ?MtO,5:fO%[QlO7+&zO%)kQ?MtO,5:bO%)xQ?MtO,5:jO%*SQ?MtO,5:lO%*^QMhO'#IhO%*hQ`O,5@gOOQ!0Lh1G0d1G0dOOQO1G1r1G1rOOQO1G1s1G1sO%*pQ!jO,5<ZO!)PQlO,5<YOOQO-E<k-E<kOOQ!0Lf7+'Y7+'YOOOW7+'e7+'eOOOW1G1|1G1|O%*{Q`O1G1|OOQ!0Lf1G2O1G2OOOOO,59o,59oO%+QQ!dO,59oOOOO-E<_-E<_OOQ!0Lh1G/X1G/XO%+XQ!0MxO7+'kOOQ!0Lh,5?],5?]O%+{QMhO1G2fP%,SQ`O'#IqPOQ!0Lh-E<o-E<oO%,pQMjO,5?`OOQ!0Lh-E<r-E<rO%-cQMjO,5?bOOQ!0Lh-E<t-E<tO%-mQ!dO1G2wO%-tQ!dO'#CrO%.[QMhO'#KRO$#jQlO'#JuOOQ!0Lh1G2_1G2_O%.cQ`O'#IpO%.wQ`O,5@uO%.wQ`O,5@uO%/PQ`O,5@uO%/[Q`O,5@uOOQO1G2a1G2aO%/jQMjO1G2`O!+xQMhO1G2`O%/zQ(CWO'#IrO%0XQ`O,5@vO!&oQMhO,5@vO%0aQ!dO,5@vOOQ!0Lh1G2d1G2dO%2qQ!fO'#CiO%2{Q`O,5=POOQ!0Lb,5<},5<}O%3TQpO,5<}OOQ!0Lb,5=O,5=OOClQ`O,5<}O%3`QpO,5<}OOQ!0Lb,5=R,5=RO$){Q`O,5=VOOQO,5?_,5?_OOQO-E<q-E<qOOQ!0Lp1G2h1G2hO##tQpO,5<}O$#jQlO,5=PO%3nQ`O,5=OO%3yQpO,5=OO!+xQMhO'#ItO%4sQMjO1G2sO!+xQMhO'#IvO%5fQMjO1G2uO%5pQMjO1G5pO%5zQMjO1G5pOOQO,5?d,5?dOOQO-E<v-E<vOOQO1G.{1G.{O!9xQpO,59wO%[QlO,59wOOQ!0Lh,5<j,5<jO%6XQ`O1G2ZO!+xQMhO1G2bO!+xQMhO1G5pO!+xQMhO1G5pO%6^Q!0MxO7+'mOOQ!0Lf7+'m7+'mO!$lQlO7+'mO%7QQ`O,5;`OOQ!0Lb,5?f,5?fOOQ!0Lb-E<x-E<xO%7VQ!dO'#K]O#'oQ`O7+(eO4UQ!fO7+(eO$CXQ`O7+(eO%7aQ!0MvO'#CiO%7tQ!0MvO,5=SO%8fQ`O,5=SO%8nQ`O,5=SOOQ!0Lb1G5n1G5nOOQ[7+$a7+$aO!BfQ!0LrO7+$aO!BqQpO7+$aO!$lQlO7+&aO%8sQ`O'#JPO%9[Q`O,5AOOOQO1G3g1G3gO9gQ`O,5AOO%9[Q`O,5AOO%9dQ`O,5AOOOQO,5?l,5?lOOQO-E=O-E=OOOQ!0Lf7+'T7+'TO%9iQ`O7+)QO9qQ!0LrO7+)QO9gQ`O7+)QO@oQ`O7+)QOOQ[7+(p7+(pO%9nQ!0MvO7+(mO!&oQMhO7+(mO!DrQ`O7+(nOOQ[7+(n7+(nO!&oQMhO7+(nO%9xQ`O'#KaO%:TQ`O,5=lOOQO,5?h,5?hOOQO-E<z-E<zOOQ[7+(s7+(sO%;gQpO'#HZOOQ[1G3`1G3`O!&oQMhO1G3`O%[QlO1G3`O%;nQ`O1G3`O%;yQMhO1G3`O9qQ!0LrO1G3bO$$VQ`O1G3bO9[Q`O1G3bO!BqQpO1G3bO!ByQMhO1G3bO%<XQ`O'#JOO%<mQ`O,5@|O%<uQpO,5@|OOQ!0Lb1G3c1G3cOOQ[7+$V7+$VO@oQ`O7+$VO9qQ!0LrO7+$VO%=QQ`O7+$VO%[QlO1G6kO%[QlO1G6lO%=VQ!0LrO1G6kO%=aQlO1G3jO%=hQ`O1G3jO%=mQlO1G3jOOQ[7+)S7+)SO9qQ!0LrO7+)^O`QlO7+)`OOQ['#Kg'#KgOOQ['#JR'#JRO%=tQlO,5>_OOQ[,5>_,5>_O%[QlO'#HtO%>RQ`O'#HvOOQ[,5>e,5>eO9aQ`O,5>eOOQ[,5>g,5>gOOQ[7+)i7+)iOOQ[7+)o7+)oOOQ[7+)s7+)sOOQ[7+)u7+)uO%>WQpO1G5{O%>rQ?MtO1G0zO%>|Q`O1G0zOOQO1G/s1G/sO%?XQ?MtO1G/sO>}Q`O1G/sO!)PQlO'#DmOOQO,5?O,5?OOOQO-E<b-E<bOOQO,5?U,5?UOOQO-E<h-E<hO!BqQpO1G/sOOQO-E<d-E<dOOQ!0Ln1G0]1G0]OOQ!0Lf7+%u7+%uO#'oQ`O7+%uOOQ!0Lf7+&`7+&`O>}Q`O7+&`O!BqQpO7+&`OOQO7+%x7+%xO$@_Q!0MxO7+&XOOQO7+&X7+&XO%[QlO7+&XO%?cQ!0LrO7+&XO!BfQ!0LrO7+%xO!BqQpO7+%xO%?nQ!0LrO7+&XO%?|Q!0MxO7++qO%[QlO7++qO%@^Q`O7++pO%@^Q`O7++pOOQO1G4r1G4rO9aQ`O1G4rO%@fQ`O1G4rOOQS7+%}7+%}O#'oQ`O<<LPO4UQ!fO<<LPO%@tQ`O<<LPOOQ[<<LP<<LPO!&oQMhO<<LPO%[QlO<<LPO%@|Q`O<<LPO%AXQ!0MzO,5?`O%CdQ!0MzO,5?bO%EoQ!0MzO1G2`O%HQQ!0MzO1G2sO%J]Q!0MzO1G2uO%LhQ!fO,5?PO%[QlO,5?POOQO-E<c-E<cO%LrQ`O1G5|OOQ!0Lf<<JU<<JUO%LzQ?MtO1G0uO& RQ?MtO1G1PO& YQ?MtO1G1PO&#ZQ?MtO1G1PO&#bQ?MtO1G1PO&%cQ?MtO1G1PO&'dQ?MtO1G1PO&'kQ?MtO1G1PO&'rQ?MtO1G1PO&)sQ?MtO1G1PO&)zQ?MtO1G1PO&*RQ!0MxO<<JfO&+yQ?MtO1G1PO&,vQ?MvO1G1PO&-yQ?MvO'#JkO&0PQ?MtO1G1cO&0^Q?MtO1G0UO&0hQMjO,5?SOOQO-E<f-E<fO!)PQlO'#FqOOQO'#KY'#KYOOQO1G1u1G1uO&0rQ`O1G1tO&0wQ?MtO,5?ZOOOW7+'h7+'hOOOO1G/Z1G/ZO&1RQ!dO1G4wOOQ!0Lh7+(Q7+(QP!&oQMhO,5?]O!+xQMhO7+(cO&1YQ`O,5?[O9aQ`O,5?[OOQO-E<n-E<nO&1hQ`O1G6aO&1hQ`O1G6aO&1pQ`O1G6aO&1{QMjO7+'zO&2]Q!dO,5?^O&2gQ`O,5?^O!&oQMhO,5?^OOQO-E<p-E<pO&2lQ!dO1G6bO&2vQ`O1G6bO&3OQ`O1G2kO!&oQMhO1G2kOOQ!0Lb1G2i1G2iOOQ!0Lb1G2j1G2jO%3TQpO1G2iO!BqQpO1G2iOClQ`O1G2iOOQ!0Lb1G2q1G2qO&3TQpO1G2iO&3cQ`O1G2kO$){Q`O1G2jOClQ`O1G2jO$#jQlO1G2kO&3kQ`O1G2jO&4_QMjO,5?`OOQ!0Lh-E<s-E<sO&5QQMjO,5?bOOQ!0Lh-E<u-E<uO!+xQMhO7++[OOQ!0Lh1G/c1G/cO&5[Q`O1G/cOOQ!0Lh7+'u7+'uO&5aQMjO7+'|O&5qQMjO7++[O&5{QMjO7++[O&6YQ!0MxO<<KXOOQ!0Lf<<KX<<KXO&6|Q`O1G0zO!&oQMhO'#IyO&7RQ`O,5@wO&9TQ!fO<<LPO!&oQMhO1G2nO&9[Q!0LrO1G2nOOQ[<<G{<<G{O!BfQ!0LrO<<G{O&9mQ!0MxO<<I{OOQ!0Lf<<I{<<I{OOQO,5?k,5?kO&:aQ`O,5?kO&:fQ`O,5?kOOQO-E<}-E<}O&:tQ`O1G6jO&:tQ`O1G6jO9gQ`O1G6jO@oQ`O<<LlOOQ[<<Ll<<LlO&:|Q`O<<LlO9qQ!0LrO<<LlOOQ[<<LX<<LXO%9nQ!0MvO<<LXOOQ[<<LY<<LYO!DrQ`O<<LYO&;RQpO'#I{O&;^Q`O,5@{O!)PQlO,5@{OOQ[1G3W1G3WOOQO'#I}'#I}O9qQ!0LrO'#I}O&;fQpO,5=uOOQ[,5=u,5=uO&;mQpO'#EgO&;tQpO'#GeO&;yQ`O7+(zO&<OQ`O7+(zOOQ[7+(z7+(zO!&oQMhO7+(zO%[QlO7+(zO&<WQ`O7+(zOOQ[7+(|7+(|O9qQ!0LrO7+(|O$$VQ`O7+(|O9[Q`O7+(|O!BqQpO7+(|O&<cQ`O,5?jOOQO-E<|-E<|OOQO'#H^'#H^O&<nQ`O1G6hO9qQ!0LrO<<GqOOQ[<<Gq<<GqO@oQ`O<<GqO&<vQ`O7+,VO&<{Q`O7+,WO%[QlO7+,VO%[QlO7+,WOOQ[7+)U7+)UO&=QQ`O7+)UO&=VQlO7+)UO&=^Q`O7+)UOOQ[<<Lx<<LxOOQ[<<Lz<<LzOOQ[-E=P-E=POOQ[1G3y1G3yO&=cQ`O,5>`OOQ[,5>b,5>bO&=hQ`O1G4PO9aQ`O7+&fO!)PQlO7+&fOOQO7+%_7+%_O&=mQ?MtO1G6YO>}Q`O7+%_OOQ!0Lf<<Ia<<IaOOQ!0Lf<<Iz<<IzO>}Q`O<<IzOOQO<<Is<<IsO$@_Q!0MxO<<IsO%[QlO<<IsOOQO<<Id<<IdO!BfQ!0LrO<<IdO&=wQ!0LrO<<IsO&>SQ!0MxO<= ]O&>dQ`O<= [OOQO7+*^7+*^O9aQ`O7+*^OOQ[ANAkANAkO&>lQ!fOANAkO!&oQMhOANAkO#'oQ`OANAkO4UQ!fOANAkO&>sQ`OANAkO%[QlOANAkO&>{Q!0MzO7+'zO&A^Q!0MzO,5?`O&CiQ!0MzO,5?bO&EtQ!0MzO7+'|O&HVQ!fO1G4kO&HaQ?MtO7+&aO&JeQ?MvO,5=XO&LlQ?MvO,5=ZO&L|Q?MvO,5=XO&M^Q?MvO,5=ZO&MnQ?MvO,59uO' tQ?MvO,5<kO'#wQ?MvO,5<mO'&]Q?MvO,5<{O'(RQ?MtO7+'kO'(`Q?MtO7+'mO'(mQ`O,5<]OOQO7+'`7+'`OOQ!0Lh7+*c7+*cO'(rQMjO<<K}OOQO1G4v1G4vO'(yQ`O1G4vO')UQ`O1G4vO')dQ`O7++{O')dQ`O7++{O!&oQMhO1G4xO')lQ!dO1G4xO')vQ`O7++|O'*OQ`O7+(VO'*ZQ!dO7+(VOOQ!0Lb7+(T7+(TOOQ!0Lb7+(U7+(UO!BqQpO7+(TOClQ`O7+(TO'*eQ`O7+(VO!&oQMhO7+(VO$){Q`O7+(UO'*jQ`O7+(VOClQ`O7+(UO'*rQMjO<<NvOOQ!0Lh7+$}7+$}O!+xQMhO<<NvO'*|Q!dO,5?eOOQO-E<w-E<wO'+WQ!0MvO7+(YO!&oQMhO7+(YOOQ[AN=gAN=gO9gQ`O1G5VOOQO1G5V1G5VO'+hQ`O1G5VO'+mQ`O7+,UO'+mQ`O7+,UO9qQ!0LrOANBWO@oQ`OANBWOOQ[ANBWANBWOOQ[ANAsANAsOOQ[ANAtANAtO'+uQ`O,5?gOOQO-E<y-E<yO',QQ?MtO1G6gOOQO,5?i,5?iOOQO-E<{-E<{OOQ[1G3a1G3aO',[Q`O,5=POOQ[<<Lf<<LfO!&oQMhO<<LfO&;yQ`O<<LfO',aQ`O<<LfO%[QlO<<LfOOQ[<<Lh<<LhO9qQ!0LrO<<LhO$$VQ`O<<LhO9[Q`O<<LhO',iQpO1G5UO',tQ`O7+,SOOQ[AN=]AN=]O9qQ!0LrOAN=]OOQ[<= q<= qOOQ[<= r<= rO',|Q`O<= qO'-RQ`O<= rOOQ[<<Lp<<LpO'-WQ`O<<LpO'-]QlO<<LpOOQ[1G3z1G3zO>}Q`O7+)kO'-dQ`O<<JQO'-oQ?MtO<<JQOOQO<<Hy<<HyOOQ!0LfAN?fAN?fOOQOAN?_AN?_O$@_Q!0MxOAN?_OOQOAN?OAN?OO%[QlOAN?_OOQO<<Mx<<MxOOQ[G27VG27VO!&oQMhOG27VO#'oQ`OG27VO'-yQ!fOG27VO4UQ!fOG27VO'.QQ`OG27VO'.YQ?MtO<<JfO'.gQ?MvO1G2`O'0]Q?MvO,5?`O'2`Q?MvO,5?bO'4cQ?MvO1G2sO'6fQ?MvO1G2uO'8iQ?MtO<<KXO'8vQ?MtO<<I{OOQO1G1w1G1wO!+xQMhOANAiOOQO7+*b7+*bO'9TQ`O7+*bO'9`Q`O<= gO'9hQ!dO7+*dOOQ!0Lb<<Kq<<KqO$){Q`O<<KqOClQ`O<<KqO'9rQ`O<<KqO!&oQMhO<<KqOOQ!0Lb<<Ko<<KoO!BqQpO<<KoO'9}Q!dO<<KqOOQ!0Lb<<Kp<<KpO':XQ`O<<KqO!&oQMhO<<KqO$){Q`O<<KpO':^QMjOANDbO':hQ!0MvO<<KtOOQO7+*q7+*qO9gQ`O7+*qO':xQ`O<= pOOQ[G27rG27rO9qQ!0LrOG27rO!)PQlO1G5RO';QQ`O7+,RO';YQ`O1G2kO&;yQ`OANBQOOQ[ANBQANBQO!&oQMhOANBQO';_Q`OANBQOOQ[ANBSANBSO9qQ!0LrOANBSO$$VQ`OANBSOOQO'#H_'#H_OOQO7+*p7+*pOOQ[G22wG22wOOQ[ANE]ANE]OOQ[ANE^ANE^OOQ[ANB[ANB[O';gQ`OANB[OOQ[<<MV<<MVO!)PQlOAN?lOOQOG24yG24yO$@_Q!0MxOG24yO#'oQ`OLD,qOOQ[LD,qLD,qO!&oQMhOLD,qO';lQ!fOLD,qO';sQ?MvO7+'zO'=iQ?MvO,5?`O'?lQ?MvO,5?bO'AoQ?MvO7+'|O'CeQMjOG27TOOQO<<M|<<M|OOQ!0LbANA]ANA]O$){Q`OANA]OClQ`OANA]O'CuQ!dOANA]OOQ!0LbANAZANAZO'C|Q`OANA]O!&oQMhOANA]O'DXQ!dOANA]OOQ!0LbANA[ANA[OOQO<<N]<<N]OOQ[LD-^LD-^O'DcQ?MtO7+*mOOQO'#Gf'#GfOOQ[G27lG27lO&;yQ`OG27lO!&oQMhOG27lOOQ[G27nG27nO9qQ!0LrOG27nOOQ[G27vG27vO'DmQ?MtOG25WOOQOLD*eLD*eOOQ[!$(!]!$(!]O#'oQ`O!$(!]O!&oQMhO!$(!]O'DwQ!0MzOG27TOOQ!0LbG26wG26wO$){Q`OG26wO'GYQ`OG26wOClQ`OG26wO'GeQ!dOG26wO!&oQMhOG26wOOQ[LD-WLD-WO&;yQ`OLD-WOOQ[LD-YLD-YOOQ[!)9Ew!)9EwO#'oQ`O!)9EwOOQ!0LbLD,cLD,cO$){Q`OLD,cOClQ`OLD,cO'GlQ`OLD,cO'GwQ!dOLD,cOOQ[!$(!r!$(!rOOQ[!.K;c!.K;cO'HOQ?MvOG27TOOQ!0Lb!$( }!$( }O$){Q`O!$( }OClQ`O!$( }O'ItQ`O!$( }OOQ!0Lb!)9Ei!)9EiO$){Q`O!)9EiOClQ`O!)9EiOOQ!0Lb!.K;T!.K;TO$){Q`O!.K;TOOQ!0Lb!4/0o!4/0oO!)PQlO'#DzO1PQ`O'#EXO'JPQ!fO'#JqO'JWQ!L^O'#DvO'J_QlO'#EOO'JfQ!fO'#CiO'L|Q!fO'#CiO!)PQlO'#EQO'M^QlO,5;ZO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO,5;eO!)PQlO'#IoO( aQ`O,5<iO!)PQlO,5;eO( iQMhO,5;eO(#SQMhO,5;eO!)PQlO,5;wO!&oQMhO'#GmO( iQMhO'#GmO!&oQMhO'#GoO( iQMhO'#GoO1SQ`O'#DZO1SQ`O'#DZO!&oQMhO'#GPO( iQMhO'#GPO!&oQMhO'#GRO( iQMhO'#GRO!&oQMhO'#GaO( iQMhO'#GaO!)PQlO,5:jO(#ZQpO'#D_O(#eQpO'#JuO!)PQlO,5@nO'M^QlO1G0uO(#oQ?MtO'#CiO!)PQlO1G2PO!&oQMhO'#ItO( iQMhO'#ItO!&oQMhO'#IvO( iQMhO'#IvO(#yQ!dO'#CrO!&oQMhO,5<tO( iQMhO,5<tO'M^QlO1G2RO!)PQlO7+&zO!&oQMhO1G2`O( iQMhO1G2`O!&oQMhO'#ItO( iQMhO'#ItO!&oQMhO'#IvO( iQMhO'#IvO!&oQMhO1G2bO( iQMhO1G2bO'M^QlO7+'mO'M^QlO7+&aO!&oQMhOANAiO( iQMhOANAiO($^Q`O'#EoO($cQ`O'#EoO($kQ`O'#F]O($pQ`O'#EyO($uQ`O'#KSO(%QQ`O'#KQO(%]Q`O,5;ZO(%bQMjO,5<eO(%iQ`O'#GYO(%nQ`O'#GYO(%sQ`O,5<gO(%{Q`O,5;ZO(&TQ?MtO1G1`O(&[Q`O,5<tO(&aQ`O,5<tO(&fQ`O,5<vO(&kQ`O,5<vO(&pQ`O1G2RO(&uQ`O1G0uO(&zQMjO<<K}O('RQMjO<<K}O7eQMhO'#F|O9[Q`O'#F{OAjQ`O'#EnO!)PQlO,5;tO!3dQ`O'#GYO!3dQ`O'#GYO!3dQ`O'#G[O!3dQ`O'#G[O!+xQMhO7+(cO!+xQMhO7+(cO%-mQ!dO1G2wO%-mQ!dO1G2wO!&oQMhO,5=]O!&oQMhO,5=]",
-  stateData: "((X~O'{OS'|OSTOS'}RQ~OPYOQYOSfOY!VOaqOdzOeyOl!POpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_XO!iuO!lZO!oYO!pYO!qYO!svO!uwO!xxO!|]O$W|O$niO%h}O%j!QO%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO%y!UO&V!WO&]!XO&_!YO&a!ZO&c![O&f!]O&l!^O&r!_O&t!`O&v!aO&x!bO&z!cO(SSO(UTO(XUO(`VO(n[O~OWtO~P`OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(S!dO(UTO(XUO(`VO(n[O~Oa!wOs!nO!S!oO!b!yO!c!vO!d!vO!|;wO#T!pO#U!pO#V!xO#W!pO#X!pO#[!zO#]!zO(T!lO(UTO(XUO(d!mO(n!sO~O'}!{O~OP]XR]X[]Xa]Xj]Xr]X!Q]X!S]X!]]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X'y]X(`]X(q]X(x]X(y]X~O!g%RX~P(qO_!}O(U#PO(V!}O(W#PO~O_#QO(W#PO(X#PO(Y#QO~Ox#SO!U#TO(a#TO(b#VO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(S;{O(UTO(XUO(`VO(n[O~O![#ZO!]#WO!Y(gP!Y(uP~P+}O!^#cO~P`OPYOQYOSfOd!jOe!iOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(UTO(XUO(`VO(n[O~Op#mO![#iO!|]O#i#lO#j#iO(S;|O!k(rP~P.iO!l#oO(S#nO~O!x#sO!|]O%h#tO~O#k#uO~O!g#vO#k#uO~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!]$_O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(`VO(q$YO(x#|O(y#}O~Oa(eX'y(eX'v(eX!k(eX!Y(eX!_(eX%i(eX!g(eX~P1qO#S$dO#`$eO$Q$eOP(fXR(fX[(fXj(fXr(fX!Q(fX!S(fX!](fX!l(fX!p(fX#R(fX#n(fX#o(fX#p(fX#q(fX#r(fX#s(fX#t(fX#u(fX#v(fX#x(fX#z(fX#{(fX(`(fX(q(fX(x(fX(y(fX!_(fX%i(fX~Oa(fX'y(fX'v(fX!Y(fX!k(fXv(fX!g(fX~P4UO#`$eO~O$]$hO$_$gO$f$mO~OSfO!_$nO$i$oO$k$qO~Oh%VOj%cOk%cOl%cOp%WOr%XOs$tOt$tOz%YO|%ZO!O%[O!S${O!_$|O!i%aO!l$xO#j%bO$W%_O$t%]O$v%^O$y%`O(S$sO(UTO(XUO(`$uO(x$}O(y%POg(]P~O!l%dO~O!S%gO!_%hO(S%fO~O!g%lO~Oa%mO'y%mO~O!Q%qO~P%[O(T!lO~P%[O%n%uO~P%[Oh%VO!l%dO(S%fO(T!lO~Oe%|O!l%dO(S%fO~Oj$RO~O!Q&RO!_&OO!l&QO%j&UO(S%fO(T!lO(UTO(XUO`)VP~O!x#sO~O%s&WO!S)RX!_)RX(S)RX~O(S&XO~Ol!PO!u&^O%j!QO%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO~Od&cOe&bO!x&`O%h&aO%{&_O~P<VOd&fOeyOl!PO!_&eO!u&^O!xxO!|]O%h}O%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO%y!UO~Ob&iO#`&lO%j&gO(T!lO~P=[O!l&mO!u&qO~O!l#oO~O!_XO~Oa%mO'w&yO'y%mO~Oa%mO'w&|O'y%mO~Oa%mO'w'OO'y%mO~O'v]X!Y]Xv]X!k]X&Z]X!_]X%i]X!g]X~P(qO!b']O!c'UO!d'UO(T!lO(UTO(XUO~Os'SO!S'RO!['VO(d'QO!^(hP!^(wP~P@cOn'`O!_'^O(S%fO~Oe'eO!l%dO(S%fO~O!Q&RO!l&QO~Os!nO!S!oO!|;wO#T!pO#U!pO#W!pO#X!pO(T!lO(UTO(XUO(d!mO(n!sO~O!b'kO!c'jO!d'jO#V!pO#['lO#]'lO~PA}Oa%mOh%VO!g#vO!l%dO'y%mO(q'nO~O!p'rO#`'pO~PC]Os!nO!S!oO(UTO(XUO(d!mO(n!sO~O!_XOs(lX!S(lX!b(lX!c(lX!d(lX!|(lX#T(lX#U(lX#V(lX#W(lX#X(lX#[(lX#](lX(T(lX(U(lX(X(lX(d(lX(n(lX~O!c'jO!d'jO(T!lO~PC{O(O'vO(P'vO(Q'xO~O_!}O(U'zO(V!}O(W'zO~O_#QO(W'zO(X'zO(Y#QO~Ov'|O~P%[Ox#SO!U#TO(a#TO(b(PO~O![(RO!Y'VX!Y']X!]'VX!]']X~P+}O!](TO!Y(gX~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!](TO!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(`VO(q$YO(x#|O(y#}O~O!Y(gX~PGvO!Y(YO~O!Y(tX!](tX!g(tX!k(tX(q(tX~O#`(tX#k#dX!^(tX~PIyO#`(ZO!Y(vX!](vX~O!]([O!Y(uX~O!Y(_O~O#`$eO~PIyO!^(`O~P`OR#zO!Q#yO!S#{O!l#xO(`VOP!na[!naj!nar!na!]!na!p!na#R!na#n!na#o!na#p!na#q!na#r!na#s!na#t!na#u!na#v!na#x!na#z!na#{!na(q!na(x!na(y!na~Oa!na'y!na'v!na!Y!na!k!nav!na!_!na%i!na!g!na~PKaO!k(aO~O!g#vO#`(bO(q'nO!](sXa(sX'y(sX~O!k(sX~PM|O!S%gO!_%hO!|]O#i(gO#j(fO(S%fO~O!](hO!k(rX~O!k(jO~O!S%gO!_%hO#j(fO(S%fO~OP(fXR(fX[(fXj(fXr(fX!Q(fX!S(fX!](fX!l(fX!p(fX#R(fX#n(fX#o(fX#p(fX#q(fX#r(fX#s(fX#t(fX#u(fX#v(fX#x(fX#z(fX#{(fX(`(fX(q(fX(x(fX(y(fX~O!g#vO!k(fX~P! jOR(lO!Q(kO!l#xO#S$dO!|!{a!S!{a~O!x!{a%h!{a!_!{a#i!{a#j!{a(S!{a~P!#kO!x(pO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_XO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(S!dO(UTO(XUO(`VO(n[O~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<eO!S${O!_$|O!i=vO!l$xO#j<kO$W%_O$t<gO$v<iO$y%`O(S(tO(UTO(XUO(`$uO(x$}O(y%PO~O#k(vO~O![(xO!k(jP~P%[O(d(zO(n[O~O!S(|O!l#xO(d(zO(n[O~OP;vOQ;vOSfOd=rOe!iOpkOr;vOskOtkOzkO|;vO!O;vO!SWO!WkO!XkO!_!eO!i;yO!lZO!o;vO!p;vO!q;vO!s;zO!u;}O!x!hO$W!kO$n=pO(S)ZO(UTO(XUO(`VO(n[O~O!]$_Oa$qa'y$qa'v$qa!k$qa!Y$qa!_$qa%i$qa!g$qa~Ol)bO~P!&oOh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O%[O!S${O!_$|O!i%aO!l$xO#j%bO$W%_O$t%]O$v%^O$y%`O(S(tO(UTO(XUO(`$uO(x$}O(y%PO~Og(oP~P!+xO!Q)gO!g)fO!_$^X$Z$^X$]$^X$_$^X$f$^X~O!g)fO!_(zX$Z(zX$](zX$_(zX$f(zX~O!Q)gO~P!.RO!Q)gO!_(zX$Z(zX$](zX$_(zX$f(zX~O!_)iO$Z)mO$])hO$_)hO$f)nO~O![)qO~P!)PO$]$hO$_$gO$f)uO~On$zX!Q$zX#S$zX'x$zX(x$zX(y$zX~OgmXg$zXnmX!]mX#`mX~P!/wOx)wO(a)xO(b)zO~On*TO!Q)|O'x)}O(x$}O(y%PO~Og){O~P!0{Og*UO~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<eO!S*WO!_*XO!i=vO!l$xO#j<kO$W%_O$t<gO$v<iO$y%`O(UTO(XUO(`$uO(x$}O(y%PO~O![*[O(S*VO!k(}P~P!1jO#k*^O~O!l*_O~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<eO!S${O!_$|O!i=vO!l$xO#j<kO$W%_O$t<gO$v<iO$y%`O(S*aO(UTO(XUO(`$uO(x$}O(y%PO~O![*dO!Y)OP~P!3iOr*pOs!nO!S*fO!b*nO!c*hO!d*hO!l*_O#[*oO%`*jO(T!lO(UTO(XUO(d!mO~O!^*mO~P!5^O#S$dOn(_X!Q(_X'x(_X(x(_X(y(_X!](_X#`(_X~Og(_X$O(_X~P!6`On*uO#`*tOg(^X!](^X~O!]*vOg(]X~Oj%cOk%cOl%cO(S&XOg(]P~Os*yO~O!l+OO~O(S(tO~Op+TO!S%gO![#iO!_%hO!|]O#i#lO#j#iO(S%fO!k(rP~O!g#vO#k+UO~O!S%gO![+WO!]([O!_%hO(S%fO!Y(uP~Os'YO!S+YO![+XO(UTO(XUO(d(zO~O!^(wP~P!9iO!]+ZOa)SX'y)SX~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(`VO(q$YO(x#|O(y#}O~Oa!ja!]!ja'y!ja'v!ja!Y!ja!k!jav!ja!_!ja%i!ja!g!ja~P!:aOR#zO!Q#yO!S#{O!l#xO(`VOP!ra[!raj!rar!ra!]!ra!p!ra#R!ra#n!ra#o!ra#p!ra#q!ra#r!ra#s!ra#t!ra#u!ra#v!ra#x!ra#z!ra#{!ra(q!ra(x!ra(y!ra~Oa!ra'y!ra'v!ra!Y!ra!k!rav!ra!_!ra%i!ra!g!ra~P!<wOR#zO!Q#yO!S#{O!l#xO(`VOP!ta[!taj!tar!ta!]!ta!p!ta#R!ta#n!ta#o!ta#p!ta#q!ta#r!ta#s!ta#t!ta#u!ta#v!ta#x!ta#z!ta#{!ta(q!ta(x!ta(y!ta~Oa!ta'y!ta'v!ta!Y!ta!k!tav!ta!_!ta%i!ta!g!ta~P!?_Oh%VOn+dO!_'^O%i+cO~O!g+fOa([X!_([X'y([X!]([X~Oa%mO!_XO'y%mO~Oh%VO!l%dO~Oh%VO!l%dO(S%fO~O!g#vO#k(vO~Ob+qO%j+rO(S+nO(UTO(XUO!^)WP~O!]+sO`)VX~O[+wO~O`+xO~O!_&OO(S%fO(T!lO`)VP~Oh%VO#`+}O~Oh%VOn,QO!_$|O~O!_,SO~O!Q,UO!_XO~O%n%uO~O!x,ZO~Oe,`O~Ob,aO(S#nO(UTO(XUO!^)UP~Oe%|O~O%j!QO(S&XO~P=[O[,fO`,eO~OPYOQYOSfOdzOeyOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!iuO!lZO!oYO!pYO!qYO!svO!xxO!|]O$niO%h}O(UTO(XUO(`VO(n[O~O!_!eO!u!gO$W!kO(S!dO~P!F_O`,eOa%mO'y%mO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!x!hO$W!kO$niO(S!dO(UTO(XUO(`VO(n[O~Oa,kOl!OO!uwO%l!OO%m!OO%n!OO~P!HwO!l&mO~O&],qO~O!_,sO~O&n,uO&p,vOP&kaQ&kaS&kaY&kaa&kad&kae&kal&kap&kar&kas&kat&kaz&ka|&ka!O&ka!S&ka!W&ka!X&ka!_&ka!i&ka!l&ka!o&ka!p&ka!q&ka!s&ka!u&ka!x&ka!|&ka$W&ka$n&ka%h&ka%j&ka%l&ka%m&ka%n&ka%q&ka%s&ka%v&ka%w&ka%y&ka&V&ka&]&ka&_&ka&a&ka&c&ka&f&ka&l&ka&r&ka&t&ka&v&ka&x&ka&z&ka'v&ka(S&ka(U&ka(X&ka(`&ka(n&ka!^&ka&d&kab&ka&i&ka~O(S,{O~Oh!eX!]!RX!^!RX!g!RX!g!eX!l!eX#`!RX~O!]!eX!^!eX~P# }O!g-QO#`-POh(iX!]#hX!^#hX!g(iX!l(iX~O!](iX!^(iX~P#!pOh%VO!g-SO!l%dO!]!aX!^!aX~Os!nO!S!oO(UTO(XUO(d!mO~OP;vOQ;vOSfOd=rOe!iOpkOr;vOskOtkOzkO|;vO!O;vO!SWO!WkO!XkO!_!eO!i;yO!lZO!o;vO!p;vO!q;vO!s;zO!u;}O!x!hO$W!kO$n=pO(UTO(XUO(`VO(n[O~O(S<rO~P#$VO!]-WO!^(hX~O!^-YO~O!g-QO#`-PO!]#hX!^#hX~O!]-ZO!^(wX~O!^-]O~O!c-^O!d-^O(T!lO~P##tO!^-aO~P'_On-dO!_'^O~O!Y-iO~Os!{a!b!{a!c!{a!d!{a#T!{a#U!{a#V!{a#W!{a#X!{a#[!{a#]!{a(T!{a(U!{a(X!{a(d!{a(n!{a~P!#kO!p-nO#`-lO~PC]O!c-pO!d-pO(T!lO~PC{Oa%mO#`-lO'y%mO~Oa%mO!g#vO#`-lO'y%mO~Oa%mO!g#vO!p-nO#`-lO'y%mO(q'nO~O(O'vO(P'vO(Q-uO~Ov-vO~O!Y'Va!]'Va~P!:aO![-zO!Y'VX!]'VX~P%[O!](TO!Y(ga~O!Y(ga~PGvO!]([O!Y(ua~O!S%gO![.OO!_%hO(S%fO!Y']X!]']X~O#`.QO!](sa!k(saa(sa'y(sa~O!g#vO~P#,]O!](hO!k(ra~O!S%gO!_%hO#j.UO(S%fO~Op.ZO!S%gO![.WO!_%hO!|]O#i.YO#j.WO(S%fO!]'`X!k'`X~OR._O!l#xO~Oh%VOn.bO!_'^O%i.aO~Oa#ci!]#ci'y#ci'v#ci!Y#ci!k#civ#ci!_#ci%i#ci!g#ci~P!:aOn=|O!Q)|O'x)}O(x$}O(y%PO~O#k#_aa#_a#`#_a'y#_a!]#_a!k#_a!_#_a!Y#_a~P#/XO#k(_XP(_XR(_X[(_Xa(_Xj(_Xr(_X!S(_X!l(_X!p(_X#R(_X#n(_X#o(_X#p(_X#q(_X#r(_X#s(_X#t(_X#u(_X#v(_X#x(_X#z(_X#{(_X'y(_X(`(_X(q(_X!k(_X!Y(_X'v(_Xv(_X!_(_X%i(_X!g(_X~P!6`O!].oO!k(jX~P!:aO!k.rO~O!Y.tO~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O(`VO[#mia#mij#mir#mi!]#mi#R#mi#o#mi#p#mi#q#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'y#mi(q#mi(x#mi(y#mi'v#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#n#mi~P#2wO#n$OO~P#2wOP$[OR#zOr$aO!Q#yO!S#{O!l#xO!p$[O#n$OO#o$PO#p$PO#q$PO(`VO[#mia#mij#mi!]#mi#R#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'y#mi(q#mi(x#mi(y#mi'v#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#r#mi~P#5fO#r$QO~P#5fOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO(`VOa#mi!]#mi#x#mi#z#mi#{#mi'y#mi(q#mi(x#mi(y#mi'v#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#v#mi~P#8TOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO(`VO(y#}Oa#mi!]#mi#z#mi#{#mi'y#mi(q#mi(x#mi'v#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#x$UO~P#:kO#x#mi~P#:kO#v$SO~P#8TOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO(`VO(x#|O(y#}Oa#mi!]#mi#{#mi'y#mi(q#mi'v#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#z#mi~P#=aO#z$WO~P#=aOP]XR]X[]Xj]Xr]X!Q]X!S]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(`]X(q]X(x]X(y]X!]]X!^]X~O$O]X~P#@OOP$[OR#zO[<_Oj<SOr<]O!Q#yO!S#{O!l#xO!p$[O#R<SO#n<PO#o<QO#p<QO#q<QO#r<RO#s<SO#t<SO#u<^O#v<TO#x<VO#z<XO#{<YO(`VO(q$YO(x#|O(y#}O~O$O.vO~P#B]O#S$dO#`<`O$Q<`O$O(fX!^(fX~P! jOa'ca!]'ca'y'ca'v'ca!k'ca!Y'cav'ca!_'ca%i'ca!g'ca~P!:aO[#mia#mij#mir#mi!]#mi#R#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'y#mi(q#mi'v#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O#n$OO#o$PO#p$PO#q$PO(`VO(x#mi(y#mi~P#E_On=|O!Q)|O'x)}O(x$}O(y%POP#miR#mi!S#mi!l#mi!p#mi#n#mi#o#mi#p#mi#q#mi(`#mi~P#E_O!].zOg(oX~P!0{Og.|O~Oa$Pi!]$Pi'y$Pi'v$Pi!Y$Pi!k$Piv$Pi!_$Pi%i$Pi!g$Pi~P!:aO$].}O$_.}O~O$]/OO$_/OO~O!g)fO#`/PO!_$cX$Z$cX$]$cX$_$cX$f$cX~O![/QO~O!_)iO$Z/SO$])hO$_)hO$f/TO~O!]<ZO!^(eX~P#B]O!^/UO~O!g)fO$f(zX~O$f/WO~Ov/XO~P!&oOx)wO(a)xO(b/[O~O!S/_O~O(x$}On%aa!Q%aa'x%aa(y%aa!]%aa#`%aa~Og%aa$O%aa~P#LaO(y%POn%ca!Q%ca'x%ca(x%ca!]%ca#`%ca~Og%ca$O%ca~P#MSO!]fX!gfX!kfX!k$zX(qfX~P!/wO![/hO!]([O(S/gO!Y(uP!Y)OP~P!1jOr*pO!b*nO!c*hO!d*hO!l*_O#[*oO%`*jO(T!lO(UTO(XUO~Os<oO!S/iO![+XO!^*mO(d<nO!^(wP~P#NmO!k/jO~P#/XO!]/kO!g#vO(q'nO!k(}X~O!k/pO~O!S%gO![*[O!_%hO(S%fO!k(}P~O#k/rO~O!Y$zX!]$zX!g%RX~P!/wO!]/sO!Y)OX~P#/XO!g/uO~O!Y/wO~OpkO(S/xO~P.iOh%VOr/}O!g#vO!l%dO(q'nO~O!g+fO~Oa%mO!]0RO'y%mO~O!^0TO~P!5^O!c0UO!d0UO(T!lO~P##tOs!nO!S0VO(UTO(XUO(d!mO~O#[0XO~Og%aa!]%aa#`%aa$O%aa~P!0{Og%ca!]%ca#`%ca$O%ca~P!0{Oj%cOk%cOl%cO(S&XOg'lX!]'lX~O!]*vOg(]a~Og0bO~OR0cO!Q0cO!S0dO#S$dOn}a'x}a(x}a(y}a!]}a#`}a~Og}a$O}a~P$&vO!Q)|O'x)}On$sa(x$sa(y$sa!]$sa#`$sa~Og$sa$O$sa~P$'rO!Q)|O'x)}On$ua(x$ua(y$ua!]$ua#`$ua~Og$ua$O$ua~P$(eO#k0gO~Og%Ta!]%Ta#`%Ta$O%Ta~P!0{On0iO#`0hOg(^a!](^a~O!g#vO~O#k0lO~O!]+ZOa)Sa'y)Sa~OR#zO!Q#yO!S#{O!l#xO(`VOP!ri[!rij!rir!ri!]!ri!p!ri#R!ri#n!ri#o!ri#p!ri#q!ri#r!ri#s!ri#t!ri#u!ri#v!ri#x!ri#z!ri#{!ri(q!ri(x!ri(y!ri~Oa!ri'y!ri'v!ri!Y!ri!k!riv!ri!_!ri%i!ri!g!ri~P$*bOh%VOr%XOs$tOt$tOz%YO|%ZO!O<eO!S${O!_$|O!i=vO!l$xO#j<kO$W%_O$t<gO$v<iO$y%`O(UTO(XUO(`$uO(x$}O(y%PO~Op0uO%]0vO(S0tO~P$,xO!g+fOa([a!_([a'y([a!]([a~O#k0|O~O[]X!]fX!^fX~O!]0}O!^)WX~O!^1PO~O[1QO~Ob1SO(S+nO(UTO(XUO~O!_&OO(S%fO`'tX!]'tX~O!]+sO`)Va~O!k1VO~P!:aO[1YO~O`1ZO~O#`1^O~On1aO!_$|O~O(d(zO!^)TP~Oh%VOn1jO!_1gO%i1iO~O[1tO!]1rO!^)UX~O!^1uO~O`1wOa%mO'y%mO~O(S#nO(UTO(XUO~O#S$dO#`$eO$Q$eOP(fXR(fX[(fXr(fX!Q(fX!S(fX!](fX!l(fX!p(fX#R(fX#n(fX#o(fX#p(fX#q(fX#r(fX#s(fX#t(fX#u(fX#v(fX#x(fX#z(fX#{(fX(`(fX(q(fX(x(fX(y(fX~Oj1zO&Z1{Oa(fX~P$2cOj1zO#`$eO&Z1{O~Oa1}O~P%[Oa2PO~O&d2SOP&biQ&biS&biY&bia&bid&bie&bil&bip&bir&bis&bit&biz&bi|&bi!O&bi!S&bi!W&bi!X&bi!_&bi!i&bi!l&bi!o&bi!p&bi!q&bi!s&bi!u&bi!x&bi!|&bi$W&bi$n&bi%h&bi%j&bi%l&bi%m&bi%n&bi%q&bi%s&bi%v&bi%w&bi%y&bi&V&bi&]&bi&_&bi&a&bi&c&bi&f&bi&l&bi&r&bi&t&bi&v&bi&x&bi&z&bi'v&bi(S&bi(U&bi(X&bi(`&bi(n&bi!^&bib&bi&i&bi~Ob2YO!^2WO&i2XO~P`O!_XO!l2[O~O&p,vOP&kiQ&kiS&kiY&kia&kid&kie&kil&kip&kir&kis&kit&kiz&ki|&ki!O&ki!S&ki!W&ki!X&ki!_&ki!i&ki!l&ki!o&ki!p&ki!q&ki!s&ki!u&ki!x&ki!|&ki$W&ki$n&ki%h&ki%j&ki%l&ki%m&ki%n&ki%q&ki%s&ki%v&ki%w&ki%y&ki&V&ki&]&ki&_&ki&a&ki&c&ki&f&ki&l&ki&r&ki&t&ki&v&ki&x&ki&z&ki'v&ki(S&ki(U&ki(X&ki(`&ki(n&ki!^&ki&d&kib&ki&i&ki~O!Y2bO~O!]!aa!^!aa~P#B]Os!nO!S!oO![2hO(d!mO!]'WX!^'WX~P@cO!]-WO!^(ha~O!]'^X!^'^X~P!9iO!]-ZO!^(wa~O!^2oO~P'_Oa%mO#`2xO'y%mO~Oa%mO!g#vO#`2xO'y%mO~Oa%mO!g#vO!p2|O#`2xO'y%mO(q'nO~Oa%mO'y%mO~P!:aO!]$_Ov$qa~O!Y'Vi!]'Vi~P!:aO!](TO!Y(gi~O!]([O!Y(ui~O!Y(vi!](vi~P!:aO!](si!k(sia(si'y(si~P!:aO#`3OO!](si!k(sia(si'y(si~O!](hO!k(ri~O!S%gO!_%hO!|]O#i3TO#j3SO(S%fO~O!S%gO!_%hO#j3SO(S%fO~On3[O!_'^O%i3ZO~Oh%VOn3[O!_'^O%i3ZO~O#k%aaP%aaR%aa[%aaa%aaj%aar%aa!S%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa'y%aa(`%aa(q%aa!k%aa!Y%aa'v%aav%aa!_%aa%i%aa!g%aa~P#LaO#k%caP%caR%ca[%caa%caj%car%ca!S%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca'y%ca(`%ca(q%ca!k%ca!Y%ca'v%cav%ca!_%ca%i%ca!g%ca~P#MSO#k%aaP%aaR%aa[%aaa%aaj%aar%aa!S%aa!]%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa'y%aa(`%aa(q%aa!k%aa!Y%aa'v%aa#`%aav%aa!_%aa%i%aa!g%aa~P#/XO#k%caP%caR%ca[%caa%caj%car%ca!S%ca!]%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca'y%ca(`%ca(q%ca!k%ca!Y%ca'v%ca#`%cav%ca!_%ca%i%ca!g%ca~P#/XO#k}aP}a[}aa}aj}ar}a!l}a!p}a#R}a#n}a#o}a#p}a#q}a#r}a#s}a#t}a#u}a#v}a#x}a#z}a#{}a'y}a(`}a(q}a!k}a!Y}a'v}av}a!_}a%i}a!g}a~P$&vO#k$saP$saR$sa[$saa$saj$sar$sa!S$sa!l$sa!p$sa#R$sa#n$sa#o$sa#p$sa#q$sa#r$sa#s$sa#t$sa#u$sa#v$sa#x$sa#z$sa#{$sa'y$sa(`$sa(q$sa!k$sa!Y$sa'v$sav$sa!_$sa%i$sa!g$sa~P$'rO#k$uaP$uaR$ua[$uaa$uaj$uar$ua!S$ua!l$ua!p$ua#R$ua#n$ua#o$ua#p$ua#q$ua#r$ua#s$ua#t$ua#u$ua#v$ua#x$ua#z$ua#{$ua'y$ua(`$ua(q$ua!k$ua!Y$ua'v$uav$ua!_$ua%i$ua!g$ua~P$(eO#k%TaP%TaR%Ta[%Taa%Taj%Tar%Ta!S%Ta!]%Ta!l%Ta!p%Ta#R%Ta#n%Ta#o%Ta#p%Ta#q%Ta#r%Ta#s%Ta#t%Ta#u%Ta#v%Ta#x%Ta#z%Ta#{%Ta'y%Ta(`%Ta(q%Ta!k%Ta!Y%Ta'v%Ta#`%Tav%Ta!_%Ta%i%Ta!g%Ta~P#/XOa#cq!]#cq'y#cq'v#cq!Y#cq!k#cqv#cq!_#cq%i#cq!g#cq~P!:aO![3dO!]'XX!k'XX~P%[O!].oO!k(ja~O!].oO!k(ja~P!:aO!Y3gO~O$O!na!^!na~PKaO$O!ja!]!ja!^!ja~P#B]O$O!ra!^!ra~P!<wO$O!ta!^!ta~P!?_Og'[X!]'[X~P!+xO!].zOg(oa~OSfO!_3{O$d3|O~O!^4QO~Ov4RO~P#/XOa$mq!]$mq'y$mq'v$mq!Y$mq!k$mqv$mq!_$mq%i$mq!g$mq~P!:aO!Y4TO~P!&oO!S4UO~O!Q)|O'x)}O(y%POn'ha(x'ha!]'ha#`'ha~Og'ha$O'ha~P%,XO!Q)|O'x)}On'ja(x'ja(y'ja!]'ja#`'ja~Og'ja$O'ja~P%,zO(q$YO~P#/XO!YfX!Y$zX!]fX!]$zX!g%RX#`fX~P!/wO(S<xO~P!1jO!S%gO![4XO!_%hO(S%fO!]'dX!k'dX~O!]/kO!k(}a~O!]/kO!g#vO!k(}a~O!]/kO!g#vO(q'nO!k(}a~Og$|i!]$|i#`$|i$O$|i~P!0{O![4aO!Y'fX!]'fX~P!3iO!]/sO!Y)Oa~O!]/sO!Y)Oa~P#/XOP]XR]X[]Xj]Xr]X!Q]X!S]X!Y]X!]]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(`]X(q]X(x]X(y]X~Oj%YX!g%YX~P%0kOj4fO!g#vO~Oh%VO!g#vO!l%dO~Oh%VOr4kO!l%dO(q'nO~Or4pO!g#vO(q'nO~Os!nO!S4qO(UTO(XUO(d!mO~O(x$}On%ai!Q%ai'x%ai(y%ai!]%ai#`%ai~Og%ai$O%ai~P%4[O(y%POn%ci!Q%ci'x%ci(x%ci!]%ci#`%ci~Og%ci$O%ci~P%4}Og(^i!](^i~P!0{O#`4wOg(^i!](^i~P!0{O!k4zO~Oa$oq!]$oq'y$oq'v$oq!Y$oq!k$oqv$oq!_$oq%i$oq!g$oq~P!:aO!Y5QO~O!]5RO!_)PX~P#/XOa$zX!_$zX%^]X'y$zX!]$zX~P!/wO%^5UOaoXnoX!QoX!_oX'xoX'yoX(xoX(yoX!]oX~Op5VO(S#nO~O%^5UO~Ob5]O%j5^O(S+nO(UTO(XUO!]'sX!^'sX~O!]0}O!^)Wa~O[5bO~O`5cO~Oa%mO'y%mO~P#/XO!]5kO#`5mO!^)TX~O!^5nO~Or5tOs!nO!S*fO!b!yO!c!vO!d!vO!|;wO#T!pO#U!pO#V!pO#W!pO#X!pO#[5sO#]!zO(T!lO(UTO(XUO(d!mO(n!sO~O!^5rO~P%:YOn5yO!_1gO%i5xO~Oh%VOn5yO!_1gO%i5xO~Ob6QO(S#nO(UTO(XUO!]'rX!^'rX~O!]1rO!^)Ua~O(UTO(XUO(d6SO~O`6WO~Oj6ZO&Z6[O~PM|O!k6]O~P%[Oa6_O~Oa6_O~P%[Ob2YO!^6dO&i2XO~P`O!g6fO~O!g6hOh(ii!](ii!^(ii!g(ii!l(iir(ii(q(ii~O!]#hi!^#hi~P#B]O#`6iO!]#hi!^#hi~O!]!ai!^!ai~P#B]Oa%mO#`6rO'y%mO~Oa%mO!g#vO#`6rO'y%mO~O!](sq!k(sqa(sq'y(sq~P!:aO!](hO!k(rq~O!S%gO!_%hO#j6yO(S%fO~O!_'^O%i6|O~On7QO!_'^O%i6|O~O#k'haP'haR'ha['haa'haj'har'ha!S'ha!l'ha!p'ha#R'ha#n'ha#o'ha#p'ha#q'ha#r'ha#s'ha#t'ha#u'ha#v'ha#x'ha#z'ha#{'ha'y'ha(`'ha(q'ha!k'ha!Y'ha'v'hav'ha!_'ha%i'ha!g'ha~P%,XO#k'jaP'jaR'ja['jaa'jaj'jar'ja!S'ja!l'ja!p'ja#R'ja#n'ja#o'ja#p'ja#q'ja#r'ja#s'ja#t'ja#u'ja#v'ja#x'ja#z'ja#{'ja'y'ja(`'ja(q'ja!k'ja!Y'ja'v'jav'ja!_'ja%i'ja!g'ja~P%,zO#k$|iP$|iR$|i[$|ia$|ij$|ir$|i!S$|i!]$|i!l$|i!p$|i#R$|i#n$|i#o$|i#p$|i#q$|i#r$|i#s$|i#t$|i#u$|i#v$|i#x$|i#z$|i#{$|i'y$|i(`$|i(q$|i!k$|i!Y$|i'v$|i#`$|iv$|i!_$|i%i$|i!g$|i~P#/XO#k%aiP%aiR%ai[%aia%aij%air%ai!S%ai!l%ai!p%ai#R%ai#n%ai#o%ai#p%ai#q%ai#r%ai#s%ai#t%ai#u%ai#v%ai#x%ai#z%ai#{%ai'y%ai(`%ai(q%ai!k%ai!Y%ai'v%aiv%ai!_%ai%i%ai!g%ai~P%4[O#k%ciP%ciR%ci[%cia%cij%cir%ci!S%ci!l%ci!p%ci#R%ci#n%ci#o%ci#p%ci#q%ci#r%ci#s%ci#t%ci#u%ci#v%ci#x%ci#z%ci#{%ci'y%ci(`%ci(q%ci!k%ci!Y%ci'v%civ%ci!_%ci%i%ci!g%ci~P%4}O!]'Xa!k'Xa~P!:aO!].oO!k(ji~O$O#ci!]#ci!^#ci~P#B]OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O(`VO[#mij#mir#mi#R#mi#o#mi#p#mi#q#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(q#mi(x#mi(y#mi!]#mi!^#mi~O#n#mi~P%MXO#n<PO~P%MXOP$[OR#zOr<]O!Q#yO!S#{O!l#xO!p$[O#n<PO#o<QO#p<QO#q<QO(`VO[#mij#mi#R#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(q#mi(x#mi(y#mi!]#mi!^#mi~O#r#mi~P& aO#r<RO~P& aOP$[OR#zO[<_Oj<SOr<]O!Q#yO!S#{O!l#xO!p$[O#R<SO#n<PO#o<QO#p<QO#q<QO#r<RO#s<SO#t<SO#u<^O(`VO#x#mi#z#mi#{#mi$O#mi(q#mi(x#mi(y#mi!]#mi!^#mi~O#v#mi~P&#iOP$[OR#zO[<_Oj<SOr<]O!Q#yO!S#{O!l#xO!p$[O#R<SO#n<PO#o<QO#p<QO#q<QO#r<RO#s<SO#t<SO#u<^O#v<TO(`VO(y#}O#z#mi#{#mi$O#mi(q#mi(x#mi!]#mi!^#mi~O#x<VO~P&%jO#x#mi~P&%jO#v<TO~P&#iOP$[OR#zO[<_Oj<SOr<]O!Q#yO!S#{O!l#xO!p$[O#R<SO#n<PO#o<QO#p<QO#q<QO#r<RO#s<SO#t<SO#u<^O#v<TO#x<VO(`VO(x#|O(y#}O#{#mi$O#mi(q#mi!]#mi!^#mi~O#z#mi~P&'yO#z<XO~P&'yOa#|y!]#|y'y#|y'v#|y!Y#|y!k#|yv#|y!_#|y%i#|y!g#|y~P!:aO[#mij#mir#mi#R#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(q#mi!]#mi!^#mi~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O#n<PO#o<QO#p<QO#q<QO(`VO(x#mi(y#mi~P&*uOn=}O!Q)|O'x)}O(x$}O(y%POP#miR#mi!S#mi!l#mi!p#mi#n#mi#o#mi#p#mi#q#mi(`#mi~P&*uO#S$dOP(_XR(_X[(_Xj(_Xn(_Xr(_X!Q(_X!S(_X!l(_X!p(_X#R(_X#n(_X#o(_X#p(_X#q(_X#r(_X#s(_X#t(_X#u(_X#v(_X#x(_X#z(_X#{(_X$O(_X'x(_X(`(_X(q(_X(x(_X(y(_X!](_X!^(_X~O$O$Pi!]$Pi!^$Pi~P#B]O$O!ri!^!ri~P$*bOg'[a!]'[a~P!0{O!^7dO~O!]'ca!^'ca~P#B]O!Y7eO~P#/XO!g#vO(q'nO!]'da!k'da~O!]/kO!k(}i~O!]/kO!g#vO!k(}i~Og$|q!]$|q#`$|q$O$|q~P!0{O!Y'fa!]'fa~P#/XO!g7lO~O!]/sO!Y)Oi~P#/XO!]/sO!Y)Oi~O!Y7oO~Oh%VOr7tO!l%dO(q'nO~Oj7vO!g#vO~Or7yO!g#vO(q'nO~O!Q)|O'x)}O(y%POn'ia(x'ia!]'ia#`'ia~Og'ia$O'ia~P&3vO!Q)|O'x)}On'ka(x'ka(y'ka!]'ka#`'ka~Og'ka$O'ka~P&4iO!Y7{O~Og%Oq!]%Oq#`%Oq$O%Oq~P!0{Og(^q!](^q~P!0{O#`7|Og(^q!](^q~P!0{Oa$oy!]$oy'y$oy'v$oy!Y$oy!k$oyv$oy!_$oy%i$oy!g$oy~P!:aO!g6hO~O!]5RO!_)Pa~O!_'^OP$TaR$Ta[$Taj$Tar$Ta!Q$Ta!S$Ta!]$Ta!l$Ta!p$Ta#R$Ta#n$Ta#o$Ta#p$Ta#q$Ta#r$Ta#s$Ta#t$Ta#u$Ta#v$Ta#x$Ta#z$Ta#{$Ta(`$Ta(q$Ta(x$Ta(y$Ta~O%i6|O~P&7ZO%^8QOa%[i!_%[i'y%[i!]%[i~Oa#cy!]#cy'y#cy'v#cy!Y#cy!k#cyv#cy!_#cy%i#cy!g#cy~P!:aO[8SO~Ob8UO(S+nO(UTO(XUO~O!]0}O!^)Wi~O`8YO~O(d(zO!]'oX!^'oX~O!]5kO!^)Ta~O!^8cO~P%:YO(n!sO~P$${O#[8dO~O!_1gO~O!_1gO%i8fO~On8iO!_1gO%i8fO~O[8nO!]'ra!^'ra~O!]1rO!^)Ui~O!k8rO~O!k8sO~O!k8vO~O!k8vO~P%[Oa8xO~O!g8yO~O!k8zO~O!](vi!^(vi~P#B]Oa%mO#`9SO'y%mO~O!](sy!k(sya(sy'y(sy~P!:aO!](hO!k(ry~O%i9VO~P&7ZO!_'^O%i9VO~O#k$|qP$|qR$|q[$|qa$|qj$|qr$|q!S$|q!]$|q!l$|q!p$|q#R$|q#n$|q#o$|q#p$|q#q$|q#r$|q#s$|q#t$|q#u$|q#v$|q#x$|q#z$|q#{$|q'y$|q(`$|q(q$|q!k$|q!Y$|q'v$|q#`$|qv$|q!_$|q%i$|q!g$|q~P#/XO#k'iaP'iaR'ia['iaa'iaj'iar'ia!S'ia!l'ia!p'ia#R'ia#n'ia#o'ia#p'ia#q'ia#r'ia#s'ia#t'ia#u'ia#v'ia#x'ia#z'ia#{'ia'y'ia(`'ia(q'ia!k'ia!Y'ia'v'iav'ia!_'ia%i'ia!g'ia~P&3vO#k'kaP'kaR'ka['kaa'kaj'kar'ka!S'ka!l'ka!p'ka#R'ka#n'ka#o'ka#p'ka#q'ka#r'ka#s'ka#t'ka#u'ka#v'ka#x'ka#z'ka#{'ka'y'ka(`'ka(q'ka!k'ka!Y'ka'v'kav'ka!_'ka%i'ka!g'ka~P&4iO#k%OqP%OqR%Oq[%Oqa%Oqj%Oqr%Oq!S%Oq!]%Oq!l%Oq!p%Oq#R%Oq#n%Oq#o%Oq#p%Oq#q%Oq#r%Oq#s%Oq#t%Oq#u%Oq#v%Oq#x%Oq#z%Oq#{%Oq'y%Oq(`%Oq(q%Oq!k%Oq!Y%Oq'v%Oq#`%Oqv%Oq!_%Oq%i%Oq!g%Oq~P#/XO!]'Xi!k'Xi~P!:aO$O#cq!]#cq!^#cq~P#B]O(x$}OP%aaR%aa[%aaj%aar%aa!S%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa$O%aa(`%aa(q%aa!]%aa!^%aa~On%aa!Q%aa'x%aa(y%aa~P&HnO(y%POP%caR%ca[%caj%car%ca!S%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca$O%ca(`%ca(q%ca!]%ca!^%ca~On%ca!Q%ca'x%ca(x%ca~P&JuOn=}O!Q)|O'x)}O(y%PO~P&HnOn=}O!Q)|O'x)}O(x$}O~P&JuOR0cO!Q0cO!S0dO#S$dOP}a[}aj}an}ar}a!l}a!p}a#R}a#n}a#o}a#p}a#q}a#r}a#s}a#t}a#u}a#v}a#x}a#z}a#{}a$O}a'x}a(`}a(q}a(x}a(y}a!]}a!^}a~O!Q)|O'x)}OP$saR$sa[$saj$san$sar$sa!S$sa!l$sa!p$sa#R$sa#n$sa#o$sa#p$sa#q$sa#r$sa#s$sa#t$sa#u$sa#v$sa#x$sa#z$sa#{$sa$O$sa(`$sa(q$sa(x$sa(y$sa!]$sa!^$sa~O!Q)|O'x)}OP$uaR$ua[$uaj$uan$uar$ua!S$ua!l$ua!p$ua#R$ua#n$ua#o$ua#p$ua#q$ua#r$ua#s$ua#t$ua#u$ua#v$ua#x$ua#z$ua#{$ua$O$ua(`$ua(q$ua(x$ua(y$ua!]$ua!^$ua~On=}O!Q)|O'x)}O(x$}O(y%PO~OP%TaR%Ta[%Taj%Tar%Ta!S%Ta!l%Ta!p%Ta#R%Ta#n%Ta#o%Ta#p%Ta#q%Ta#r%Ta#s%Ta#t%Ta#u%Ta#v%Ta#x%Ta#z%Ta#{%Ta$O%Ta(`%Ta(q%Ta!]%Ta!^%Ta~P'%zO$O$mq!]$mq!^$mq~P#B]O$O$oq!]$oq!^$oq~P#B]O!^9dO~O$O9eO~P!0{O!g#vO!]'di!k'di~O!g#vO(q'nO!]'di!k'di~O!]/kO!k(}q~O!Y'fi!]'fi~P#/XO!]/sO!Y)Oq~Or9lO!g#vO(q'nO~O[9nO!Y9mO~P#/XO!Y9mO~Oj9tO!g#vO~Og(^y!](^y~P!0{O!]'ma!_'ma~P#/XOa%[q!_%[q'y%[q!]%[q~P#/XO[9yO~O!]0}O!^)Wq~O#`9}O!]'oa!^'oa~O!]5kO!^)Ti~P#B]O!S:PO~O!_1gO%i:SO~O(UTO(XUO(d:XO~O!]1rO!^)Uq~O!k:[O~O!k:]O~O!k:^O~O!k:^O~P%[O#`:aO!]#hy!^#hy~O!]#hy!^#hy~P#B]O%i:fO~P&7ZO!_'^O%i:fO~O$O#|y!]#|y!^#|y~P#B]OP$|iR$|i[$|ij$|ir$|i!S$|i!l$|i!p$|i#R$|i#n$|i#o$|i#p$|i#q$|i#r$|i#s$|i#t$|i#u$|i#v$|i#x$|i#z$|i#{$|i$O$|i(`$|i(q$|i!]$|i!^$|i~P'%zO!Q)|O'x)}O(y%POP'haR'ha['haj'han'har'ha!S'ha!l'ha!p'ha#R'ha#n'ha#o'ha#p'ha#q'ha#r'ha#s'ha#t'ha#u'ha#v'ha#x'ha#z'ha#{'ha$O'ha(`'ha(q'ha(x'ha!]'ha!^'ha~O!Q)|O'x)}OP'jaR'ja['jaj'jan'jar'ja!S'ja!l'ja!p'ja#R'ja#n'ja#o'ja#p'ja#q'ja#r'ja#s'ja#t'ja#u'ja#v'ja#x'ja#z'ja#{'ja$O'ja(`'ja(q'ja(x'ja(y'ja!]'ja!^'ja~O(x$}OP%aiR%ai[%aij%ain%air%ai!Q%ai!S%ai!l%ai!p%ai#R%ai#n%ai#o%ai#p%ai#q%ai#r%ai#s%ai#t%ai#u%ai#v%ai#x%ai#z%ai#{%ai$O%ai'x%ai(`%ai(q%ai(y%ai!]%ai!^%ai~O(y%POP%ciR%ci[%cij%cin%cir%ci!Q%ci!S%ci!l%ci!p%ci#R%ci#n%ci#o%ci#p%ci#q%ci#r%ci#s%ci#t%ci#u%ci#v%ci#x%ci#z%ci#{%ci$O%ci'x%ci(`%ci(q%ci(x%ci!]%ci!^%ci~O$O$oy!]$oy!^$oy~P#B]O$O#cy!]#cy!^#cy~P#B]O!g#vO!]'dq!k'dq~O!]/kO!k(}y~O!Y'fq!]'fq~P#/XOr:pO!g#vO(q'nO~O[:tO!Y:sO~P#/XO!Y:sO~Og(^!R!](^!R~P!0{Oa%[y!_%[y'y%[y!]%[y~P#/XO!]0}O!^)Wy~O!]5kO!^)Tq~O(S:zO~O!_1gO%i:}O~O!k;QO~O%i;VO~P&7ZOP$|qR$|q[$|qj$|qr$|q!S$|q!l$|q!p$|q#R$|q#n$|q#o$|q#p$|q#q$|q#r$|q#s$|q#t$|q#u$|q#v$|q#x$|q#z$|q#{$|q$O$|q(`$|q(q$|q!]$|q!^$|q~P'%zO!Q)|O'x)}O(y%POP'iaR'ia['iaj'ian'iar'ia!S'ia!l'ia!p'ia#R'ia#n'ia#o'ia#p'ia#q'ia#r'ia#s'ia#t'ia#u'ia#v'ia#x'ia#z'ia#{'ia$O'ia(`'ia(q'ia(x'ia!]'ia!^'ia~O!Q)|O'x)}OP'kaR'ka['kaj'kan'kar'ka!S'ka!l'ka!p'ka#R'ka#n'ka#o'ka#p'ka#q'ka#r'ka#s'ka#t'ka#u'ka#v'ka#x'ka#z'ka#{'ka$O'ka(`'ka(q'ka(x'ka(y'ka!]'ka!^'ka~OP%OqR%Oq[%Oqj%Oqr%Oq!S%Oq!l%Oq!p%Oq#R%Oq#n%Oq#o%Oq#p%Oq#q%Oq#r%Oq#s%Oq#t%Oq#u%Oq#v%Oq#x%Oq#z%Oq#{%Oq$O%Oq(`%Oq(q%Oq!]%Oq!^%Oq~P'%zOg%e!Z!]%e!Z#`%e!Z$O%e!Z~P!0{O!Y;ZO~P#/XOr;[O!g#vO(q'nO~O[;^O!Y;ZO~P#/XO!]'oq!^'oq~P#B]O!]#h!Z!^#h!Z~P#B]O#k%e!ZP%e!ZR%e!Z[%e!Za%e!Zj%e!Zr%e!Z!S%e!Z!]%e!Z!l%e!Z!p%e!Z#R%e!Z#n%e!Z#o%e!Z#p%e!Z#q%e!Z#r%e!Z#s%e!Z#t%e!Z#u%e!Z#v%e!Z#x%e!Z#z%e!Z#{%e!Z'y%e!Z(`%e!Z(q%e!Z!k%e!Z!Y%e!Z'v%e!Z#`%e!Zv%e!Z!_%e!Z%i%e!Z!g%e!Z~P#/XOr;fO!g#vO(q'nO~O!Y;gO~P#/XOr;nO!g#vO(q'nO~O!Y;oO~P#/XOP%e!ZR%e!Z[%e!Zj%e!Zr%e!Z!S%e!Z!l%e!Z!p%e!Z#R%e!Z#n%e!Z#o%e!Z#p%e!Z#q%e!Z#r%e!Z#s%e!Z#t%e!Z#u%e!Z#v%e!Z#x%e!Z#z%e!Z#{%e!Z$O%e!Z(`%e!Z(q%e!Z!]%e!Z!^%e!Z~P'%zOr;rO!g#vO(q'nO~Ov(eX~P1qO!Q%qO~P!)PO(T!lO~P!)PO!YfX!]fX#`fX~P%0kOP]XR]X[]Xj]Xr]X!Q]X!S]X!]]X!]fX!l]X!p]X#R]X#S]X#`]X#`fX#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(`]X(q]X(x]X(y]X~O!gfX!k]X!kfX(qfX~P'JsOP;vOQ;vOSfOd=rOe!iOpkOr;vOskOtkOzkO|;vO!O;vO!SWO!WkO!XkO!_XO!i;yO!lZO!o;vO!p;vO!q;vO!s;zO!u;}O!x!hO$W!kO$n=pO(S)ZO(UTO(XUO(`VO(n[O~O!]<ZO!^$qa~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<fO!S${O!_$|O!i=wO!l$xO#j<lO$W%_O$t<hO$v<jO$y%`O(S(tO(UTO(XUO(`$uO(x$}O(y%PO~Ol)bO~P( iOr!eX(q!eX~P# }Or(iX(q(iX~P#!pO!^]X!^fX~P'JsO!YfX!Y$zX!]fX!]$zX#`fX~P!/wO#k<OO~O!g#vO#k<OO~O#`<`O~Oj<SO~O#`<pO!](vX!^(vX~O#`<`O!](tX!^(tX~O#k<qO~Og<sO~P!0{O#k<yO~O#k<zO~O!g#vO#k<{O~O!g#vO#k<qO~O$O<|O~P#B]O#k<}O~O#k=OO~O#k=TO~O#k=UO~O#k=VO~O#k=WO~O$O=XO~P!0{O$O=YO~P!0{Ok#S#T#U#W#X#[#i#j#u$n$t$v$y%]%^%h%i%j%q%s%v%w%y%{~'}T#o!X'{(T#ps#n#qr!Q'|$]'|(S$_(d~",
-  goto: "$8g)[PPPPPP)]PP)`P)qP+R/WPPPP6bPP6xPP<pPPP@dP@zP@zPPP@zPCSP@zP@zP@zPCWPC]PCzPHtPPPHxPPPPHxK{PPPLRLsPHxPHxPP! RHxPPPHxPHxP!#YHxP!&p!'u!(OP!(r!(v!(r!,TPPPPPPP!,t!'uPP!-U!.vP!2SHxHx!2X!5e!:R!:R!>QPPP!>YHxPPPPPPPPP!AiP!BvPPHx!DXPHxPHxHxHxHxHxPHx!EkP!HuP!K{P!LP!LZ!L_!L_P!HrP!Lc!LcP# iP# mHxPHx# s#$xCW@zP@zP@z@zP#&V@z@z#(i@z#+a@z#-m@z@z#.]#0q#0q#0v#1P#0q#1[PP#0qP@z#1t@z#5s@z@z6bPPP#9xPPP#:c#:cP#:cP#:y#:cPP#;PP#:vP#:v#;d#:v#<O#<U#<X)`#<[)`P#<c#<c#<cP)`P)`P)`P)`PP)`P#<i#<lP#<l)`P#<pP#<sP)`P)`P)`P)`P)`P)`)`PP#<y#=P#=[#=b#=h#=n#=t#>S#>Y#>d#>j#>t#>z#?[#?b#@S#@f#@l#@r#AQ#Ag#C[#Cj#Cq#E]#Ek#G]#Gk#Gq#Gw#G}#HX#H_#He#Ho#IR#IXPPPPPPPPPPP#I_PPPPPPP#JS#MZ#Ns#Nz$ SPPP$&nP$&w$)p$0Z$0^$0a$1`$1c$1j$1rP$1x$1{P$2i$2m$3e$4s$4x$5`PP$5e$5k$5o$5r$5v$5z$6v$7_$7v$7z$7}$8Q$8W$8Z$8_$8cR!|RoqOXst!Z#d%l&p&r&s&u,n,s2S2VY!vQ'^-`1g5qQ%svQ%{yQ&S|Q&h!VS'U!e-WQ'd!iS'j!r!yU*h$|*X*lQ+l%|Q+y&UQ,_&bQ-^']Q-h'eQ-p'kQ0U*nQ1q,`R<m;z%SdOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%l%s&Q&i&l&p&r&s&u&y'R'`'p(R(T(Z(b(v(x(|){*f+U+Y,k,n,s-d-l-z.Q.o.v/i0V0d0l0|1j1z1{1}2P2S2V2X2x3O3d4q5y6Z6[6_6r8i8x9SS#q];w!r)]$Z$n'V)q-P-S/Q2h3{5m6i9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sU*{%[<e<fQ+q&OQ,a&eQ,h&mQ0r+dQ0w+fQ1S+rQ1y,fQ3W.bQ5V0vQ5]0}Q6Q1rQ7O3[Q8U5^R9Y7Q'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%l%s&Q&i&l&m&p&r&s&u&y'R'V'`'p(R(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=s!S!nQ!r!v!y!z$|'U']'^'j'k'l*h*l*n*o-W-^-`-p0U0X1g5q5s%[$ti#v$b$c$d$x${%O%Q%]%^%b)w*P*R*T*W*^*d*t*u+c+f+},Q.a.z/_/h/r/s/u0Y0[0g0h0i1^1a1i3Z4U4V4a4f4w5R5U5x6|7l7v7|8Q8f9V9e9n9t:S:f:t:};V;^<^<_<a<b<c<d<g<h<i<j<k<l<t<u<v<w<y<z<}=O=P=Q=R=S=T=U=X=Y=p=x=y=|=}Q&V|Q'S!eS'Y%h-ZQ+q&OQ,a&eQ0f+OQ1S+rQ1X+xQ1x,eQ1y,fQ5]0}Q5f1ZQ6Q1rQ6T1tQ6U1wQ8U5^Q8X5cQ8q6WQ9|8YQ:Y8nR<o*XrnOXst!V!Z#d%l&g&p&r&s&u,n,s2S2VR,c&i&z^OPXYstuvwz!Z!`!g!j!o#S#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%l%s&Q&i&l&m&p&r&s&u&y'R'`'p(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=r=s[#]WZ#W#Z'V(R!b%im#h#i#l$x%d%g([(f(g(h*W*[*_+W+X+Z,j-Q.O.U.V.W.Y/h/k2[3S3T4X6h6yQ%vxQ%zyS&P|&UQ&]!TQ'a!hQ'c!iQ(o#sS+k%{%|Q+o&OQ,Y&`Q,^&bS-g'd'eQ.d(pQ0{+lQ1R+rQ1T+sQ1W+wQ1l,ZS1p,_,`Q2t-hQ5[0}Q5`1QQ5e1YQ6P1qQ8T5^Q8W5bQ9x8SR:w9y!U$zi$d%O%Q%]%^%b*P*R*^*t*u.z/r0Y0[0g0h0i4V4w7|9e=p=x=y!^%xy!i!u%z%{%|'T'c'd'e'i's*g+k+l-T-g-h-o/{0O0{2m2t2{4i4j4m7s9pQ+e%vQ,O&YQ,R&ZQ,]&bQ.c(oQ1k,YU1o,^,_,`Q3].dQ5z1lS6O1p1qQ8m6P#f=t#v$b$c$x${)w*T*W*d+c+f+},Q.a/_/h/s/u1^1a1i3Z4U4a4f5R5U5x6|7l7v8Q8f9V9n9t:S:f:t:};V;^<a<c<g<i<k<t<v<y<}=P=R=T=X=|=}o=u<^<_<b<d<h<j<l<u<w<z=O=Q=S=U=YW%Ti%V*v=pS&Y!Q&gQ&Z!RQ&[!SQ+S%cR+|&W%]%Si#v$b$c$d$x${%O%Q%]%^%b)w*P*R*T*W*^*d*t*u+c+f+},Q.a.z/_/h/r/s/u0Y0[0g0h0i1^1a1i3Z4U4V4a4f4w5R5U5x6|7l7v7|8Q8f9V9e9n9t:S:f:t:};V;^<^<_<a<b<c<d<g<h<i<j<k<l<t<u<v<w<y<z<}=O=P=Q=R=S=T=U=X=Y=p=x=y=|=}T)x$u)yV*{%[<e<fW'Y!e%h*X-ZS({#y#zQ+`%qQ+v&RS.](k(lQ1b,SQ4x0cR8^5k'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%l%s&Q&i&l&m&p&r&s&u&y'R'V'`'p(R(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=s$i$^c#Y#e%p%r%t(Q(W(r(w)P)Q)R)S)T)U)V)W)X)Y)[)^)`)e)o+a+u-U-s-x-}.P.n.q.u.w.x.y/]0j2c2f2v2}3c3h3i3j3k3l3m3n3o3p3q3r3s3t3w3x4P5O5Y6k6q6v7V7W7a7b8`8|9Q9[9b9c:c:y;R;x=gT#TV#U'RkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%l%s&Q&i&l&m&p&r&s&u&y'R'V'`'p(R(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sQ'W!eR2i-W!W!nQ!e!r!v!y!z$|'U']'^'j'k'l*X*h*l*n*o-W-^-`-p0U0X1g5q5sR1d,UnqOXst!Z#d%l&p&r&s&u,n,s2S2VQ&w!^Q't!xS(q#u<OQ+i%yQ,W&]Q,X&_Q-e'bQ-r'mS.m(v<qS0k+U<{Q0y+jQ1f,VQ2Z,uQ2],vQ2e-RQ2r-fQ2u-jS5P0l=VQ5W0zS5Z0|=WQ6j2gQ6n2sQ6s2zQ8R5XQ8}6lQ9O6oQ9R6tR:`8z$d$]c#Y#e%r%t(Q(W(r(w)P)Q)R)S)T)U)V)W)X)Y)[)^)`)e)o+a+u-U-s-x-}.P.n.q.u.x.y/]0j2c2f2v2}3c3h3i3j3k3l3m3n3o3p3q3r3s3t3w3x4P5O5Y6k6q6v7V7W7a7b8`8|9Q9[9b9c:c:y;R;x=gS(m#p'gQ(}#zS+_%p.wS.^(l(nR3U._'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%l%s&Q&i&l&m&p&r&s&u&y'R'V'`'p(R(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sS#q];wQ&r!XQ&s!YQ&u![Q&v!]R2R,qQ'_!hQ+b%vQ-c'aS.`(o+eQ2p-bW3Y.c.d0q0sQ6m2qW6z3V3X3]5TU9U6{6}7PU:e9W9X9ZS;T:d:gQ;b;UR;j;cU!wQ'^-`T5o1g5q!Q_OXZ`st!V!Z#d#h%d%l&g&i&p&r&s&u(h,n,s.V2S2V]!pQ!r'^-`1g5qT#q];w%^{OPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%l%s&Q&i&l&m&p&r&s&u&y'R'`'p(R(T(Z(b(v(x(|){*f+U+Y+d,k,n,s-d-l-z.Q.b.o.v/i0V0d0l0|1j1z1{1}2P2S2V2X2x3O3[3d4q5y6Z6[6_6r7Q8i8x9SS({#y#zS.](k(l!s=^$Z$n'V)q-P-S/Q2h3{5m6i9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sU$fd)],hS(n#p'gU*s%R(u3vU0e*z.i7]Q5T0rQ6{3WQ9X7OR:g9Ym!tQ!r!v!y!z'^'j'k'l-`-p1g5q5sQ'r!uS(d#g1|S-n'i'uQ/n*ZQ/{*gQ2|-qQ4]/oQ4i/}Q4j0OQ4o0WQ7h4WS7s4k4mS7w4p4rQ9g7iQ9k7oQ9p7tQ9u7yS:o9l9mS;Y:p:sS;e;Z;[S;m;f;gS;q;n;oR;t;rQ#wbQ'q!uS(c#g1|S(e#m+TQ+V%eQ+g%wQ+m%}U-m'i'r'uQ.R(dQ/m*ZQ/|*gQ0P*iQ0x+hQ1m,[S2y-n-qQ3R.ZS4[/n/oQ4e/yS4h/{0WQ4l0QQ5|1nQ6u2|Q7g4WQ7k4]U7r4i4o4rQ7u4nQ8k5}S9f7h7iQ9j7oQ9r7wQ9s7xQ:V8lQ:m9gS:n9k9mQ:v9uQ;P:WS;X:o:sS;d;Y;ZS;l;e;gS;p;m;oQ;s;qQ;u;tQ=a=[Q=l=eR=m=fV!wQ'^-`%^aOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%l%s&Q&i&l&m&p&r&s&u&y'R'`'p(R(T(Z(b(v(x(|){*f+U+Y+d,k,n,s-d-l-z.Q.b.o.v/i0V0d0l0|1j1z1{1}2P2S2V2X2x3O3[3d4q5y6Z6[6_6r7Q8i8x9SS#wz!j!r=Z$Z$n'V)q-P-S/Q2h3{5m6i9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sR=a=r%^bOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%l%s&Q&i&l&m&p&r&s&u&y'R'`'p(R(T(Z(b(v(x(|){*f+U+Y+d,k,n,s-d-l-z.Q.b.o.v/i0V0d0l0|1j1z1{1}2P2S2V2X2x3O3[3d4q5y6Z6[6_6r7Q8i8x9SQ%ej!^%wy!i!u%z%{%|'T'c'd'e'i's*g+k+l-T-g-h-o/{0O0{2m2t2{4i4j4m7s9pS%}z!jQ+h%xQ,[&bW1n,],^,_,`U5}1o1p1qS8l6O6PQ:W8m!r=[$Z$n'V)q-P-S/Q2h3{5m6i9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sQ=e=qR=f=r%QeOPXYstuvw!Z!`!g!o#S#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%l%s&Q&i&l&p&r&s&u&y'R'`'p(T(Z(b(v(x(|){*f+U+Y+d,k,n,s-d-l-z.Q.b.o.v/i0V0d0l0|1j1z1{1}2P2S2V2X2x3O3[3d4q5y6Z6[6_6r7Q8i8x9SY#bWZ#W#Z(R!b%im#h#i#l$x%d%g([(f(g(h*W*[*_+W+X+Z,j-Q.O.U.V.W.Y/h/k2[3S3T4X6h6yQ,i&m!p=]$Z$n)q-P-S/Q2h3{5m6i9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sR=`'VU'Z!e%h*XR2k-Z%SdOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%l%s&Q&i&l&p&r&s&u&y'R'`'p(R(T(Z(b(v(x(|){*f+U+Y,k,n,s-d-l-z.Q.o.v/i0V0d0l0|1j1z1{1}2P2S2V2X2x3O3d4q5y6Z6[6_6r8i8x9S!r)]$Z$n'V)q-P-S/Q2h3{5m6i9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sQ,h&mQ0r+dQ3W.bQ7O3[R9Y7Q!b$Tc#Y%p(Q(W(r(w)X)Y)^)e+u-s-x-}.P.n.q/]0j2v2}3c3s5O5Y6q6v7V9Q:c;x!P<U)[)o-U.w2c2f3h3q3r3w4P6k7W7a7b8`8|9[9b9c:y;R=g!f$Vc#Y%p(Q(W(r(w)U)V)X)Y)^)e+u-s-x-}.P.n.q/]0j2v2}3c3s5O5Y6q6v7V9Q:c;x!T<W)[)o-U.w2c2f3h3n3o3q3r3w4P6k7W7a7b8`8|9[9b9c:y;R=g!^$Zc#Y%p(Q(W(r(w)^)e+u-s-x-}.P.n.q/]0j2v2}3c3s5O5Y6q6v7V9Q:c;xQ4V/fz=s)[)o-U.w2c2f3h3w4P6k7W7a7b8`8|9[9b9c:y;R=gQ=x=zR=y={'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%l%s&Q&i&l&m&p&r&s&u&y'R'V'`'p(R(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sS$oh$pR3|/P'XgOPWXYZhstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n$p%l%s&Q&i&l&m&p&r&s&u&y'R'V'`'p(R(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/P/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sT$kf$qQ$ifS)h$l)lR)t$qT$jf$qT)j$l)l'XhOPWXYZhstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n$p%l%s&Q&i&l&m&p&r&s&u&y'R'V'`'p(R(T(Z(b(v(x(|)q){*f+U+Y+d,k,n,s-P-S-d-l-z.Q.b.o.v/P/Q/i0V0d0l0|1j1z1{1}2P2S2V2X2h2x3O3[3d3{4q5m5y6Z6[6_6i6r7Q8i8x9S9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=sT$oh$pQ$rhR)s$p%^jOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%l%s&Q&i&l&m&p&r&s&u&y'R'`'p(R(T(Z(b(v(x(|){*f+U+Y+d,k,n,s-d-l-z.Q.b.o.v/i0V0d0l0|1j1z1{1}2P2S2V2X2x3O3[3d4q5y6Z6[6_6r7Q8i8x9S!s=q$Z$n'V)q-P-S/Q2h3{5m6i9}:a;v;y;z;}<O<P<Q<R<S<T<U<V<W<X<Y<Z<]<`<m<p<q<s<{<|=V=W=s#glOPXZst!Z!`!o#S#d#o#{$n%l&i&l&m&p&r&s&u&y'R'`(|)q*f+Y+d,k,n,s-d.b/Q/i0V0d1j1z1{1}2P2S2V2X3[3{4q5y6Z6[6_7Q8i8x!U%Ri$d%O%Q%]%^%b*P*R*^*t*u.z/r0Y0[0g0h0i4V4w7|9e=p=x=y#f(u#v$b$c$x${)w*T*W*d+c+f+},Q.a/_/h/s/u1^1a1i3Z4U4a4f5R5U5x6|7l7v8Q8f9V9n9t:S:f:t:};V;^<a<c<g<i<k<t<v<y<}=P=R=T=X=|=}Q+P%`Q/^)|o3v<^<_<b<d<h<j<l<u<w<z=O=Q=S=U=Y!U$yi$d%O%Q%]%^%b*P*R*^*t*u.z/r0Y0[0g0h0i4V4w7|9e=p=x=yQ*`$zU*i$|*X*lQ+Q%aQ0Q*j#f=c#v$b$c$x${)w*T*W*d+c+f+},Q.a/_/h/s/u1^1a1i3Z4U4a4f5R5U5x6|7l7v8Q8f9V9n9t:S:f:t:};V;^<a<c<g<i<k<t<v<y<}=P=R=T=X=|=}n=d<^<_<b<d<h<j<l<u<w<z=O=Q=S=U=YQ=h=tQ=i=uQ=j=vR=k=w!U%Ri$d%O%Q%]%^%b*P*R*^*t*u.z/r0Y0[0g0h0i4V4w7|9e=p=x=y#f(u#v$b$c$x${)w*T*W*d+c+f+},Q.a/_/h/s/u1^1a1i3Z4U4a4f5R5U5x6|7l7v8Q8f9V9n9t:S:f:t:};V;^<a<c<g<i<k<t<v<y<}=P=R=T=X=|=}o3v<^<_<b<d<h<j<l<u<w<z=O=Q=S=U=YnoOXst!Z#d%l&p&r&s&u,n,s2S2VS*c${*WQ,|&|Q,}'OR4`/s%[%Si#v$b$c$d$x${%O%Q%]%^%b)w*P*R*T*W*^*d*t*u+c+f+},Q.a.z/_/h/r/s/u0Y0[0g0h0i1^1a1i3Z4U4V4a4f4w5R5U5x6|7l7v7|8Q8f9V9e9n9t:S:f:t:};V;^<^<_<a<b<c<d<g<h<i<j<k<l<t<u<v<w<y<z<}=O=P=Q=R=S=T=U=X=Y=p=x=y=|=}Q,P&ZQ1`,RQ5i1_R8]5jV*k$|*X*lU*k$|*X*lT5p1g5qS/y*f/iQ4n0VT7x4q:PQ+g%wQ0P*iQ0x+hQ1m,[Q5|1nQ8k5}Q:V8lR;P:W!U%Oi$d%O%Q%]%^%b*P*R*^*t*u.z/r0Y0[0g0h0i4V4w7|9e=p=x=yx*P$v)c*Q*r+R/q0^0_3y4^4{4|4}7f7z9v:l=b=n=oS0Y*q0Z#f<a#v$b$c$x${)w*T*W*d+c+f+},Q.a/_/h/s/u1^1a1i3Z4U4a4f5R5U5x6|7l7v8Q8f9V9n9t:S:f:t:};V;^<a<c<g<i<k<t<v<y<}=P=R=T=X=|=}n<b<^<_<b<d<h<j<l<u<w<z=O=Q=S=U=Y!d<t(s)a*Y*b.e.h.l/Y/f/v0p1]3`4S4_4c5h7R7U7m7p7}8P9i9q9w:q:u;W;];h=z={`<u3u7X7[7`9]:h:k;kS=P.g3aT=Q7Z9`!U%Qi$d%O%Q%]%^%b*P*R*^*t*u.z/r0Y0[0g0h0i4V4w7|9e=p=x=y|*R$v)c*S*q+R/b/q0^0_3y4^4s4{4|4}7f7z9v:l=b=n=oS0[*r0]#f<c#v$b$c$x${)w*T*W*d+c+f+},Q.a/_/h/s/u1^1a1i3Z4U4a4f5R5U5x6|7l7v8Q8f9V9n9t:S:f:t:};V;^<a<c<g<i<k<t<v<y<}=P=R=T=X=|=}n<d<^<_<b<d<h<j<l<u<w<z=O=Q=S=U=Y!h<v(s)a*Y*b.f.g.l/Y/f/v0p1]3^3`4S4_4c5h7R7S7U7m7p7}8P9i9q9w:q:u;W;];h=z={d<w3u7Y7Z7`9]9^:h:i:k;kS=R.h3bT=S7[9arnOXst!V!Z#d%l&g&p&r&s&u,n,s2S2VQ&d!UR,k&mrnOXst!V!Z#d%l&g&p&r&s&u,n,s2S2VR&d!UQ,T&[R1[+|snOXst!V!Z#d%l&g&p&r&s&u,n,s2S2VQ1h,YS5w1k1lU8e5u5v5zS:R8g8hS:{:Q:TQ;_:|R;i;`Q&k!VR,d&gR6T1tR:Y8nS&P|&UR1T+sQ&p!WR,n&qR,t&vT2T,s2VR,x&wQ,w&wR2^,xQ'w!{R-t'wSsOtQ#dXT%os#dQ#OTR'y#OQ#RUR'{#RQ)y$uR/Z)yQ#UVR(O#UQ#XWU(U#X(V-{Q(V#YR-{(WQ-X'WR2j-XQ.p(wS3e.p3fR3f.qQ-`'^R2n-`Y!rQ'^-`1g5qR'h!rQ.{)cR3z.{U#_W%g*WU(]#_(^-|Q(^#`R-|(XQ-['ZR2l-[t`OXst!V!Z#d%l&g&i&p&r&s&u,n,s2S2VS#hZ%dU#r`#h.VR.V(hQ(i#jQ.S(eW.[(i.S3P6wQ3P.TR6w3QQ)l$lR/R)lQ$phR)r$pQ$`cU)_$`-w<[Q-w;xR<[)oQ/l*ZW4Y/l4Z7j9hU4Z/m/n/oS7j4[4]R9h7k$e*O$v(s)a)c*Y*b*q*r*|*}+R.g.h.j.k.l/Y/b/d/f/q/v0^0_0p1]3^3_3`3u3y4S4^4_4c4s4u4{4|4}5h7R7S7T7U7Z7[7^7_7`7f7m7p7z7}8P9]9^9_9i9q9v9w:h:i:j:k:l:q:u;W;];h;k=b=n=o=z={Q/t*bU4b/t4d7nQ4d/vR7n4cS*l$|*XR0S*lx*Q$v)c*q*r+R/q0^0_3y4^4{4|4}7f7z9v:l=b=n=o!d.e(s)a*Y*b.g.h.l/Y/f/v0p1]3`4S4_4c5h7R7U7m7p7}8P9i9q9w:q:u;W;];h=z={U/c*Q.e7Xa7X3u7Z7[7`9]:h:k;kQ0Z*qQ3a.gU4t0Z3a9`R9`7Z|*S$v)c*q*r+R/b/q0^0_3y4^4s4{4|4}7f7z9v:l=b=n=o!h.f(s)a*Y*b.g.h.l/Y/f/v0p1]3^3`4S4_4c5h7R7S7U7m7p7}8P9i9q9w:q:u;W;];h=z={U/e*S.f7Ye7Y3u7Z7[7`9]9^:h:i:k;kQ0]*rQ3b.hU4v0]3b9aR9a7[Q*w%UR0a*wQ5S0pR8O5SQ+[%jR0o+[Q5l1bS8_5l:OR:O8`Q,V&]R1e,VQ5q1gR8b5qQ1s,aS6R1s8oR8o6TQ1O+oW5_1O5a8V9zQ5a1RQ8V5`R9z8WQ+t&PR1U+tQ2V,sR6c2VYrOXst#dQ&t!ZQ+^%lQ,m&pQ,o&rQ,p&sQ,r&uQ2Q,nS2T,s2VR6b2SQ%npQ&x!_Q&{!aQ&}!bQ'P!cQ'o!uQ+]%kQ+i%yQ+{&VQ,c&kQ,z&zW-k'i'q'r'uQ-r'mQ0R*kQ0y+jS1v,d,gQ2_,yQ2`,|Q2a,}Q2u-jW2w-m-n-q-sQ5W0zQ5d1XQ5g1]Q5{1mQ6V1xQ6a2RU6p2v2y2|Q6s2zQ8R5XQ8Z5fQ8[5hQ8a5pQ8j5|Q8p6US9P6q6uQ9R6tQ9{8XQ:U8kQ:Z8qQ:b9QQ:x9|Q;O:VQ;S:cR;a;PQ%yyQ'b!iQ'm!uU+j%z%{%|Q-R'TU-f'c'd'eS-j'i'sQ/z*gS0z+k+lQ2g-TS2s-g-hQ2z-oS4g/{0OQ5X0{Q6l2mQ6o2tQ6t2{U7q4i4j4mQ9o7sR:r9pS$wi=pR*x%VU%Ui%V=pR0`*vQ$viS(s#v+fS)a$b$cQ)c$dQ*Y$xS*b${*WQ*q%OQ*r%QQ*|%]Q*}%^Q+R%bQ.g<aQ.h<cQ.j<gQ.k<iQ.l<kQ/Y)wQ/b*PQ/d*RQ/f*TQ/q*^S/v*d/hQ0^*tQ0_*ul0p+c,Q.a1a1i3Z5x6|8f9V:S:f:};VQ1]+}Q3^<tQ3_<vQ3`<yS3u<^<_Q3y.zS4S/_4UQ4^/rQ4_/sQ4c/uQ4s0YQ4u0[Q4{0gQ4|0hQ4}0iQ5h1^Q7R<}Q7S=PQ7T=RQ7U=TQ7Z<bQ7[<dQ7^<hQ7_<jQ7`<lQ7f4VQ7m4aQ7p4fQ7z4wQ7}5RQ8P5UQ9]<zQ9^<uQ9_<wQ9i7lQ9q7vQ9v7|Q9w8QQ:h=OQ:i=QQ:j=SQ:k=UQ:l9eQ:q9nQ:u9tQ;W=XQ;]:tQ;h;^Q;k=YQ=b=pQ=n=xQ=o=yQ=z=|R={=}Q*z%[Q.i<eR7]<fnpOXst!Z#d%l&p&r&s&u,n,s2S2VQ!fPS#fZ#oQ&z!`W'f!o*f0V4qQ'}#SQ)O#{Q)p$nS,g&i&lQ,l&mQ,y&yS-O'R/iQ-b'`Q.s(|Q/V)qQ0m+YQ0s+dQ2O,kQ2q-dQ3X.bQ4O/QQ4y0dQ5v1jQ6X1zQ6Y1{Q6^1}Q6`2PQ6e2XQ7P3[Q7c3{Q8h5yQ8t6ZQ8u6[Q8w6_Q9Z7QQ:T8iR:_8x#[cOPXZst!Z!`!o#d#o#{%l&i&l&m&p&r&s&u&y'R'`(|*f+Y+d,k,n,s-d.b/i0V0d1j1z1{1}2P2S2V2X3[4q5y6Z6[6_7Q8i8xQ#YWQ#eYQ%puQ%rvS%tw!gS(Q#W(TQ(W#ZQ(r#uQ(w#xQ)P$OQ)Q$PQ)R$QQ)S$RQ)T$SQ)U$TQ)V$UQ)W$VQ)X$WQ)Y$XQ)[$ZQ)^$_Q)`$aQ)e$eW)o$n)q/Q3{Q+a%sQ+u&QS-U'V2hQ-s'pS-x(R-zQ-}(ZQ.P(bQ.n(vQ.q(xQ.u;vQ.w;yQ.x;zQ.y;}Q/]){Q0j+UQ2c-PQ2f-SQ2v-lQ2}.QQ3c.oQ3h<OQ3i<PQ3j<QQ3k<RQ3l<SQ3m<TQ3n<UQ3o<VQ3p<WQ3q<XQ3r<YQ3s.vQ3t<]Q3w<`Q3x<mQ4P<ZQ5O0lQ5Y0|Q6k<pQ6q2xQ6v3OQ7V3dQ7W<qQ7a<sQ7b<{Q8`5mQ8|6iQ9Q6rQ9[<|Q9b=VQ9c=WQ:c9SQ:y9}Q;R:aQ;x#SR=g=sR#[WR'X!el!tQ!r!v!y!z'^'j'k'l-`-p1g5q5sS'T!e-WU*g$|*X*lS-T'U']S0O*h*nQ0W*oQ2m-^Q4m0UR4r0XR(y#xQ!fQT-_'^-`]!qQ!r'^-`1g5qQ#p]R'g;wR)d$dY!uQ'^-`1g5qQ'i!rS's!v!yS'u!z5sS-o'j'kQ-q'lR2{-pT#kZ%dS#jZ%dS%jm,jU(e#h#i#lS.T(f(gQ.X(hQ0n+ZQ3Q.UU3R.V.W.YS6x3S3TR9T6yd#^W#W#Z%g(R([*W+W.O/hr#gZm#h#i#l%d(f(g(h+Z.U.V.W.Y3S3T6yS*Z$x*_Q/o*[Q1|,jQ2d-QQ4W/kQ6g2[Q7i4XQ8{6hT=_'V+XV#aW%g*WU#`W%g*WS(S#W([U(X#Z+W/hS-V'V+XT-y(R.OV'[!e%h*XQ$lfR)v$qT)k$l)lR3}/PT*]$x*_T*e${*WQ0q+cQ1_,QQ3V.aQ5j1aQ5u1iQ6}3ZQ8g5xQ9W6|Q:Q8fQ:d9VQ:|:SQ;U:fQ;`:}R;c;VnqOXst!Z#d%l&p&r&s&u,n,s2S2VQ&j!VR,c&gtmOXst!U!V!Z#d%l&g&p&r&s&u,n,s2S2VR,j&mT%km,jR1c,SR,b&eQ&T|R+z&UR+p&OT&n!W&qT&o!W&qT2U,s2V",
-  nodeNames: "⚠ ArithOp ArithOp ?. JSXStartTag LineComment BlockComment Script Hashbang ExportDeclaration export Star as VariableName String Escape from ; default FunctionDeclaration async function VariableDefinition > < TypeParamList in out const TypeDefinition extends ThisType this LiteralType ArithOp Number BooleanLiteral TemplateType InterpolationEnd Interpolation InterpolationStart NullType null VoidType void TypeofType typeof MemberExpression . PropertyName [ TemplateString Escape Interpolation super RegExp ] ArrayExpression Spread , } { ObjectExpression Property async get set PropertyDefinition Block : NewTarget new NewExpression ) ( ArgList UnaryExpression delete LogicOp BitOp YieldExpression yield AwaitExpression await ParenthesizedExpression ClassExpression class ClassBody MethodDeclaration Decorator @ MemberExpression PrivatePropertyName CallExpression TypeArgList CompareOp < declare Privacy static abstract override PrivatePropertyDefinition PropertyDeclaration readonly accessor Optional TypeAnnotation Equals StaticBlock FunctionExpression ArrowFunction ParamList ParamList ArrayPattern ObjectPattern PatternProperty Privacy readonly Arrow MemberExpression BinaryExpression ArithOp ArithOp ArithOp ArithOp BitOp CompareOp instanceof satisfies CompareOp BitOp BitOp BitOp LogicOp LogicOp ConditionalExpression LogicOp LogicOp AssignmentExpression UpdateOp PostfixExpression CallExpression InstantiationExpression TaggedTemplateExpression DynamicImport import ImportMeta JSXElement JSXSelfCloseEndTag JSXSelfClosingTag JSXIdentifier JSXBuiltin JSXIdentifier JSXNamespacedName JSXMemberExpression JSXSpreadAttribute JSXAttribute JSXAttributeValue JSXEscape JSXEndTag JSXOpenTag JSXFragmentTag JSXText JSXEscape JSXStartCloseTag JSXCloseTag PrefixCast < ArrowFunction TypeParamList SequenceExpression InstantiationExpression KeyofType keyof UniqueType unique ImportType InferredType infer TypeName ParenthesizedType FunctionSignature ParamList NewSignature IndexedType TupleType Label ArrayType ReadonlyType ObjectType MethodType PropertyType IndexSignature PropertyDefinition CallSignature TypePredicate asserts is NewSignature new UnionType LogicOp IntersectionType LogicOp ConditionalType ParameterizedType ClassDeclaration abstract implements type VariableDeclaration let var using TypeAliasDeclaration InterfaceDeclaration interface EnumDeclaration enum EnumBody NamespaceDeclaration namespace module AmbientDeclaration declare GlobalDeclaration global ClassDeclaration ClassBody AmbientFunctionDeclaration ExportGroup VariableName VariableName ImportDeclaration ImportGroup ForStatement for ForSpec ForInSpec ForOfSpec of WhileStatement while WithStatement with DoStatement do IfStatement if else SwitchStatement switch SwitchBody CaseLabel case DefaultLabel TryStatement try CatchClause catch FinallyClause finally ReturnStatement return ThrowStatement throw BreakStatement break ContinueStatement continue DebuggerStatement debugger LabeledStatement ExpressionStatement SingleExpression SingleClassItem",
-  maxTerm: 379,
+  states: "$F|Q%TQlOOO%[QlOOO'_QpOOP(lO`OOO*zQ!0MxO'#CiO+RO#tO'#CjO+aO&jO'#CjO+oO#@ItO'#DaO.QQlO'#DgO.bQlO'#DrO%[QlO'#DzO0fQlO'#ESOOQ!0Lf'#E['#E[O1PQ`O'#EXOOQO'#Ep'#EpOOQO'#Il'#IlO1XQ`O'#GsO1dQ`O'#EoO1iQ`O'#EoO3hQ!0MxO'#JrO6[Q!0MxO'#JsO6uQ`O'#F]O6zQ,UO'#FtOOQ!0Lf'#Ff'#FfO7VO7dO'#FfO9XQMhO'#F|O9`Q`O'#F{OOQ!0Lf'#Js'#JsOOQ!0Lb'#Jr'#JrO9eQ`O'#GwOOQ['#K_'#K_O9pQ`O'#IYO9uQ!0LrO'#IZOOQ['#J`'#J`OOQ['#I_'#I_Q`QlOOQ`QlOOO9}Q!L^O'#DvO:UQlO'#EOO:]QlO'#EQO9kQ`O'#GsO:dQMhO'#CoO:rQ`O'#EnO:}Q`O'#EyO;hQMhO'#FeO;xQ`O'#GsOOQO'#K`'#K`O;}Q`O'#K`O<]Q`O'#G{O<]Q`O'#G|O<]Q`O'#HOO9kQ`O'#HRO=SQ`O'#HUO>kQ`O'#CeO>{Q`O'#HcO?TQ`O'#HiO?TQ`O'#HkO`QlO'#HmO?TQ`O'#HoO?TQ`O'#HrO?YQ`O'#HxO?_Q!0LsO'#IOO%[QlO'#IQO?jQ!0LsO'#ISO?uQ!0LsO'#IUO9uQ!0LrO'#IWO@QQ!0MxO'#CiOASQpO'#DlQOQ`OOO%[QlO'#EQOAjQ`O'#ETO:dQMhO'#EnOAuQ`O'#EnOBQQ!bO'#FeOOQ['#Cg'#CgOOQ!0Lb'#Dq'#DqOOQ!0Lb'#Jv'#JvO%[QlO'#JvOOQO'#Jy'#JyOOQO'#Ih'#IhOCQQpO'#EgOOQ!0Lb'#Ef'#EfOOQ!0Lb'#J}'#J}OC|Q!0MSO'#EgODWQpO'#EWOOQO'#Jx'#JxODlQpO'#JyOEyQpO'#EWODWQpO'#EgPFWO&2DjO'#CbPOOO)CD})CD}OOOO'#I`'#I`OFcO#tO,59UOOQ!0Lh,59U,59UOOOO'#Ia'#IaOFqO&jO,59UOGPQ!L^O'#DcOOOO'#Ic'#IcOGWO#@ItO,59{OOQ!0Lf,59{,59{OGfQlO'#IdOGyQ`O'#JtOIxQ!fO'#JtO+}QlO'#JtOJPQ`O,5:ROJgQ`O'#EpOJtQ`O'#KTOKPQ`O'#KSOKPQ`O'#KSOKXQ`O,5;^OK^Q`O'#KROOQ!0Ln,5:^,5:^OKeQlO,5:^OMcQ!0MxO,5:fONSQ`O,5:nONmQ!0LrO'#KQONtQ`O'#KPO9eQ`O'#KPO! YQ`O'#KPO! bQ`O,5;]O! gQ`O'#KPO!#lQ!fO'#JsOOQ!0Lh'#Ci'#CiO%[QlO'#ESO!$[Q!fO,5:sOOQS'#Jz'#JzOOQO-E<j-E<jO9kQ`O,5=_O!$rQ`O,5=_O!$wQlO,5;ZO!&zQMhO'#EkO!(eQ`O,5;ZO!(jQlO'#DyO!(tQpO,5;dO!(|QpO,5;dO%[QlO,5;dOOQ['#FT'#FTOOQ['#FV'#FVO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eOOQ['#FZ'#FZO!)[QlO,5;tOOQ!0Lf,5;y,5;yOOQ!0Lf,5;z,5;zOOQ!0Lf,5;|,5;|O%[QlO'#IpO!+_Q!0LrO,5<iO%[QlO,5;eO!&zQMhO,5;eO!+|QMhO,5;eO!-nQMhO'#E^O%[QlO,5;wOOQ!0Lf,5;{,5;{O!-uQ,UO'#FjO!.rQ,UO'#KXO!.^Q,UO'#KXO!.yQ,UO'#KXOOQO'#KX'#KXO!/_Q,UO,5<SOOOW,5<`,5<`O!/pQlO'#FvOOOW'#Io'#IoO7VO7dO,5<QO!/wQ,UO'#FxOOQ!0Lf,5<Q,5<QO!0hQ$IUO'#CyOOQ!0Lh'#C}'#C}O!0{O#@ItO'#DRO!1iQMjO,5<eO!1pQ`O,5<hO!3YQ(CWO'#GXO!3jQ`O'#GYO!3oQ`O'#GYO!5_Q(CWO'#G^O!6dQpO'#GbOOQO'#Gn'#GnO!,TQMhO'#GmOOQO'#Gp'#GpO!,TQMhO'#GoO!7VQ$IUO'#JlOOQ!0Lh'#Jl'#JlO!7aQ`O'#JkO!7oQ`O'#JjO!7wQ`O'#CuOOQ!0Lh'#C{'#C{O!8YQ`O'#C}OOQ!0Lh'#DV'#DVOOQ!0Lh'#DX'#DXO!8_Q`O,5<eO1SQ`O'#DZO!,TQMhO'#GPO!,TQMhO'#GRO!8gQ`O'#GTO!8lQ`O'#GUO!3oQ`O'#G[O!,TQMhO'#GaO<]Q`O'#JkO!8qQ`O'#EqO!9`Q`O,5<gOOQ!0Lb'#Cr'#CrO!9hQ`O'#ErO!:bQpO'#EsOOQ!0Lb'#KR'#KRO!:iQ!0LrO'#KaO9uQ!0LrO,5=cO`QlO,5>tOOQ['#Jh'#JhOOQ[,5>u,5>uOOQ[-E<]-E<]O!<hQ!0MxO,5:bO!:]QpO,5:`O!?RQ!0MxO,5:jO%[QlO,5:jO!AiQ!0MxO,5:lOOQO,5@z,5@zO!BYQMhO,5=_O!BhQ!0LrO'#JiO9`Q`O'#JiO!ByQ!0LrO,59ZO!CUQpO,59ZO!C^QMhO,59ZO:dQMhO,59ZO!CiQ`O,5;ZO!CqQ`O'#HbO!DVQ`O'#KdO%[QlO,5;}O!:]QpO,5<PO!D_Q`O,5=zO!DdQ`O,5=zO!DiQ`O,5=zO!DwQ`O,5=zO9uQ!0LrO,5=zO<]Q`O,5=jOOQO'#Cy'#CyO!EOQpO,5=gO!EWQMhO,5=hO!EcQ`O,5=jO!EhQ!bO,5=mO!EpQ`O'#K`O?YQ`O'#HWO9kQ`O'#HYO!EuQ`O'#HYO:dQMhO'#H[O!EzQ`O'#H[OOQ[,5=p,5=pO!FPQ`O'#H]O!FbQ`O'#CoO!FgQ`O,59PO!FqQ`O,59PO!HvQlO,59POOQ[,59P,59PO!IWQ!0LrO,59PO%[QlO,59PO!KcQlO'#HeOOQ['#Hf'#HfOOQ['#Hg'#HgO`QlO,5=}O!KyQ`O,5=}O`QlO,5>TO`QlO,5>VO!LOQ`O,5>XO`QlO,5>ZO!LTQ`O,5>^O!LYQlO,5>dOOQ[,5>j,5>jO%[QlO,5>jO9uQ!0LrO,5>lOOQ[,5>n,5>nO#!dQ`O,5>nOOQ[,5>p,5>pO#!dQ`O,5>pOOQ[,5>r,5>rO##QQpO'#D_O%[QlO'#JvO##sQpO'#JvO##}QpO'#DmO#$`QpO'#DmO#&qQlO'#DmO#&xQ`O'#JuO#'QQ`O,5:WO#'VQ`O'#EtO#'eQ`O'#KUO#'mQ`O,5;_O#'rQpO'#DmO#(PQpO'#EVOOQ!0Lf,5:o,5:oO%[QlO,5:oO#(WQ`O,5:oO?YQ`O,5;YO!CUQpO,5;YO!C^QMhO,5;YO:dQMhO,5;YO#(`Q`O,5@bO#(eQ07dO,5:sOOQO-E<f-E<fO#)kQ!0MSO,5;RODWQpO,5:rO#)uQpO,5:rODWQpO,5;RO!ByQ!0LrO,5:rOOQ!0Lb'#Ej'#EjOOQO,5;R,5;RO%[QlO,5;RO#*SQ!0LrO,5;RO#*_Q!0LrO,5;RO!CUQpO,5:rOOQO,5;X,5;XO#*mQ!0LrO,5;RPOOO'#I^'#I^P#+RO&2DjO,58|POOO,58|,58|OOOO-E<^-E<^OOQ!0Lh1G.p1G.pOOOO-E<_-E<_OOOO,59},59}O#+^Q!bO,59}OOOO-E<a-E<aOOQ!0Lf1G/g1G/gO#+cQ!fO,5?OO+}QlO,5?OOOQO,5?U,5?UO#+mQlO'#IdOOQO-E<b-E<bO#+zQ`O,5@`O#,SQ!fO,5@`O#,ZQ`O,5@nOOQ!0Lf1G/m1G/mO%[QlO,5@oO#,cQ`O'#IjOOQO-E<h-E<hO#,ZQ`O,5@nOOQ!0Lb1G0x1G0xOOQ!0Ln1G/x1G/xOOQ!0Ln1G0Y1G0YO%[QlO,5@lO#,wQ!0LrO,5@lO#-YQ!0LrO,5@lO#-aQ`O,5@kO9eQ`O,5@kO#-iQ`O,5@kO#-wQ`O'#ImO#-aQ`O,5@kOOQ!0Lb1G0w1G0wO!(tQpO,5:uO!)PQpO,5:uOOQS,5:w,5:wO#.iQdO,5:wO#.qQMhO1G2yO9kQ`O1G2yOOQ!0Lf1G0u1G0uO#/PQ!0MxO1G0uO#0UQ!0MvO,5;VOOQ!0Lh'#GW'#GWO#0rQ!0MzO'#JlO!$wQlO1G0uO#2}Q!fO'#JwO%[QlO'#JwO#3XQ`O,5:eOOQ!0Lh'#D_'#D_OOQ!0Lf1G1O1G1OO%[QlO1G1OOOQ!0Lf1G1f1G1fO#3^Q`O1G1OO#5rQ!0MxO1G1PO#5yQ!0MxO1G1PO#8aQ!0MxO1G1PO#8hQ!0MxO1G1PO#;OQ!0MxO1G1PO#=fQ!0MxO1G1PO#=mQ!0MxO1G1PO#=tQ!0MxO1G1PO#@[Q!0MxO1G1PO#@cQ!0MxO1G1PO#BpQ?MtO'#CiO#DkQ?MtO1G1`O#DrQ?MtO'#JsO#EVQ!0MxO,5?[OOQ!0Lb-E<n-E<nO#GdQ!0MxO1G1PO#HaQ!0MzO1G1POOQ!0Lf1G1P1G1PO#IdQMjO'#J|O#InQ`O,5:xO#IsQ!0MxO1G1cO#JgQ,UO,5<WO#JoQ,UO,5<XO#JwQ,UO'#FoO#K`Q`O'#FnOOQO'#KY'#KYOOQO'#In'#InO#KeQ,UO1G1nOOQ!0Lf1G1n1G1nOOOW1G1y1G1yO#KvQ?MtO'#JrO#LQQ`O,5<bO!)[QlO,5<bOOOW-E<m-E<mOOQ!0Lf1G1l1G1lO#LVQpO'#KXOOQ!0Lf,5<d,5<dO#L_QpO,5<dO#LdQMhO'#DTOOOO'#Ib'#IbO#LkO#@ItO,59mOOQ!0Lh,59m,59mO%[QlO1G2PO!8lQ`O'#IrO#LvQ`O,5<zOOQ!0Lh,5<w,5<wO!,TQMhO'#IuO#MdQMjO,5=XO!,TQMhO'#IwO#NVQMjO,5=ZO!&zQMhO,5=]OOQO1G2S1G2SO#NaQ!dO'#CrO#NtQ(CWO'#ErO$ |QpO'#GbO$!dQ!dO,5<sO$!kQ`O'#K[O9eQ`O'#K[O$!yQ`O,5<uO$#aQ!dO'#C{O!,TQMhO,5<tO$#kQ`O'#GZO$$PQ`O,5<tO$$UQ!dO'#GWO$$cQ!dO'#K]O$$mQ`O'#K]O!&zQMhO'#K]O$$rQ`O,5<xO$$wQlO'#JvO$%RQpO'#GcO#$`QpO'#GcO$%dQ`O'#GgO!3oQ`O'#GkO$%iQ!0LrO'#ItO$%tQpO,5<|OOQ!0Lp,5<|,5<|O$%{QpO'#GcO$&YQpO'#GdO$&kQpO'#GdO$&pQMjO,5=XO$'QQMjO,5=ZOOQ!0Lh,5=^,5=^O!,TQMhO,5@VO!,TQMhO,5@VO$'bQ`O'#IyO$'vQ`O,5@UO$(OQ`O,59aOOQ!0Lh,59i,59iO$(TQ`O,5@VO$)TQ$IYO,59uOOQ!0Lh'#Jp'#JpO$)vQMjO,5<kO$*iQMjO,5<mO@zQ`O,5<oOOQ!0Lh,5<p,5<pO$*sQ`O,5<vO$*xQMjO,5<{O$+YQ`O'#KPO!$wQlO1G2RO$+_Q`O1G2RO9eQ`O'#KSO9eQ`O'#EtO%[QlO'#EtO9eQ`O'#I{O$+dQ!0LrO,5@{OOQ[1G2}1G2}OOQ[1G4`1G4`OOQ!0Lf1G/|1G/|OOQ!0Lf1G/z1G/zO$-fQ!0MxO1G0UOOQ[1G2y1G2yO!&zQMhO1G2yO%[QlO1G2yO#.tQ`O1G2yO$/jQMhO'#EkOOQ!0Lb,5@T,5@TO$/wQ!0LrO,5@TOOQ[1G.u1G.uO!ByQ!0LrO1G.uO!CUQpO1G.uO!C^QMhO1G.uO$0YQ`O1G0uO$0_Q`O'#CiO$0jQ`O'#KeO$0rQ`O,5=|O$0wQ`O'#KeO$0|Q`O'#KeO$1[Q`O'#JRO$1jQ`O,5AOO$1rQ!fO1G1iOOQ!0Lf1G1k1G1kO9kQ`O1G3fO@zQ`O1G3fO$1yQ`O1G3fO$2OQ`O1G3fO!DiQ`O1G3fO9uQ!0LrO1G3fOOQ[1G3f1G3fO!EcQ`O1G3UO!&zQMhO1G3RO$2TQ`O1G3ROOQ[1G3S1G3SO!&zQMhO1G3SO$2YQ`O1G3SO$2bQpO'#HQOOQ[1G3U1G3UO!6_QpO'#I}O!EhQ!bO1G3XOOQ[1G3X1G3XOOQ[,5=r,5=rO$2jQMhO,5=tO9kQ`O,5=tO$%dQ`O,5=vO9`Q`O,5=vO!CUQpO,5=vO!C^QMhO,5=vO:dQMhO,5=vO$2xQ`O'#KcO$3TQ`O,5=wOOQ[1G.k1G.kO$3YQ!0LrO1G.kO@zQ`O1G.kO$3eQ`O1G.kO9uQ!0LrO1G.kO$5mQ!fO,5AQO$5zQ`O,5AQO9eQ`O,5AQO$6VQlO,5>PO$6^Q`O,5>POOQ[1G3i1G3iO`QlO1G3iOOQ[1G3o1G3oOOQ[1G3q1G3qO?TQ`O1G3sO$6cQlO1G3uO$:gQlO'#HtOOQ[1G3x1G3xO$:tQ`O'#HzO?YQ`O'#H|OOQ[1G4O1G4OO$:|QlO1G4OO9uQ!0LrO1G4UOOQ[1G4W1G4WOOQ!0Lb'#G_'#G_O9uQ!0LrO1G4YO9uQ!0LrO1G4[O$?TQ`O,5@bO!)[QlO,5;`O9eQ`O,5;`O?YQ`O,5:XO!)[QlO,5:XO!CUQpO,5:XO$?YQ?MtO,5:XOOQO,5;`,5;`O$?dQpO'#IeO$?zQ`O,5@aOOQ!0Lf1G/r1G/rO$@SQpO'#IkO$@^Q`O,5@pOOQ!0Lb1G0y1G0yO#$`QpO,5:XOOQO'#Ig'#IgO$@fQpO,5:qOOQ!0Ln,5:q,5:qO#(ZQ`O1G0ZOOQ!0Lf1G0Z1G0ZO%[QlO1G0ZOOQ!0Lf1G0t1G0tO?YQ`O1G0tO!CUQpO1G0tO!C^QMhO1G0tOOQ!0Lb1G5|1G5|O!ByQ!0LrO1G0^OOQO1G0m1G0mO%[QlO1G0mO$@mQ!0LrO1G0mO$@xQ!0LrO1G0mO!CUQpO1G0^ODWQpO1G0^O$AWQ!0LrO1G0mOOQO1G0^1G0^O$AlQ!0MxO1G0mPOOO-E<[-E<[POOO1G.h1G.hOOOO1G/i1G/iO$AvQ!bO,5<iO$BOQ!fO1G4jOOQO1G4p1G4pO%[QlO,5?OO$BYQ`O1G5zO$BbQ`O1G6YO$BjQ!fO1G6ZO9eQ`O,5?UO$BtQ!0MxO1G6WO%[QlO1G6WO$CUQ!0LrO1G6WO$CgQ`O1G6VO$CgQ`O1G6VO9eQ`O1G6VO$CoQ`O,5?XO9eQ`O,5?XOOQO,5?X,5?XO$DTQ`O,5?XO$+YQ`O,5?XOOQO-E<k-E<kOOQS1G0a1G0aOOQS1G0c1G0cO#.lQ`O1G0cOOQ[7+(e7+(eO!&zQMhO7+(eO%[QlO7+(eO$DcQ`O7+(eO$DnQMhO7+(eO$D|Q!0MzO,5=XO$GXQ!0MzO,5=ZO$IdQ!0MzO,5=XO$KuQ!0MzO,5=ZO$NWQ!0MzO,59uO%!]Q!0MzO,5<kO%$hQ!0MzO,5<mO%&sQ!0MzO,5<{OOQ!0Lf7+&a7+&aO%)UQ!0MxO7+&aO%)xQlO'#IfO%*VQ`O,5@cO%*_Q!fO,5@cOOQ!0Lf1G0P1G0PO%*iQ`O7+&jOOQ!0Lf7+&j7+&jO%*nQ?MtO,5:fO%[QlO7+&zO%*xQ?MtO,5:bO%+VQ?MtO,5:jO%+aQ?MtO,5:lO%+kQMhO'#IiO%+uQ`O,5@hOOQ!0Lh1G0d1G0dOOQO1G1r1G1rOOQO1G1s1G1sO%+}Q!jO,5<ZO!)[QlO,5<YOOQO-E<l-E<lOOQ!0Lf7+'Y7+'YOOOW7+'e7+'eOOOW1G1|1G1|O%,YQ`O1G1|OOQ!0Lf1G2O1G2OOOOO,59o,59oO%,_Q!dO,59oOOOO-E<`-E<`OOQ!0Lh1G/X1G/XO%,fQ!0MxO7+'kOOQ!0Lh,5?^,5?^O%-YQMhO1G2fP%-aQ`O'#IrPOQ!0Lh-E<p-E<pO%-}QMjO,5?aOOQ!0Lh-E<s-E<sO%.pQMjO,5?cOOQ!0Lh-E<u-E<uO%.zQ!dO1G2wO%/RQ!dO'#CrO%/iQMhO'#KSO$$wQlO'#JvOOQ!0Lh1G2_1G2_O%/sQ`O'#IqO%0[Q`O,5@vO%0[Q`O,5@vO%0dQ`O,5@vO%0oQ`O,5@vOOQO1G2a1G2aO%0}QMjO1G2`O$+YQ`O'#K[O!,TQMhO1G2`O%1_Q(CWO'#IsO%1lQ`O,5@wO!&zQMhO,5@wO%1tQ!dO,5@wOOQ!0Lh1G2d1G2dO%4UQ!fO'#CiO%4`Q`O,5=POOQ!0Lb,5<},5<}O%4hQpO,5<}OOQ!0Lb,5=O,5=OOCwQ`O,5<}O%4sQpO,5<}OOQ!0Lb,5=R,5=RO$+YQ`O,5=VOOQO,5?`,5?`OOQO-E<r-E<rOOQ!0Lp1G2h1G2hO#$`QpO,5<}O$$wQlO,5=PO%5RQ`O,5=OO%5^QpO,5=OO!,TQMhO'#IuO%6WQMjO1G2sO!,TQMhO'#IwO%6yQMjO1G2uO%7TQMjO1G5qO%7_QMjO1G5qOOQO,5?e,5?eOOQO-E<w-E<wOOQO1G.{1G.{O!,TQMhO1G5qO!,TQMhO1G5qO!:]QpO,59wO%[QlO,59wOOQ!0Lh,5<j,5<jO%7lQ`O1G2ZO!,TQMhO1G2bO%7qQ!0MxO7+'mOOQ!0Lf7+'m7+'mO!$wQlO7+'mO%8eQ`O,5;`OOQ!0Lb,5?g,5?gOOQ!0Lb-E<y-E<yO%8jQ!dO'#K^O#(ZQ`O7+(eO4UQ!fO7+(eO$DfQ`O7+(eO%8tQ!0MvO'#CiO%9XQ!0MvO,5=SO%9lQ`O,5=SO%9tQ`O,5=SOOQ!0Lb1G5o1G5oOOQ[7+$a7+$aO!ByQ!0LrO7+$aO!CUQpO7+$aO!$wQlO7+&aO%9yQ`O'#JQO%:bQ`O,5APOOQO1G3h1G3hO9kQ`O,5APO%:bQ`O,5APO%:jQ`O,5APOOQO,5?m,5?mOOQO-E=P-E=POOQ!0Lf7+'T7+'TO%:oQ`O7+)QO9uQ!0LrO7+)QO9kQ`O7+)QO@zQ`O7+)QO%:tQ`O7+)QOOQ[7+)Q7+)QOOQ[7+(p7+(pO%:yQ!0MvO7+(mO!&zQMhO7+(mO!E^Q`O7+(nOOQ[7+(n7+(nO!&zQMhO7+(nO%;TQ`O'#KbO%;`Q`O,5=lOOQO,5?i,5?iOOQO-E<{-E<{OOQ[7+(s7+(sO%<rQpO'#HZOOQ[1G3`1G3`O!&zQMhO1G3`O%[QlO1G3`O%<yQ`O1G3`O%=UQMhO1G3`O9uQ!0LrO1G3bO$%dQ`O1G3bO9`Q`O1G3bO!CUQpO1G3bO!C^QMhO1G3bO%=dQ`O'#JPO%=xQ`O,5@}O%>QQpO,5@}OOQ!0Lb1G3c1G3cOOQ[7+$V7+$VO@zQ`O7+$VO9uQ!0LrO7+$VO%>]Q`O7+$VO%[QlO1G6lO%[QlO1G6mO%>bQ!0LrO1G6lO%>lQlO1G3kO%>sQ`O1G3kO%>xQlO1G3kOOQ[7+)T7+)TO9uQ!0LrO7+)_O`QlO7+)aOOQ['#Kh'#KhOOQ['#JS'#JSO%?PQlO,5>`OOQ[,5>`,5>`O%[QlO'#HuO%?^Q`O'#HwOOQ[,5>f,5>fO9eQ`O,5>fOOQ[,5>h,5>hOOQ[7+)j7+)jOOQ[7+)p7+)pOOQ[7+)t7+)tOOQ[7+)v7+)vO%?cQpO1G5|O%?}Q?MtO1G0zO%@XQ`O1G0zOOQO1G/s1G/sO%@dQ?MtO1G/sO?YQ`O1G/sO!)[QlO'#DmOOQO,5?P,5?POOQO-E<c-E<cOOQO,5?V,5?VOOQO-E<i-E<iO!CUQpO1G/sOOQO-E<e-E<eOOQ!0Ln1G0]1G0]OOQ!0Lf7+%u7+%uO#(ZQ`O7+%uOOQ!0Lf7+&`7+&`O?YQ`O7+&`O!CUQpO7+&`OOQO7+%x7+%xO$AlQ!0MxO7+&XOOQO7+&X7+&XO%[QlO7+&XO%@nQ!0LrO7+&XO!ByQ!0LrO7+%xO!CUQpO7+%xO%@yQ!0LrO7+&XO%AXQ!0MxO7++rO%[QlO7++rO%AiQ`O7++qO%AiQ`O7++qOOQO1G4s1G4sO9eQ`O1G4sO%AqQ`O1G4sOOQS7+%}7+%}O#(ZQ`O<<LPO4UQ!fO<<LPO%BPQ`O<<LPOOQ[<<LP<<LPO!&zQMhO<<LPO%[QlO<<LPO%BXQ`O<<LPO%BdQ!0MzO,5?aO%DoQ!0MzO,5?cO%FzQ!0MzO1G2`O%I]Q!0MzO1G2sO%KhQ!0MzO1G2uO%MsQ!fO,5?QO%[QlO,5?QOOQO-E<d-E<dO%M}Q`O1G5}OOQ!0Lf<<JU<<JUO%NVQ?MtO1G0uO&!^Q?MtO1G1PO&!eQ?MtO1G1PO&$fQ?MtO1G1PO&$mQ?MtO1G1PO&&nQ?MtO1G1PO&(oQ?MtO1G1PO&(vQ?MtO1G1PO&(}Q?MtO1G1PO&+OQ?MtO1G1PO&+VQ?MtO1G1PO&+^Q!0MxO<<JfO&-UQ?MtO1G1PO&.RQ?MvO1G1PO&/UQ?MvO'#JlO&1[Q?MtO1G1cO&1iQ?MtO1G0UO&1sQMjO,5?TOOQO-E<g-E<gO!)[QlO'#FqOOQO'#KZ'#KZOOQO1G1u1G1uO&1}Q`O1G1tO&2SQ?MtO,5?[OOOW7+'h7+'hOOOO1G/Z1G/ZO&2^Q!dO1G4xOOQ!0Lh7+(Q7+(QP!&zQMhO,5?^O!,TQMhO7+(cO&2eQ`O,5?]O9eQ`O,5?]O$+YQ`O,5?]OOQO-E<o-E<oO&2sQ`O1G6bO&2sQ`O1G6bO&2{Q`O1G6bO&3WQMjO7+'zO&3hQ!dO,5?_O&3rQ`O,5?_O!&zQMhO,5?_OOQO-E<q-E<qO&3wQ!dO1G6cO&4RQ`O1G6cO&4ZQ`O1G2kO!&zQMhO1G2kOOQ!0Lb1G2i1G2iOOQ!0Lb1G2j1G2jO%4hQpO1G2iO!CUQpO1G2iOCwQ`O1G2iOOQ!0Lb1G2q1G2qO&4`QpO1G2iO&4nQ`O1G2kO$+YQ`O1G2jOCwQ`O1G2jO$$wQlO1G2kO&4vQ`O1G2jO&5jQMjO,5?aOOQ!0Lh-E<t-E<tO&6]QMjO,5?cOOQ!0Lh-E<v-E<vO!,TQMhO7++]O&6gQMjO7++]O&6qQMjO7++]OOQ!0Lh1G/c1G/cO&7OQ`O1G/cOOQ!0Lh7+'u7+'uO&7TQMjO7+'|O&7eQ!0MxO<<KXOOQ!0Lf<<KX<<KXO&8XQ`O1G0zO!&zQMhO'#IzO&8^Q`O,5@xO&:`Q!fO<<LPO!&zQMhO1G2nO&:gQ!0LrO1G2nOOQ[<<G{<<G{O!ByQ!0LrO<<G{O&:xQ!0MxO<<I{OOQ!0Lf<<I{<<I{OOQO,5?l,5?lO&;lQ`O,5?lO&;qQ`O,5?lOOQO-E=O-E=OO&<PQ`O1G6kO&<PQ`O1G6kO9kQ`O1G6kO@zQ`O<<LlOOQ[<<Ll<<LlO&<XQ`O<<LlO9uQ!0LrO<<LlO9kQ`O<<LlOOQ[<<LX<<LXO%:yQ!0MvO<<LXOOQ[<<LY<<LYO!E^Q`O<<LYO&<^QpO'#I|O&<iQ`O,5@|O!)[QlO,5@|OOQ[1G3W1G3WOOQO'#JO'#JOO9uQ!0LrO'#JOO&<qQpO,5=uOOQ[,5=u,5=uO&<xQpO'#EgO&=PQpO'#GeO&=UQ`O7+(zO&=ZQ`O7+(zOOQ[7+(z7+(zO!&zQMhO7+(zO%[QlO7+(zO&=cQ`O7+(zOOQ[7+(|7+(|O9uQ!0LrO7+(|O$%dQ`O7+(|O9`Q`O7+(|O!CUQpO7+(|O&=nQ`O,5?kOOQO-E<}-E<}OOQO'#H^'#H^O&=yQ`O1G6iO9uQ!0LrO<<GqOOQ[<<Gq<<GqO@zQ`O<<GqO&>RQ`O7+,WO&>WQ`O7+,XO%[QlO7+,WO%[QlO7+,XOOQ[7+)V7+)VO&>]Q`O7+)VO&>bQlO7+)VO&>iQ`O7+)VOOQ[<<Ly<<LyOOQ[<<L{<<L{OOQ[-E=Q-E=QOOQ[1G3z1G3zO&>nQ`O,5>aOOQ[,5>c,5>cO&>sQ`O1G4QO9eQ`O7+&fO!)[QlO7+&fOOQO7+%_7+%_O&>xQ?MtO1G6ZO?YQ`O7+%_OOQ!0Lf<<Ia<<IaOOQ!0Lf<<Iz<<IzO?YQ`O<<IzOOQO<<Is<<IsO$AlQ!0MxO<<IsO%[QlO<<IsOOQO<<Id<<IdO!ByQ!0LrO<<IdO&?SQ!0LrO<<IsO&?_Q!0MxO<= ^O&?oQ`O<= ]OOQO7+*_7+*_O9eQ`O7+*_OOQ[ANAkANAkO&?wQ!fOANAkO!&zQMhOANAkO#(ZQ`OANAkO4UQ!fOANAkO&@OQ`OANAkO%[QlOANAkO&@WQ!0MzO7+'zO&BiQ!0MzO,5?aO&DtQ!0MzO,5?cO&GPQ!0MzO7+'|O&IbQ!fO1G4lO&IlQ?MtO7+&aO&KpQ?MvO,5=XO&MwQ?MvO,5=ZO&NXQ?MvO,5=XO&NiQ?MvO,5=ZO&NyQ?MvO,59uO'#PQ?MvO,5<kO'%SQ?MvO,5<mO''hQ?MvO,5<{O')^Q?MtO7+'kO')kQ?MtO7+'mO')xQ`O,5<]OOQO7+'`7+'`OOQ!0Lh7+*d7+*dO')}QMjO<<K}OOQO1G4w1G4wO'*UQ`O1G4wO'*aQ`O1G4wO'*oQ`O7++|O'*oQ`O7++|O!&zQMhO1G4yO'*wQ!dO1G4yO'+RQ`O7++}O'+ZQ`O7+(VO'+fQ!dO7+(VOOQ!0Lb7+(T7+(TOOQ!0Lb7+(U7+(UO!CUQpO7+(TOCwQ`O7+(TO'+pQ`O7+(VO!&zQMhO7+(VO$+YQ`O7+(UO'+uQ`O7+(VOCwQ`O7+(UO'+}QMjO<<NwO!,TQMhO<<NwOOQ!0Lh7+$}7+$}O',XQ!dO,5?fOOQO-E<x-E<xO',cQ!0MvO7+(YO!&zQMhO7+(YOOQ[AN=gAN=gO9kQ`O1G5WOOQO1G5W1G5WO',sQ`O1G5WO',xQ`O7+,VO',xQ`O7+,VO9uQ!0LrOANBWO@zQ`OANBWOOQ[ANBWANBWO'-QQ`OANBWOOQ[ANAsANAsOOQ[ANAtANAtO'-VQ`O,5?hOOQO-E<z-E<zO'-bQ?MtO1G6hOOQO,5?j,5?jOOQO-E<|-E<|OOQ[1G3a1G3aO'-lQ`O,5=POOQ[<<Lf<<LfO!&zQMhO<<LfO&=UQ`O<<LfO'-qQ`O<<LfO%[QlO<<LfOOQ[<<Lh<<LhO9uQ!0LrO<<LhO$%dQ`O<<LhO9`Q`O<<LhO'-yQpO1G5VO'.UQ`O7+,TOOQ[AN=]AN=]O9uQ!0LrOAN=]OOQ[<= r<= rOOQ[<= s<= sO'.^Q`O<= rO'.cQ`O<= sOOQ[<<Lq<<LqO'.hQ`O<<LqO'.mQlO<<LqOOQ[1G3{1G3{O?YQ`O7+)lO'.tQ`O<<JQO'/PQ?MtO<<JQOOQO<<Hy<<HyOOQ!0LfAN?fAN?fOOQOAN?_AN?_O$AlQ!0MxOAN?_OOQOAN?OAN?OO%[QlOAN?_OOQO<<My<<MyOOQ[G27VG27VO!&zQMhOG27VO#(ZQ`OG27VO'/ZQ!fOG27VO4UQ!fOG27VO'/bQ`OG27VO'/jQ?MtO<<JfO'/wQ?MvO1G2`O'1mQ?MvO,5?aO'3pQ?MvO,5?cO'5sQ?MvO1G2sO'7vQ?MvO1G2uO'9yQ?MtO<<KXO':WQ?MtO<<I{OOQO1G1w1G1wO!,TQMhOANAiOOQO7+*c7+*cO':eQ`O7+*cO':pQ`O<= hO':xQ!dO7+*eOOQ!0Lb<<Kq<<KqO$+YQ`O<<KqOCwQ`O<<KqO';SQ`O<<KqO!&zQMhO<<KqOOQ!0Lb<<Ko<<KoO!CUQpO<<KoO';_Q!dO<<KqOOQ!0Lb<<Kp<<KpO';iQ`O<<KqO!&zQMhO<<KqO$+YQ`O<<KpO';nQMjOANDcO';xQ!0MvO<<KtOOQO7+*r7+*rO9kQ`O7+*rO'<YQ`O<= qOOQ[G27rG27rO9uQ!0LrOG27rO@zQ`OG27rO!)[QlO1G5SO'<bQ`O7+,SO'<jQ`O1G2kO&=UQ`OANBQOOQ[ANBQANBQO!&zQMhOANBQO'<oQ`OANBQOOQ[ANBSANBSO9uQ!0LrOANBSO$%dQ`OANBSOOQO'#H_'#H_OOQO7+*q7+*qOOQ[G22wG22wOOQ[ANE^ANE^OOQ[ANE_ANE_OOQ[ANB]ANB]O'<wQ`OANB]OOQ[<<MW<<MWO!)[QlOAN?lOOQOG24yG24yO$AlQ!0MxOG24yO#(ZQ`OLD,qOOQ[LD,qLD,qO!&zQMhOLD,qO'<|Q!fOLD,qO'=TQ?MvO7+'zO'>yQ?MvO,5?aO'@|Q?MvO,5?cO'CPQ?MvO7+'|O'DuQMjOG27TOOQO<<M}<<M}OOQ!0LbANA]ANA]O$+YQ`OANA]OCwQ`OANA]O'EVQ!dOANA]OOQ!0LbANAZANAZO'E^Q`OANA]O!&zQMhOANA]O'EiQ!dOANA]OOQ!0LbANA[ANA[OOQO<<N^<<N^OOQ[LD-^LD-^O9uQ!0LrOLD-^O'EsQ?MtO7+*nOOQO'#Gf'#GfOOQ[G27lG27lO&=UQ`OG27lO!&zQMhOG27lOOQ[G27nG27nO9uQ!0LrOG27nOOQ[G27wG27wO'E}Q?MtOG25WOOQOLD*eLD*eOOQ[!$(!]!$(!]O#(ZQ`O!$(!]O!&zQMhO!$(!]O'FXQ!0MzOG27TOOQ!0LbG26wG26wO$+YQ`OG26wO'HjQ`OG26wOCwQ`OG26wO'HuQ!dOG26wO!&zQMhOG26wOOQ[!$(!x!$(!xOOQ[LD-WLD-WO&=UQ`OLD-WOOQ[LD-YLD-YOOQ[!)9Ew!)9EwO#(ZQ`O!)9EwOOQ!0LbLD,cLD,cO$+YQ`OLD,cOCwQ`OLD,cO'H|Q`OLD,cO'IXQ!dOLD,cOOQ[!$(!r!$(!rOOQ[!.K;c!.K;cO'I`Q?MvOG27TOOQ!0Lb!$( }!$( }O$+YQ`O!$( }OCwQ`O!$( }O'KUQ`O!$( }OOQ!0Lb!)9Ei!)9EiO$+YQ`O!)9EiOCwQ`O!)9EiOOQ!0Lb!.K;T!.K;TO$+YQ`O!.K;TOOQ!0Lb!4/0o!4/0oO!)[QlO'#DzO1PQ`O'#EXO'KaQ!fO'#JrO'KhQ!L^O'#DvO'KoQlO'#EOO'KvQ!fO'#CiO'N^Q!fO'#CiO!)[QlO'#EQO'NnQlO,5;ZO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO'#IpO(!qQ`O,5<iO!)[QlO,5;eO(!yQMhO,5;eO($dQMhO,5;eO!)[QlO,5;wO!&zQMhO'#GmO(!yQMhO'#GmO!&zQMhO'#GoO(!yQMhO'#GoO1SQ`O'#DZO1SQ`O'#DZO!&zQMhO'#GPO(!yQMhO'#GPO!&zQMhO'#GRO(!yQMhO'#GRO!&zQMhO'#GaO(!yQMhO'#GaO!)[QlO,5:jO($kQpO'#D_O($uQpO'#JvO!)[QlO,5@oO'NnQlO1G0uO(%PQ?MtO'#CiO!)[QlO1G2PO!&zQMhO'#IuO(!yQMhO'#IuO!&zQMhO'#IwO(!yQMhO'#IwO(%ZQ!dO'#CrO!&zQMhO,5<tO(!yQMhO,5<tO'NnQlO1G2RO!)[QlO7+&zO!&zQMhO1G2`O(!yQMhO1G2`O!&zQMhO'#IuO(!yQMhO'#IuO!&zQMhO'#IwO(!yQMhO'#IwO!&zQMhO1G2bO(!yQMhO1G2bO'NnQlO7+'mO'NnQlO7+&aO!&zQMhOANAiO(!yQMhOANAiO(%nQ`O'#EoO(%sQ`O'#EoO(%{Q`O'#F]O(&QQ`O'#EyO(&VQ`O'#KTO(&bQ`O'#KRO(&mQ`O,5;ZO(&rQMjO,5<eO(&yQ`O'#GYO('OQ`O'#GYO('TQ`O,5<eO(']Q`O,5<gO('eQ`O,5;ZO('mQ?MtO1G1`O('tQ`O,5<tO('yQ`O,5<tO((OQ`O,5<vO((TQ`O,5<vO((YQ`O1G2RO((_Q`O1G0uO((dQMjO<<K}O((kQMjO<<K}O((rQMhO'#F|O9`Q`O'#F{OAuQ`O'#EnO!)[QlO,5;tO!3oQ`O'#GYO!3oQ`O'#GYO!3oQ`O'#G[O!3oQ`O'#G[O!,TQMhO7+(cO!,TQMhO7+(cO%.zQ!dO1G2wO%.zQ!dO1G2wO!&zQMhO,5=]O!&zQMhO,5=]",
+  stateData: "()x~O'|OS'}OSTOS(ORQ~OPYOQYOSfOY!VOaqOdzOeyOl!POpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_XO!iuO!lZO!oYO!pYO!qYO!svO!uwO!xxO!|]O$W|O$niO%h}O%j!QO%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO%y!UO&W!WO&^!XO&`!YO&b!ZO&d![O&g!]O&m!^O&s!_O&u!`O&w!aO&y!bO&{!cO(TSO(VTO(YUO(aVO(o[O~OWtO~P`OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(T!dO(VTO(YUO(aVO(o[O~Oa!wOs!nO!S!oO!b!yO!c!vO!d!vO!|<VO#T!pO#U!pO#V!xO#W!pO#X!pO#[!zO#]!zO(U!lO(VTO(YUO(e!mO(o!sO~O(O!{O~OP]XR]X[]Xa]Xj]Xr]X!Q]X!S]X!]]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X'z]X(a]X(r]X(y]X(z]X~O!g%RX~P(qO_!}O(V#PO(W!}O(X#PO~O_#QO(X#PO(Y#PO(Z#QO~Ox#SO!U#TO(b#TO(c#VO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(T<ZO(VTO(YUO(aVO(o[O~O![#ZO!]#WO!Y(hP!Y(vP~P+}O!^#cO~P`OPYOQYOSfOd!jOe!iOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(VTO(YUO(aVO(o[O~Op#mO![#iO!|]O#i#lO#j#iO(T<[O!k(sP~P.iO!l#oO(T#nO~O!x#sO!|]O%h#tO~O#k#uO~O!g#vO#k#uO~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!]$_O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(aVO(r$YO(y#|O(z#}O~Oa(fX'z(fX'w(fX!k(fX!Y(fX!_(fX%i(fX!g(fX~P1qO#S$dO#`$eO$Q$eOP(gXR(gX[(gXj(gXr(gX!Q(gX!S(gX!](gX!l(gX!p(gX#R(gX#n(gX#o(gX#p(gX#q(gX#r(gX#s(gX#t(gX#u(gX#v(gX#x(gX#z(gX#{(gX(a(gX(r(gX(y(gX(z(gX!_(gX%i(gX~Oa(gX'z(gX'w(gX!Y(gX!k(gXv(gX!g(gX~P4UO#`$eO~O$]$hO$_$gO$f$mO~OSfO!_$nO$i$oO$k$qO~Oh%VOj%dOk%dOp%WOr%XOs$tOt$tOz%YO|%ZO!O%]O!S${O!_$|O!i%bO!l$xO#j%cO$W%`O$t%^O$v%_O$y%aO(T$sO(VTO(YUO(a$uO(y$}O(z%POg(^P~Ol%[O~P7eO!l%eO~O!S%hO!_%iO(T%gO~O!g%mO~Oa%nO'z%nO~O!Q%rO~P%[O(U!lO~P%[O%n%vO~P%[Oh%VO!l%eO(T%gO(U!lO~Oe%}O!l%eO(T%gO~Oj$RO~O!_&PO(T%gO(U!lO(VTO(YUO`)WP~O!Q&SO!l&RO%j&VO&T&WO~P;SO!x#sO~O%s&YO!S)SX!_)SX(T)SX~O(T&ZO~Ol!PO!u&`O%j!QO%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO~Od&eOe&dO!x&bO%h&cO%{&aO~P<bOd&hOeyOl!PO!_&gO!u&`O!xxO!|]O%h}O%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO%y!UO~Ob&kO#`&nO%j&iO(U!lO~P=gO!l&oO!u&sO~O!l#oO~O!_XO~Oa%nO'x&{O'z%nO~Oa%nO'x'OO'z%nO~Oa%nO'x'QO'z%nO~O'w]X!Y]Xv]X!k]X&[]X!_]X%i]X!g]X~P(qO!b'_O!c'WO!d'WO(U!lO(VTO(YUO~Os'UO!S'TO!['XO(e'SO!^(iP!^(xP~P@nOn'bO!_'`O(T%gO~Oe'gO!l%eO(T%gO~O!Q&SO!l&RO~Os!nO!S!oO!|<VO#T!pO#U!pO#W!pO#X!pO(U!lO(VTO(YUO(e!mO(o!sO~O!b'mO!c'lO!d'lO#V!pO#['nO#]'nO~PBYOa%nOh%VO!g#vO!l%eO'z%nO(r'pO~O!p'tO#`'rO~PChOs!nO!S!oO(VTO(YUO(e!mO(o!sO~O!_XOs(mX!S(mX!b(mX!c(mX!d(mX!|(mX#T(mX#U(mX#V(mX#W(mX#X(mX#[(mX#](mX(U(mX(V(mX(Y(mX(e(mX(o(mX~O!c'lO!d'lO(U!lO~PDWO(P'xO(Q'xO(R'zO~O_!}O(V'|O(W!}O(X'|O~O_#QO(X'|O(Y'|O(Z#QO~Ov(OO~P%[Ox#SO!U#TO(b#TO(c(RO~O![(TO!Y'WX!Y'^X!]'WX!]'^X~P+}O!](VO!Y(hX~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!](VO!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(aVO(r$YO(y#|O(z#}O~O!Y(hX~PHRO!Y([O~O!Y(uX!](uX!g(uX!k(uX(r(uX~O#`(uX#k#dX!^(uX~PJUO#`(]O!Y(wX!](wX~O!](^O!Y(vX~O!Y(aO~O#`$eO~PJUO!^(bO~P`OR#zO!Q#yO!S#{O!l#xO(aVOP!na[!naj!nar!na!]!na!p!na#R!na#n!na#o!na#p!na#q!na#r!na#s!na#t!na#u!na#v!na#x!na#z!na#{!na(r!na(y!na(z!na~Oa!na'z!na'w!na!Y!na!k!nav!na!_!na%i!na!g!na~PKlO!k(cO~O!g#vO#`(dO(r'pO!](tXa(tX'z(tX~O!k(tX~PNXO!S%hO!_%iO!|]O#i(iO#j(hO(T%gO~O!](jO!k(sX~O!k(lO~O!S%hO!_%iO#j(hO(T%gO~OP(gXR(gX[(gXj(gXr(gX!Q(gX!S(gX!](gX!l(gX!p(gX#R(gX#n(gX#o(gX#p(gX#q(gX#r(gX#s(gX#t(gX#u(gX#v(gX#x(gX#z(gX#{(gX(a(gX(r(gX(y(gX(z(gX~O!g#vO!k(gX~P! uOR(nO!Q(mO!l#xO#S$dO!|!{a!S!{a~O!x!{a%h!{a!_!{a#i!{a#j!{a(T!{a~P!#vO!x(rO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_XO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(T!dO(VTO(YUO(aVO(o[O~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<sO!S${O!_$|O!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(T(vO(VTO(YUO(a$uO(y$}O(z%PO~O#k(xO~O![(zO!k(kP~P%[O(e(|O(o[O~O!S)OO!l#xO(e(|O(o[O~OP<UOQ<UOSfOd>ROe!iOpkOr<UOskOtkOzkO|<UO!O<UO!SWO!WkO!XkO!_!eO!i<XO!lZO!o<UO!p<UO!q<UO!s<YO!u<]O!x!hO$W!kO$n>PO(T)]O(VTO(YUO(aVO(o[O~O!]$_Oa$qa'z$qa'w$qa!k$qa!Y$qa!_$qa%i$qa!g$qa~Ol)dO~P!&zOh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O%]O!S${O!_$|O!i%bO!l$xO#j%cO$W%`O$t%^O$v%_O$y%aO(T(vO(VTO(YUO(a$uO(y$}O(z%PO~Og(pP~P!,TO!Q)iO!g)hO!_$^X$Z$^X$]$^X$_$^X$f$^X~O!g)hO!_({X$Z({X$]({X$_({X$f({X~O!Q)iO~P!.^O!Q)iO!_({X$Z({X$]({X$_({X$f({X~O!_)kO$Z)oO$])jO$_)jO$f)pO~O![)sO~P!)[O$]$hO$_$gO$f)wO~On$zX!Q$zX#S$zX'y$zX(y$zX(z$zX~OgmXg$zXnmX!]mX#`mX~P!0SOx)yO(b)zO(c)|O~On*VO!Q*OO'y*PO(y$}O(z%PO~Og)}O~P!1WOg*WO~Oh%VOr%XOs$tOt$tOz%YO|%ZO!O<sO!S*YO!_*ZO!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(VTO(YUO(a$uO(y$}O(z%PO~Op*`O![*^O(T*XO!k)OP~P!1uO#k*aO~O!l*bO~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<sO!S${O!_$|O!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(T*dO(VTO(YUO(a$uO(y$}O(z%PO~O![*gO!Y)PP~P!3tOr*sOs!nO!S*iO!b*qO!c*kO!d*kO!l*bO#[*rO%`*mO(U!lO(VTO(YUO(e!mO~O!^*pO~P!5iO#S$dOn(`X!Q(`X'y(`X(y(`X(z(`X!](`X#`(`X~Og(`X$O(`X~P!6kOn*xO#`*wOg(_X!](_X~O!]*yOg(^X~Oj%dOk%dOl%dO(T&ZOg(^P~Os*|O~Og)}O(T&ZO~O!l+SO~O(T(vO~Op+WO!S%hO![#iO!_%iO!|]O#i#lO#j#iO(T%gO!k(sP~O!g#vO#k+XO~O!S%hO![+ZO!](^O!_%iO(T%gO!Y(vP~Os'[O!S+]O![+[O(VTO(YUO(e(|O~O!^(xP~P!9|O!]+^Oa)TX'z)TX~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(aVO(r$YO(y#|O(z#}O~Oa!ja!]!ja'z!ja'w!ja!Y!ja!k!jav!ja!_!ja%i!ja!g!ja~P!:tOR#zO!Q#yO!S#{O!l#xO(aVOP!ra[!raj!rar!ra!]!ra!p!ra#R!ra#n!ra#o!ra#p!ra#q!ra#r!ra#s!ra#t!ra#u!ra#v!ra#x!ra#z!ra#{!ra(r!ra(y!ra(z!ra~Oa!ra'z!ra'w!ra!Y!ra!k!rav!ra!_!ra%i!ra!g!ra~P!=[OR#zO!Q#yO!S#{O!l#xO(aVOP!ta[!taj!tar!ta!]!ta!p!ta#R!ta#n!ta#o!ta#p!ta#q!ta#r!ta#s!ta#t!ta#u!ta#v!ta#x!ta#z!ta#{!ta(r!ta(y!ta(z!ta~Oa!ta'z!ta'w!ta!Y!ta!k!tav!ta!_!ta%i!ta!g!ta~P!?rOh%VOn+gO!_'`O%i+fO~O!g+iOa(]X!_(]X'z(]X!](]X~Oa%nO!_XO'z%nO~Oh%VO!l%eO~Oh%VO!l%eO(T%gO~O!g#vO#k(xO~Ob+tO%j+uO(T+qO(VTO(YUO!^)XP~O!]+vO`)WX~O[+zO~O`+{O~O!_&PO(T%gO(U!lO`)WP~O%j,OO~P;SOh%VO#`,SO~Oh%VOn,VO!_$|O~O!_,XO~O!Q,ZO!_XO~O%n%vO~O!x,`O~Oe,eO~Ob,fO(T#nO(VTO(YUO!^)VP~Oe%}O~O%j!QO(T&ZO~P=gO[,kO`,jO~OPYOQYOSfOdzOeyOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!iuO!lZO!oYO!pYO!qYO!svO!xxO!|]O$niO%h}O(VTO(YUO(aVO(o[O~O!_!eO!u!gO$W!kO(T!dO~P!FyO`,jOa%nO'z%nO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!x!hO$W!kO$niO(T!dO(VTO(YUO(aVO(o[O~Oa,pOl!OO!uwO%l!OO%m!OO%n!OO~P!IcO!l&oO~O&^,vO~O!_,xO~O&o,zO&q,{OP&laQ&laS&laY&laa&lad&lae&lal&lap&lar&las&lat&laz&la|&la!O&la!S&la!W&la!X&la!_&la!i&la!l&la!o&la!p&la!q&la!s&la!u&la!x&la!|&la$W&la$n&la%h&la%j&la%l&la%m&la%n&la%q&la%s&la%v&la%w&la%y&la&W&la&^&la&`&la&b&la&d&la&g&la&m&la&s&la&u&la&w&la&y&la&{&la'w&la(T&la(V&la(Y&la(a&la(o&la!^&la&e&lab&la&j&la~O(T-QO~Oh!eX!]!RX!^!RX!g!RX!g!eX!l!eX#`!RX~O!]!eX!^!eX~P#!iO!g-VO#`-UOh(jX!]#hX!^#hX!g(jX!l(jX~O!](jX!^(jX~P##[Oh%VO!g-XO!l%eO!]!aX!^!aX~Os!nO!S!oO(VTO(YUO(e!mO~OP<UOQ<UOSfOd>ROe!iOpkOr<UOskOtkOzkO|<UO!O<UO!SWO!WkO!XkO!_!eO!i<XO!lZO!o<UO!p<UO!q<UO!s<YO!u<]O!x!hO$W!kO$n>PO(VTO(YUO(aVO(o[O~O(T=QO~P#$qO!]-]O!^(iX~O!^-_O~O!g-VO#`-UO!]#hX!^#hX~O!]-`O!^(xX~O!^-bO~O!c-cO!d-cO(U!lO~P#$`O!^-fO~P'_On-iO!_'`O~O!Y-nO~Os!{a!b!{a!c!{a!d!{a#T!{a#U!{a#V!{a#W!{a#X!{a#[!{a#]!{a(U!{a(V!{a(Y!{a(e!{a(o!{a~P!#vO!p-sO#`-qO~PChO!c-uO!d-uO(U!lO~PDWOa%nO#`-qO'z%nO~Oa%nO!g#vO#`-qO'z%nO~Oa%nO!g#vO!p-sO#`-qO'z%nO(r'pO~O(P'xO(Q'xO(R-zO~Ov-{O~O!Y'Wa!]'Wa~P!:tO![.PO!Y'WX!]'WX~P%[O!](VO!Y(ha~O!Y(ha~PHRO!](^O!Y(va~O!S%hO![.TO!_%iO(T%gO!Y'^X!]'^X~O#`.VO!](ta!k(taa(ta'z(ta~O!g#vO~P#,wO!](jO!k(sa~O!S%hO!_%iO#j.ZO(T%gO~Op.`O!S%hO![.]O!_%iO!|]O#i._O#j.]O(T%gO!]'aX!k'aX~OR.dO!l#xO~Oh%VOn.gO!_'`O%i.fO~Oa#ci!]#ci'z#ci'w#ci!Y#ci!k#civ#ci!_#ci%i#ci!g#ci~P!:tOn>]O!Q*OO'y*PO(y$}O(z%PO~O#k#_aa#_a#`#_a'z#_a!]#_a!k#_a!_#_a!Y#_a~P#/sO#k(`XP(`XR(`X[(`Xa(`Xj(`Xr(`X!S(`X!l(`X!p(`X#R(`X#n(`X#o(`X#p(`X#q(`X#r(`X#s(`X#t(`X#u(`X#v(`X#x(`X#z(`X#{(`X'z(`X(a(`X(r(`X!k(`X!Y(`X'w(`Xv(`X!_(`X%i(`X!g(`X~P!6kO!].tO!k(kX~P!:tO!k.wO~O!Y.yO~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O(aVO[#mia#mij#mir#mi!]#mi#R#mi#o#mi#p#mi#q#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'z#mi(r#mi(y#mi(z#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#n#mi~P#3cO#n$OO~P#3cOP$[OR#zOr$aO!Q#yO!S#{O!l#xO!p$[O#n$OO#o$PO#p$PO#q$PO(aVO[#mia#mij#mi!]#mi#R#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'z#mi(r#mi(y#mi(z#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#r#mi~P#6QO#r$QO~P#6QOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO(aVOa#mi!]#mi#x#mi#z#mi#{#mi'z#mi(r#mi(y#mi(z#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#v#mi~P#8oOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO(aVO(z#}Oa#mi!]#mi#z#mi#{#mi'z#mi(r#mi(y#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#x$UO~P#;VO#x#mi~P#;VO#v$SO~P#8oOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO(aVO(y#|O(z#}Oa#mi!]#mi#{#mi'z#mi(r#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#z#mi~P#={O#z$WO~P#={OP]XR]X[]Xj]Xr]X!Q]X!S]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(a]X(r]X(y]X(z]X!]]X!^]X~O$O]X~P#@jOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO#v<cO#x<eO#z<gO#{<hO(aVO(r$YO(y#|O(z#}O~O$O.{O~P#BwO#S$dO#`<nO$Q<nO$O(gX!^(gX~P! uOa'da!]'da'z'da'w'da!k'da!Y'dav'da!_'da%i'da!g'da~P!:tO[#mia#mij#mir#mi!]#mi#R#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'z#mi(r#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O#n$OO#o$PO#p$PO#q$PO(aVO(y#mi(z#mi~P#EyOn>]O!Q*OO'y*PO(y$}O(z%POP#miR#mi!S#mi!l#mi!p#mi#n#mi#o#mi#p#mi#q#mi(a#mi~P#EyO!]/POg(pX~P!1WOg/RO~Oa$Pi!]$Pi'z$Pi'w$Pi!Y$Pi!k$Piv$Pi!_$Pi%i$Pi!g$Pi~P!:tO$]/SO$_/SO~O$]/TO$_/TO~O!g)hO#`/UO!_$cX$Z$cX$]$cX$_$cX$f$cX~O![/VO~O!_)kO$Z/XO$])jO$_)jO$f/YO~O!]<iO!^(fX~P#BwO!^/ZO~O!g)hO$f({X~O$f/]O~Ov/^O~P!&zOx)yO(b)zO(c/aO~O!S/dO~O(y$}On%aa!Q%aa'y%aa(z%aa!]%aa#`%aa~Og%aa$O%aa~P#L{O(z%POn%ca!Q%ca'y%ca(y%ca!]%ca#`%ca~Og%ca$O%ca~P#MnO!]fX!gfX!kfX!k$zX(rfX~P!0SOp%WO![/mO!](^O(T/lO!Y(vP!Y)PP~P!1uOr*sO!b*qO!c*kO!d*kO!l*bO#[*rO%`*mO(U!lO(VTO(YUO~Os<}O!S/nO![+[O!^*pO(e<|O!^(xP~P$ [O!k/oO~P#/sO!]/pO!g#vO(r'pO!k)OX~O!k/uO~OnoX!QoX'yoX(yoX(zoX~O!g#vO!koX~P$#OOp/wO!S%hO![*^O!_%iO(T%gO!k)OP~O#k/xO~O!Y$zX!]$zX!g%RX~P!0SO!]/yO!Y)PX~P#/sO!g/{O~O!Y/}O~OpkO(T0OO~P.iOh%VOr0TO!g#vO!l%eO(r'pO~O!g+iO~Oa%nO!]0XO'z%nO~O!^0ZO~P!5iO!c0[O!d0[O(U!lO~P#$`Os!nO!S0]O(VTO(YUO(e!mO~O#[0_O~Og%aa!]%aa#`%aa$O%aa~P!1WOg%ca!]%ca#`%ca$O%ca~P!1WOj%dOk%dOl%dO(T&ZOg'mX!]'mX~O!]*yOg(^a~Og0hO~On0jO#`0iOg(_a!](_a~OR0kO!Q0kO!S0lO#S$dOn}a'y}a(y}a(z}a!]}a#`}a~Og}a$O}a~P$(cO!Q*OO'y*POn$sa(y$sa(z$sa!]$sa#`$sa~Og$sa$O$sa~P$)_O!Q*OO'y*POn$ua(y$ua(z$ua!]$ua#`$ua~Og$ua$O$ua~P$*QO#k0oO~Og%Ta!]%Ta#`%Ta$O%Ta~P!1WO!g#vO~O#k0rO~O!]+^Oa)Ta'z)Ta~OR#zO!Q#yO!S#{O!l#xO(aVOP!ri[!rij!rir!ri!]!ri!p!ri#R!ri#n!ri#o!ri#p!ri#q!ri#r!ri#s!ri#t!ri#u!ri#v!ri#x!ri#z!ri#{!ri(r!ri(y!ri(z!ri~Oa!ri'z!ri'w!ri!Y!ri!k!riv!ri!_!ri%i!ri!g!ri~P$+oOh%VOr%XOs$tOt$tOz%YO|%ZO!O<sO!S${O!_$|O!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(VTO(YUO(a$uO(y$}O(z%PO~Op0{O%]0|O(T0zO~P$.VO!g+iOa(]a!_(]a'z(]a!](]a~O#k1SO~O[]X!]fX!^fX~O!]1TO!^)XX~O!^1VO~O[1WO~Ob1YO(T+qO(VTO(YUO~O!_&PO(T%gO`'uX!]'uX~O!]+vO`)Wa~O!k1]O~P!:tO[1`O~O`1aO~O#`1fO~On1iO!_$|O~O(e(|O!^)UP~Oh%VOn1rO!_1oO%i1qO~O[1|O!]1zO!^)VX~O!^1}O~O`2POa%nO'z%nO~O(T#nO(VTO(YUO~O#S$dO#`$eO$Q$eOP(gXR(gX[(gXr(gX!Q(gX!S(gX!](gX!l(gX!p(gX#R(gX#n(gX#o(gX#p(gX#q(gX#r(gX#s(gX#t(gX#u(gX#v(gX#x(gX#z(gX#{(gX(a(gX(r(gX(y(gX(z(gX~Oj2SO&[2TOa(gX~P$3pOj2SO#`$eO&[2TO~Oa2VO~P%[Oa2XO~O&e2[OP&ciQ&ciS&ciY&cia&cid&cie&cil&cip&cir&cis&cit&ciz&ci|&ci!O&ci!S&ci!W&ci!X&ci!_&ci!i&ci!l&ci!o&ci!p&ci!q&ci!s&ci!u&ci!x&ci!|&ci$W&ci$n&ci%h&ci%j&ci%l&ci%m&ci%n&ci%q&ci%s&ci%v&ci%w&ci%y&ci&W&ci&^&ci&`&ci&b&ci&d&ci&g&ci&m&ci&s&ci&u&ci&w&ci&y&ci&{&ci'w&ci(T&ci(V&ci(Y&ci(a&ci(o&ci!^&cib&ci&j&ci~Ob2bO!^2`O&j2aO~P`O!_XO!l2dO~O&q,{OP&liQ&liS&liY&lia&lid&lie&lil&lip&lir&lis&lit&liz&li|&li!O&li!S&li!W&li!X&li!_&li!i&li!l&li!o&li!p&li!q&li!s&li!u&li!x&li!|&li$W&li$n&li%h&li%j&li%l&li%m&li%n&li%q&li%s&li%v&li%w&li%y&li&W&li&^&li&`&li&b&li&d&li&g&li&m&li&s&li&u&li&w&li&y&li&{&li'w&li(T&li(V&li(Y&li(a&li(o&li!^&li&e&lib&li&j&li~O!Y2jO~O!]!aa!^!aa~P#BwOs!nO!S!oO![2pO(e!mO!]'XX!^'XX~P@nO!]-]O!^(ia~O!]'_X!^'_X~P!9|O!]-`O!^(xa~O!^2wO~P'_Oa%nO#`3QO'z%nO~Oa%nO!g#vO#`3QO'z%nO~Oa%nO!g#vO!p3UO#`3QO'z%nO(r'pO~Oa%nO'z%nO~P!:tO!]$_Ov$qa~O!Y'Wi!]'Wi~P!:tO!](VO!Y(hi~O!](^O!Y(vi~O!Y(wi!](wi~P!:tO!](ti!k(tia(ti'z(ti~P!:tO#`3WO!](ti!k(tia(ti'z(ti~O!](jO!k(si~O!S%hO!_%iO!|]O#i3]O#j3[O(T%gO~O!S%hO!_%iO#j3[O(T%gO~On3dO!_'`O%i3cO~Oh%VOn3dO!_'`O%i3cO~O#k%aaP%aaR%aa[%aaa%aaj%aar%aa!S%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa'z%aa(a%aa(r%aa!k%aa!Y%aa'w%aav%aa!_%aa%i%aa!g%aa~P#L{O#k%caP%caR%ca[%caa%caj%car%ca!S%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca'z%ca(a%ca(r%ca!k%ca!Y%ca'w%cav%ca!_%ca%i%ca!g%ca~P#MnO#k%aaP%aaR%aa[%aaa%aaj%aar%aa!S%aa!]%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa'z%aa(a%aa(r%aa!k%aa!Y%aa'w%aa#`%aav%aa!_%aa%i%aa!g%aa~P#/sO#k%caP%caR%ca[%caa%caj%car%ca!S%ca!]%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca'z%ca(a%ca(r%ca!k%ca!Y%ca'w%ca#`%cav%ca!_%ca%i%ca!g%ca~P#/sO#k}aP}a[}aa}aj}ar}a!l}a!p}a#R}a#n}a#o}a#p}a#q}a#r}a#s}a#t}a#u}a#v}a#x}a#z}a#{}a'z}a(a}a(r}a!k}a!Y}a'w}av}a!_}a%i}a!g}a~P$(cO#k$saP$saR$sa[$saa$saj$sar$sa!S$sa!l$sa!p$sa#R$sa#n$sa#o$sa#p$sa#q$sa#r$sa#s$sa#t$sa#u$sa#v$sa#x$sa#z$sa#{$sa'z$sa(a$sa(r$sa!k$sa!Y$sa'w$sav$sa!_$sa%i$sa!g$sa~P$)_O#k$uaP$uaR$ua[$uaa$uaj$uar$ua!S$ua!l$ua!p$ua#R$ua#n$ua#o$ua#p$ua#q$ua#r$ua#s$ua#t$ua#u$ua#v$ua#x$ua#z$ua#{$ua'z$ua(a$ua(r$ua!k$ua!Y$ua'w$uav$ua!_$ua%i$ua!g$ua~P$*QO#k%TaP%TaR%Ta[%Taa%Taj%Tar%Ta!S%Ta!]%Ta!l%Ta!p%Ta#R%Ta#n%Ta#o%Ta#p%Ta#q%Ta#r%Ta#s%Ta#t%Ta#u%Ta#v%Ta#x%Ta#z%Ta#{%Ta'z%Ta(a%Ta(r%Ta!k%Ta!Y%Ta'w%Ta#`%Tav%Ta!_%Ta%i%Ta!g%Ta~P#/sOa#cq!]#cq'z#cq'w#cq!Y#cq!k#cqv#cq!_#cq%i#cq!g#cq~P!:tO![3lO!]'YX!k'YX~P%[O!].tO!k(ka~O!].tO!k(ka~P!:tO!Y3oO~O$O!na!^!na~PKlO$O!ja!]!ja!^!ja~P#BwO$O!ra!^!ra~P!=[O$O!ta!^!ta~P!?rOg']X!]']X~P!,TO!]/POg(pa~OSfO!_4TO$d4UO~O!^4YO~Ov4ZO~P#/sOa$mq!]$mq'z$mq'w$mq!Y$mq!k$mqv$mq!_$mq%i$mq!g$mq~P!:tO!Y4]O~P!&zO!S4^O~O!Q*OO'y*PO(z%POn'ia(y'ia!]'ia#`'ia~Og'ia$O'ia~P%-fO!Q*OO'y*POn'ka(y'ka(z'ka!]'ka#`'ka~Og'ka$O'ka~P%.XO(r$YO~P#/sO!YfX!Y$zX!]fX!]$zX!g%RX#`fX~P!0SOp%WO(T=WO~P!1uOp4bO!S%hO![4aO!_%iO(T%gO!]'eX!k'eX~O!]/pO!k)Oa~O!]/pO!g#vO!k)Oa~O!]/pO!g#vO(r'pO!k)Oa~Og$|i!]$|i#`$|i$O$|i~P!1WO![4jO!Y'gX!]'gX~P!3tO!]/yO!Y)Pa~O!]/yO!Y)Pa~P#/sOP]XR]X[]Xj]Xr]X!Q]X!S]X!Y]X!]]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(a]X(r]X(y]X(z]X~Oj%YX!g%YX~P%2OOj4oO!g#vO~Oh%VO!g#vO!l%eO~Oh%VOr4tO!l%eO(r'pO~Or4yO!g#vO(r'pO~Os!nO!S4zO(VTO(YUO(e!mO~O(y$}On%ai!Q%ai'y%ai(z%ai!]%ai#`%ai~Og%ai$O%ai~P%5oO(z%POn%ci!Q%ci'y%ci(y%ci!]%ci#`%ci~Og%ci$O%ci~P%6bOg(_i!](_i~P!1WO#`5QOg(_i!](_i~P!1WO!k5VO~Oa$oq!]$oq'z$oq'w$oq!Y$oq!k$oqv$oq!_$oq%i$oq!g$oq~P!:tO!Y5ZO~O!]5[O!_)QX~P#/sOa$zX!_$zX%^]X'z$zX!]$zX~P!0SO%^5_OaoX!_oX'zoX!]oX~P$#OOp5`O(T#nO~O%^5_O~Ob5fO%j5gO(T+qO(VTO(YUO!]'tX!^'tX~O!]1TO!^)Xa~O[5kO~O`5lO~O[5pO~Oa%nO'z%nO~P#/sO!]5uO#`5wO!^)UX~O!^5xO~Or6OOs!nO!S*iO!b!yO!c!vO!d!vO!|<VO#T!pO#U!pO#V!pO#W!pO#X!pO#[5}O#]!zO(U!lO(VTO(YUO(e!mO(o!sO~O!^5|O~P%;eOn6TO!_1oO%i6SO~Oh%VOn6TO!_1oO%i6SO~Ob6[O(T#nO(VTO(YUO!]'sX!^'sX~O!]1zO!^)Va~O(VTO(YUO(e6^O~O`6bO~Oj6eO&[6fO~PNXO!k6gO~P%[Oa6iO~Oa6iO~P%[Ob2bO!^6nO&j2aO~P`O!g6pO~O!g6rOh(ji!](ji!^(ji!g(ji!l(jir(ji(r(ji~O!]#hi!^#hi~P#BwO#`6sO!]#hi!^#hi~O!]!ai!^!ai~P#BwOa%nO#`6|O'z%nO~Oa%nO!g#vO#`6|O'z%nO~O!](tq!k(tqa(tq'z(tq~P!:tO!](jO!k(sq~O!S%hO!_%iO#j7TO(T%gO~O!_'`O%i7WO~On7[O!_'`O%i7WO~O#k'iaP'iaR'ia['iaa'iaj'iar'ia!S'ia!l'ia!p'ia#R'ia#n'ia#o'ia#p'ia#q'ia#r'ia#s'ia#t'ia#u'ia#v'ia#x'ia#z'ia#{'ia'z'ia(a'ia(r'ia!k'ia!Y'ia'w'iav'ia!_'ia%i'ia!g'ia~P%-fO#k'kaP'kaR'ka['kaa'kaj'kar'ka!S'ka!l'ka!p'ka#R'ka#n'ka#o'ka#p'ka#q'ka#r'ka#s'ka#t'ka#u'ka#v'ka#x'ka#z'ka#{'ka'z'ka(a'ka(r'ka!k'ka!Y'ka'w'kav'ka!_'ka%i'ka!g'ka~P%.XO#k$|iP$|iR$|i[$|ia$|ij$|ir$|i!S$|i!]$|i!l$|i!p$|i#R$|i#n$|i#o$|i#p$|i#q$|i#r$|i#s$|i#t$|i#u$|i#v$|i#x$|i#z$|i#{$|i'z$|i(a$|i(r$|i!k$|i!Y$|i'w$|i#`$|iv$|i!_$|i%i$|i!g$|i~P#/sO#k%aiP%aiR%ai[%aia%aij%air%ai!S%ai!l%ai!p%ai#R%ai#n%ai#o%ai#p%ai#q%ai#r%ai#s%ai#t%ai#u%ai#v%ai#x%ai#z%ai#{%ai'z%ai(a%ai(r%ai!k%ai!Y%ai'w%aiv%ai!_%ai%i%ai!g%ai~P%5oO#k%ciP%ciR%ci[%cia%cij%cir%ci!S%ci!l%ci!p%ci#R%ci#n%ci#o%ci#p%ci#q%ci#r%ci#s%ci#t%ci#u%ci#v%ci#x%ci#z%ci#{%ci'z%ci(a%ci(r%ci!k%ci!Y%ci'w%civ%ci!_%ci%i%ci!g%ci~P%6bO!]'Ya!k'Ya~P!:tO!].tO!k(ki~O$O#ci!]#ci!^#ci~P#BwOP$[OR#zO!Q#yO!S#{O!l#xO!p$[O(aVO[#mij#mir#mi#R#mi#o#mi#p#mi#q#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(r#mi(y#mi(z#mi!]#mi!^#mi~O#n#mi~P%NdO#n<_O~P%NdOP$[OR#zOr<kO!Q#yO!S#{O!l#xO!p$[O#n<_O#o<`O#p<`O#q<`O(aVO[#mij#mi#R#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(r#mi(y#mi(z#mi!]#mi!^#mi~O#r#mi~P&!lO#r<aO~P&!lOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO(aVO#x#mi#z#mi#{#mi$O#mi(r#mi(y#mi(z#mi!]#mi!^#mi~O#v#mi~P&$tOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO#v<cO(aVO(z#}O#z#mi#{#mi$O#mi(r#mi(y#mi!]#mi!^#mi~O#x<eO~P&&uO#x#mi~P&&uO#v<cO~P&$tOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO#v<cO#x<eO(aVO(y#|O(z#}O#{#mi$O#mi(r#mi!]#mi!^#mi~O#z#mi~P&)UO#z<gO~P&)UOa#|y!]#|y'z#|y'w#|y!Y#|y!k#|yv#|y!_#|y%i#|y!g#|y~P!:tO[#mij#mir#mi#R#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(r#mi!]#mi!^#mi~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O#n<_O#o<`O#p<`O#q<`O(aVO(y#mi(z#mi~P&,QOn>^O!Q*OO'y*PO(y$}O(z%POP#miR#mi!S#mi!l#mi!p#mi#n#mi#o#mi#p#mi#q#mi(a#mi~P&,QO#S$dOP(`XR(`X[(`Xj(`Xn(`Xr(`X!Q(`X!S(`X!l(`X!p(`X#R(`X#n(`X#o(`X#p(`X#q(`X#r(`X#s(`X#t(`X#u(`X#v(`X#x(`X#z(`X#{(`X$O(`X'y(`X(a(`X(r(`X(y(`X(z(`X!](`X!^(`X~O$O$Pi!]$Pi!^$Pi~P#BwO$O!ri!^!ri~P$+oOg']a!]']a~P!1WO!^7nO~O!]'da!^'da~P#BwO!Y7oO~P#/sO!g#vO(r'pO!]'ea!k'ea~O!]/pO!k)Oi~O!]/pO!g#vO!k)Oi~Og$|q!]$|q#`$|q$O$|q~P!1WO!Y'ga!]'ga~P#/sO!g7vO~O!]/yO!Y)Pi~P#/sO!]/yO!Y)Pi~O!Y7yO~Oh%VOr8OO!l%eO(r'pO~Oj8QO!g#vO~Or8TO!g#vO(r'pO~O!Q*OO'y*PO(z%POn'ja(y'ja!]'ja#`'ja~Og'ja$O'ja~P&5RO!Q*OO'y*POn'la(y'la(z'la!]'la#`'la~Og'la$O'la~P&5tOg(_q!](_q~P!1WO#`8VOg(_q!](_q~P!1WO!Y8WO~Og%Oq!]%Oq#`%Oq$O%Oq~P!1WOa$oy!]$oy'z$oy'w$oy!Y$oy!k$oyv$oy!_$oy%i$oy!g$oy~P!:tO!g6rO~O!]5[O!_)Qa~O!_'`OP$TaR$Ta[$Taj$Tar$Ta!Q$Ta!S$Ta!]$Ta!l$Ta!p$Ta#R$Ta#n$Ta#o$Ta#p$Ta#q$Ta#r$Ta#s$Ta#t$Ta#u$Ta#v$Ta#x$Ta#z$Ta#{$Ta(a$Ta(r$Ta(y$Ta(z$Ta~O%i7WO~P&8fO%^8[Oa%[i!_%[i'z%[i!]%[i~Oa#cy!]#cy'z#cy'w#cy!Y#cy!k#cyv#cy!_#cy%i#cy!g#cy~P!:tO[8^O~Ob8`O(T+qO(VTO(YUO~O!]1TO!^)Xi~O`8dO~O(e(|O!]'pX!^'pX~O!]5uO!^)Ua~O!^8nO~P%;eO(o!sO~P$&YO#[8oO~O!_1oO~O!_1oO%i8qO~On8tO!_1oO%i8qO~O[8yO!]'sa!^'sa~O!]1zO!^)Vi~O!k8}O~O!k9OO~O!k9RO~O!k9RO~P%[Oa9TO~O!g9UO~O!k9VO~O!](wi!^(wi~P#BwOa%nO#`9_O'z%nO~O!](ty!k(tya(ty'z(ty~P!:tO!](jO!k(sy~O%i9bO~P&8fO!_'`O%i9bO~O#k$|qP$|qR$|q[$|qa$|qj$|qr$|q!S$|q!]$|q!l$|q!p$|q#R$|q#n$|q#o$|q#p$|q#q$|q#r$|q#s$|q#t$|q#u$|q#v$|q#x$|q#z$|q#{$|q'z$|q(a$|q(r$|q!k$|q!Y$|q'w$|q#`$|qv$|q!_$|q%i$|q!g$|q~P#/sO#k'jaP'jaR'ja['jaa'jaj'jar'ja!S'ja!l'ja!p'ja#R'ja#n'ja#o'ja#p'ja#q'ja#r'ja#s'ja#t'ja#u'ja#v'ja#x'ja#z'ja#{'ja'z'ja(a'ja(r'ja!k'ja!Y'ja'w'jav'ja!_'ja%i'ja!g'ja~P&5RO#k'laP'laR'la['laa'laj'lar'la!S'la!l'la!p'la#R'la#n'la#o'la#p'la#q'la#r'la#s'la#t'la#u'la#v'la#x'la#z'la#{'la'z'la(a'la(r'la!k'la!Y'la'w'lav'la!_'la%i'la!g'la~P&5tO#k%OqP%OqR%Oq[%Oqa%Oqj%Oqr%Oq!S%Oq!]%Oq!l%Oq!p%Oq#R%Oq#n%Oq#o%Oq#p%Oq#q%Oq#r%Oq#s%Oq#t%Oq#u%Oq#v%Oq#x%Oq#z%Oq#{%Oq'z%Oq(a%Oq(r%Oq!k%Oq!Y%Oq'w%Oq#`%Oqv%Oq!_%Oq%i%Oq!g%Oq~P#/sO!]'Yi!k'Yi~P!:tO$O#cq!]#cq!^#cq~P#BwO(y$}OP%aaR%aa[%aaj%aar%aa!S%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa$O%aa(a%aa(r%aa!]%aa!^%aa~On%aa!Q%aa'y%aa(z%aa~P&IyO(z%POP%caR%ca[%caj%car%ca!S%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca$O%ca(a%ca(r%ca!]%ca!^%ca~On%ca!Q%ca'y%ca(y%ca~P&LQOn>^O!Q*OO'y*PO(z%PO~P&IyOn>^O!Q*OO'y*PO(y$}O~P&LQOR0kO!Q0kO!S0lO#S$dOP}a[}aj}an}ar}a!l}a!p}a#R}a#n}a#o}a#p}a#q}a#r}a#s}a#t}a#u}a#v}a#x}a#z}a#{}a$O}a'y}a(a}a(r}a(y}a(z}a!]}a!^}a~O!Q*OO'y*POP$saR$sa[$saj$san$sar$sa!S$sa!l$sa!p$sa#R$sa#n$sa#o$sa#p$sa#q$sa#r$sa#s$sa#t$sa#u$sa#v$sa#x$sa#z$sa#{$sa$O$sa(a$sa(r$sa(y$sa(z$sa!]$sa!^$sa~O!Q*OO'y*POP$uaR$ua[$uaj$uan$uar$ua!S$ua!l$ua!p$ua#R$ua#n$ua#o$ua#p$ua#q$ua#r$ua#s$ua#t$ua#u$ua#v$ua#x$ua#z$ua#{$ua$O$ua(a$ua(r$ua(y$ua(z$ua!]$ua!^$ua~On>^O!Q*OO'y*PO(y$}O(z%PO~OP%TaR%Ta[%Taj%Tar%Ta!S%Ta!l%Ta!p%Ta#R%Ta#n%Ta#o%Ta#p%Ta#q%Ta#r%Ta#s%Ta#t%Ta#u%Ta#v%Ta#x%Ta#z%Ta#{%Ta$O%Ta(a%Ta(r%Ta!]%Ta!^%Ta~P''VO$O$mq!]$mq!^$mq~P#BwO$O$oq!]$oq!^$oq~P#BwO!^9oO~O$O9pO~P!1WO!g#vO!]'ei!k'ei~O!g#vO(r'pO!]'ei!k'ei~O!]/pO!k)Oq~O!Y'gi!]'gi~P#/sO!]/yO!Y)Pq~Or9wO!g#vO(r'pO~O[9yO!Y9xO~P#/sO!Y9xO~Oj:PO!g#vO~Og(_y!](_y~P!1WO!]'na!_'na~P#/sOa%[q!_%[q'z%[q!]%[q~P#/sO[:UO~O!]1TO!^)Xq~O`:YO~O#`:ZO!]'pa!^'pa~O!]5uO!^)Ui~P#BwO!S:]O~O!_1oO%i:`O~O(VTO(YUO(e:eO~O!]1zO!^)Vq~O!k:hO~O!k:iO~O!k:jO~O!k:jO~P%[O#`:mO!]#hy!^#hy~O!]#hy!^#hy~P#BwO%i:rO~P&8fO!_'`O%i:rO~O$O#|y!]#|y!^#|y~P#BwOP$|iR$|i[$|ij$|ir$|i!S$|i!l$|i!p$|i#R$|i#n$|i#o$|i#p$|i#q$|i#r$|i#s$|i#t$|i#u$|i#v$|i#x$|i#z$|i#{$|i$O$|i(a$|i(r$|i!]$|i!^$|i~P''VO!Q*OO'y*PO(z%POP'iaR'ia['iaj'ian'iar'ia!S'ia!l'ia!p'ia#R'ia#n'ia#o'ia#p'ia#q'ia#r'ia#s'ia#t'ia#u'ia#v'ia#x'ia#z'ia#{'ia$O'ia(a'ia(r'ia(y'ia!]'ia!^'ia~O!Q*OO'y*POP'kaR'ka['kaj'kan'kar'ka!S'ka!l'ka!p'ka#R'ka#n'ka#o'ka#p'ka#q'ka#r'ka#s'ka#t'ka#u'ka#v'ka#x'ka#z'ka#{'ka$O'ka(a'ka(r'ka(y'ka(z'ka!]'ka!^'ka~O(y$}OP%aiR%ai[%aij%ain%air%ai!Q%ai!S%ai!l%ai!p%ai#R%ai#n%ai#o%ai#p%ai#q%ai#r%ai#s%ai#t%ai#u%ai#v%ai#x%ai#z%ai#{%ai$O%ai'y%ai(a%ai(r%ai(z%ai!]%ai!^%ai~O(z%POP%ciR%ci[%cij%cin%cir%ci!Q%ci!S%ci!l%ci!p%ci#R%ci#n%ci#o%ci#p%ci#q%ci#r%ci#s%ci#t%ci#u%ci#v%ci#x%ci#z%ci#{%ci$O%ci'y%ci(a%ci(r%ci(y%ci!]%ci!^%ci~O$O$oy!]$oy!^$oy~P#BwO$O#cy!]#cy!^#cy~P#BwO!g#vO!]'eq!k'eq~O!]/pO!k)Oy~O!Y'gq!]'gq~P#/sOr:|O!g#vO(r'pO~O[;QO!Y;PO~P#/sO!Y;PO~Og(_!R!](_!R~P!1WOa%[y!_%[y'z%[y!]%[y~P#/sO!]1TO!^)Xy~O!]5uO!^)Uq~O(T;XO~O!_1oO%i;[O~O!k;_O~O%i;dO~P&8fOP$|qR$|q[$|qj$|qr$|q!S$|q!l$|q!p$|q#R$|q#n$|q#o$|q#p$|q#q$|q#r$|q#s$|q#t$|q#u$|q#v$|q#x$|q#z$|q#{$|q$O$|q(a$|q(r$|q!]$|q!^$|q~P''VO!Q*OO'y*PO(z%POP'jaR'ja['jaj'jan'jar'ja!S'ja!l'ja!p'ja#R'ja#n'ja#o'ja#p'ja#q'ja#r'ja#s'ja#t'ja#u'ja#v'ja#x'ja#z'ja#{'ja$O'ja(a'ja(r'ja(y'ja!]'ja!^'ja~O!Q*OO'y*POP'laR'la['laj'lan'lar'la!S'la!l'la!p'la#R'la#n'la#o'la#p'la#q'la#r'la#s'la#t'la#u'la#v'la#x'la#z'la#{'la$O'la(a'la(r'la(y'la(z'la!]'la!^'la~OP%OqR%Oq[%Oqj%Oqr%Oq!S%Oq!l%Oq!p%Oq#R%Oq#n%Oq#o%Oq#p%Oq#q%Oq#r%Oq#s%Oq#t%Oq#u%Oq#v%Oq#x%Oq#z%Oq#{%Oq$O%Oq(a%Oq(r%Oq!]%Oq!^%Oq~P''VOg%e!Z!]%e!Z#`%e!Z$O%e!Z~P!1WO!Y;hO~P#/sOr;iO!g#vO(r'pO~O[;kO!Y;hO~P#/sO!]'pq!^'pq~P#BwO!]#h!Z!^#h!Z~P#BwO#k%e!ZP%e!ZR%e!Z[%e!Za%e!Zj%e!Zr%e!Z!S%e!Z!]%e!Z!l%e!Z!p%e!Z#R%e!Z#n%e!Z#o%e!Z#p%e!Z#q%e!Z#r%e!Z#s%e!Z#t%e!Z#u%e!Z#v%e!Z#x%e!Z#z%e!Z#{%e!Z'z%e!Z(a%e!Z(r%e!Z!k%e!Z!Y%e!Z'w%e!Z#`%e!Zv%e!Z!_%e!Z%i%e!Z!g%e!Z~P#/sOr;tO!g#vO(r'pO~O!Y;uO~P#/sOr;|O!g#vO(r'pO~O!Y;}O~P#/sOP%e!ZR%e!Z[%e!Zj%e!Zr%e!Z!S%e!Z!l%e!Z!p%e!Z#R%e!Z#n%e!Z#o%e!Z#p%e!Z#q%e!Z#r%e!Z#s%e!Z#t%e!Z#u%e!Z#v%e!Z#x%e!Z#z%e!Z#{%e!Z$O%e!Z(a%e!Z(r%e!Z!]%e!Z!^%e!Z~P''VOr<QO!g#vO(r'pO~Ov(fX~P1qO!Q%rO~P!)[O(U!lO~P!)[O!YfX!]fX#`fX~P%2OOP]XR]X[]Xj]Xr]X!Q]X!S]X!]]X!]fX!l]X!p]X#R]X#S]X#`]X#`fX#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(a]X(r]X(y]X(z]X~O!gfX!k]X!kfX(rfX~P'LTOP<UOQ<UOSfOd>ROe!iOpkOr<UOskOtkOzkO|<UO!O<UO!SWO!WkO!XkO!_XO!i<XO!lZO!o<UO!p<UO!q<UO!s<YO!u<]O!x!hO$W!kO$n>PO(T)]O(VTO(YUO(aVO(o[O~O!]<iO!^$qa~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<tO!S${O!_$|O!i>WO!l$xO#j<zO$W%`O$t<vO$v<xO$y%aO(T(vO(VTO(YUO(a$uO(y$}O(z%PO~Ol)dO~P(!yOr!eX(r!eX~P#!iOr(jX(r(jX~P##[O!^]X!^fX~P'LTO!YfX!Y$zX!]fX!]$zX#`fX~P!0SO#k<^O~O!g#vO#k<^O~O#`<nO~Oj<bO~O#`=OO!](wX!^(wX~O#`<nO!](uX!^(uX~O#k=PO~Og=RO~P!1WO#k=XO~O#k=YO~Og=RO(T&ZO~O!g#vO#k=ZO~O!g#vO#k=PO~O$O=[O~P#BwO#k=]O~O#k=^O~O#k=cO~O#k=dO~O#k=eO~O#k=fO~O$O=gO~P!1WO$O=hO~P!1WOl=sO~P7eOk#S#T#U#W#X#[#i#j#u$n$t$v$y%]%^%h%i%j%q%s%v%w%y%{~(OT#o!X'|(U#ps#n#qr!Q'}$]'}(T$_(e~",
+  goto: "$9Y)]PPPPPP)^PP)aP)rP+W/]PPPP6mPP7TPP=QPPP@tPA^PA^PPPA^PCfPA^PA^PA^PCjPCoPD^PIWPPPI[PPPPI[L_PPPLeMVPI[PI[PP! eI[PPPI[PI[P!#lI[P!'S!(X!(bP!)U!)Y!)U!,gPPPPPPP!-W!(XPP!-h!/YP!2iI[I[!2n!5z!:h!:h!>gPPP!>oI[PPPPPPPPP!BOP!C]PPI[!DnPI[PI[I[I[I[I[PI[!FQP!I[P!LbP!Lf!Lp!Lt!LtP!IXP!Lx!LxP#!OP#!SI[PI[#!Y#%_CjA^PA^PA^A^P#&lA^A^#)OA^#+vA^#.SA^A^#.r#1W#1W#1]#1f#1W#1qPP#1WPA^#2ZA^#6YA^A^6mPPP#:_PPP#:x#:xP#:xP#;`#:xPP#;fP#;]P#;]#;y#;]#<e#<k#<n)aP#<q)aP#<z#<z#<zP)aP)aP)aP)aPP)aP#=Q#=TP#=T)aP#=XP#=[P)aP)aP)aP)aP)aP)a)aPP#=b#=h#=s#=y#>P#>V#>]#>k#>q#>{#?R#?]#?c#?s#?y#@k#@}#AT#AZ#Ai#BO#Cs#DR#DY#Et#FS#Gt#HS#HY#H`#Hf#Hp#Hv#H|#IW#Ij#IpPPPPPPPPPPP#IvPPPPPPP#Jk#Mx$ b$ i$ qPPP$']P$'f$*_$0x$0{$1O$1}$2Q$2X$2aP$2g$2jP$3W$3[$4S$5b$5g$5}PP$6S$6Y$6^$6a$6e$6i$7e$7|$8e$8i$8l$8o$8y$8|$9Q$9UR!|RoqOXst!Z#d%m&r&t&u&w,s,x2[2_Y!vQ'`-e1o5{Q%tvQ%|yQ&T|Q&j!VS'W!e-]Q'f!iS'l!r!yU*k$|*Z*oQ+o%}S+|&V&WQ,d&dQ-c'_Q-m'gQ-u'mQ0[*qQ1b,OQ1y,eR<{<Y%SdOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+],p,s,x-i-q.P.V.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3l4z6T6e6f6i6|8t9T9_S#q]<V!r)_$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SU+P%]<s<tQ+t&PQ,f&gQ,m&oQ0x+gQ0}+iQ1Y+uQ2R,kQ3`.gQ5`0|Q5f1TQ6[1zQ7Y3dQ8`5gR9e7['QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>S!S!nQ!r!v!y!z$|'W'_'`'l'm'n*k*o*q*r-]-c-e-u0[0_1o5{5}%[$ti#v$b$c$d$x${%O%Q%^%_%c)y*R*T*V*Y*a*g*w*x+f+i,S,V.f/P/d/m/x/y/{0`0b0i0j0o1f1i1q3c4^4_4j4o5Q5[5_6S7W7v8Q8V8[8q9b9p9y:P:`:r;Q;[;d;k<l<m<o<p<q<r<u<v<w<x<y<z=S=T=U=V=X=Y=]=^=_=`=a=b=c=d=g=h>P>X>Y>]>^Q&X|Q'U!eS'[%i-`Q+t&PQ,P&WQ,f&gQ0n+SQ1Y+uQ1_+{Q2Q,jQ2R,kQ5f1TQ5o1aQ6[1zQ6_1|Q6`2PQ8`5gQ8c5lQ8|6bQ:X8dQ:f8yQ;V:YR<}*ZrnOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_R,h&k&z^OPXYstuvwz!Z!`!g!j!o#S#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'b'r(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>R>S[#]WZ#W#Z'X(T!b%jm#h#i#l$x%e%h(^(h(i(j*Y*^*b+Z+[+^,o-V.T.Z.[.]._/m/p2d3[3]4a6r7TQ%wxQ%{yW&Q|&V&W,OQ&_!TQ'c!hQ'e!iQ(q#sS+n%|%}Q+r&PQ,_&bQ,c&dS-l'f'gQ.i(rQ1R+oQ1X+uQ1Z+vQ1^+zQ1t,`S1x,d,eQ2|-mQ5e1TQ5i1WQ5n1`Q6Z1yQ8_5gQ8b5kQ8f5pQ:T8^R;T:U!U$zi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y!^%yy!i!u%{%|%}'V'e'f'g'k'u*j+n+o-Y-l-m-t0R0U1R2u2|3T4r4s4v7}9{Q+h%wQ,T&[Q,W&]Q,b&dQ.h(qQ1s,_U1w,c,d,eQ3e.iQ6U1tS6Y1x1yQ8x6Z#f>T#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^o>U<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=hW%Ti%V*y>PS&[!Q&iQ&]!RQ&^!SU*}%[%d=sR,R&Y%]%Si#v$b$c$d$x${%O%Q%^%_%c)y*R*T*V*Y*a*g*w*x+f+i,S,V.f/P/d/m/x/y/{0`0b0i0j0o1f1i1q3c4^4_4j4o5Q5[5_6S7W7v8Q8V8[8q9b9p9y:P:`:r;Q;[;d;k<l<m<o<p<q<r<u<v<w<x<y<z=S=T=U=V=X=Y=]=^=_=`=a=b=c=d=g=h>P>X>Y>]>^T)z$u){V+P%]<s<tW'[!e%i*Z-`S(}#y#zQ+c%rQ+y&SS.b(m(nQ1j,XQ5T0kR8i5u'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>S$i$^c#Y#e%q%s%u(S(Y(t(y)R)S)T)U)V)W)X)Y)Z)[)^)`)b)g)q+d+x-Z-x-}.S.U.s.v.z.|.}/O/b0p2k2n3O3V3k3p3q3r3s3t3u3v3w3x3y3z3{3|4P4Q4X5X5c6u6{7Q7a7b7k7l8k9X9]9g9m9n:o;W;`<W=vT#TV#U'RkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SQ'Y!eR2q-]!W!nQ!e!r!v!y!z$|'W'_'`'l'm'n*Z*k*o*q*r-]-c-e-u0[0_1o5{5}R1l,ZnqOXst!Z#d%m&r&t&u&w,s,x2[2_Q&y!^Q'v!xS(s#u<^Q+l%zQ,]&_Q,^&aQ-j'dQ-w'oS.r(x=PS0q+X=ZQ1P+mQ1n,[Q2c,zQ2e,{Q2m-WQ2z-kQ2}-oS5Y0r=eQ5a1QS5d1S=fQ6t2oQ6x2{Q6}3SQ8]5bQ9Y6vQ9Z6yQ9^7OR:l9V$d$]c#Y#e%s%u(S(Y(t(y)R)S)T)U)V)W)X)Y)Z)[)^)`)b)g)q+d+x-Z-x-}.S.U.s.v.z.}/O/b0p2k2n3O3V3k3p3q3r3s3t3u3v3w3x3y3z3{3|4P4Q4X5X5c6u6{7Q7a7b7k7l8k9X9]9g9m9n:o;W;`<W=vS(o#p'iQ)P#zS+b%q.|S.c(n(pR3^.d'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SS#q]<VQ&t!XQ&u!YQ&w![Q&x!]R2Z,vQ'a!hQ+e%wQ-h'cS.e(q+hQ2x-gW3b.h.i0w0yQ6w2yW7U3_3a3e5^U9a7V7X7ZU:q9c9d9fS;b:p:sQ;p;cR;x;qU!wQ'`-eT5y1o5{!Q_OXZ`st!V!Z#d#h%e%m&i&k&r&t&u&w(j,s,x.[2[2_]!pQ!r'`-e1o5{T#q]<V%^{OPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_S(}#y#zS.b(m(n!s=l$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SU$fd)_,mS(p#p'iU*v%R(w4OU0m+O.n7gQ5^0xQ7V3`Q9d7YR:s9em!tQ!r!v!y!z'`'l'm'n-e-u1o5{5}Q't!uS(f#g2US-s'k'wQ/s*]Q0R*jQ3U-vQ4f/tQ4r0TQ4s0UQ4x0^Q7r4`S7}4t4vS8R4y4{Q9r7sQ9v7yQ9{8OQ:Q8TS:{9w9xS;g:|;PS;s;h;iS;{;t;uS<P;|;}R<S<QQ#wbQ's!uS(e#g2US(g#m+WQ+Y%fQ+j%xQ+p&OU-r'k't'wQ.W(fU/r*]*`/wQ0S*jQ0V*lQ1O+kQ1u,aS3R-s-vQ3Z.`S4e/s/tQ4n0PS4q0R0^Q4u0WQ6W1vQ7P3US7q4`4bQ7u4fU7|4r4x4{Q8P4wQ8v6XS9q7r7sQ9u7yQ9}8RQ:O8SQ:c8wQ:y9rS:z9v9xQ;S:QQ;^:dS;f:{;PS;r;g;hS;z;s;uS<O;{;}Q<R<PQ<T<SQ=o=jQ={=tR=|=uV!wQ'`-e%^aOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_S#wz!j!r=i$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SR=o>R%^bOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_Q%fj!^%xy!i!u%{%|%}'V'e'f'g'k'u*j+n+o-Y-l-m-t0R0U1R2u2|3T4r4s4v7}9{S&Oz!jQ+k%yQ,a&dW1v,b,c,d,eU6X1w1x1yS8w6Y6ZQ:d8x!r=j$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SQ=t>QR=u>R%QeOPXYstuvw!Z!`!g!o#S#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&r&t&u&w&{'T'b'r(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_Y#bWZ#W#Z(T!b%jm#h#i#l$x%e%h(^(h(i(j*Y*^*b+Z+[+^,o-V.T.Z.[.]._/m/p2d3[3]4a6r7TQ,n&o!p=k$Z$n)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SR=n'XU']!e%i*ZR2s-`%SdOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+],p,s,x-i-q.P.V.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3l4z6T6e6f6i6|8t9T9_!r)_$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SQ,m&oQ0x+gQ3`.gQ7Y3dR9e7[!b$Tc#Y%q(S(Y(t(y)Z)[)`)g+x-x-}.S.U.s.v/b0p3O3V3k3{5X5c6{7Q7a9]:o<W!P<d)^)q-Z.|2k2n3p3y3z4P4X6u7b7k7l8k9X9g9m9n;W;`=v!f$Vc#Y%q(S(Y(t(y)W)X)Z)[)`)g+x-x-}.S.U.s.v/b0p3O3V3k3{5X5c6{7Q7a9]:o<W!T<f)^)q-Z.|2k2n3p3v3w3y3z4P4X6u7b7k7l8k9X9g9m9n;W;`=v!^$Zc#Y%q(S(Y(t(y)`)g+x-x-}.S.U.s.v/b0p3O3V3k3{5X5c6{7Q7a9]:o<WQ4_/kz>S)^)q-Z.|2k2n3p4P4X6u7b7k7l8k9X9g9m9n;W;`=vQ>X>ZR>Y>['QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SS$oh$pR4U/U'XgOPWXYZhstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n$p%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/U/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>ST$kf$qQ$ifS)j$l)nR)v$qT$jf$qT)l$l)n'XhOPWXYZhstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n$p%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/U/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>ST$oh$pQ$rhR)u$p%^jOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_!s>Q$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>S#glOPXZst!Z!`!o#S#d#o#{$n%m&k&n&o&r&t&u&w&{'T'b)O)s*i+]+g,p,s,x-i.g/V/n0]0l1r2S2T2V2X2[2_2a3d4T4z6T6e6f6i7[8t9T!U%Ri$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y#f(w#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^Q+T%aQ/c*Oo4O<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=h!U$yi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>YQ*c$zU*l$|*Z*oQ+U%bQ0W*m#f=q#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^n=r<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=hQ=w>TQ=x>UQ=y>VR=z>W!U%Ri$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y#f(w#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^o4O<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=hnoOXst!Z#d%m&r&t&u&w,s,x2[2_S*f${*YQ-R'OQ-S'QR4i/y%[%Si#v$b$c$d$x${%O%Q%^%_%c)y*R*T*V*Y*a*g*w*x+f+i,S,V.f/P/d/m/x/y/{0`0b0i0j0o1f1i1q3c4^4_4j4o5Q5[5_6S7W7v8Q8V8[8q9b9p9y:P:`:r;Q;[;d;k<l<m<o<p<q<r<u<v<w<x<y<z=S=T=U=V=X=Y=]=^=_=`=a=b=c=d=g=h>P>X>Y>]>^Q,U&]Q1h,WQ5s1gR8h5tV*n$|*Z*oU*n$|*Z*oT5z1o5{S0P*i/nQ4w0]T8S4z:]Q+j%xQ0V*lQ1O+kQ1u,aQ6W1vQ8v6XQ:c8wR;^:d!U%Oi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Yx*R$v)e*S*u+V/v0d0e4R4g5R5S5W7p8U:R:x=p=}>OS0`*t0a#f<o#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^n<p<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=h!d=S(u)c*[*e.j.m.q/_/k/|0v1e3h4[4h4l5r7]7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[`=T3}7c7f7j9h:t:w;yS=_.l3iT=`7e9k!U%Qi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y|*T$v)e*U*t+V/g/v0d0e4R4g4|5R5S5W7p8U:R:x=p=}>OS0b*u0c#f<q#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^n<r<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=h!h=U(u)c*[*e.k.l.q/_/k/|0v1e3f3h4[4h4l5r7]7^7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[d=V3}7d7e7j9h9i:t:u:w;yS=a.m3jT=b7f9lrnOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_Q&f!UR,p&ornOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_R&f!UQ,Y&^R1d,RsnOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_Q1p,_S6R1s1tU8p6P6Q6US:_8r8sS;Y:^:aQ;m;ZR;w;nQ&m!VR,i&iR6_1|R:f8yW&Q|&V&W,OR1Z+vQ&r!WR,s&sR,y&xT2],x2_R,}&yQ,|&yR2f,}Q'y!{R-y'ySsOtQ#dXT%ps#dQ#OTR'{#OQ#RUR'}#RQ){$uR/`){Q#UVR(Q#UQ#XWU(W#X(X.QQ(X#YR.Q(YQ-^'YR2r-^Q.u(yS3m.u3nR3n.vQ-e'`R2v-eY!rQ'`-e1o5{R'j!rQ/Q)eR4S/QU#_W%h*YU(_#_(`.RQ(`#`R.R(ZQ-a']R2t-at`OXst!V!Z#d%m&i&k&r&t&u&w,s,x2[2_S#hZ%eU#r`#h.[R.[(jQ(k#jQ.X(gW.a(k.X3X7RQ3X.YR7R3YQ)n$lR/W)nQ$phR)t$pQ$`cU)a$`-|<jQ-|<WR<j)qQ/q*]W4c/q4d7t9sU4d/r/s/tS7t4e4fR9s7u$e*Q$v(u)c)e*[*e*t*u+Q+R+V.l.m.o.p.q/_/g/i/k/v/|0d0e0v1e3f3g3h3}4R4[4g4h4l4|5O5R5S5W5r7]7^7_7`7e7f7h7i7j7p7w7z8U8X8Z9h9i9j9t9|:R:S:t:u:v:w:x:};R;e;j;v;y=p=}>O>Z>[Q/z*eU4k/z4m7xQ4m/|R7x4lS*o$|*ZR0Y*ox*S$v)e*t*u+V/v0d0e4R4g5R5S5W7p8U:R:x=p=}>O!d.j(u)c*[*e.l.m.q/_/k/|0v1e3h4[4h4l5r7]7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[U/h*S.j7ca7c3}7e7f7j9h:t:w;yQ0a*tQ3i.lU4}0a3i9kR9k7e|*U$v)e*t*u+V/g/v0d0e4R4g4|5R5S5W7p8U:R:x=p=}>O!h.k(u)c*[*e.l.m.q/_/k/|0v1e3f3h4[4h4l5r7]7^7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[U/j*U.k7de7d3}7e7f7j9h9i:t:u:w;yQ0c*uQ3j.mU5P0c3j9lR9l7fQ*z%UR0g*zQ5]0vR8Y5]Q+_%kR0u+_Q5v1jS8j5v:[R:[8kQ,[&_R1m,[Q5{1oR8m5{Q1{,fS6]1{8zR8z6_Q1U+rW5h1U5j8a:VQ5j1XQ8a5iR:V8bQ+w&QR1[+wQ2_,xR6m2_YrOXst#dQ&v!ZQ+a%mQ,r&rQ,t&tQ,u&uQ,w&wQ2Y,sS2],x2_R6l2[Q%opQ&z!_Q&}!aQ'P!bQ'R!cQ'q!uQ+`%lQ+l%zQ,Q&XQ,h&mQ-P&|W-p'k's't'wQ-w'oQ0X*nQ1P+mQ1c,PS2O,i,lQ2g-OQ2h-RQ2i-SQ2}-oW3P-r-s-v-xQ5a1QQ5m1_Q5q1eQ6V1uQ6a2QQ6k2ZU6z3O3R3UQ6}3SQ8]5bQ8e5oQ8g5rQ8l5zQ8u6WQ8{6`S9[6{7PQ9^7OQ:W8cQ:b8vQ:g8|Q:n9]Q;U:XQ;]:cQ;a:oQ;l;VR;o;^Q%zyQ'd!iQ'o!uU+m%{%|%}Q-W'VU-k'e'f'gS-o'k'uQ0Q*jS1Q+n+oQ2o-YS2{-l-mQ3S-tS4p0R0UQ5b1RQ6v2uQ6y2|Q7O3TU7{4r4s4vQ9z7}R;O9{S$wi>PR*{%VU%Ui%V>PR0f*yQ$viS(u#v+iS)c$b$cQ)e$dQ*[$xS*e${*YQ*t%OQ*u%QQ+Q%^Q+R%_Q+V%cQ.l<oQ.m<qQ.o<uQ.p<wQ.q<yQ/_)yQ/g*RQ/i*TQ/k*VQ/v*aS/|*g/mQ0d*wQ0e*xl0v+f,V.f1i1q3c6S7W8q9b:`:r;[;dQ1e,SQ3f=SQ3g=UQ3h=XS3}<l<mQ4R/PS4[/d4^Q4g/xQ4h/yQ4l/{Q4|0`Q5O0bQ5R0iQ5S0jQ5W0oQ5r1fQ7]=]Q7^=_Q7_=aQ7`=cQ7e<pQ7f<rQ7h<vQ7i<xQ7j<zQ7p4_Q7w4jQ7z4oQ8U5QQ8X5[Q8Z5_Q9h=YQ9i=TQ9j=VQ9t7vQ9|8QQ:R8VQ:S8[Q:t=^Q:u=`Q:v=bQ:w=dQ:x9pQ:}9yQ;R:PQ;e=gQ;j;QQ;v;kQ;y=hQ=p>PQ=}>XQ>O>YQ>Z>]R>[>^Q+O%]Q.n<sR7g<tnpOXst!Z#d%m&r&t&u&w,s,x2[2_Q!fPS#fZ#oQ&|!`W'h!o*i0]4zQ(P#SQ)Q#{Q)r$nS,l&k&nQ,q&oQ-O&{S-T'T/nQ-g'bQ.x)OQ/[)sQ0s+]Q0y+gQ2W,pQ2y-iQ3a.gQ4W/VQ5U0lQ6Q1rQ6c2SQ6d2TQ6h2VQ6j2XQ6o2aQ7Z3dQ7m4TQ8s6TQ9P6eQ9Q6fQ9S6iQ9f7[Q:a8tR:k9T#[cOPXZst!Z!`!o#d#o#{%m&k&n&o&r&t&u&w&{'T'b)O*i+]+g,p,s,x-i.g/n0]0l1r2S2T2V2X2[2_2a3d4z6T6e6f6i7[8t9TQ#YWQ#eYQ%quQ%svS%uw!gS(S#W(VQ(Y#ZQ(t#uQ(y#xQ)R$OQ)S$PQ)T$QQ)U$RQ)V$SQ)W$TQ)X$UQ)Y$VQ)Z$WQ)[$XQ)^$ZQ)`$_Q)b$aQ)g$eW)q$n)s/V4TQ+d%tQ+x&RS-Z'X2pQ-x'rS-}(T.PQ.S(]Q.U(dQ.s(xQ.v(zQ.z<UQ.|<XQ.}<YQ/O<]Q/b)}Q0p+XQ2k-UQ2n-XQ3O-qQ3V.VQ3k.tQ3p<^Q3q<_Q3r<`Q3s<aQ3t<bQ3u<cQ3v<dQ3w<eQ3x<fQ3y<gQ3z<hQ3{.{Q3|<kQ4P<nQ4Q<{Q4X<iQ5X0rQ5c1SQ6u=OQ6{3QQ7Q3WQ7a3lQ7b=PQ7k=RQ7l=ZQ8k5wQ9X6sQ9]6|Q9g=[Q9m=eQ9n=fQ:o9_Q;W:ZQ;`:mQ<W#SR=v>SR#[WR'Z!el!tQ!r!v!y!z'`'l'm'n-e-u1o5{5}S'V!e-]U*j$|*Z*oS-Y'W'_S0U*k*qQ0^*rQ2u-cQ4v0[R4{0_R({#xQ!fQT-d'`-e]!qQ!r'`-e1o5{Q#p]R'i<VR)f$dY!uQ'`-e1o5{Q'k!rS'u!v!yS'w!z5}S-t'l'mQ-v'nR3T-uT#kZ%eS#jZ%eS%km,oU(g#h#i#lS.Y(h(iQ.^(jQ0t+^Q3Y.ZU3Z.[.]._S7S3[3]R9`7Td#^W#W#Z%h(T(^*Y+Z.T/mr#gZm#h#i#l%e(h(i(j+^.Z.[.]._3[3]7TS*]$x*bQ/t*^Q2U,oQ2l-VQ4`/pQ6q2dQ7s4aQ9W6rT=m'X+[V#aW%h*YU#`W%h*YS(U#W(^U(Z#Z+Z/mS-['X+[T.O(T.TV'^!e%i*ZQ$lfR)x$qT)m$l)nR4V/UT*_$x*bT*h${*YQ0w+fQ1g,VQ3_.fQ5t1iQ6P1qQ7X3cQ8r6SQ9c7WQ:^8qQ:p9bQ;Z:`Q;c:rQ;n;[R;q;dnqOXst!Z#d%m&r&t&u&w,s,x2[2_Q&l!VR,h&itmOXst!U!V!Z#d%m&i&r&t&u&w,s,x2[2_R,o&oT%lm,oR1k,XR,g&gQ&U|S+}&V&WR1^,OR+s&PT&p!W&sT&q!W&sT2^,x2_",
+  nodeNames: "⚠ ArithOp ArithOp ?. JSXStartTag LineComment BlockComment Script Hashbang ExportDeclaration export Star as VariableName String Escape from ; default FunctionDeclaration async function VariableDefinition > < TypeParamList in out const TypeDefinition extends ThisType this LiteralType ArithOp Number BooleanLiteral TemplateType InterpolationEnd Interpolation InterpolationStart NullType null VoidType void TypeofType typeof MemberExpression . PropertyName [ TemplateString Escape Interpolation super RegExp ] ArrayExpression Spread , } { ObjectExpression Property async get set PropertyDefinition Block : NewTarget new NewExpression ) ( ArgList UnaryExpression delete LogicOp BitOp YieldExpression yield AwaitExpression await ParenthesizedExpression ClassExpression class ClassBody MethodDeclaration Decorator @ MemberExpression PrivatePropertyName CallExpression TypeArgList CompareOp < declare Privacy static abstract override PrivatePropertyDefinition PropertyDeclaration readonly accessor Optional TypeAnnotation Equals StaticBlock FunctionExpression ArrowFunction ParamList ParamList ArrayPattern ObjectPattern PatternProperty Privacy readonly Arrow MemberExpression BinaryExpression ArithOp ArithOp ArithOp ArithOp BitOp CompareOp instanceof satisfies CompareOp BitOp BitOp BitOp LogicOp LogicOp ConditionalExpression LogicOp LogicOp AssignmentExpression UpdateOp PostfixExpression CallExpression InstantiationExpression TaggedTemplateExpression DynamicImport import ImportMeta JSXElement JSXSelfCloseEndTag JSXSelfClosingTag JSXIdentifier JSXBuiltin JSXIdentifier JSXNamespacedName JSXMemberExpression JSXSpreadAttribute JSXAttribute JSXAttributeValue JSXEscape JSXEndTag JSXOpenTag JSXFragmentTag JSXText JSXEscape JSXStartCloseTag JSXCloseTag PrefixCast < ArrowFunction TypeParamList SequenceExpression InstantiationExpression KeyofType keyof UniqueType unique ImportType InferredType infer TypeName ParenthesizedType FunctionSignature ParamList NewSignature IndexedType TupleType Label ArrayType ReadonlyType ObjectType MethodType PropertyType IndexSignature PropertyDefinition CallSignature TypePredicate asserts is NewSignature new UnionType LogicOp IntersectionType LogicOp ConditionalType ParameterizedType ClassDeclaration abstract implements type VariableDeclaration let var using TypeAliasDeclaration InterfaceDeclaration interface EnumDeclaration enum EnumBody NamespaceDeclaration namespace module AmbientDeclaration declare GlobalDeclaration global ClassDeclaration ClassBody AmbientFunctionDeclaration ExportGroup VariableName VariableName ImportDeclaration defer ImportGroup ForStatement for ForSpec ForInSpec ForOfSpec of WhileStatement while WithStatement with DoStatement do IfStatement if else SwitchStatement switch SwitchBody CaseLabel case DefaultLabel TryStatement try CatchClause catch FinallyClause finally ReturnStatement return ThrowStatement throw BreakStatement break ContinueStatement continue DebuggerStatement debugger LabeledStatement ExpressionStatement SingleExpression SingleClassItem",
+  maxTerm: 380,
   context: trackNewline,
   nodeProps: [
     ["isolate", -8,5,6,14,37,39,51,53,55,""],
-    ["group", -26,9,17,19,68,207,211,215,216,218,221,224,234,236,242,244,246,248,251,257,263,265,267,269,271,273,274,"Statement",-34,13,14,32,35,36,42,51,54,55,57,62,70,72,76,80,82,84,85,110,111,120,121,136,139,141,142,143,144,145,147,148,167,169,171,"Expression",-23,31,33,37,41,43,45,173,175,177,178,180,181,182,184,185,186,188,189,190,201,203,205,206,"Type",-3,88,103,109,"ClassItem"],
+    ["group", -26,9,17,19,68,207,211,215,216,218,221,224,234,237,243,245,247,249,252,258,264,266,268,270,272,274,275,"Statement",-34,13,14,32,35,36,42,51,54,55,57,62,70,72,76,80,82,84,85,110,111,120,121,136,139,141,142,143,144,145,147,148,167,169,171,"Expression",-23,31,33,37,41,43,45,173,175,177,178,180,181,182,184,185,186,188,189,190,201,203,205,206,"Type",-3,88,103,109,"ClassItem"],
     ["openedBy", 23,"<",38,"InterpolationStart",56,"[",60,"{",73,"(",160,"JSXStartCloseTag"],
     ["closedBy", -2,24,168,">",40,"InterpolationEnd",50,"]",61,"}",74,")",165,"JSXEndTag"]
   ],
   propSources: [jsHighlight],
-  skippedNodes: [0,5,6,277],
+  skippedNodes: [0,5,6,278],
   repeatNodeCount: 37,
-  tokenData: "$Fq07[R!bOX%ZXY+gYZ-yZ[+g[]%Z]^.c^p%Zpq+gqr/mrs3cst:_tuEruvJSvwLkwx! Yxy!'iyz!(sz{!)}{|!,q|}!.O}!O!,q!O!P!/Y!P!Q!9j!Q!R#:O!R![#<_![!]#I_!]!^#Jk!^!_#Ku!_!`$![!`!a$$v!a!b$*T!b!c$,r!c!}Er!}#O$-|#O#P$/W#P#Q$4o#Q#R$5y#R#SEr#S#T$7W#T#o$8b#o#p$<r#p#q$=h#q#r$>x#r#s$@U#s$f%Z$f$g+g$g#BYEr#BY#BZ$A`#BZ$ISEr$IS$I_$A`$I_$I|Er$I|$I}$Dk$I}$JO$Dk$JO$JTEr$JT$JU$A`$JU$KVEr$KV$KW$A`$KW&FUEr&FU&FV$A`&FV;'SEr;'S;=`I|<%l?HTEr?HT?HU$A`?HUOEr(n%d_$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z&j&hT$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c&j&zP;=`<%l&c'|'U]$i&j(Y!bOY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}!b(SU(Y!bOY'}Zw'}x#O'}#P;'S'};'S;=`(f<%lO'}!b(iP;=`<%l'}'|(oP;=`<%l&}'[(y]$i&j(VpOY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(rp)wU(VpOY)rZr)rs#O)r#P;'S)r;'S;=`*Z<%lO)rp*^P;=`<%l)r'[*dP;=`<%l(r#S*nX(Vp(Y!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g#S+^P;=`<%l*g(n+dP;=`<%l%Z07[+rq$i&j(Vp(Y!b'{0/lOX%ZXY+gYZ&cZ[+g[p%Zpq+gqr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p$f%Z$f$g+g$g#BY%Z#BY#BZ+g#BZ$IS%Z$IS$I_+g$I_$JT%Z$JT$JU+g$JU$KV%Z$KV$KW+g$KW&FU%Z&FU&FV+g&FV;'S%Z;'S;=`+a<%l?HT%Z?HT?HU+g?HUO%Z07[.ST(W#S$i&j'|0/lO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c07[.n_$i&j(Vp(Y!b'|0/lOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z)3p/x`$i&j!p),Q(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`0z!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW1V`#v(Ch$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`2X!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW2d_#v(Ch$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'At3l_(U':f$i&j(Y!bOY4kYZ5qZr4krs7nsw4kwx5qx!^4k!^!_8p!_#O4k#O#P5q#P#o4k#o#p8p#p;'S4k;'S;=`:X<%lO4k(^4r_$i&j(Y!bOY4kYZ5qZr4krs7nsw4kwx5qx!^4k!^!_8p!_#O4k#O#P5q#P#o4k#o#p8p#p;'S4k;'S;=`:X<%lO4k&z5vX$i&jOr5qrs6cs!^5q!^!_6y!_#o5q#o#p6y#p;'S5q;'S;=`7h<%lO5q&z6jT$d`$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c`6|TOr6yrs7]s;'S6y;'S;=`7b<%lO6y`7bO$d``7eP;=`<%l6y&z7kP;=`<%l5q(^7w]$d`$i&j(Y!bOY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}!r8uZ(Y!bOY8pYZ6yZr8prs9hsw8pwx6yx#O8p#O#P6y#P;'S8p;'S;=`:R<%lO8p!r9oU$d`(Y!bOY'}Zw'}x#O'}#P;'S'};'S;=`(f<%lO'}!r:UP;=`<%l8p(^:[P;=`<%l4k%9[:hh$i&j(Vp(Y!bOY%ZYZ&cZq%Zqr<Srs&}st%ZtuCruw%Zwx(rx!^%Z!^!_*g!_!c%Z!c!}Cr!}#O%Z#O#P&c#P#R%Z#R#SCr#S#T%Z#T#oCr#o#p*g#p$g%Z$g;'SCr;'S;=`El<%lOCr(r<__WS$i&j(Vp(Y!bOY<SYZ&cZr<Srs=^sw<Swx@nx!^<S!^!_Bm!_#O<S#O#P>`#P#o<S#o#pBm#p;'S<S;'S;=`Cl<%lO<S(Q=g]WS$i&j(Y!bOY=^YZ&cZw=^wx>`x!^=^!^!_?q!_#O=^#O#P>`#P#o=^#o#p?q#p;'S=^;'S;=`@h<%lO=^&n>gXWS$i&jOY>`YZ&cZ!^>`!^!_?S!_#o>`#o#p?S#p;'S>`;'S;=`?k<%lO>`S?XSWSOY?SZ;'S?S;'S;=`?e<%lO?SS?hP;=`<%l?S&n?nP;=`<%l>`!f?xWWS(Y!bOY?qZw?qwx?Sx#O?q#O#P?S#P;'S?q;'S;=`@b<%lO?q!f@eP;=`<%l?q(Q@kP;=`<%l=^'`@w]WS$i&j(VpOY@nYZ&cZr@nrs>`s!^@n!^!_Ap!_#O@n#O#P>`#P#o@n#o#pAp#p;'S@n;'S;=`Bg<%lO@ntAwWWS(VpOYApZrAprs?Ss#OAp#O#P?S#P;'SAp;'S;=`Ba<%lOAptBdP;=`<%lAp'`BjP;=`<%l@n#WBvYWS(Vp(Y!bOYBmZrBmrs?qswBmwxApx#OBm#O#P?S#P;'SBm;'S;=`Cf<%lOBm#WCiP;=`<%lBm(rCoP;=`<%l<S%9[C}i$i&j(n%1l(Vp(Y!bOY%ZYZ&cZr%Zrs&}st%ZtuCruw%Zwx(rx!Q%Z!Q![Cr![!^%Z!^!_*g!_!c%Z!c!}Cr!}#O%Z#O#P&c#P#R%Z#R#SCr#S#T%Z#T#oCr#o#p*g#p$g%Z$g;'SCr;'S;=`El<%lOCr%9[EoP;=`<%lCr07[FRk$i&j(Vp(Y!b$]#t(S,2j(d$I[OY%ZYZ&cZr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$g%Z$g;'SEr;'S;=`I|<%lOEr+dHRk$i&j(Vp(Y!b$]#tOY%ZYZ&cZr%Zrs&}st%ZtuGvuw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Gv![!^%Z!^!_*g!_!c%Z!c!}Gv!}#O%Z#O#P&c#P#R%Z#R#SGv#S#T%Z#T#oGv#o#p*g#p$g%Z$g;'SGv;'S;=`Iv<%lOGv+dIyP;=`<%lGv07[JPP;=`<%lEr(KWJ_`$i&j(Vp(Y!b#p(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KWKl_$i&j$Q(Ch(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z,#xLva(y+JY$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sv%ZvwM{wx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KWNW`$i&j#z(Ch(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'At! c_(X';W$i&j(VpOY!!bYZ!#hZr!!brs!#hsw!!bwx!$xx!^!!b!^!_!%z!_#O!!b#O#P!#h#P#o!!b#o#p!%z#p;'S!!b;'S;=`!'c<%lO!!b'l!!i_$i&j(VpOY!!bYZ!#hZr!!brs!#hsw!!bwx!$xx!^!!b!^!_!%z!_#O!!b#O#P!#h#P#o!!b#o#p!%z#p;'S!!b;'S;=`!'c<%lO!!b&z!#mX$i&jOw!#hwx6cx!^!#h!^!_!$Y!_#o!#h#o#p!$Y#p;'S!#h;'S;=`!$r<%lO!#h`!$]TOw!$Ywx7]x;'S!$Y;'S;=`!$l<%lO!$Y`!$oP;=`<%l!$Y&z!$uP;=`<%l!#h'l!%R]$d`$i&j(VpOY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(r!Q!&PZ(VpOY!%zYZ!$YZr!%zrs!$Ysw!%zwx!&rx#O!%z#O#P!$Y#P;'S!%z;'S;=`!']<%lO!%z!Q!&yU$d`(VpOY)rZr)rs#O)r#P;'S)r;'S;=`*Z<%lO)r!Q!'`P;=`<%l!%z'l!'fP;=`<%l!!b/5|!'t_!l/.^$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#&U!)O_!k!Lf$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z-!n!*[b$i&j(Vp(Y!b(T%&f#q(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rxz%Zz{!+d{!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW!+o`$i&j(Vp(Y!b#n(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z+;x!,|`$i&j(Vp(Y!br+4YOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z,$U!.Z_!]+Jf$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[!/ec$i&j(Vp(Y!b!Q.2^OY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!0p!P!Q%Z!Q![!3Y![!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#%|!0ya$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!2O!P!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#%|!2Z_![!L^$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!3eg$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!3Y![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S!3Y#S#X%Z#X#Y!4|#Y#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!5Vg$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx{%Z{|!6n|}%Z}!O!6n!O!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!6wc$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!8_c$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[!9uf$i&j(Vp(Y!b#o(ChOY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcxz!;Zz{#-}{!P!;Z!P!Q#/d!Q!^!;Z!^!_#(i!_!`#7S!`!a#8i!a!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z?O!;fb$i&j(Vp(Y!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z>^!<w`$i&j(Y!b!X7`OY!<nYZ&cZw!<nwx!=yx!P!<n!P!Q!Eq!Q!^!<n!^!_!Gr!_!}!<n!}#O!KS#O#P!Dy#P#o!<n#o#p!Gr#p;'S!<n;'S;=`!L]<%lO!<n<z!>Q^$i&j!X7`OY!=yYZ&cZ!P!=y!P!Q!>|!Q!^!=y!^!_!@c!_!}!=y!}#O!CW#O#P!Dy#P#o!=y#o#p!@c#p;'S!=y;'S;=`!Ek<%lO!=y<z!?Td$i&j!X7`O!^&c!_#W&c#W#X!>|#X#Z&c#Z#[!>|#[#]&c#]#^!>|#^#a&c#a#b!>|#b#g&c#g#h!>|#h#i&c#i#j!>|#j#k!>|#k#m&c#m#n!>|#n#o&c#p;'S&c;'S;=`&w<%lO&c7`!@hX!X7`OY!@cZ!P!@c!P!Q!AT!Q!}!@c!}#O!Ar#O#P!Bq#P;'S!@c;'S;=`!CQ<%lO!@c7`!AYW!X7`#W#X!AT#Z#[!AT#]#^!AT#a#b!AT#g#h!AT#i#j!AT#j#k!AT#m#n!AT7`!AuVOY!ArZ#O!Ar#O#P!B[#P#Q!@c#Q;'S!Ar;'S;=`!Bk<%lO!Ar7`!B_SOY!ArZ;'S!Ar;'S;=`!Bk<%lO!Ar7`!BnP;=`<%l!Ar7`!BtSOY!@cZ;'S!@c;'S;=`!CQ<%lO!@c7`!CTP;=`<%l!@c<z!C][$i&jOY!CWYZ&cZ!^!CW!^!_!Ar!_#O!CW#O#P!DR#P#Q!=y#Q#o!CW#o#p!Ar#p;'S!CW;'S;=`!Ds<%lO!CW<z!DWX$i&jOY!CWYZ&cZ!^!CW!^!_!Ar!_#o!CW#o#p!Ar#p;'S!CW;'S;=`!Ds<%lO!CW<z!DvP;=`<%l!CW<z!EOX$i&jOY!=yYZ&cZ!^!=y!^!_!@c!_#o!=y#o#p!@c#p;'S!=y;'S;=`!Ek<%lO!=y<z!EnP;=`<%l!=y>^!Ezl$i&j(Y!b!X7`OY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#W&}#W#X!Eq#X#Z&}#Z#[!Eq#[#]&}#]#^!Eq#^#a&}#a#b!Eq#b#g&}#g#h!Eq#h#i&}#i#j!Eq#j#k!Eq#k#m&}#m#n!Eq#n#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}8r!GyZ(Y!b!X7`OY!GrZw!Grwx!@cx!P!Gr!P!Q!Hl!Q!}!Gr!}#O!JU#O#P!Bq#P;'S!Gr;'S;=`!J|<%lO!Gr8r!Hse(Y!b!X7`OY'}Zw'}x#O'}#P#W'}#W#X!Hl#X#Z'}#Z#[!Hl#[#]'}#]#^!Hl#^#a'}#a#b!Hl#b#g'}#g#h!Hl#h#i'}#i#j!Hl#j#k!Hl#k#m'}#m#n!Hl#n;'S'};'S;=`(f<%lO'}8r!JZX(Y!bOY!JUZw!JUwx!Arx#O!JU#O#P!B[#P#Q!Gr#Q;'S!JU;'S;=`!Jv<%lO!JU8r!JyP;=`<%l!JU8r!KPP;=`<%l!Gr>^!KZ^$i&j(Y!bOY!KSYZ&cZw!KSwx!CWx!^!KS!^!_!JU!_#O!KS#O#P!DR#P#Q!<n#Q#o!KS#o#p!JU#p;'S!KS;'S;=`!LV<%lO!KS>^!LYP;=`<%l!KS>^!L`P;=`<%l!<n=l!Ll`$i&j(Vp!X7`OY!LcYZ&cZr!Lcrs!=ys!P!Lc!P!Q!Mn!Q!^!Lc!^!_# o!_!}!Lc!}#O#%P#O#P!Dy#P#o!Lc#o#p# o#p;'S!Lc;'S;=`#&Y<%lO!Lc=l!Mwl$i&j(Vp!X7`OY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#W(r#W#X!Mn#X#Z(r#Z#[!Mn#[#](r#]#^!Mn#^#a(r#a#b!Mn#b#g(r#g#h!Mn#h#i(r#i#j!Mn#j#k!Mn#k#m(r#m#n!Mn#n#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(r8Q# vZ(Vp!X7`OY# oZr# ors!@cs!P# o!P!Q#!i!Q!}# o!}#O#$R#O#P!Bq#P;'S# o;'S;=`#$y<%lO# o8Q#!pe(Vp!X7`OY)rZr)rs#O)r#P#W)r#W#X#!i#X#Z)r#Z#[#!i#[#])r#]#^#!i#^#a)r#a#b#!i#b#g)r#g#h#!i#h#i)r#i#j#!i#j#k#!i#k#m)r#m#n#!i#n;'S)r;'S;=`*Z<%lO)r8Q#$WX(VpOY#$RZr#$Rrs!Ars#O#$R#O#P!B[#P#Q# o#Q;'S#$R;'S;=`#$s<%lO#$R8Q#$vP;=`<%l#$R8Q#$|P;=`<%l# o=l#%W^$i&j(VpOY#%PYZ&cZr#%Prs!CWs!^#%P!^!_#$R!_#O#%P#O#P!DR#P#Q!Lc#Q#o#%P#o#p#$R#p;'S#%P;'S;=`#&S<%lO#%P=l#&VP;=`<%l#%P=l#&]P;=`<%l!Lc?O#&kn$i&j(Vp(Y!b!X7`OY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#W%Z#W#X#&`#X#Z%Z#Z#[#&`#[#]%Z#]#^#&`#^#a%Z#a#b#&`#b#g%Z#g#h#&`#h#i%Z#i#j#&`#j#k#&`#k#m%Z#m#n#&`#n#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z9d#(r](Vp(Y!b!X7`OY#(iZr#(irs!Grsw#(iwx# ox!P#(i!P!Q#)k!Q!}#(i!}#O#+`#O#P!Bq#P;'S#(i;'S;=`#,`<%lO#(i9d#)th(Vp(Y!b!X7`OY*gZr*grs'}sw*gwx)rx#O*g#P#W*g#W#X#)k#X#Z*g#Z#[#)k#[#]*g#]#^#)k#^#a*g#a#b#)k#b#g*g#g#h#)k#h#i*g#i#j#)k#j#k#)k#k#m*g#m#n#)k#n;'S*g;'S;=`+Z<%lO*g9d#+gZ(Vp(Y!bOY#+`Zr#+`rs!JUsw#+`wx#$Rx#O#+`#O#P!B[#P#Q#(i#Q;'S#+`;'S;=`#,Y<%lO#+`9d#,]P;=`<%l#+`9d#,cP;=`<%l#(i?O#,o`$i&j(Vp(Y!bOY#,fYZ&cZr#,frs!KSsw#,fwx#%Px!^#,f!^!_#+`!_#O#,f#O#P!DR#P#Q!;Z#Q#o#,f#o#p#+`#p;'S#,f;'S;=`#-q<%lO#,f?O#-tP;=`<%l#,f?O#-zP;=`<%l!;Z07[#.[b$i&j(Vp(Y!b'}0/l!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z07[#/o_$i&j(Vp(Y!bT0/lOY#/dYZ&cZr#/drs#0nsw#/dwx#4Ox!^#/d!^!_#5}!_#O#/d#O#P#1p#P#o#/d#o#p#5}#p;'S#/d;'S;=`#6|<%lO#/d06j#0w]$i&j(Y!bT0/lOY#0nYZ&cZw#0nwx#1px!^#0n!^!_#3R!_#O#0n#O#P#1p#P#o#0n#o#p#3R#p;'S#0n;'S;=`#3x<%lO#0n05W#1wX$i&jT0/lOY#1pYZ&cZ!^#1p!^!_#2d!_#o#1p#o#p#2d#p;'S#1p;'S;=`#2{<%lO#1p0/l#2iST0/lOY#2dZ;'S#2d;'S;=`#2u<%lO#2d0/l#2xP;=`<%l#2d05W#3OP;=`<%l#1p01O#3YW(Y!bT0/lOY#3RZw#3Rwx#2dx#O#3R#O#P#2d#P;'S#3R;'S;=`#3r<%lO#3R01O#3uP;=`<%l#3R06j#3{P;=`<%l#0n05x#4X]$i&j(VpT0/lOY#4OYZ&cZr#4Ors#1ps!^#4O!^!_#5Q!_#O#4O#O#P#1p#P#o#4O#o#p#5Q#p;'S#4O;'S;=`#5w<%lO#4O00^#5XW(VpT0/lOY#5QZr#5Qrs#2ds#O#5Q#O#P#2d#P;'S#5Q;'S;=`#5q<%lO#5Q00^#5tP;=`<%l#5Q05x#5zP;=`<%l#4O01p#6WY(Vp(Y!bT0/lOY#5}Zr#5}rs#3Rsw#5}wx#5Qx#O#5}#O#P#2d#P;'S#5};'S;=`#6v<%lO#5}01p#6yP;=`<%l#5}07[#7PP;=`<%l#/d)3h#7ab$i&j$Q(Ch(Vp(Y!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;ZAt#8vb$Z#t$i&j(Vp(Y!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z'Ad#:Zp$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!3Y!P!Q%Z!Q![#<_![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S#<_#S#U%Z#U#V#?i#V#X%Z#X#Y!4|#Y#b%Z#b#c#>_#c#d#Bq#d#l%Z#l#m#Es#m#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#<jk$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!3Y!P!Q%Z!Q![#<_![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S#<_#S#X%Z#X#Y!4|#Y#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#>j_$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#?rd$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!R#AQ!R!S#AQ!S!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#AQ#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#A]f$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!R#AQ!R!S#AQ!S!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#AQ#S#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Bzc$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!Y#DV!Y!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#DV#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Dbe$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!Y#DV!Y!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#DV#S#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#E|g$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![#Ge![!^%Z!^!_*g!_!c%Z!c!i#Ge!i#O%Z#O#P&c#P#R%Z#R#S#Ge#S#T%Z#T#Z#Ge#Z#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Gpi$i&j(Vp(Y!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![#Ge![!^%Z!^!_*g!_!c%Z!c!i#Ge!i#O%Z#O#P&c#P#R%Z#R#S#Ge#S#T%Z#T#Z#Ge#Z#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z*)x#Il_!g$b$i&j$O)Lv(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z)[#Jv_al$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z04f#LS^h#)`#R-<U(Vp(Y!b$n7`OY*gZr*grs'}sw*gwx)rx!P*g!P!Q#MO!Q!^*g!^!_#Mt!_!`$ f!`#O*g#P;'S*g;'S;=`+Z<%lO*g(n#MXX$k&j(Vp(Y!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g(El#M}Z#r(Ch(Vp(Y!bOY*gZr*grs'}sw*gwx)rx!_*g!_!`#Np!`#O*g#P;'S*g;'S;=`+Z<%lO*g(El#NyX$Q(Ch(Vp(Y!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g(El$ oX#s(Ch(Vp(Y!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g*)x$!ga#`*!Y$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`0z!`!a$#l!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(K[$#w_#k(Cl$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z*)x$%Vag!*r#s(Ch$f#|$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`$&[!`!a$'f!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$&g_#s(Ch$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$'qa#r(Ch$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`!a$(v!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$)R`#r(Ch$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(Kd$*`a(q(Ct$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!a%Z!a!b$+e!b#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$+p`$i&j#{(Ch(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z%#`$,}_!|$Ip$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z04f$.X_!S0,v$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(n$/]Z$i&jO!^$0O!^!_$0f!_#i$0O#i#j$0k#j#l$0O#l#m$2^#m#o$0O#o#p$0f#p;'S$0O;'S;=`$4i<%lO$0O(n$0VT_#S$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c#S$0kO_#S(n$0p[$i&jO!Q&c!Q![$1f![!^&c!_!c&c!c!i$1f!i#T&c#T#Z$1f#Z#o&c#o#p$3|#p;'S&c;'S;=`&w<%lO&c(n$1kZ$i&jO!Q&c!Q![$2^![!^&c!_!c&c!c!i$2^!i#T&c#T#Z$2^#Z#o&c#p;'S&c;'S;=`&w<%lO&c(n$2cZ$i&jO!Q&c!Q![$3U![!^&c!_!c&c!c!i$3U!i#T&c#T#Z$3U#Z#o&c#p;'S&c;'S;=`&w<%lO&c(n$3ZZ$i&jO!Q&c!Q![$0O![!^&c!_!c&c!c!i$0O!i#T&c#T#Z$0O#Z#o&c#p;'S&c;'S;=`&w<%lO&c#S$4PR!Q![$4Y!c!i$4Y#T#Z$4Y#S$4]S!Q![$4Y!c!i$4Y#T#Z$4Y#q#r$0f(n$4lP;=`<%l$0O#1[$4z_!Y#)l$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$6U`#x(Ch$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z+;p$7c_$i&j(Vp(Y!b(`+4QOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[$8qk$i&j(Vp(Y!b(S,2j$_#t(d$I[OY%ZYZ&cZr%Zrs&}st%Ztu$8buw%Zwx(rx}%Z}!O$:f!O!Q%Z!Q![$8b![!^%Z!^!_*g!_!c%Z!c!}$8b!}#O%Z#O#P&c#P#R%Z#R#S$8b#S#T%Z#T#o$8b#o#p*g#p$g%Z$g;'S$8b;'S;=`$<l<%lO$8b+d$:qk$i&j(Vp(Y!b$_#tOY%ZYZ&cZr%Zrs&}st%Ztu$:fuw%Zwx(rx}%Z}!O$:f!O!Q%Z!Q![$:f![!^%Z!^!_*g!_!c%Z!c!}$:f!}#O%Z#O#P&c#P#R%Z#R#S$:f#S#T%Z#T#o$:f#o#p*g#p$g%Z$g;'S$:f;'S;=`$<f<%lO$:f+d$<iP;=`<%l$:f07[$<oP;=`<%l$8b#Jf$<{X!_#Hb(Vp(Y!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g,#x$=sa(x+JY$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p#q$+e#q;'S%Z;'S;=`+a<%lO%Z)>v$?V_!^(CdvBr$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z?O$@a_!q7`$i&j(Vp(Y!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[$Aq|$i&j(Vp(Y!b'{0/l$]#t(S,2j(d$I[OX%ZXY+gYZ&cZ[+g[p%Zpq+gqr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$f%Z$f$g+g$g#BYEr#BY#BZ$A`#BZ$ISEr$IS$I_$A`$I_$JTEr$JT$JU$A`$JU$KVEr$KV$KW$A`$KW&FUEr&FU&FV$A`&FV;'SEr;'S;=`I|<%l?HTEr?HT?HU$A`?HUOEr07[$D|k$i&j(Vp(Y!b'|0/l$]#t(S,2j(d$I[OY%ZYZ&cZr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$g%Z$g;'SEr;'S;=`I|<%lOEr",
-  tokenizers: [noSemicolon, noSemicolonType, operatorToken, jsx, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, insertSemicolon, new LocalTokenGroup("$S~RRtu[#O#Pg#S#T#|~_P#o#pb~gOx~~jVO#i!P#i#j!U#j#l!P#l#m!q#m;'S!P;'S;=`#v<%lO!P~!UO!U~~!XS!Q![!e!c!i!e#T#Z!e#o#p#Z~!hR!Q![!q!c!i!q#T#Z!q~!tR!Q![!}!c!i!}#T#Z!}~#QR!Q![!P!c!i!P#T#Z!P~#^R!Q![#g!c!i#g#T#Z#g~#jS!Q![#g!c!i#g#T#Z#g#q#r!P~#yP;=`<%l!P~$RO(b~~", 141, 339), new LocalTokenGroup("j~RQYZXz{^~^O(P~~aP!P!Qd~iO(Q~~", 25, 322)],
-  topRules: {"Script":[0,7],"SingleExpression":[1,275],"SingleClassItem":[2,276]},
-  dialects: {jsx: 0, ts: 15098},
+  tokenData: "$Fq07[R!bOX%ZXY+gYZ-yZ[+g[]%Z]^.c^p%Zpq+gqr/mrs3cst:_tuEruvJSvwLkwx! Yxy!'iyz!(sz{!)}{|!,q|}!.O}!O!,q!O!P!/Y!P!Q!9j!Q!R#:O!R![#<_![!]#I_!]!^#Jk!^!_#Ku!_!`$![!`!a$$v!a!b$*T!b!c$,r!c!}Er!}#O$-|#O#P$/W#P#Q$4o#Q#R$5y#R#SEr#S#T$7W#T#o$8b#o#p$<r#p#q$=h#q#r$>x#r#s$@U#s$f%Z$f$g+g$g#BYEr#BY#BZ$A`#BZ$ISEr$IS$I_$A`$I_$I|Er$I|$I}$Dk$I}$JO$Dk$JO$JTEr$JT$JU$A`$JU$KVEr$KV$KW$A`$KW&FUEr&FU&FV$A`&FV;'SEr;'S;=`I|<%l?HTEr?HT?HU$A`?HUOEr(n%d_$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z&j&hT$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c&j&zP;=`<%l&c'|'U]$i&j(Z!bOY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}!b(SU(Z!bOY'}Zw'}x#O'}#P;'S'};'S;=`(f<%lO'}!b(iP;=`<%l'}'|(oP;=`<%l&}'[(y]$i&j(WpOY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(rp)wU(WpOY)rZr)rs#O)r#P;'S)r;'S;=`*Z<%lO)rp*^P;=`<%l)r'[*dP;=`<%l(r#S*nX(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g#S+^P;=`<%l*g(n+dP;=`<%l%Z07[+rq$i&j(Wp(Z!b'|0/lOX%ZXY+gYZ&cZ[+g[p%Zpq+gqr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p$f%Z$f$g+g$g#BY%Z#BY#BZ+g#BZ$IS%Z$IS$I_+g$I_$JT%Z$JT$JU+g$JU$KV%Z$KV$KW+g$KW&FU%Z&FU&FV+g&FV;'S%Z;'S;=`+a<%l?HT%Z?HT?HU+g?HUO%Z07[.ST(X#S$i&j'}0/lO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c07[.n_$i&j(Wp(Z!b'}0/lOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z)3p/x`$i&j!p),Q(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`0z!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW1V`#v(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`2X!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW2d_#v(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'At3l_(V':f$i&j(Z!bOY4kYZ5qZr4krs7nsw4kwx5qx!^4k!^!_8p!_#O4k#O#P5q#P#o4k#o#p8p#p;'S4k;'S;=`:X<%lO4k(^4r_$i&j(Z!bOY4kYZ5qZr4krs7nsw4kwx5qx!^4k!^!_8p!_#O4k#O#P5q#P#o4k#o#p8p#p;'S4k;'S;=`:X<%lO4k&z5vX$i&jOr5qrs6cs!^5q!^!_6y!_#o5q#o#p6y#p;'S5q;'S;=`7h<%lO5q&z6jT$d`$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c`6|TOr6yrs7]s;'S6y;'S;=`7b<%lO6y`7bO$d``7eP;=`<%l6y&z7kP;=`<%l5q(^7w]$d`$i&j(Z!bOY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}!r8uZ(Z!bOY8pYZ6yZr8prs9hsw8pwx6yx#O8p#O#P6y#P;'S8p;'S;=`:R<%lO8p!r9oU$d`(Z!bOY'}Zw'}x#O'}#P;'S'};'S;=`(f<%lO'}!r:UP;=`<%l8p(^:[P;=`<%l4k%9[:hh$i&j(Wp(Z!bOY%ZYZ&cZq%Zqr<Srs&}st%ZtuCruw%Zwx(rx!^%Z!^!_*g!_!c%Z!c!}Cr!}#O%Z#O#P&c#P#R%Z#R#SCr#S#T%Z#T#oCr#o#p*g#p$g%Z$g;'SCr;'S;=`El<%lOCr(r<__WS$i&j(Wp(Z!bOY<SYZ&cZr<Srs=^sw<Swx@nx!^<S!^!_Bm!_#O<S#O#P>`#P#o<S#o#pBm#p;'S<S;'S;=`Cl<%lO<S(Q=g]WS$i&j(Z!bOY=^YZ&cZw=^wx>`x!^=^!^!_?q!_#O=^#O#P>`#P#o=^#o#p?q#p;'S=^;'S;=`@h<%lO=^&n>gXWS$i&jOY>`YZ&cZ!^>`!^!_?S!_#o>`#o#p?S#p;'S>`;'S;=`?k<%lO>`S?XSWSOY?SZ;'S?S;'S;=`?e<%lO?SS?hP;=`<%l?S&n?nP;=`<%l>`!f?xWWS(Z!bOY?qZw?qwx?Sx#O?q#O#P?S#P;'S?q;'S;=`@b<%lO?q!f@eP;=`<%l?q(Q@kP;=`<%l=^'`@w]WS$i&j(WpOY@nYZ&cZr@nrs>`s!^@n!^!_Ap!_#O@n#O#P>`#P#o@n#o#pAp#p;'S@n;'S;=`Bg<%lO@ntAwWWS(WpOYApZrAprs?Ss#OAp#O#P?S#P;'SAp;'S;=`Ba<%lOAptBdP;=`<%lAp'`BjP;=`<%l@n#WBvYWS(Wp(Z!bOYBmZrBmrs?qswBmwxApx#OBm#O#P?S#P;'SBm;'S;=`Cf<%lOBm#WCiP;=`<%lBm(rCoP;=`<%l<S%9[C}i$i&j(o%1l(Wp(Z!bOY%ZYZ&cZr%Zrs&}st%ZtuCruw%Zwx(rx!Q%Z!Q![Cr![!^%Z!^!_*g!_!c%Z!c!}Cr!}#O%Z#O#P&c#P#R%Z#R#SCr#S#T%Z#T#oCr#o#p*g#p$g%Z$g;'SCr;'S;=`El<%lOCr%9[EoP;=`<%lCr07[FRk$i&j(Wp(Z!b$]#t(T,2j(e$I[OY%ZYZ&cZr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$g%Z$g;'SEr;'S;=`I|<%lOEr+dHRk$i&j(Wp(Z!b$]#tOY%ZYZ&cZr%Zrs&}st%ZtuGvuw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Gv![!^%Z!^!_*g!_!c%Z!c!}Gv!}#O%Z#O#P&c#P#R%Z#R#SGv#S#T%Z#T#oGv#o#p*g#p$g%Z$g;'SGv;'S;=`Iv<%lOGv+dIyP;=`<%lGv07[JPP;=`<%lEr(KWJ_`$i&j(Wp(Z!b#p(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KWKl_$i&j$Q(Ch(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z,#xLva(z+JY$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sv%ZvwM{wx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KWNW`$i&j#z(Ch(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'At! c_(Y';W$i&j(WpOY!!bYZ!#hZr!!brs!#hsw!!bwx!$xx!^!!b!^!_!%z!_#O!!b#O#P!#h#P#o!!b#o#p!%z#p;'S!!b;'S;=`!'c<%lO!!b'l!!i_$i&j(WpOY!!bYZ!#hZr!!brs!#hsw!!bwx!$xx!^!!b!^!_!%z!_#O!!b#O#P!#h#P#o!!b#o#p!%z#p;'S!!b;'S;=`!'c<%lO!!b&z!#mX$i&jOw!#hwx6cx!^!#h!^!_!$Y!_#o!#h#o#p!$Y#p;'S!#h;'S;=`!$r<%lO!#h`!$]TOw!$Ywx7]x;'S!$Y;'S;=`!$l<%lO!$Y`!$oP;=`<%l!$Y&z!$uP;=`<%l!#h'l!%R]$d`$i&j(WpOY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(r!Q!&PZ(WpOY!%zYZ!$YZr!%zrs!$Ysw!%zwx!&rx#O!%z#O#P!$Y#P;'S!%z;'S;=`!']<%lO!%z!Q!&yU$d`(WpOY)rZr)rs#O)r#P;'S)r;'S;=`*Z<%lO)r!Q!'`P;=`<%l!%z'l!'fP;=`<%l!!b/5|!'t_!l/.^$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#&U!)O_!k!Lf$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z-!n!*[b$i&j(Wp(Z!b(U%&f#q(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rxz%Zz{!+d{!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW!+o`$i&j(Wp(Z!b#n(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z+;x!,|`$i&j(Wp(Z!br+4YOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z,$U!.Z_!]+Jf$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[!/ec$i&j(Wp(Z!b!Q.2^OY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!0p!P!Q%Z!Q![!3Y![!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#%|!0ya$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!2O!P!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#%|!2Z_![!L^$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!3eg$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!3Y![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S!3Y#S#X%Z#X#Y!4|#Y#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!5Vg$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx{%Z{|!6n|}%Z}!O!6n!O!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!6wc$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!8_c$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[!9uf$i&j(Wp(Z!b#o(ChOY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcxz!;Zz{#-}{!P!;Z!P!Q#/d!Q!^!;Z!^!_#(i!_!`#7S!`!a#8i!a!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z?O!;fb$i&j(Wp(Z!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z>^!<w`$i&j(Z!b!X7`OY!<nYZ&cZw!<nwx!=yx!P!<n!P!Q!Eq!Q!^!<n!^!_!Gr!_!}!<n!}#O!KS#O#P!Dy#P#o!<n#o#p!Gr#p;'S!<n;'S;=`!L]<%lO!<n<z!>Q^$i&j!X7`OY!=yYZ&cZ!P!=y!P!Q!>|!Q!^!=y!^!_!@c!_!}!=y!}#O!CW#O#P!Dy#P#o!=y#o#p!@c#p;'S!=y;'S;=`!Ek<%lO!=y<z!?Td$i&j!X7`O!^&c!_#W&c#W#X!>|#X#Z&c#Z#[!>|#[#]&c#]#^!>|#^#a&c#a#b!>|#b#g&c#g#h!>|#h#i&c#i#j!>|#j#k!>|#k#m&c#m#n!>|#n#o&c#p;'S&c;'S;=`&w<%lO&c7`!@hX!X7`OY!@cZ!P!@c!P!Q!AT!Q!}!@c!}#O!Ar#O#P!Bq#P;'S!@c;'S;=`!CQ<%lO!@c7`!AYW!X7`#W#X!AT#Z#[!AT#]#^!AT#a#b!AT#g#h!AT#i#j!AT#j#k!AT#m#n!AT7`!AuVOY!ArZ#O!Ar#O#P!B[#P#Q!@c#Q;'S!Ar;'S;=`!Bk<%lO!Ar7`!B_SOY!ArZ;'S!Ar;'S;=`!Bk<%lO!Ar7`!BnP;=`<%l!Ar7`!BtSOY!@cZ;'S!@c;'S;=`!CQ<%lO!@c7`!CTP;=`<%l!@c<z!C][$i&jOY!CWYZ&cZ!^!CW!^!_!Ar!_#O!CW#O#P!DR#P#Q!=y#Q#o!CW#o#p!Ar#p;'S!CW;'S;=`!Ds<%lO!CW<z!DWX$i&jOY!CWYZ&cZ!^!CW!^!_!Ar!_#o!CW#o#p!Ar#p;'S!CW;'S;=`!Ds<%lO!CW<z!DvP;=`<%l!CW<z!EOX$i&jOY!=yYZ&cZ!^!=y!^!_!@c!_#o!=y#o#p!@c#p;'S!=y;'S;=`!Ek<%lO!=y<z!EnP;=`<%l!=y>^!Ezl$i&j(Z!b!X7`OY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#W&}#W#X!Eq#X#Z&}#Z#[!Eq#[#]&}#]#^!Eq#^#a&}#a#b!Eq#b#g&}#g#h!Eq#h#i&}#i#j!Eq#j#k!Eq#k#m&}#m#n!Eq#n#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}8r!GyZ(Z!b!X7`OY!GrZw!Grwx!@cx!P!Gr!P!Q!Hl!Q!}!Gr!}#O!JU#O#P!Bq#P;'S!Gr;'S;=`!J|<%lO!Gr8r!Hse(Z!b!X7`OY'}Zw'}x#O'}#P#W'}#W#X!Hl#X#Z'}#Z#[!Hl#[#]'}#]#^!Hl#^#a'}#a#b!Hl#b#g'}#g#h!Hl#h#i'}#i#j!Hl#j#k!Hl#k#m'}#m#n!Hl#n;'S'};'S;=`(f<%lO'}8r!JZX(Z!bOY!JUZw!JUwx!Arx#O!JU#O#P!B[#P#Q!Gr#Q;'S!JU;'S;=`!Jv<%lO!JU8r!JyP;=`<%l!JU8r!KPP;=`<%l!Gr>^!KZ^$i&j(Z!bOY!KSYZ&cZw!KSwx!CWx!^!KS!^!_!JU!_#O!KS#O#P!DR#P#Q!<n#Q#o!KS#o#p!JU#p;'S!KS;'S;=`!LV<%lO!KS>^!LYP;=`<%l!KS>^!L`P;=`<%l!<n=l!Ll`$i&j(Wp!X7`OY!LcYZ&cZr!Lcrs!=ys!P!Lc!P!Q!Mn!Q!^!Lc!^!_# o!_!}!Lc!}#O#%P#O#P!Dy#P#o!Lc#o#p# o#p;'S!Lc;'S;=`#&Y<%lO!Lc=l!Mwl$i&j(Wp!X7`OY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#W(r#W#X!Mn#X#Z(r#Z#[!Mn#[#](r#]#^!Mn#^#a(r#a#b!Mn#b#g(r#g#h!Mn#h#i(r#i#j!Mn#j#k!Mn#k#m(r#m#n!Mn#n#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(r8Q# vZ(Wp!X7`OY# oZr# ors!@cs!P# o!P!Q#!i!Q!}# o!}#O#$R#O#P!Bq#P;'S# o;'S;=`#$y<%lO# o8Q#!pe(Wp!X7`OY)rZr)rs#O)r#P#W)r#W#X#!i#X#Z)r#Z#[#!i#[#])r#]#^#!i#^#a)r#a#b#!i#b#g)r#g#h#!i#h#i)r#i#j#!i#j#k#!i#k#m)r#m#n#!i#n;'S)r;'S;=`*Z<%lO)r8Q#$WX(WpOY#$RZr#$Rrs!Ars#O#$R#O#P!B[#P#Q# o#Q;'S#$R;'S;=`#$s<%lO#$R8Q#$vP;=`<%l#$R8Q#$|P;=`<%l# o=l#%W^$i&j(WpOY#%PYZ&cZr#%Prs!CWs!^#%P!^!_#$R!_#O#%P#O#P!DR#P#Q!Lc#Q#o#%P#o#p#$R#p;'S#%P;'S;=`#&S<%lO#%P=l#&VP;=`<%l#%P=l#&]P;=`<%l!Lc?O#&kn$i&j(Wp(Z!b!X7`OY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#W%Z#W#X#&`#X#Z%Z#Z#[#&`#[#]%Z#]#^#&`#^#a%Z#a#b#&`#b#g%Z#g#h#&`#h#i%Z#i#j#&`#j#k#&`#k#m%Z#m#n#&`#n#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z9d#(r](Wp(Z!b!X7`OY#(iZr#(irs!Grsw#(iwx# ox!P#(i!P!Q#)k!Q!}#(i!}#O#+`#O#P!Bq#P;'S#(i;'S;=`#,`<%lO#(i9d#)th(Wp(Z!b!X7`OY*gZr*grs'}sw*gwx)rx#O*g#P#W*g#W#X#)k#X#Z*g#Z#[#)k#[#]*g#]#^#)k#^#a*g#a#b#)k#b#g*g#g#h#)k#h#i*g#i#j#)k#j#k#)k#k#m*g#m#n#)k#n;'S*g;'S;=`+Z<%lO*g9d#+gZ(Wp(Z!bOY#+`Zr#+`rs!JUsw#+`wx#$Rx#O#+`#O#P!B[#P#Q#(i#Q;'S#+`;'S;=`#,Y<%lO#+`9d#,]P;=`<%l#+`9d#,cP;=`<%l#(i?O#,o`$i&j(Wp(Z!bOY#,fYZ&cZr#,frs!KSsw#,fwx#%Px!^#,f!^!_#+`!_#O#,f#O#P!DR#P#Q!;Z#Q#o#,f#o#p#+`#p;'S#,f;'S;=`#-q<%lO#,f?O#-tP;=`<%l#,f?O#-zP;=`<%l!;Z07[#.[b$i&j(Wp(Z!b(O0/l!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z07[#/o_$i&j(Wp(Z!bT0/lOY#/dYZ&cZr#/drs#0nsw#/dwx#4Ox!^#/d!^!_#5}!_#O#/d#O#P#1p#P#o#/d#o#p#5}#p;'S#/d;'S;=`#6|<%lO#/d06j#0w]$i&j(Z!bT0/lOY#0nYZ&cZw#0nwx#1px!^#0n!^!_#3R!_#O#0n#O#P#1p#P#o#0n#o#p#3R#p;'S#0n;'S;=`#3x<%lO#0n05W#1wX$i&jT0/lOY#1pYZ&cZ!^#1p!^!_#2d!_#o#1p#o#p#2d#p;'S#1p;'S;=`#2{<%lO#1p0/l#2iST0/lOY#2dZ;'S#2d;'S;=`#2u<%lO#2d0/l#2xP;=`<%l#2d05W#3OP;=`<%l#1p01O#3YW(Z!bT0/lOY#3RZw#3Rwx#2dx#O#3R#O#P#2d#P;'S#3R;'S;=`#3r<%lO#3R01O#3uP;=`<%l#3R06j#3{P;=`<%l#0n05x#4X]$i&j(WpT0/lOY#4OYZ&cZr#4Ors#1ps!^#4O!^!_#5Q!_#O#4O#O#P#1p#P#o#4O#o#p#5Q#p;'S#4O;'S;=`#5w<%lO#4O00^#5XW(WpT0/lOY#5QZr#5Qrs#2ds#O#5Q#O#P#2d#P;'S#5Q;'S;=`#5q<%lO#5Q00^#5tP;=`<%l#5Q05x#5zP;=`<%l#4O01p#6WY(Wp(Z!bT0/lOY#5}Zr#5}rs#3Rsw#5}wx#5Qx#O#5}#O#P#2d#P;'S#5};'S;=`#6v<%lO#5}01p#6yP;=`<%l#5}07[#7PP;=`<%l#/d)3h#7ab$i&j$Q(Ch(Wp(Z!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;ZAt#8vb$Z#t$i&j(Wp(Z!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z'Ad#:Zp$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!3Y!P!Q%Z!Q![#<_![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S#<_#S#U%Z#U#V#?i#V#X%Z#X#Y!4|#Y#b%Z#b#c#>_#c#d#Bq#d#l%Z#l#m#Es#m#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#<jk$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!3Y!P!Q%Z!Q![#<_![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S#<_#S#X%Z#X#Y!4|#Y#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#>j_$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#?rd$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!R#AQ!R!S#AQ!S!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#AQ#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#A]f$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!R#AQ!R!S#AQ!S!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#AQ#S#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Bzc$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!Y#DV!Y!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#DV#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Dbe$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!Y#DV!Y!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#DV#S#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#E|g$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![#Ge![!^%Z!^!_*g!_!c%Z!c!i#Ge!i#O%Z#O#P&c#P#R%Z#R#S#Ge#S#T%Z#T#Z#Ge#Z#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Gpi$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![#Ge![!^%Z!^!_*g!_!c%Z!c!i#Ge!i#O%Z#O#P&c#P#R%Z#R#S#Ge#S#T%Z#T#Z#Ge#Z#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z*)x#Il_!g$b$i&j$O)Lv(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z)[#Jv_al$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z04f#LS^h#)`#R-<U(Wp(Z!b$n7`OY*gZr*grs'}sw*gwx)rx!P*g!P!Q#MO!Q!^*g!^!_#Mt!_!`$ f!`#O*g#P;'S*g;'S;=`+Z<%lO*g(n#MXX$k&j(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g(El#M}Z#r(Ch(Wp(Z!bOY*gZr*grs'}sw*gwx)rx!_*g!_!`#Np!`#O*g#P;'S*g;'S;=`+Z<%lO*g(El#NyX$Q(Ch(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g(El$ oX#s(Ch(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g*)x$!ga#`*!Y$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`0z!`!a$#l!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(K[$#w_#k(Cl$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z*)x$%Vag!*r#s(Ch$f#|$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`$&[!`!a$'f!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$&g_#s(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$'qa#r(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`!a$(v!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$)R`#r(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(Kd$*`a(r(Ct$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!a%Z!a!b$+e!b#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$+p`$i&j#{(Ch(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z%#`$,}_!|$Ip$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z04f$.X_!S0,v$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(n$/]Z$i&jO!^$0O!^!_$0f!_#i$0O#i#j$0k#j#l$0O#l#m$2^#m#o$0O#o#p$0f#p;'S$0O;'S;=`$4i<%lO$0O(n$0VT_#S$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c#S$0kO_#S(n$0p[$i&jO!Q&c!Q![$1f![!^&c!_!c&c!c!i$1f!i#T&c#T#Z$1f#Z#o&c#o#p$3|#p;'S&c;'S;=`&w<%lO&c(n$1kZ$i&jO!Q&c!Q![$2^![!^&c!_!c&c!c!i$2^!i#T&c#T#Z$2^#Z#o&c#p;'S&c;'S;=`&w<%lO&c(n$2cZ$i&jO!Q&c!Q![$3U![!^&c!_!c&c!c!i$3U!i#T&c#T#Z$3U#Z#o&c#p;'S&c;'S;=`&w<%lO&c(n$3ZZ$i&jO!Q&c!Q![$0O![!^&c!_!c&c!c!i$0O!i#T&c#T#Z$0O#Z#o&c#p;'S&c;'S;=`&w<%lO&c#S$4PR!Q![$4Y!c!i$4Y#T#Z$4Y#S$4]S!Q![$4Y!c!i$4Y#T#Z$4Y#q#r$0f(n$4lP;=`<%l$0O#1[$4z_!Y#)l$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$6U`#x(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z+;p$7c_$i&j(Wp(Z!b(a+4QOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[$8qk$i&j(Wp(Z!b(T,2j$_#t(e$I[OY%ZYZ&cZr%Zrs&}st%Ztu$8buw%Zwx(rx}%Z}!O$:f!O!Q%Z!Q![$8b![!^%Z!^!_*g!_!c%Z!c!}$8b!}#O%Z#O#P&c#P#R%Z#R#S$8b#S#T%Z#T#o$8b#o#p*g#p$g%Z$g;'S$8b;'S;=`$<l<%lO$8b+d$:qk$i&j(Wp(Z!b$_#tOY%ZYZ&cZr%Zrs&}st%Ztu$:fuw%Zwx(rx}%Z}!O$:f!O!Q%Z!Q![$:f![!^%Z!^!_*g!_!c%Z!c!}$:f!}#O%Z#O#P&c#P#R%Z#R#S$:f#S#T%Z#T#o$:f#o#p*g#p$g%Z$g;'S$:f;'S;=`$<f<%lO$:f+d$<iP;=`<%l$:f07[$<oP;=`<%l$8b#Jf$<{X!_#Hb(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g,#x$=sa(y+JY$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p#q$+e#q;'S%Z;'S;=`+a<%lO%Z)>v$?V_!^(CdvBr$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z?O$@a_!q7`$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[$Aq|$i&j(Wp(Z!b'|0/l$]#t(T,2j(e$I[OX%ZXY+gYZ&cZ[+g[p%Zpq+gqr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$f%Z$f$g+g$g#BYEr#BY#BZ$A`#BZ$ISEr$IS$I_$A`$I_$JTEr$JT$JU$A`$JU$KVEr$KV$KW$A`$KW&FUEr&FU&FV$A`&FV;'SEr;'S;=`I|<%l?HTEr?HT?HU$A`?HUOEr07[$D|k$i&j(Wp(Z!b'}0/l$]#t(T,2j(e$I[OY%ZYZ&cZr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$g%Z$g;'SEr;'S;=`I|<%lOEr",
+  tokenizers: [noSemicolon, noSemicolonType, operatorToken, jsx, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, insertSemicolon, new LocalTokenGroup("$S~RRtu[#O#Pg#S#T#|~_P#o#pb~gOx~~jVO#i!P#i#j!U#j#l!P#l#m!q#m;'S!P;'S;=`#v<%lO!P~!UO!U~~!XS!Q![!e!c!i!e#T#Z!e#o#p#Z~!hR!Q![!q!c!i!q#T#Z!q~!tR!Q![!}!c!i!}#T#Z!}~#QR!Q![!P!c!i!P#T#Z!P~#^R!Q![#g!c!i#g#T#Z#g~#jS!Q![#g!c!i#g#T#Z#g#q#r!P~#yP;=`<%l!P~$RO(c~~", 141, 340), new LocalTokenGroup("j~RQYZXz{^~^O(Q~~aP!P!Qd~iO(R~~", 25, 323)],
+  topRules: {"Script":[0,7],"SingleExpression":[1,276],"SingleClassItem":[2,277]},
+  dialects: {jsx: 0, ts: 15175},
   dynamicPrecedences: {"80":1,"82":1,"94":1,"169":1,"199":1},
-  specialized: [{term: 326, get: (value) => spec_identifier[value] || -1},{term: 342, get: (value) => spec_word[value] || -1},{term: 95, get: (value) => spec_LessThan[value] || -1}],
-  tokenPrec: 15124
+  specialized: [{term: 327, get: (value) => spec_identifier[value] || -1},{term: 343, get: (value) => spec_word[value] || -1},{term: 95, get: (value) => spec_LessThan[value] || -1}],
+  tokenPrec: 15201
 });
 
 /**
@@ -24407,16 +24741,20 @@ selection range that has the same text in front of it.
 */
 function insertCompletionText(state, text, from, to) {
     let { main } = state.selection, fromOff = from - main.from, toOff = to - main.from;
-    return Object.assign(Object.assign({}, state.changeByRange(range => {
-        if (range != main && from != to &&
-            state.sliceDoc(range.from + fromOff, range.from + toOff) != state.sliceDoc(from, to))
-            return { range };
-        let lines = state.toText(text);
-        return {
-            changes: { from: range.from + fromOff, to: to == main.from ? range.to : range.from + toOff, insert: lines },
-            range: EditorSelection.cursor(range.from + fromOff + lines.length)
-        };
-    })), { scrollIntoView: true, userEvent: "input.complete" });
+    return {
+        ...state.changeByRange(range => {
+            if (range != main && from != to &&
+                state.sliceDoc(range.from + fromOff, range.from + toOff) != state.sliceDoc(from, to))
+                return { range };
+            let lines = state.toText(text);
+            return {
+                changes: { from: range.from + fromOff, to: to == main.from ? range.to : range.from + toOff, insert: lines },
+                range: EditorSelection.cursor(range.from + fromOff + lines.length)
+            };
+        }),
+        scrollIntoView: true,
+        userEvent: "input.complete"
+    };
 }
 const SourceCache = /*@__PURE__*/new WeakMap();
 function asSource(source) {
@@ -24605,7 +24943,7 @@ const completionConfig = /*@__PURE__*/Facet.define({
             addToOptions: [],
             positionInfo: defaultPositionInfo,
             filterStrict: false,
-            compareCompletions: (a, b) => a.label.localeCompare(b.label),
+            compareCompletions: (a, b) => (a.sortText || a.label).localeCompare(b.sortText || b.label),
             interactionDelay: 75,
             updateSyncTime: 100
         }, {
@@ -24804,7 +25142,8 @@ class CompletionTooltip {
             this.range = rangeAroundSelected(open.options.length, open.selected, this.view.state.facet(completionConfig).maxRenderedOptions);
             this.showOptions(open.options, cState.id);
         }
-        if (this.updateSelectedOption(open.selected)) {
+        let newSel = this.updateSelectedOption(open.selected);
+        if (newSel) {
             this.destroyInfo();
             let { completion } = open.options[open.selected];
             let { info } = completion;
@@ -24821,6 +25160,7 @@ class CompletionTooltip {
             }
             else {
                 this.addInfoPane(infoResult, completion);
+                newSel.setAttribute("aria-describedby", this.info.id);
             }
         }
     }
@@ -24828,6 +25168,7 @@ class CompletionTooltip {
         this.destroyInfo();
         let wrap = this.info = document.createElement("div");
         wrap.className = "cm-tooltip cm-completionInfo";
+        wrap.id = "cm-completionInfo-" + Math.floor(Math.random() * 0xffff).toString(16);
         if (content.nodeType != null) {
             wrap.appendChild(content);
             this.infoDestroy = null;
@@ -24853,8 +25194,10 @@ class CompletionTooltip {
                 }
             }
             else {
-                if (opt.hasAttribute("aria-selected"))
+                if (opt.hasAttribute("aria-selected")) {
                     opt.removeAttribute("aria-selected");
+                    opt.removeAttribute("aria-describedby");
+                }
             }
         }
         if (set)
@@ -24968,7 +25311,7 @@ function score(option) {
 }
 function sortOptions(active, state) {
     let options = [];
-    let sections = null;
+    let sections = null, dynamicSectionScore = null;
     let addOption = (option) => {
         options.push(option);
         let { section } = option.completion;
@@ -24995,13 +25338,24 @@ function sortOptions(active, state) {
                 for (let option of a.result.options)
                     if (match = matcher.match(option.label)) {
                         let matched = !option.displayLabel ? match.matched : getMatch ? getMatch(option, match.matched) : [];
-                        addOption(new Option(option, a.source, matched, match.score + (option.boost || 0)));
+                        let score = match.score + (option.boost || 0);
+                        addOption(new Option(option, a.source, matched, score));
+                        if (typeof option.section == "object" && option.section.rank === "dynamic") {
+                            let { name } = option.section;
+                            if (!dynamicSectionScore)
+                                dynamicSectionScore = Object.create(null);
+                            dynamicSectionScore[name] = Math.max(score, dynamicSectionScore[name] || -1e9);
+                        }
                     }
             }
         }
     if (sections) {
         let sectionOrder = Object.create(null), pos = 0;
-        let cmp = (a, b) => { var _a, _b; return ((_a = a.rank) !== null && _a !== void 0 ? _a : 1e9) - ((_b = b.rank) !== null && _b !== void 0 ? _b : 1e9) || (a.name < b.name ? -1 : 1); };
+        let cmp = (a, b) => {
+            return (a.rank === "dynamic" && b.rank === "dynamic" ? dynamicSectionScore[b.name] - dynamicSectionScore[a.name] : 0) ||
+                (typeof a.rank == "number" ? a.rank : 1e9) - (typeof b.rank == "number" ? b.rank : 1e9) ||
+                (a.name < b.name ? -1 : 1);
+        };
         for (let s of sections.sort(cmp)) {
             pos -= 1e5;
             sectionOrder[s.name] = pos;
@@ -25061,7 +25415,7 @@ class CompletionDialog {
         }, prev ? prev.timestamp : Date.now(), selected, false);
     }
     map(changes) {
-        return new CompletionDialog(this.options, this.attrs, Object.assign(Object.assign({}, this.tooltip), { pos: changes.mapPos(this.tooltip.pos) }), this.timestamp, this.selected, this.disabled);
+        return new CompletionDialog(this.options, this.attrs, { ...this.tooltip, pos: changes.mapPos(this.tooltip.pos) }, this.timestamp, this.selected, this.disabled);
     }
     setDisabled() {
         return new CompletionDialog(this.options, this.attrs, this.tooltip, this.timestamp, this.selected, true);
@@ -25246,7 +25600,10 @@ function applyCompletion(view, option) {
     if (!(result instanceof ActiveResult))
         return false;
     if (typeof apply == "string")
-        view.dispatch(Object.assign(Object.assign({}, insertCompletionText(view.state, apply, result.from, result.to)), { annotations: pickedCompletion.of(option.completion) }));
+        view.dispatch({
+            ...insertCompletionText(view.state, apply, result.from, result.to),
+            annotations: pickedCompletion.of(option.completion)
+        });
     else
         apply(view, option.completion, result.from, result.to);
     return true;
@@ -25663,7 +26020,7 @@ class Snippet {
         let fields = [];
         let lines = [], positions = [], m;
         for (let line of template.split(/\r\n?|\n/)) {
-            while (m = /[#$]\{(?:(\d+)(?::([^}]*))?|((?:\\[{}]|[^}])*))\}/.exec(line)) {
+            while (m = /[#$]\{(?:(\d+)(?::([^{}]*))?|((?:\\[{}]|[^{}])*))\}/.exec(line)) {
                 let seq = m[1] ? +m[1] : null, rawName = m[2] || m[3] || "", found = -1;
                 let name = rawName.replace(/\\[{}]/g, m => m[1]);
                 for (let i = 0; i < fields.length; i++) {
@@ -25680,6 +26037,12 @@ class Snippet {
                         if (pos.field >= found)
                             pos.field++;
                 }
+                for (let pos of positions)
+                    if (pos.line == lines.length && pos.from > m.index) {
+                        let snip = m[2] ? 3 + (m[1] || "").length : 2;
+                        pos.from -= snip;
+                        pos.to -= snip;
+                    }
                 positions.push(new FieldPos(found, lines.length, m.index, m.index + name.length));
                 line = line.slice(0, m.index) + rawName + line.slice(m.index + m[0].length);
             }
@@ -25709,7 +26072,7 @@ class ActiveSnippet {
     constructor(ranges, active) {
         this.ranges = ranges;
         this.active = active;
-        this.deco = Decoration.set(ranges.map(r => (r.from == r.to ? fieldMarker : fieldRange).range(r.from, r.to)));
+        this.deco = Decoration.set(ranges.map(r => (r.from == r.to ? fieldMarker : fieldRange).range(r.from, r.to)), true);
     }
     map(changes) {
         let ranges = [];
@@ -25853,7 +26216,7 @@ properties from `completion`, plus an `apply` function that
 applies the snippet.
 */
 function snippetCompletion(template, completion) {
-    return Object.assign(Object.assign({}, completion), { apply: snippet(template) });
+    return { ...completion, apply: snippet(template) };
 }
 const snippetPointerHandler = /*@__PURE__*/EditorView.domEventHandlers({
     mousedown(event, view) {
@@ -26134,17 +26497,18 @@ function autocompletion(config = {}) {
 /**
 Basic keybindings for autocompletion.
 
- - Ctrl-Space (and Alt-\` on macOS): [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
+ - Ctrl-Space (and Alt-\` or Alt-i on macOS): [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
  - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
  - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
  - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
  - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
- - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
+ - PageUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false, "page")`
  - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
 */
 const completionKeymap = [
     { key: "Ctrl-Space", run: startCompletion },
     { mac: "Alt-`", run: startCompletion },
+    { mac: "Alt-i", run: startCompletion },
     { key: "Escape", run: closeCompletion },
     { key: "ArrowDown", run: /*@__PURE__*/moveCompletionSelection(true) },
     { key: "ArrowUp", run: /*@__PURE__*/moveCompletionSelection(false) },
@@ -27348,6 +27712,41 @@ const selectParentSyntax = ({ state, dispatch }) => {
     dispatch(setSel(state, selection));
     return true;
 };
+function addCursorVertically(view, forward) {
+    let { state } = view, sel = state.selection, ranges = state.selection.ranges.slice();
+    for (let range of state.selection.ranges) {
+        let line = state.doc.lineAt(range.head);
+        if (forward ? line.to < view.state.doc.length : line.from > 0)
+            for (let cur = range;;) {
+                let next = view.moveVertically(cur, forward);
+                if (next.head < line.from || next.head > line.to) {
+                    if (!ranges.some(r => r.head == next.head))
+                        ranges.push(next);
+                    break;
+                }
+                else if (next.head == cur.head) {
+                    break;
+                }
+                else {
+                    cur = next;
+                }
+            }
+    }
+    if (ranges.length == sel.ranges.length)
+        return false;
+    view.dispatch(setSel(state, EditorSelection.create(ranges, ranges.length - 1)));
+    return true;
+}
+/**
+Expand the selection by adding a cursor above the heads of
+currently selected ranges.
+*/
+const addCursorAbove = view => addCursorVertically(view, false);
+/**
+Expand the selection by adding a cursor below the heads of
+currently selected ranges.
+*/
+const addCursorBelow = view => addCursorVertically(view, true);
 /**
 Simplify the current selection. When multiple ranges are selected,
 reduce it to its main range. Otherwise, if the selection is
@@ -27591,7 +27990,13 @@ function copyLine(state, dispatch, forward) {
         else
             changes.push({ from: block.to, insert: state.lineBreak + state.doc.slice(block.from, block.to) });
     }
-    dispatch(state.update({ changes, scrollIntoView: true, userEvent: "input.copyline" }));
+    let changeSet = state.changes(changes);
+    dispatch(state.update({
+        changes: changeSet,
+        selection: state.selection.map(changeSet, forward ? 1 : -1),
+        scrollIntoView: true,
+        userEvent: "input.copyline"
+    }));
     return true;
 }
 /**
@@ -27857,12 +28262,12 @@ const standardKeymap = /*@__PURE__*/[
     { key: "Mod-End", run: cursorDocEnd, shift: selectDocEnd },
     { key: "Enter", run: insertNewlineAndIndent, shift: insertNewlineAndIndent },
     { key: "Mod-a", run: selectAll },
-    { key: "Backspace", run: deleteCharBackward, shift: deleteCharBackward },
-    { key: "Delete", run: deleteCharForward },
-    { key: "Mod-Backspace", mac: "Alt-Backspace", run: deleteGroupBackward },
-    { key: "Mod-Delete", mac: "Alt-Delete", run: deleteGroupForward },
-    { mac: "Mod-Backspace", run: deleteLineBoundaryBackward },
-    { mac: "Mod-Delete", run: deleteLineBoundaryForward }
+    { key: "Backspace", run: deleteCharBackward, shift: deleteCharBackward, preventDefault: true },
+    { key: "Delete", run: deleteCharForward, preventDefault: true },
+    { key: "Mod-Backspace", mac: "Alt-Backspace", run: deleteGroupBackward, preventDefault: true },
+    { key: "Mod-Delete", mac: "Alt-Delete", run: deleteGroupForward, preventDefault: true },
+    { mac: "Mod-Backspace", run: deleteLineBoundaryBackward, preventDefault: true },
+    { mac: "Mod-Delete", run: deleteLineBoundaryForward, preventDefault: true }
 ].concat(/*@__PURE__*/emacsStyleKeymap.map(b => ({ mac: b.key, run: b.run, shift: b.shift })));
 /**
 The default keymap. Includes all bindings from
@@ -27874,6 +28279,8 @@ The default keymap. Includes all bindings from
 - Alt-ArrowDown: [`moveLineDown`](https://codemirror.net/6/docs/ref/#commands.moveLineDown)
 - Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
 - Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
+- Ctrl-Alt-ArrowUp (Cmd-Alt-ArrowUp on macOS): [`addCursorAbove`](https://codemirror.net/6/docs/ref/#commands.addCursorAbove).
+- Ctrl-Alt-ArrowDown (Cmd-Alt-ArrowDown on macOS): [`addCursorBelow`](https://codemirror.net/6/docs/ref/#commands.addCursorBelow).
 - Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
 - Ctrl-Enter (Cmd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
 - Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
@@ -27894,6 +28301,8 @@ const defaultKeymap = /*@__PURE__*/[
     { key: "Shift-Alt-ArrowUp", run: copyLineUp },
     { key: "Alt-ArrowDown", run: moveLineDown },
     { key: "Shift-Alt-ArrowDown", run: copyLineDown },
+    { key: "Mod-Alt-ArrowUp", run: addCursorAbove },
+    { key: "Mod-Alt-ArrowDown", run: addCursorBelow },
     { key: "Escape", run: simplifySelection },
     { key: "Mod-Enter", run: insertBlankLine },
     { key: "Alt-l", mac: "Ctrl-l", run: selectLine },
@@ -27928,6 +28337,7 @@ class LintState {
             diagnostics = diagnosticFilter(diagnostics, state);
         let sorted = diagnostics.slice().sort((a, b) => a.from - b.from || a.to - b.to);
         let deco = new RangeSetBuilder(), active = [], pos = 0;
+        let scan = state.doc.iter(), scanPos = 0, docLen = state.doc.length;
         for (let i = 0;;) {
             let next = i == sorted.length ? null : sorted[i];
             if (!next && !active.length)
@@ -27939,6 +28349,8 @@ class LintState {
             }
             else {
                 from = next.from;
+                if (from > docLen)
+                    break;
                 to = next.to;
                 active.push(next);
                 i++;
@@ -27955,8 +28367,31 @@ class LintState {
                     break;
                 }
             }
+            to = Math.min(to, docLen);
+            let widget = false;
+            if (active.some(d => d.from == from && (d.to == to || to == docLen))) {
+                widget = from == to;
+                if (!widget && to - from < 10) {
+                    let behind = from - (scanPos + scan.value.length);
+                    if (behind > 0) {
+                        scan.next(behind);
+                        scanPos = from;
+                    }
+                    for (let check = from;;) {
+                        if (check >= to) {
+                            widget = true;
+                            break;
+                        }
+                        if (!scan.lineBreak && scanPos + scan.value.length > check)
+                            break;
+                        check = scanPos + scan.value.length;
+                        scanPos += scan.value.length;
+                        scan.next();
+                    }
+                }
+            }
             let sev = maxSeverity(active);
-            if (active.some(d => d.from == d.to || (d.from == d.to - 1 && state.doc.lineAt(d.from).to == d.from))) {
+            if (widget) {
                 deco.add(from, from, Decoration.widget({
                     widget: new DiagnosticWidget(sev),
                     diagnostics: active.slice()
@@ -27971,6 +28406,8 @@ class LintState {
                 }));
             }
             pos = to;
+            if (pos == docLen)
+                break;
             for (let i = 0; i < active.length; i++)
                 if (active[i].to <= pos)
                     active.splice(i--, 1);
@@ -28123,17 +28560,28 @@ const lintKeymap = [
 ];
 const lintConfig = /*@__PURE__*/Facet.define({
     combine(input) {
-        return Object.assign({ sources: input.map(i => i.source).filter(x => x != null) }, combineConfig(input.map(i => i.config), {
-            delay: 750,
-            markerFilter: null,
-            tooltipFilter: null,
-            needsRefresh: null,
-            hideOn: () => null,
-        }, {
-            needsRefresh: (a, b) => !a ? b : !b ? a : u => a(u) || b(u)
-        }));
+        return {
+            sources: input.map(i => i.source).filter(x => x != null),
+            ...combineConfig(input.map(i => i.config), {
+                delay: 750,
+                markerFilter: null,
+                tooltipFilter: null,
+                needsRefresh: null,
+                hideOn: () => null,
+            }, {
+                delay: Math.max,
+                markerFilter: combineFilter,
+                tooltipFilter: combineFilter,
+                needsRefresh: (a, b) => !a ? b : !b ? a : u => a(u) || b(u),
+                hideOn: (a, b) => !a ? b : !b ? a : (t, x, y) => a(t, x, y) || b(t, x, y),
+                autoPanel: (a, b) => a || b
+            })
+        };
     }
 });
+function combineFilter(a, b) {
+    return !a ? b : !b ? a : (d, s) => b(a(d, s), s);
+}
 function assignKeys(actions) {
     let assigned = [];
     if (actions)
@@ -28166,9 +28614,10 @@ function renderDiagnostic(view, diagnostic, inPanel) {
         let nameElt = keyIndex < 0 ? name : [name.slice(0, keyIndex),
             crelt("u", name.slice(keyIndex, keyIndex + 1)),
             name.slice(keyIndex + 1)];
+        let markClass = action.markClass ? " " + action.markClass : "";
         return crelt("button", {
             type: "button",
-            class: "cm-diagnosticAction",
+            class: "cm-diagnosticAction" + markClass,
             onclick: click,
             onmousedown: click,
             "aria-label": ` Action: ${name}${keyIndex < 0 ? "" : ` (access key "${keys[i]})"`}.`

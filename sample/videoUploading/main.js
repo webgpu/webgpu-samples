@@ -8650,14 +8650,14 @@ const videoCoverPipeline = device.createRenderPipeline({
         topology: 'triangle-list',
     },
 });
-const module = device.createShaderModule({
+const module$1 = device.createShaderModule({
     code: sampleExternalTextureAsPanoramaWGSL,
 });
 const video360Pipeline = device.createRenderPipeline({
     layout: 'auto',
-    vertex: { module },
+    vertex: { module: module$1 },
     fragment: {
-        module,
+        module: module$1,
         targets: [{ format: presentationFormat }],
     },
     primitive: {

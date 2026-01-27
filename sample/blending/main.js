@@ -8612,7 +8612,7 @@ const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-const module = device.createShaderModule({
+const module$1 = device.createShaderModule({
     label: 'our hardcoded textured quad shaders',
     code: texturedQuadWGSL,
 });
@@ -8904,10 +8904,10 @@ const dstPipeline = device.createRenderPipeline({
     label: 'hardcoded textured quad pipeline',
     layout: pipelineLayout,
     vertex: {
-        module,
+        module: module$1,
     },
     fragment: {
-        module,
+        module: module$1,
         targets: [{ format: presentationFormat }],
     },
 });
@@ -8926,10 +8926,10 @@ function render() {
         label: 'hardcoded textured quad pipeline',
         layout: pipelineLayout,
         vertex: {
-            module,
+            module: module$1,
         },
         fragment: {
-            module,
+            module: module$1,
             targets: [
                 {
                     format: presentationFormat,

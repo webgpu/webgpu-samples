@@ -6433,7 +6433,7 @@ else {
     textures.push({ texture, viewDimension: 'cube' });
     document.querySelector('#cube-array').textContent = 'cube(fallback)';
 }
-const module = device.createShaderModule({
+const module$1 = device.createShaderModule({
     code: textureGeometryWGSL,
 });
 const sampler = device.createSampler({
@@ -6453,7 +6453,7 @@ const objects = textures.map(({ texture, viewDimension }) => {
     const pipeline = device.createRenderPipeline({
         layout: 'auto',
         vertex: {
-            module,
+            module: module$1,
             entryPoint: `vs_${viewDimension.replace('-', '_')}`,
             buffers: [
                 {
@@ -6476,7 +6476,7 @@ const objects = textures.map(({ texture, viewDimension }) => {
             ],
         },
         fragment: {
-            module,
+            module: module$1,
             entryPoint: `fs_${viewDimension.replace('-', '_')}`,
             targets: [{ format: presentationFormat }],
         },
