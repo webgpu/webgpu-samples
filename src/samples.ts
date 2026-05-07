@@ -55,7 +55,7 @@ export type SourceInfo = {
 export type SampleInfo = {
   name: string;
   tocName?: string;
-  description: string | string[];
+  description: string;
   openInNewTab?: boolean;
   filename: string; // used if sample is local
   external?: { url: string; sourceURL: string }; // used if sample is remote
