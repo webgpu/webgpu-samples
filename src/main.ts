@@ -193,7 +193,13 @@ function setSampleIFrame(
 
   titleElem.textContent = name;
   document.title = `WebGPU Samples - ${name}`;
-  descriptionElem.innerHTML = markdownConverter.makeHtml(description);
+  if (Array.isArray(description)) {
+    for (const paragraph of description) {
+      descriptionElem.innerHTML += markdownConverter.makeHtml(paragraph);
+    }
+  } else {
+    descriptionElem.innerHTML = markdownConverter.makeHtml(description);
+  }
 
   // Replace the iframe because changing src adds to the user's history.
   sampleContainerElem.innerHTML = '';

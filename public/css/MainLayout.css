@@ -141,3 +141,14 @@ search {
 
 }
 
+#description p {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+#description ul {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding-left: 15px;
+}
+
