@@ -2725,23 +2725,36 @@ const pipeline = device.createRenderPipeline({
         count: sampleCount,
     },
 });
+const getMSAATempTextureView = (() => {
+    let texture;
+    let view;
+    return () => {
+        let usage = GPUTextureUsage.RENDER_ATTACHMENT;
+        if (settings.transientAttachment) {
+            usage |= GPUTextureUsage.TRANSIENT_ATTACHMENT;
+        }
+        if (texture?.usage !== usage) {
+            console.log(`Reallocating with usage ${usage}`);
+            if (texture) {
+                texture.destroy();
+            }
+            texture = device.createTexture({
+                size: [canvas.width, canvas.height],
+                sampleCount,
+                format: presentationFormat,
+                usage,
+            });
+            view = texture.createView();
+        }
+        return view;
+    };
+})();
 function frame() {
-    let usage = GPUTextureUsage.RENDER_ATTACHMENT;
-    if (settings.transientAttachment) {
-        usage |= GPUTextureUsage.TRANSIENT_ATTACHMENT;
-    }
-    const texture = device.createTexture({
-        size: [canvas.width, canvas.height],
-        sampleCount,
-        format: presentationFormat,
-        usage,
-    });
-    const view = texture.createView();
     const commandEncoder = device.createCommandEncoder();
     const renderPassDescriptor = {
         colorAttachments: [
             {
-                view,
+                view: getMSAATempTextureView(),
                 resolveTarget: context.getCurrentTexture().createView(),
                 clearValue: [0, 0, 0, 0], // Clear to transparent
                 loadOp: 'clear',
