@@ -10,8 +10,8 @@ import {
   quitIfLimitLessThan,
 } from '../util';
 
-// TODO: Check WGSLLanguageFeatures when buffer_view is released.
-const supportsBufferView = true;
+const supportsBufferView =
+  navigator.gpu?.wgslLanguageFeatures.has('buffer_view');
 
 const settings = {
   barycentricCoordinatesBased: false,
@@ -90,18 +90,18 @@ size *= 4;
 const backingBuffer = new ArrayBuffer(size);
 const f32Buffer = new Float32Array(backingBuffer);
 const u32Buffer = new Uint32Array(backingBuffer);
-let modelIdx = 0;
 let offset = numModels * 4 * 4;
-Object.values(modelData).map((data) => {
-  u32Buffer[modelIdx * 4 + 0] = offset;
-  u32Buffer[modelIdx * 4 + 1] = data.vertices.byteLength;
+Object.values(modelData).map((data, index) => {
+  const baseIndex = index * 4;
+  u32Buffer[baseIndex + 0] = offset;
+  u32Buffer[baseIndex + 1] = data.vertices.byteLength;
   f32Buffer.set(data.vertices, offset / 4);
   offset += data.vertices.byteLength;
-  u32Buffer[modelIdx * 4 + 2] = offset;
-  u32Buffer[modelIdx * 4 + 3] = data.indices.byteLength;
+
+  u32Buffer[baseIndex + 2] = offset;
+  u32Buffer[baseIndex + 3] = data.indices.byteLength;
   u32Buffer.set(data.indices, offset / 4);
   offset += data.indices.byteLength;
-  modelIdx++;
 });
 
 const buffer = device.createBuffer({
@@ -140,11 +140,8 @@ function createModel(
   };
 }
 
-modelIdx = 0;
-const models = Object.values(modelData).map((data) => {
-  const thisIdx = modelIdx;
-  modelIdx++;
-  return createModel(thisIdx, data);
+const models = Object.values(modelData).map((data, index) => {
+  return createModel(index, data);
 });
 
 const litModule = device.createShaderModule({
@@ -155,12 +152,9 @@ const wireframeModule = device.createShaderModule({
   code: wireframeWGSL,
 });
 
-let wireframeBufferViewModule = wireframeModule;
-if (supportsBufferView) {
-  wireframeBufferViewModule = device.createShaderModule({
-    code: wireframeBufferViewWGSL,
-  });
-}
+const wireframeBufferViewModule = supportsBufferView
+  ? device.createShaderModule({ code: wireframeBufferViewWGSL })
+  : wireframeModule;
 
 const litBindGroupLayout = device.createBindGroupLayout({
   label: 'lit bind group layout',
@@ -224,40 +218,22 @@ function rebuildLitPipeline() {
 }
 rebuildLitPipeline();
 
-const wireframePipeline = device.createRenderPipeline({
-  label: 'wireframe pipeline',
-  layout: 'auto',
-  vertex: {
-    module: wireframeModule,
-    entryPoint: 'vsIndexedU32',
-  },
-  fragment: {
-    module: wireframeModule,
-    entryPoint: 'fs',
-    targets: [{ format: presentationFormat }],
-  },
-  primitive: {
-    topology: 'line-list',
-  },
-  depthStencil: {
-    depthWriteEnabled: true,
-    depthCompare: 'less-equal',
-    format: depthFormat,
-  },
-});
-
-let wireframeBufferViewPipeline = wireframePipeline;
-if (supportsBufferView) {
-  wireframeBufferViewPipeline = device.createRenderPipeline({
-    label: 'wireframe pipeline',
+function createWireframePipeline(
+  label: string,
+  vsEntry: string,
+  fsEntry: string,
+  shaderModule: GPUShaderModule
+): GPURenderPipeline {
+  return device.createRenderPipeline({
+    label: label,
     layout: 'auto',
     vertex: {
-      module: wireframeBufferViewModule,
-      entryPoint: 'vsIndexedU32',
+      module: shaderModule,
+      entryPoint: vsEntry,
     },
     fragment: {
-      module: wireframeBufferViewModule,
-      entryPoint: 'fs',
+      module: shaderModule,
+      entryPoint: fsEntry,
       targets: [{ format: presentationFormat }],
     },
     primitive: {
@@ -271,56 +247,38 @@ if (supportsBufferView) {
   });
 }
 
-const barycentricCoordinatesBasedWireframePipeline =
-  device.createRenderPipeline({
-    label: 'barycentric coordinates based wireframe pipeline',
-    layout: 'auto',
-    vertex: {
-      module: wireframeModule,
-      entryPoint: 'vsIndexedU32BarycentricCoordinateBasedLines',
-    },
-    fragment: {
-      module: wireframeModule,
-      entryPoint: 'fsBarycentricCoordinateBasedLines',
-      targets: [
-        {
-          format: presentationFormat,
-          blend: {
-            color: {
-              srcFactor: 'one',
-              dstFactor: 'one-minus-src-alpha',
-            },
-            alpha: {
-              srcFactor: 'one',
-              dstFactor: 'one-minus-src-alpha',
-            },
-          },
-        },
-      ],
-    },
-    primitive: {
-      topology: 'triangle-list',
-    },
-    depthStencil: {
-      depthWriteEnabled: true,
-      depthCompare: 'less-equal',
-      format: depthFormat,
-    },
-  });
+const wireframePipeline = createWireframePipeline(
+  'wireframe pipeline',
+  'vsIndexedU32',
+  'fs',
+  wireframeModule
+);
 
-let wireframeBufferViewBarycentricsPipeline =
-  barycentricCoordinatesBasedWireframePipeline;
-if (supportsBufferView) {
-  wireframeBufferViewBarycentricsPipeline = device.createRenderPipeline({
-    label: 'barycentric coordinates based wireframe pipeline',
+const wireframeBufferViewPipeline = supportsBufferView
+  ? createWireframePipeline(
+      'wireframe buffer_view pipeline',
+      'vsIndexedU32BufferView',
+      'fsBufferView',
+      wireframeBufferViewModule
+    )
+  : wireframePipeline;
+
+function createBarycentricsWireframePipeline(
+  label: string,
+  vsEntry: string,
+  fsEntry: string,
+  shaderModule: GPUShaderModule
+): GPURenderPipeline {
+  return device.createRenderPipeline({
+    label: label,
     layout: 'auto',
     vertex: {
-      module: wireframeBufferViewModule,
-      entryPoint: 'vsIndexedU32BarycentricCoordinateBasedLines',
+      module: shaderModule,
+      entryPoint: vsEntry,
     },
     fragment: {
-      module: wireframeBufferViewModule,
-      entryPoint: 'fsBarycentricCoordinateBasedLines',
+      module: shaderModule,
+      entryPoint: fsEntry,
       targets: [
         {
           format: presentationFormat,
@@ -347,6 +305,22 @@ if (supportsBufferView) {
     },
   });
 }
+const barycentricCoordinatesBasedWireframePipeline =
+  createBarycentricsWireframePipeline(
+    'barycentric coordinates based wireframe pipeline',
+    'vsIndexedU32BarycentricCoordinateBasedLines',
+    'fsBarycentricCoordinateBasedLines',
+    wireframeModule
+  );
+
+const wireframeBufferViewBarycentricsPipeline = supportsBufferView
+  ? createBarycentricsWireframePipeline(
+      'barycentric coordinates based wireframe buffer_view pipeline',
+      'vsIndexedU32BarycentricBufferView',
+      'fsBarycentricBufferView',
+      wireframeBufferViewModule
+    )
+  : barycentricCoordinatesBasedWireframePipeline;
 
 type ObjectInfo = {
   worldViewProjectionMatrixValue: Float32Array;
@@ -410,7 +384,7 @@ for (let i = 0; i < numObjects; ++i) {
   // We're creating 2 bindGroups, one for each pipeline.
   // We could create just one since they are identical. To do
   // so we'd have to manually create a bindGroupLayout.
-  let entries = [
+  const bgEntries = [
     { binding: 0, resource: uniformBuffer },
     { binding: 1, resource: model.vertexBuffer },
     { binding: 2, resource: model.indexBuffer },
@@ -418,33 +392,32 @@ for (let i = 0; i < numObjects; ++i) {
   ];
   const wireframeBindGroup = device.createBindGroup({
     layout: wireframePipeline.getBindGroupLayout(0),
-    entries,
+    entries: bgEntries,
   });
 
   const barycentricCoordinatesBasedWireframeBindGroup = device.createBindGroup({
     layout: barycentricCoordinatesBasedWireframePipeline.getBindGroupLayout(0),
-    entries,
+    entries: bgEntries,
   });
 
   // Create two more bindGroups for the bufferView variants of each pipeline.
-  let wireframeBufferViewBindGroup = wireframeBindGroup;
-  let wireframeBufferViewBarycentricsBindGroup =
-    barycentricCoordinatesBasedWireframeBindGroup;
-  if (supportsBufferView) {
-    entries = [
-      { binding: 0, resource: uniformBuffer },
-      { binding: 1, resource: buffer },
-      { binding: 2, resource: lineUniformBuffer },
-    ];
-    wireframeBufferViewBindGroup = device.createBindGroup({
-      layout: wireframeBufferViewPipeline.getBindGroupLayout(0),
-      entries,
-    });
-    wireframeBufferViewBarycentricsBindGroup = device.createBindGroup({
-      layout: wireframeBufferViewBarycentricsPipeline.getBindGroupLayout(0),
-      entries,
-    });
-  }
+  const bufferViewBGEntries = [
+    { binding: 0, resource: uniformBuffer },
+    { binding: 1, resource: buffer },
+    { binding: 2, resource: lineUniformBuffer },
+  ];
+  const wireframeBufferViewBindGroup = supportsBufferView
+    ? device.createBindGroup({
+        layout: wireframeBufferViewPipeline.getBindGroupLayout(0),
+        entries: bufferViewBGEntries,
+      })
+    : wireframeBindGroup;
+  const wireframeBufferViewBarycentricsBindGroup = supportsBufferView
+    ? device.createBindGroup({
+        layout: wireframeBufferViewBarycentricsPipeline.getBindGroupLayout(0),
+        entries: bufferViewBGEntries,
+      })
+    : barycentricCoordinatesBasedWireframeBindGroup;
 
   objectInfos.push({
     worldViewProjectionMatrixValue,

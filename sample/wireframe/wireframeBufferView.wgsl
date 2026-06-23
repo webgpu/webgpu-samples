@@ -26,7 +26,7 @@ struct VSOut {
 @group(0) @binding(1) var<storage, read> inputs: buffer;
 @group(0) @binding(2) var<uniform> line: LineUniforms;
 
-@vertex fn vsIndexedU32(@builtin(vertex_index) vNdx: u32) -> VSOut {
+@vertex fn vsIndexedU32BufferView(@builtin(vertex_index) vNdx: u32) -> VSOut {
   // Get the metadata for this model.
   let metdata = *bufferView<vec4u>(&inputs, line.modelIndex * 16);
   let vertexOffset = metdata[0];
@@ -56,7 +56,7 @@ struct VSOut {
   return vOut;
 }
 
-@fragment fn fs() -> @location(0) vec4f {
+@fragment fn fsBufferView() -> @location(0) vec4f {
   return uni.color + vec4f(0.5);
 }
 
@@ -65,7 +65,7 @@ struct BarycentricCoordinateBasedVSOutput {
   @location(0) barycenticCoord: vec3f,
 };
 
-@vertex fn vsIndexedU32BarycentricCoordinateBasedLines(
+@vertex fn vsIndexedU32BarycentricBufferView(
   @builtin(vertex_index) vNdx: u32
 ) -> BarycentricCoordinateBasedVSOutput {
   // Get the metadata for this model.
@@ -100,7 +100,7 @@ fn edgeFactor(bary: vec3f) -> f32 {
   return min(min(a3.x, a3.y), a3.z);
 }
 
-@fragment fn fsBarycentricCoordinateBasedLines(
+@fragment fn fsBarycentricBufferView(
   v: BarycentricCoordinateBasedVSOutput
 ) -> @location(0) vec4f {
   let a = 1.0 - edgeFactor(v.barycenticCoord);
