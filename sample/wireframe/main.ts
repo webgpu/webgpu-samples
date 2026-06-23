@@ -74,12 +74,23 @@ context.configure({
 const depthFormat = 'depth24plus';
 
 // Combined buffer contents:
-// Metadata: a pair of offsets for each model (vertex and index)
+// Metadata: a vec4u of vertex offset and size, index offset and size.
 // Model data: each model's vertices and indices
 //
 // |            metadata                        |        model 0        | ... |       model N-1
 // ---------------------------------------------------------------------------------------------------
 // | [<v off, v size, idx off, idx size>, ...]  | [vertices], [indices] | ... | [vertices], [indices]
+//
+// Q: Why not just bind a subregion of the buffer as distinct bindings?
+// A: We could, but each buffer would need to be aligned to storage buffer
+// alignment (256B). With buffer_view, each access needs to be aligned. So each
+// model's metadata needs to be 16B aligned and the vertices and indices for
+// each model only need to be 4B aligned.
+//
+// Q: Do you need all that metadata?
+// A: We could get away with just a pair of offsets if we switched to
+// bufferView calls in the shaders, but using bufferArrayView adds some extra
+// robustness by preventing reading into another array.
 let numModels = 0;
 let size = 0;
 Object.values(modelData).forEach((model) => {
