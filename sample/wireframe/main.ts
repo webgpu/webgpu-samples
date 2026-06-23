@@ -4,10 +4,14 @@ import { modelData } from './models';
 import { randElement, randColor } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 import wireframeWGSL from './wireframe.wgsl';
+import wireframeBufferViewWGSL from './wireframeBufferView.wgsl';
 import {
   quitIfWebGPUNotAvailableOrMissingFeatures,
   quitIfLimitLessThan,
 } from '../util';
+
+// TODO: Check WGSLLanguageFeatures when buffer_view is released.
+const supportsBufferView = true;
 
 const settings = {
   barycentricCoordinatesBased: false,
@@ -18,6 +22,7 @@ const settings = {
   depthBias: 1,
   depthBiasSlopeScale: 0.5,
   models: true,
+  bufferView: false,
 };
 
 type TypedArrayView = Float32Array | Uint32Array;
@@ -39,30 +44,12 @@ type Model = {
   vertexBuffer: GPUBuffer;
   indexBuffer: GPUBuffer;
   indexFormat: GPUIndexFormat;
+  modelIndex: number;
   vertexCount: number;
+  indexCount: number;
+  vertexOffset: number;
+  indexOffset: number;
 };
-
-function createVertexAndIndexBuffer(
-  device: GPUDevice,
-  { vertices, indices }: { vertices: Float32Array; indices: Uint32Array }
-): Model {
-  const vertexBuffer = createBufferWithData(
-    device,
-    vertices,
-    GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
-  );
-  const indexBuffer = createBufferWithData(
-    device,
-    indices,
-    GPUBufferUsage.INDEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
-  );
-  return {
-    vertexBuffer,
-    indexBuffer,
-    indexFormat: 'uint32',
-    vertexCount: indices.length,
-  };
-}
 
 const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
@@ -86,9 +73,79 @@ context.configure({
 });
 const depthFormat = 'depth24plus';
 
-const models = Object.values(modelData).map((data) =>
-  createVertexAndIndexBuffer(device, data)
-);
+// Combined buffer contents:
+// Metadata: a pair of offsets for each model (vertex and index)
+// Model data: each model's vertices and indices
+//
+// |            metadata                        |        model 0        | ... |       model N-1
+// ---------------------------------------------------------------------------------------------------
+// | [<v off, v size, idx off, idx size>, ...]  | [vertices], [indices] | ... | [vertices], [indices]
+let numModels = 0;
+let size = 0;
+Object.values(modelData).forEach((model) => {
+  size += model.vertices.length + model.indices.length + 4;
+  numModels++;
+});
+size *= 4;
+const backingBuffer = new ArrayBuffer(size);
+const f32Buffer = new Float32Array(backingBuffer);
+const u32Buffer = new Uint32Array(backingBuffer);
+let modelIdx = 0;
+let offset = numModels * 4 * 4;
+Object.values(modelData).map((data) => {
+  u32Buffer[modelIdx * 4 + 0] = offset;
+  u32Buffer[modelIdx * 4 + 1] = data.vertices.byteLength;
+  f32Buffer.set(data.vertices, offset / 4);
+  offset += data.vertices.byteLength;
+  u32Buffer[modelIdx * 4 + 2] = offset;
+  u32Buffer[modelIdx * 4 + 3] = data.indices.byteLength;
+  u32Buffer.set(data.indices, offset / 4);
+  offset += data.indices.byteLength;
+  modelIdx++;
+});
+
+const buffer = device.createBuffer({
+  size: backingBuffer.byteLength,
+  usage:
+    GPUBufferUsage.VERTEX |
+    GPUBufferUsage.INDEX |
+    GPUBufferUsage.COPY_DST |
+    GPUBufferUsage.STORAGE,
+});
+device.queue.writeBuffer(buffer, 0, backingBuffer);
+
+function createModel(
+  idx: number,
+  { vertices, indices }: { vertices: Float32Array; indices: Uint32Array }
+): Model {
+  const vBuffer = createBufferWithData(
+    device,
+    vertices,
+    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+  );
+  const iBuffer = createBufferWithData(
+    device,
+    indices,
+    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+  );
+  return {
+    vertexBuffer: vBuffer,
+    indexBuffer: iBuffer,
+    indexFormat: 'uint32',
+    modelIndex: idx,
+    vertexCount: vertices.length,
+    indexCount: indices.length,
+    vertexOffset: u32Buffer[4 * idx],
+    indexOffset: u32Buffer[4 * idx + 2],
+  };
+}
+
+modelIdx = 0;
+const models = Object.values(modelData).map((data) => {
+  const thisIdx = modelIdx;
+  modelIdx++;
+  return createModel(thisIdx, data);
+});
 
 const litModule = device.createShaderModule({
   code: solidColorLitWGSL,
@@ -97,6 +154,13 @@ const litModule = device.createShaderModule({
 const wireframeModule = device.createShaderModule({
   code: wireframeWGSL,
 });
+
+let wireframeBufferViewModule = wireframeModule;
+if (supportsBufferView) {
+  wireframeBufferViewModule = device.createShaderModule({
+    code: wireframeBufferViewWGSL,
+  });
+}
 
 const litBindGroupLayout = device.createBindGroupLayout({
   label: 'lit bind group layout',
@@ -182,6 +246,31 @@ const wireframePipeline = device.createRenderPipeline({
   },
 });
 
+let wireframeBufferViewPipeline = wireframePipeline;
+if (supportsBufferView) {
+  wireframeBufferViewPipeline = device.createRenderPipeline({
+    label: 'wireframe pipeline',
+    layout: 'auto',
+    vertex: {
+      module: wireframeBufferViewModule,
+      entryPoint: 'vsIndexedU32',
+    },
+    fragment: {
+      module: wireframeBufferViewModule,
+      entryPoint: 'fs',
+      targets: [{ format: presentationFormat }],
+    },
+    primitive: {
+      topology: 'line-list',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less-equal',
+      format: depthFormat,
+    },
+  });
+}
+
 const barycentricCoordinatesBasedWireframePipeline =
   device.createRenderPipeline({
     label: 'barycentric coordinates based wireframe pipeline',
@@ -218,6 +307,46 @@ const barycentricCoordinatesBasedWireframePipeline =
       format: depthFormat,
     },
   });
+
+let wireframeBufferViewBarycentricsPipeline =
+  barycentricCoordinatesBasedWireframePipeline;
+if (supportsBufferView) {
+  wireframeBufferViewBarycentricsPipeline = device.createRenderPipeline({
+    label: 'barycentric coordinates based wireframe pipeline',
+    layout: 'auto',
+    vertex: {
+      module: wireframeBufferViewModule,
+      entryPoint: 'vsIndexedU32BarycentricCoordinateBasedLines',
+    },
+    fragment: {
+      module: wireframeBufferViewModule,
+      entryPoint: 'fsBarycentricCoordinateBasedLines',
+      targets: [
+        {
+          format: presentationFormat,
+          blend: {
+            color: {
+              srcFactor: 'one',
+              dstFactor: 'one-minus-src-alpha',
+            },
+            alpha: {
+              srcFactor: 'one',
+              dstFactor: 'one-minus-src-alpha',
+            },
+          },
+        },
+      ],
+    },
+    primitive: {
+      topology: 'triangle-list',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less-equal',
+      format: depthFormat,
+    },
+  });
+}
 
 type ObjectInfo = {
   worldViewProjectionMatrixValue: Float32Array;
@@ -276,29 +405,46 @@ for (let i = 0; i < numObjects; ++i) {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   lineUniformValuesAsU32[0] = 6; // the array stride for positions for this model.
+  lineUniformValuesAsU32[3] = model.modelIndex; // the index of the model in the combined buffer.
 
   // We're creating 2 bindGroups, one for each pipeline.
   // We could create just one since they are identical. To do
   // so we'd have to manually create a bindGroupLayout.
+  let entries = [
+    { binding: 0, resource: uniformBuffer },
+    { binding: 1, resource: model.vertexBuffer },
+    { binding: 2, resource: model.indexBuffer },
+    { binding: 3, resource: lineUniformBuffer },
+  ];
   const wireframeBindGroup = device.createBindGroup({
     layout: wireframePipeline.getBindGroupLayout(0),
-    entries: [
-      { binding: 0, resource: uniformBuffer },
-      { binding: 1, resource: model.vertexBuffer },
-      { binding: 2, resource: model.indexBuffer },
-      { binding: 3, resource: lineUniformBuffer },
-    ],
+    entries,
   });
 
   const barycentricCoordinatesBasedWireframeBindGroup = device.createBindGroup({
     layout: barycentricCoordinatesBasedWireframePipeline.getBindGroupLayout(0),
-    entries: [
-      { binding: 0, resource: uniformBuffer },
-      { binding: 1, resource: model.vertexBuffer },
-      { binding: 2, resource: model.indexBuffer },
-      { binding: 3, resource: lineUniformBuffer },
-    ],
+    entries,
   });
+
+  // Create two more bindGroups for the bufferView variants of each pipeline.
+  let wireframeBufferViewBindGroup = wireframeBindGroup;
+  let wireframeBufferViewBarycentricsBindGroup =
+    barycentricCoordinatesBasedWireframeBindGroup;
+  if (supportsBufferView) {
+    entries = [
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: buffer },
+      { binding: 2, resource: lineUniformBuffer },
+    ];
+    wireframeBufferViewBindGroup = device.createBindGroup({
+      layout: wireframeBufferViewPipeline.getBindGroupLayout(0),
+      entries,
+    });
+    wireframeBufferViewBarycentricsBindGroup = device.createBindGroup({
+      layout: wireframeBufferViewBarycentricsPipeline.getBindGroupLayout(0),
+      entries,
+    });
+  }
 
   objectInfos.push({
     worldViewProjectionMatrixValue,
@@ -311,6 +457,8 @@ for (let i = 0; i < numObjects; ++i) {
     wireframeBindGroups: [
       wireframeBindGroup,
       barycentricCoordinatesBasedWireframeBindGroup,
+      wireframeBufferViewBindGroup,
+      wireframeBufferViewBarycentricsBindGroup,
     ],
     model,
   });
@@ -339,6 +487,9 @@ gui.add(settings, 'barycentricCoordinatesBased').onChange(addRemoveGUI);
 gui.add(settings, 'lines');
 gui.add(settings, 'models');
 gui.add(settings, 'animate');
+if (supportsBufferView) {
+  gui.add(settings, 'bufferView');
+}
 
 const guis = [];
 function addRemoveGUI() {
@@ -427,7 +578,13 @@ function render(ts: number) {
         worldViewProjectionMatrixValue,
         worldMatrixValue,
         litBindGroup,
-        model: { vertexBuffer, indexBuffer, indexFormat, vertexCount },
+        model: {
+          indexFormat,
+          vertexCount,
+          indexCount,
+          vertexOffset,
+          indexOffset,
+        },
       },
       i
     ) => {
@@ -453,10 +610,10 @@ function render(ts: number) {
       device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
       if (settings.models) {
-        pass.setVertexBuffer(0, vertexBuffer);
-        pass.setIndexBuffer(indexBuffer, indexFormat);
+        pass.setVertexBuffer(0, buffer, vertexOffset, vertexCount * 4);
+        pass.setIndexBuffer(buffer, indexFormat, indexOffset, indexCount * 4);
         pass.setBindGroup(0, litBindGroup);
-        pass.drawIndexed(vertexCount);
+        pass.drawIndexed(indexCount);
       }
     }
   );
@@ -465,14 +622,17 @@ function render(ts: number) {
     // Note: If we're using the line-list based pipeline then we need to
     // multiply the vertex count by 2 since we need to emit 6 vertices
     // for each triangle (3 edges).
-    const [bindGroupNdx, countMult, pipeline] =
-      settings.barycentricCoordinatesBased
-        ? [1, 1, barycentricCoordinatesBasedWireframePipeline]
-        : [0, 2, wireframePipeline];
+    const [bindGroupNdx, countMult, pipeline] = settings.bufferView
+      ? settings.barycentricCoordinatesBased
+        ? [3, 1, wireframeBufferViewBarycentricsPipeline]
+        : [2, 2, wireframeBufferViewPipeline]
+      : settings.barycentricCoordinatesBased
+      ? [1, 1, barycentricCoordinatesBasedWireframePipeline]
+      : [0, 2, wireframePipeline];
     pass.setPipeline(pipeline);
-    objectInfos.forEach(({ wireframeBindGroups, model: { vertexCount } }) => {
+    objectInfos.forEach(({ wireframeBindGroups, model: { indexCount } }) => {
       pass.setBindGroup(0, wireframeBindGroups[bindGroupNdx]);
-      pass.draw(vertexCount * countMult);
+      pass.draw(indexCount * countMult);
     });
   }
 
