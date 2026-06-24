@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>webgpu-samples: visionTransformer</title>
+    <!-- WebGPUCompatibilityMode origin token for https://webgpu.github.io expiring April 21, 2026 -->
+    <meta
+      http-equiv="origin-trial"
+      content="Aktu7041jFm00ls336/bRinubASRzg1tPs4wxXOZkF1uP0LaIURinGC7ti0Vf352Q9OKFL1siRfpptLjNIKpKQcAAABheyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVUNvbXBhdGliaWxpdHlNb2RlIiwiZXhwaXJ5IjoxNzc2NzI5NjAwfQ=="
+    />
+    <!-- WebGPUCompatibilityMode origin token for http://localhost:8080 expiring April 21, 2026 -->
+    <meta
+      http-equiv="origin-trial"
+      content="AqW27Ayelg5vbcAaYcweU+sLjZq5r6idHCWU4MJgnkP1YBgmOMqazdGuakSnGylTkyA/bRHkCJZFdfYjFlylOgAAAABaeyJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjgwODAiLCJmZWF0dXJlIjoiV2ViR1BVQ29tcGF0aWJpbGl0eU1vZGUiLCJleHBpcnkiOjE3NzY3Mjk2MDB9"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html, body {
+        margin: 0;
+        height: 100%;
+        display: flex;
+        place-content: center center;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+      }
+      canvas {
+        width: 448px;
+        height: 448px;
+        max-width: 100%;
+        display: block;
+        border: 1px solid #444;
+        border-radius: 4px;
+      }
+      .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 448px;
+        max-width: 100%;
+      }
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .slider-row label {
+        min-width: 80px;
+        font-size: 14px;
+      }
+      .slider-row input[type="range"] {
+        flex: 1;
+      }
+      .slider-row .value {
+        min-width: 30px;
+        text-align: right;
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+      }
+      .results {
+        width: 448px;
+        max-width: 100%;
+        font-size: 14px;
+      }
+      .results .prediction {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px solid #333;
+      }
+      .results .prediction .prob {
+        font-variant-numeric: tabular-nums;
+        color: #888;
+      }
+      .status {
+        font-size: 13px;
+        color: #888;
+      }
+      .drop-zone {
+        position: relative;
+      }
+      .drop-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 100, 255, 0.3);
+        border: 2px dashed #4af;
+        border-radius: 4px;
+        place-content: center center;
+        font-size: 18px;
+        color: white;
+      }
+      .drop-zone.dragover .drop-overlay {
+        display: flex;
+      }
+      .sample-images {
+        display: flex;
+        gap: 8px;
+        width: 448px;
+        max-width: 100%;
+      }
+      .sample-images button {
+        flex: 1;
+        padding: 6px 4px;
+        font-size: 12px;
+        border: 1px solid #555;
+        border-radius: 4px;
+        background: #222;
+        color: #ccc;
+        cursor: pointer;
+      }
+      .sample-images button:hover {
+        background: #333;
+        border-color: #888;
+      }
+      .sample-images button.active {
+        border-color: #4af;
+        background: #1a3a5c;
+      }
+    </style>
+    <script defer src="main.js" type="module"></script>
+    <script defer type="module" src="../../js/iframe-helper.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="drop-zone" id="dropZone">
+        <canvas id="canvas"></canvas>
+        <div class="drop-overlay">Drop image to classify</div>
+      </div>
+      <div class="sample-images" id="sampleImages">
+        <button data-img="golden-retriever.jpg">Dog</button>
+        <button data-img="tabby-cat.jpg">Cat</button>
+        <button data-img="macaw.jpg">Parrot</button>
+        <button data-img="sunflower.jpg">Flower</button>
+      </div>
+      <div class="controls">
+        <div class="slider-row">
+          <label>Layer</label>
+          <input type="range" id="layerSlider" min="0" max="11" value="11" step="1">
+          <span class="value" id="layerValue">12</span>
+        </div>
+        <div class="slider-row">
+          <label>Head</label>
+          <input type="range" id="headSlider" min="0" max="2" value="0" step="1">
+          <span class="value" id="headValue">1</span>
+        </div>
+        <div class="slider-row">
+          <label>Overlay</label>
+          <input type="range" id="alphaSlider" min="0" max="100" value="60" step="1">
+          <span class="value" id="alphaValue">60%</span>
+        </div>
+      </div>
+      <div class="results" id="results"></div>
+      <div class="status" id="status">Loading model weights...</div>
+    </div>
+  </body>
+</html>
