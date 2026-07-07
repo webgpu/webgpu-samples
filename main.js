@@ -658,6 +658,17 @@ lake by [Fabio Casati](https://commons.wikimedia.org/wiki/File:Video_360%C2%B0._
     ],
 };
 
+var visionTransformer = {
+    name: 'Vision Transformer',
+    description: `Runs DeiT-Tiny Vision Transformer inference in WebGPU compute shaders and visualizes attention maps as interactive heatmap overlays.`,
+    filename: "sample/visionTransformer",
+    external: {
+        url: 'https://lyonsno.github.io/webgpu-vit-attention/',
+        sourceURL: 'https://github.com/lyonsno/webgpu-vit-attention',
+    },
+    sources: [],
+};
+
 var volumeRenderingTexture3D = {
     name: 'Volume Rendering - Texture 3D',
     description: `This example shows how to render volumes with WebGPU using a 3D
@@ -818,6 +829,7 @@ const pageCategories = [
             marchingCubes,
             alphaToCoverageEmulator,
             particleLife,
+            visionTransformer,
         },
     },
     // Samples whose primary purpose is to benchmark WebGPU performance.
