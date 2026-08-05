@@ -12,6 +12,7 @@ export default {
   sources: [
     { path: 'main.ts' },
     { path: 'wireframe.wgsl' },
+    { path: 'wireframeBufferView.wgsl' },
     { path: 'solidColorLit.wgsl' },
     { path: 'models.ts' },
     { path: '../../meshes/box.ts' },
