@@ -384,6 +384,13 @@ var particles = {
     ],
 };
 
+var packedIntegerDotProduct = {
+    name: 'Packed Integer Dot Product',
+    description: 'Packs four signed 8-bit integers into each u32, computes their dot product with dot4I8Packed, and reads back the results.',
+    filename: "sample/packedIntegerDotProduct",
+    sources: [{ path: 'main.ts' }, { path: 'packed.wgsl' }],
+};
+
 var points = {
     name: 'Points',
     description: `\
@@ -776,6 +783,7 @@ const pageCategories = [
             computeBoids,
             gameOfLife,
             bitonicSort,
+            packedIntegerDotProduct,
         },
     },
     // A selection of samples demonstrating various graphics techniques, utilizing various features
