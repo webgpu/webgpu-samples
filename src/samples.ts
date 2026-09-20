@@ -45,6 +45,7 @@ import twoCubes from '../sample/twoCubes/meta';
 import videoUploading from '../sample/videoUploading/meta';
 import visionTransformer from '../sample/visionTransformer/meta';
 import volumeRenderingTexture3D from '../sample/volumeRenderingTexture3D/meta';
+import webgpuAquarium from '../sample/webgpuAquarium/meta';
 import wireframe from '../sample/wireframe/meta';
 import worker from '../sample/worker/meta';
 import workloadSimulator from '../sample/workloadSimulator/meta';
@@ -175,6 +176,7 @@ export const pageCategories: PageCategory[] = [
       alphaToCoverageEmulator,
       particleLife,
       visionTransformer,
+      webgpuAquarium,
     },
   },
 
