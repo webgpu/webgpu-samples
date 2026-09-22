@@ -693,6 +693,17 @@ before processing in
     sources: [{ path: 'main.ts' }, { path: 'volume.wgsl' }],
 };
 
+var webgpuAquarium = {
+    name: 'WebGPU Aquarium',
+    description: `A WebGPU based under water ocean simulation.`,
+    filename: "sample/webgpuAquarium",
+    external: {
+        url: 'https://greggman.github.io/webgpu-aquarium/',
+        sourceURL: 'https://github.com/greggman/webgpu-aquarium',
+    },
+    sources: [],
+};
+
 var wireframe = {
     name: 'Wireframe',
     description: `
@@ -839,6 +850,7 @@ const pageCategories = [
             alphaToCoverageEmulator,
             particleLife,
             visionTransformer,
+            webgpuAquarium,
         },
     },
     // Samples whose primary purpose is to benchmark WebGPU performance.
