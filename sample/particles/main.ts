@@ -3,7 +3,7 @@ import { GUI } from 'dat.gui';
 
 import particleWGSL from './particle.wgsl';
 import probabilityMapWGSL from './probabilityMap.wgsl';
-import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
+import { fail, quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const numParticles = 50000;
 const particlePositionOffset = 0;
@@ -28,14 +28,48 @@ const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
-const presentationFormat = 'rgba16float';
+const hdrPresentationFormat: GPUTextureFormat = 'rgba16float';
+let presentationFormat: GPUTextureFormat = hdrPresentationFormat;
+let hasHDRCanvasFormat = true;
 
-function configureContext() {
+try {
   context.configure({
     device,
     format: presentationFormat,
-    toneMapping: { mode: simulationParams.toneMappingMode },
+    toneMapping: { mode: 'standard' },
   });
+} catch (error) {
+  hasHDRCanvasFormat = false;
+  presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+
+  try {
+    context.configure({
+      device,
+      format: presentationFormat,
+    });
+  } catch (fallbackError) {
+    fail(
+      `Unable to configure the WebGPU canvas. The HDR format '${hdrPresentationFormat}' is not supported by this browser, and configuring the preferred canvas format '${presentationFormat}' also failed.\n\n${fallbackError}`
+    );
+  }
+
+  console.warn(
+    `Canvas texture format '${hdrPresentationFormat}' is not supported by this browser. Falling back to '${presentationFormat}'.`,
+    error
+  );
+}
+
+function configureContext() {
+  const configuration: GPUCanvasConfiguration = {
+    device,
+    format: presentationFormat,
+  };
+
+  if (hasHDRCanvasFormat) {
+    configuration.toneMapping = { mode: simulationParams.toneMappingMode };
+  }
+
+  context.configure(configuration);
   hdrFolder.name = getHdrFolderName();
 }
 
@@ -335,6 +369,9 @@ const hdrMediaQuery = window.matchMedia('(dynamic-range: high)');
 function getHdrFolderName() {
   if (!hdrMediaQuery.matches) {
     return "HDR settings ⚠️ Display isn't compatible";
+  }
+  if (!hasHDRCanvasFormat) {
+    return "HDR settings ⚠️ Browser doesn't support HDR canvas";
   }
   if (!('getConfiguration' in GPUCanvasContext.prototype)) {
     return 'HDR settings';
