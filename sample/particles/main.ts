@@ -30,6 +30,14 @@ canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 const presentationFormat = 'rgba16float';
 
+const simulationParams = {
+  simulate: true,
+  deltaTime: 0.04,
+  colorSpace: 'srgb' as string,
+  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
+  brightnessFactor: 1.0,
+};
+
 function configureContext() {
   context.configure({
     device,
@@ -191,18 +199,27 @@ const mipLevelCount =
 const texture = device.createTexture({
   size: [imageBitmap.width, imageBitmap.height, 1],
   mipLevelCount,
-  format: 'rgba8unorm',
+  format: 'rgba16float',
   usage:
     GPUTextureUsage.TEXTURE_BINDING |
     GPUTextureUsage.STORAGE_BINDING |
     GPUTextureUsage.COPY_DST |
     GPUTextureUsage.RENDER_ATTACHMENT,
 });
-device.queue.copyExternalImageToTexture(
-  { source: imageBitmap },
-  { texture: texture },
-  [imageBitmap.width, imageBitmap.height]
-);
+// Copies the image into mip level 0, converting its colors to the current
+// color space. The alpha channel (used for the probability map) is unaffected
+// by the color space, so the probability map doesn't need regenerating.
+function copyImageToTexture() {
+  device.queue.copyExternalImageToTexture(
+    { source: imageBitmap },
+    {
+      texture: texture,
+      colorSpace: simulationParams.colorSpace as PredefinedColorSpace,
+    },
+    [imageBitmap.width, imageBitmap.height]
+  );
+}
+copyImageToTexture();
 
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
@@ -277,7 +294,7 @@ device.queue.copyExternalImageToTexture(
           // tex_in / tex_out
           binding: 3,
           resource: texture.createView({
-            format: 'rgba8unorm',
+            format: 'rgba16float',
             dimension: '2d',
             baseMipLevel: level,
             mipLevelCount: 1,
@@ -305,14 +322,6 @@ device.queue.copyExternalImageToTexture(
 //////////////////////////////////////////////////////////////////////////////
 // Simulation compute pipeline
 //////////////////////////////////////////////////////////////////////////////
-const simulationParams = {
-  simulate: true,
-  deltaTime: 0.04,
-  colorSpace: 'srgb' as string,
-  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
-  brightnessFactor: 1.0,
-};
-
 const simulationUBOBufferSize =
   1 * 4 + // deltaTime
   1 * 4 + // brightnessFactor
@@ -337,7 +346,10 @@ colorFolder
       isColorSpaceSupported
     )
   )
-  .onChange(configureContext);
+  .onChange(() => {
+    configureContext();
+    copyImageToTexture();
+  });
 colorFolder.open();
 const p3MediaQuery = window.matchMedia('(color-gamut: p3)');
 function updateColorSpaceName() {

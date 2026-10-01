@@ -6,7 +6,7 @@ struct UBO {
 @binding(1) @group(0) var<storage, read> buf_in : array<f32>;
 @binding(2) @group(0) var<storage, read_write> buf_out : array<f32>;
 @binding(3) @group(0) var tex_in : texture_2d<f32>;
-@binding(3) @group(0) var tex_out : texture_storage_2d<rgba8unorm, write>;
+@binding(3) @group(0) var tex_out : texture_storage_2d<rgba16float, write>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // import_level
