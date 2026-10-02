@@ -193,7 +193,7 @@ assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
 // Calculate number of mip levels required to generate the probability map
 const mipLevelCount =
   (Math.log2(Math.max(imageBitmap.width, imageBitmap.height)) + 1) | 0;
-const texture = device.createTexture({
+const logoTexture = device.createTexture({
   size: [imageBitmap.width, imageBitmap.height, 1],
   mipLevelCount,
   format: 'rgba16float',
@@ -206,22 +206,22 @@ const texture = device.createTexture({
 // Copies the image into mip level 0, converting its colors to the current
 // color space. The alpha channel (used for the probability map) is unaffected
 // by the color space, so the probability map doesn't need regenerating.
-function copyImageToTexture() {
+function reinitLogoTexture() {
   device.queue.copyExternalImageToTexture(
     { source: imageBitmap },
     {
-      texture: texture,
+      texture: logoTexture,
       colorSpace: displaySettings.colorSpace as PredefinedColorSpace,
     },
     [imageBitmap.width, imageBitmap.height]
   );
 }
-copyImageToTexture();
+reinitLogoTexture();
 
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
-// The 0'th mip level of texture holds the color data and spawn-probability in
-// the alpha channel. The mip levels 1..N are generated to hold spawn
+// The 0'th mip level of logoTexture holds the color data and spawn-probability
+// in the alpha channel. The mip levels 1..N are generated to hold spawn
 // probabilities up to the top 1x1 mip level.
 //////////////////////////////////////////////////////////////////////////////
 {
@@ -249,7 +249,7 @@ copyImageToTexture();
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   const buffer_a = device.createBuffer({
-    size: texture.width * texture.height * 4,
+    size: logoTexture.width * logoTexture.height * 4,
     usage: GPUBufferUsage.STORAGE,
   });
   const buffer_b = device.createBuffer({
@@ -259,12 +259,12 @@ copyImageToTexture();
   device.queue.writeBuffer(
     probabilityMapUBOBuffer,
     0,
-    new Uint32Array([texture.width])
+    new Uint32Array([logoTexture.width])
   );
   const commandEncoder = device.createCommandEncoder();
-  for (let level = 0; level < texture.mipLevelCount; level++) {
-    const levelWidth = Math.max(1, texture.width >> level);
-    const levelHeight = Math.max(1, texture.height >> level);
+  for (let level = 0; level < logoTexture.mipLevelCount; level++) {
+    const levelWidth = Math.max(1, logoTexture.width >> level);
+    const levelHeight = Math.max(1, logoTexture.height >> level);
     const pipeline =
       level == 0
         ? probabilityMapImportLevelPipeline.getBindGroupLayout(0)
@@ -290,7 +290,7 @@ copyImageToTexture();
         {
           // tex_in / tex_out
           binding: 3,
-          resource: texture.createView({
+          resource: logoTexture.createView({
             format: 'rgba16float',
             dimension: '2d',
             baseMipLevel: level,
@@ -350,7 +350,7 @@ const colorSpaceController = colorFolder
   ])
   .onChange(() => {
     configureContext();
-    copyImageToTexture();
+    reinitLogoTexture();
   });
 // Disable color spaces the browser doesn't support.
 for (const option of colorSpaceController.domElement.querySelectorAll(
@@ -408,7 +408,7 @@ const computeBindGroup = device.createBindGroup({
   entries: [
     { binding: 0, resource: simulationUBOBuffer },
     { binding: 1, resource: particlesBuffer },
-    { binding: 2, resource: texture.createView() },
+    { binding: 2, resource: logoTexture.createView() },
   ],
 });
 
