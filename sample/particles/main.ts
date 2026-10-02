@@ -30,20 +30,17 @@ canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 const presentationFormat = 'rgba16float';
 
-const simulationParams = {
-  simulate: true,
-  deltaTime: 0.04,
+const displaySettings = {
   colorSpace: 'srgb' as string,
   toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
-  brightnessFactor: 1.0,
 };
 
 function configureContext() {
   context.configure({
     device,
-    colorSpace: simulationParams.colorSpace as PredefinedColorSpace,
+    colorSpace: displaySettings.colorSpace as PredefinedColorSpace,
     format: presentationFormat,
-    toneMapping: { mode: simulationParams.toneMappingMode },
+    toneMapping: { mode: displaySettings.toneMappingMode },
   });
   hdrFolder.name = getHdrFolderName();
   updateColorSpaceName();
@@ -214,7 +211,7 @@ function copyImageToTexture() {
     { source: imageBitmap },
     {
       texture: texture,
-      colorSpace: simulationParams.colorSpace as PredefinedColorSpace,
+      colorSpace: displaySettings.colorSpace as PredefinedColorSpace,
     },
     [imageBitmap.width, imageBitmap.height]
   );
@@ -322,6 +319,12 @@ copyImageToTexture();
 //////////////////////////////////////////////////////////////////////////////
 // Simulation compute pipeline
 //////////////////////////////////////////////////////////////////////////////
+const simulationParams = {
+  simulate: true,
+  deltaTime: 0.04,
+  brightnessFactor: 1.0,
+};
+
 const simulationUBOBufferSize =
   1 * 4 + // deltaTime
   1 * 4 + // brightnessFactor
@@ -340,7 +343,7 @@ gui.add(simulationParams, 'deltaTime');
 const colorFolder = gui.addFolder('Color settings');
 colorFolder
   .add(
-    simulationParams,
+    displaySettings,
     'colorSpace',
     ['srgb', 'srgb-linear', 'display-p3', 'display-p3-linear'].filter(
       isColorSpaceSupported
@@ -353,7 +356,7 @@ colorFolder
 colorFolder.open();
 const p3MediaQuery = window.matchMedia('(color-gamut: p3)');
 function updateColorSpaceName() {
-  const wantsP3 = simulationParams.colorSpace.startsWith('display-p3');
+  const wantsP3 = displaySettings.colorSpace.startsWith('display-p3');
   colorFolder.name =
     wantsP3 && !p3MediaQuery.matches
       ? "Color settings ⚠️ Display isn't wide gamut"
@@ -362,7 +365,7 @@ function updateColorSpaceName() {
 p3MediaQuery.onchange = updateColorSpaceName;
 const hdrFolder = gui.addFolder('HDR settings');
 hdrFolder
-  .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
+  .add(displaySettings, 'toneMappingMode', ['standard', 'extended'])
   .onChange(configureContext);
 hdrFolder.add(simulationParams, 'brightnessFactor', 0, 4, 0.1);
 hdrFolder.open();
@@ -375,7 +378,7 @@ function getHdrFolderName() {
     return 'HDR settings';
   }
   if (
-    simulationParams.toneMappingMode === 'extended' &&
+    displaySettings.toneMappingMode === 'extended' &&
     context.getConfiguration().toneMapping?.mode !== 'extended'
   ) {
     return "HDR settings ⚠️ Browser doesn't support HDR canvas";
