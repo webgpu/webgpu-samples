@@ -30,13 +30,20 @@ canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 const presentationFormat = 'rgba16float';
 
+const displaySettings = {
+  colorSpace: 'srgb' as string,
+  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
+};
+
 function configureContext() {
   context.configure({
     device,
+    colorSpace: displaySettings.colorSpace as PredefinedColorSpace,
     format: presentationFormat,
-    toneMapping: { mode: simulationParams.toneMappingMode },
+    toneMapping: { mode: displaySettings.toneMappingMode },
   });
   hdrFolder.name = getHdrFolderName();
+  updateColorSpaceName();
 }
 
 const particlesBuffer = device.createBuffer({
@@ -186,26 +193,35 @@ assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
 // Calculate number of mip levels required to generate the probability map
 const mipLevelCount =
   (Math.log2(Math.max(imageBitmap.width, imageBitmap.height)) + 1) | 0;
-const texture = device.createTexture({
+const logoTexture = device.createTexture({
   size: [imageBitmap.width, imageBitmap.height, 1],
   mipLevelCount,
-  format: 'rgba8unorm',
+  format: 'rgba16float',
   usage:
     GPUTextureUsage.TEXTURE_BINDING |
     GPUTextureUsage.STORAGE_BINDING |
     GPUTextureUsage.COPY_DST |
     GPUTextureUsage.RENDER_ATTACHMENT,
 });
-device.queue.copyExternalImageToTexture(
-  { source: imageBitmap },
-  { texture: texture },
-  [imageBitmap.width, imageBitmap.height]
-);
+// Copies the image into mip level 0, converting its colors to the current
+// color space. The alpha channel (used for the probability map) is unaffected
+// by the color space, so the probability map doesn't need regenerating.
+function reinitLogoTexture() {
+  device.queue.copyExternalImageToTexture(
+    { source: imageBitmap },
+    {
+      texture: logoTexture,
+      colorSpace: displaySettings.colorSpace as PredefinedColorSpace,
+    },
+    [imageBitmap.width, imageBitmap.height]
+  );
+}
+reinitLogoTexture();
 
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
-// The 0'th mip level of texture holds the color data and spawn-probability in
-// the alpha channel. The mip levels 1..N are generated to hold spawn
+// The 0'th mip level of logoTexture holds the color data and spawn-probability
+// in the alpha channel. The mip levels 1..N are generated to hold spawn
 // probabilities up to the top 1x1 mip level.
 //////////////////////////////////////////////////////////////////////////////
 {
@@ -233,7 +249,7 @@ device.queue.copyExternalImageToTexture(
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   const buffer_a = device.createBuffer({
-    size: texture.width * texture.height * 4,
+    size: logoTexture.width * logoTexture.height * 4,
     usage: GPUBufferUsage.STORAGE,
   });
   const buffer_b = device.createBuffer({
@@ -243,12 +259,12 @@ device.queue.copyExternalImageToTexture(
   device.queue.writeBuffer(
     probabilityMapUBOBuffer,
     0,
-    new Uint32Array([texture.width])
+    new Uint32Array([logoTexture.width])
   );
   const commandEncoder = device.createCommandEncoder();
-  for (let level = 0; level < texture.mipLevelCount; level++) {
-    const levelWidth = Math.max(1, texture.width >> level);
-    const levelHeight = Math.max(1, texture.height >> level);
+  for (let level = 0; level < logoTexture.mipLevelCount; level++) {
+    const levelWidth = Math.max(1, logoTexture.width >> level);
+    const levelHeight = Math.max(1, logoTexture.height >> level);
     const pipeline =
       level == 0
         ? probabilityMapImportLevelPipeline.getBindGroupLayout(0)
@@ -274,8 +290,8 @@ device.queue.copyExternalImageToTexture(
         {
           // tex_in / tex_out
           binding: 3,
-          resource: texture.createView({
-            format: 'rgba8unorm',
+          resource: logoTexture.createView({
+            format: 'rgba16float',
             dimension: '2d',
             baseMipLevel: level,
             mipLevelCount: 1,
@@ -306,7 +322,6 @@ device.queue.copyExternalImageToTexture(
 const simulationParams = {
   simulate: true,
   deltaTime: 0.04,
-  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
   brightnessFactor: 1.0,
 };
 
@@ -325,9 +340,37 @@ const gui = new GUI();
 gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
-const hdrFolder = gui.addFolder('');
+const colorFolder = gui.addFolder('Color settings');
+const colorSpaceController = colorFolder
+  .add(displaySettings, 'colorSpace', [
+    'srgb',
+    'srgb-linear',
+    'display-p3',
+    'display-p3-linear',
+  ])
+  .onChange(() => {
+    configureContext();
+    reinitLogoTexture();
+  });
+// Disable color spaces the browser doesn't support.
+for (const option of colorSpaceController.domElement.querySelectorAll(
+  'option'
+)) {
+  option.disabled = !isColorSpaceSupported(option.value);
+}
+colorFolder.open();
+const p3MediaQuery = window.matchMedia('(color-gamut: p3)');
+function updateColorSpaceName() {
+  const wantsP3 = displaySettings.colorSpace.startsWith('display-p3');
+  colorFolder.name =
+    wantsP3 && !p3MediaQuery.matches
+      ? "Color settings ⚠️ Display isn't wide gamut"
+      : 'Color settings';
+}
+p3MediaQuery.onchange = updateColorSpaceName;
+const hdrFolder = gui.addFolder('HDR settings');
 hdrFolder
-  .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
+  .add(displaySettings, 'toneMappingMode', ['standard', 'extended'])
   .onChange(configureContext);
 hdrFolder.add(simulationParams, 'brightnessFactor', 0, 4, 0.1);
 hdrFolder.open();
@@ -340,7 +383,7 @@ function getHdrFolderName() {
     return 'HDR settings';
   }
   if (
-    simulationParams.toneMappingMode === 'extended' &&
+    displaySettings.toneMappingMode === 'extended' &&
     context.getConfiguration().toneMapping?.mode !== 'extended'
   ) {
     return "HDR settings ⚠️ Browser doesn't support HDR canvas";
@@ -365,7 +408,7 @@ const computeBindGroup = device.createBindGroup({
   entries: [
     { binding: 0, resource: simulationUBOBuffer },
     { binding: 1, resource: particlesBuffer },
-    { binding: 2, resource: texture.createView() },
+    { binding: 2, resource: logoTexture.createView() },
   ],
 });
 
@@ -444,5 +487,23 @@ requestAnimationFrame(frame);
 function assert(cond: boolean, msg = '') {
   if (!cond) {
     throw new Error(msg);
+  }
+}
+
+// Configuring a canvas context with an unsupported color space throws a
+// TypeError, so probe each one on a throwaway OffscreenCanvas context.
+function isColorSpaceSupported(colorSpace: string) {
+  const ctx = new OffscreenCanvas(1, 1).getContext('webgpu');
+  try {
+    ctx.configure({
+      device,
+      format: presentationFormat,
+      colorSpace: colorSpace as PredefinedColorSpace,
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    ctx.unconfigure();
   }
 }
