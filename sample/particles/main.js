@@ -8435,7 +8435,7 @@ fn simulate(@builtin(global_invocation_id) global_invocation_id : vec3u) {
   var particle = data.particles[idx];
 
   // Apply gravity
-  //particle.velocity.z = particle.velocity.z - sim_params.deltaTime * 0.5;
+  particle.velocity.z = particle.velocity.z - sim_params.deltaTime * 0.5;
 
   // Basic velocity integration
   particle.position = particle.position + sim_params.deltaTime * particle.velocity;
@@ -8472,9 +8472,9 @@ fn simulate(@builtin(global_invocation_id) global_invocation_id : vec3u) {
     particle.color.r *= sim_params.brightnessFactor;
     particle.color.g *= sim_params.brightnessFactor;
     particle.color.b *= sim_params.brightnessFactor;
-    //particle.velocity.x = (rand() - 0.5) * 0.1;
-    //particle.velocity.y = (rand() - 0.5) * 0.1;
-    //particle.velocity.z = rand() * 0.3;
+    particle.velocity.x = (rand() - 0.5) * 0.1;
+    particle.velocity.y = (rand() - 0.5) * 0.1;
+    particle.velocity.z = rand() * 0.3;
     particle.lifetime = 0.5 + rand() * 3.0;
   }
 
@@ -8491,7 +8491,7 @@ var probabilityMapWGSL = `struct UBO {
 @binding(1) @group(0) var<storage, read> buf_in : array<f32>;
 @binding(2) @group(0) var<storage, read_write> buf_out : array<f32>;
 @binding(3) @group(0) var tex_in : texture_2d<f32>;
-@binding(3) @group(0) var tex_out : texture_storage_2d<rgba16float, write>;
+@binding(3) @group(0) var tex_out : texture_storage_2d<rgba8unorm, write>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // import_level
@@ -8731,22 +8731,13 @@ const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 const presentationFormat = 'rgba16float';
-const simulationParams = {
-    simulate: true,
-    deltaTime: 0.04,
-    colorSpace: 'srgb',
-    toneMappingMode: 'standard',
-    brightnessFactor: 1.0,
-};
 function configureContext() {
     context.configure({
         device,
-        colorSpace: simulationParams.colorSpace,
         format: presentationFormat,
         toneMapping: { mode: simulationParams.toneMappingMode },
     });
     hdrFolder.name = getHdrFolderName();
-    updateColorSpaceName();
 }
 const particlesBuffer = device.createBuffer({
     size: numParticles * particleInstanceByteSize,
@@ -8876,32 +8867,23 @@ quadVertexBuffer.unmap();
 //////////////////////////////////////////////////////////////////////////////
 // Texture
 //////////////////////////////////////////////////////////////////////////////
-//const isPowerOf2 = (v: number) => Math.log2(v) % 1 === 0;
-const response = await fetch('../../assets/img/Webkit-logo-P3.png');
+const isPowerOf2 = (v) => Math.log2(v) % 1 === 0;
+const response = await fetch('../../assets/img/webgpu.png');
 const imageBitmap = await createImageBitmap(await response.blob());
 assert(imageBitmap.width === imageBitmap.height, 'image must be square');
-//assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
+assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
 // Calculate number of mip levels required to generate the probability map
 const mipLevelCount = (Math.log2(Math.max(imageBitmap.width, imageBitmap.height)) + 1) | 0;
 const texture = device.createTexture({
     size: [imageBitmap.width, imageBitmap.height, 1],
     mipLevelCount,
-    format: 'rgba16float',
+    format: 'rgba8unorm',
     usage: GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.STORAGE_BINDING |
         GPUTextureUsage.COPY_DST |
         GPUTextureUsage.RENDER_ATTACHMENT,
 });
-// Copies the image into mip level 0, converting its colors to the current
-// color space. The alpha channel (used for the probability map) is unaffected
-// by the color space, so the probability map doesn't need regenerating.
-function copyImageToTexture() {
-    device.queue.copyExternalImageToTexture({ source: imageBitmap }, {
-        texture: texture,
-        colorSpace: simulationParams.colorSpace,
-    }, [imageBitmap.width, imageBitmap.height]);
-}
-copyImageToTexture();
+device.queue.copyExternalImageToTexture({ source: imageBitmap }, { texture: texture }, [imageBitmap.width, imageBitmap.height]);
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
 // The 0'th mip level of texture holds the color data and spawn-probability in
@@ -8968,7 +8950,7 @@ copyImageToTexture();
                     // tex_in / tex_out
                     binding: 3,
                     resource: texture.createView({
-                        format: 'rgba16float',
+                        format: 'rgba8unorm',
                         dimension: '2d',
                         baseMipLevel: level,
                         mipLevelCount: 1,
@@ -8996,6 +8978,12 @@ copyImageToTexture();
 //////////////////////////////////////////////////////////////////////////////
 // Simulation compute pipeline
 //////////////////////////////////////////////////////////////////////////////
+const simulationParams = {
+    simulate: true,
+    deltaTime: 0.04,
+    toneMappingMode: 'standard',
+    brightnessFactor: 1.0,
+};
 const simulationUBOBufferSize = 1 * 4 + // deltaTime
     1 * 4 + // brightnessFactor
     2 * 4 + // padding
@@ -9009,24 +8997,7 @@ const gui = new GUI$1();
 gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
-const colorFolder = gui.addFolder('Color settings');
-colorFolder
-    .add(simulationParams, 'colorSpace', ['srgb', 'srgb-linear', 'display-p3', 'display-p3-linear'].filter(isColorSpaceSupported))
-    .onChange(() => {
-    configureContext();
-    copyImageToTexture();
-});
-colorFolder.open();
-const p3MediaQuery = window.matchMedia('(color-gamut: p3)');
-function updateColorSpaceName() {
-    const wantsP3 = simulationParams.colorSpace.startsWith('display-p3');
-    colorFolder.name =
-        wantsP3 && !p3MediaQuery.matches
-            ? "Color settings ⚠️ Display isn't wide gamut"
-            : 'Color settings';
-}
-p3MediaQuery.onchange = updateColorSpaceName;
-const hdrFolder = gui.addFolder('HDR settings');
+const hdrFolder = gui.addFolder('');
 hdrFolder
     .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
     .onChange(configureContext);
@@ -9125,25 +9096,6 @@ requestAnimationFrame(frame);
 function assert(cond, msg = '') {
     if (!cond) {
         throw new Error(msg);
-    }
-}
-// Configuring a canvas context with an unsupported color space throws a
-// TypeError, so probe each one on a throwaway OffscreenCanvas context.
-function isColorSpaceSupported(colorSpace) {
-    const ctx = new OffscreenCanvas(1, 1).getContext('webgpu');
-    try {
-        ctx.configure({
-            device,
-            format: presentationFormat,
-            colorSpace: colorSpace,
-        });
-        return true;
-    }
-    catch {
-        return false;
-    }
-    finally {
-        ctx.unconfigure();
     }
 }
 //# sourceMappingURL=main.js.map

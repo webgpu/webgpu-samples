@@ -375,7 +375,7 @@ var particleLife = {
 var particles = {
     name: 'Particles (HDR)',
     tocName: 'particles (HDR)',
-    description: 'This example demonstrates rendering of particles simulated with compute shaders, using HDR and wide color gamut canvas capabilities when possible.',
+    description: 'This example demonstrates rendering of particles (using HDR capabilities when possible) simulated with compute shaders.',
     filename: "sample/particles",
     sources: [
         { path: 'main.ts' },

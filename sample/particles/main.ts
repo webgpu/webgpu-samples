@@ -30,23 +30,13 @@ canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 const presentationFormat = 'rgba16float';
 
-const simulationParams = {
-  simulate: true,
-  deltaTime: 0.04,
-  colorSpace: 'srgb' as string,
-  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
-  brightnessFactor: 1.0,
-};
-
 function configureContext() {
   context.configure({
     device,
-    colorSpace: simulationParams.colorSpace as PredefinedColorSpace,
     format: presentationFormat,
     toneMapping: { mode: simulationParams.toneMappingMode },
   });
   hdrFolder.name = getHdrFolderName();
-  updateColorSpaceName();
 }
 
 const particlesBuffer = device.createBuffer({
@@ -187,11 +177,11 @@ quadVertexBuffer.unmap();
 //////////////////////////////////////////////////////////////////////////////
 // Texture
 //////////////////////////////////////////////////////////////////////////////
-//const isPowerOf2 = (v: number) => Math.log2(v) % 1 === 0;
-const response = await fetch('../../assets/img/Webkit-logo-P3.png');
+const isPowerOf2 = (v: number) => Math.log2(v) % 1 === 0;
+const response = await fetch('../../assets/img/webgpu.png');
 const imageBitmap = await createImageBitmap(await response.blob());
 assert(imageBitmap.width === imageBitmap.height, 'image must be square');
-//assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
+assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
 
 // Calculate number of mip levels required to generate the probability map
 const mipLevelCount =
@@ -199,27 +189,18 @@ const mipLevelCount =
 const texture = device.createTexture({
   size: [imageBitmap.width, imageBitmap.height, 1],
   mipLevelCount,
-  format: 'rgba16float',
+  format: 'rgba8unorm',
   usage:
     GPUTextureUsage.TEXTURE_BINDING |
     GPUTextureUsage.STORAGE_BINDING |
     GPUTextureUsage.COPY_DST |
     GPUTextureUsage.RENDER_ATTACHMENT,
 });
-// Copies the image into mip level 0, converting its colors to the current
-// color space. The alpha channel (used for the probability map) is unaffected
-// by the color space, so the probability map doesn't need regenerating.
-function copyImageToTexture() {
-  device.queue.copyExternalImageToTexture(
-    { source: imageBitmap },
-    {
-      texture: texture,
-      colorSpace: simulationParams.colorSpace as PredefinedColorSpace,
-    },
-    [imageBitmap.width, imageBitmap.height]
-  );
-}
-copyImageToTexture();
+device.queue.copyExternalImageToTexture(
+  { source: imageBitmap },
+  { texture: texture },
+  [imageBitmap.width, imageBitmap.height]
+);
 
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
@@ -294,7 +275,7 @@ copyImageToTexture();
           // tex_in / tex_out
           binding: 3,
           resource: texture.createView({
-            format: 'rgba16float',
+            format: 'rgba8unorm',
             dimension: '2d',
             baseMipLevel: level,
             mipLevelCount: 1,
@@ -322,6 +303,13 @@ copyImageToTexture();
 //////////////////////////////////////////////////////////////////////////////
 // Simulation compute pipeline
 //////////////////////////////////////////////////////////////////////////////
+const simulationParams = {
+  simulate: true,
+  deltaTime: 0.04,
+  toneMappingMode: 'standard' as GPUCanvasToneMappingMode,
+  brightnessFactor: 1.0,
+};
+
 const simulationUBOBufferSize =
   1 * 4 + // deltaTime
   1 * 4 + // brightnessFactor
@@ -337,30 +325,7 @@ const gui = new GUI();
 gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
-const colorFolder = gui.addFolder('Color settings');
-colorFolder
-  .add(
-    simulationParams,
-    'colorSpace',
-    ['srgb', 'srgb-linear', 'display-p3', 'display-p3-linear'].filter(
-      isColorSpaceSupported
-    )
-  )
-  .onChange(() => {
-    configureContext();
-    copyImageToTexture();
-  });
-colorFolder.open();
-const p3MediaQuery = window.matchMedia('(color-gamut: p3)');
-function updateColorSpaceName() {
-  const wantsP3 = simulationParams.colorSpace.startsWith('display-p3');
-  colorFolder.name =
-    wantsP3 && !p3MediaQuery.matches
-      ? "Color settings ⚠️ Display isn't wide gamut"
-      : 'Color settings';
-}
-p3MediaQuery.onchange = updateColorSpaceName;
-const hdrFolder = gui.addFolder('HDR settings');
+const hdrFolder = gui.addFolder('');
 hdrFolder
   .add(simulationParams, 'toneMappingMode', ['standard', 'extended'])
   .onChange(configureContext);
@@ -479,23 +444,5 @@ requestAnimationFrame(frame);
 function assert(cond: boolean, msg = '') {
   if (!cond) {
     throw new Error(msg);
-  }
-}
-
-// Configuring a canvas context with an unsupported color space throws a
-// TypeError, so probe each one on a throwaway OffscreenCanvas context.
-function isColorSpaceSupported(colorSpace: string) {
-  const ctx = new OffscreenCanvas(1, 1).getContext('webgpu');
-  try {
-    ctx.configure({
-      device,
-      format: presentationFormat,
-      colorSpace: colorSpace as PredefinedColorSpace,
-    });
-    return true;
-  } catch {
-    return false;
-  } finally {
-    ctx.unconfigure();
   }
 }

@@ -101,7 +101,7 @@ fn simulate(@builtin(global_invocation_id) global_invocation_id : vec3u) {
   var particle = data.particles[idx];
 
   // Apply gravity
-  //particle.velocity.z = particle.velocity.z - sim_params.deltaTime * 0.5;
+  particle.velocity.z = particle.velocity.z - sim_params.deltaTime * 0.5;
 
   // Basic velocity integration
   particle.position = particle.position + sim_params.deltaTime * particle.velocity;
@@ -138,9 +138,9 @@ fn simulate(@builtin(global_invocation_id) global_invocation_id : vec3u) {
     particle.color.r *= sim_params.brightnessFactor;
     particle.color.g *= sim_params.brightnessFactor;
     particle.color.b *= sim_params.brightnessFactor;
-    //particle.velocity.x = (rand() - 0.5) * 0.1;
-    //particle.velocity.y = (rand() - 0.5) * 0.1;
-    //particle.velocity.z = rand() * 0.3;
+    particle.velocity.x = (rand() - 0.5) * 0.1;
+    particle.velocity.y = (rand() - 0.5) * 0.1;
+    particle.velocity.z = rand() * 0.3;
     particle.lifetime = 0.5 + rand() * 3.0;
   }
 
