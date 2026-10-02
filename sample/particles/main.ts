@@ -341,18 +341,23 @@ gui.width = 325;
 gui.add(simulationParams, 'simulate');
 gui.add(simulationParams, 'deltaTime');
 const colorFolder = gui.addFolder('Color settings');
-colorFolder
-  .add(
-    displaySettings,
-    'colorSpace',
-    ['srgb', 'srgb-linear', 'display-p3', 'display-p3-linear'].filter(
-      isColorSpaceSupported
-    )
-  )
+const colorSpaceController = colorFolder
+  .add(displaySettings, 'colorSpace', [
+    'srgb',
+    'srgb-linear',
+    'display-p3',
+    'display-p3-linear',
+  ])
   .onChange(() => {
     configureContext();
     copyImageToTexture();
   });
+// Disable color spaces the browser doesn't support.
+for (const option of colorSpaceController.domElement.querySelectorAll(
+  'option'
+)) {
+  option.disabled = !isColorSpaceSupported(option.value);
+}
 colorFolder.open();
 const p3MediaQuery = window.matchMedia('(color-gamut: p3)');
 function updateColorSpaceName() {
